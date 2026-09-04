@@ -94,7 +94,10 @@ share points against the full readout.
 ## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
 
 The next test is to project a steering vector into `S` and evaluate it on
-[Steering-Lite](https://github.com/wassname/steering-lite):
+[Steering-Lite](https://github.com/wassname/steering-lite). Constructing `S` for a new
+prompt uses its later residuals, so an adaptive intervention would require an unsteered
+first pass. The test below instead uses `S` only on extraction prompts and applies one
+fixed vector to held-out prompts:
 
 ```python
 projected_differences = []
