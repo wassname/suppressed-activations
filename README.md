@@ -12,18 +12,18 @@ This particular method works very well on Qwen3.5-4B.
 ![Qwen reads out English before Chinese; a per-sample suppressed activation subspace isolates that English](figs/suppressed_activations.png)
 
 *Figure 1: Language readouts at the final prompt position during Qwen3.5-4B
-German-to-Chinese word translation. (a) The x-axis is layer index. The y-axis is the
-probability, according to the logit lens, of the correct Chinese next token or its English
-analog. Error bars are 95% Gaussian confidence intervals over 105 input texts. Panels b
-and c use a different, linear quantity, answer readout divided by residual norm, because it
-can be decomposed additively. The line is the complete readout; the fill is the part inside
-the rank-32 suppressed activation subspace. These two panels share a scale and use the
-held-out 53 prompts.
-The own subspace contains 0.947 of English at L27 and 0.205 of Chinese at L32. A fixed
-random pairing, with no prompt paired to itself, contains 0.040 and -0.015. The subspace is
-constructed from vocabulary directions that rise and fall, so the fill is a correlational
-decomposition rather than evidence that those directions cause suppression. Signed
-components below zero are hatched.*
+German-to-Chinese word translation. The line in every panel is the same mean logit-lens
+probability over 105 input texts. Error bars in a are 95% Gaussian confidence intervals.
+In b and c, the orange fill is the English probability multiplied by the signed share of
+the linear English readout inside a rank-32 subspace, measured on the held-out 53 prompts.
+This puts the diagnostic share against the familiar curve; it is not an additive
+decomposition of probability. The gap below the orange line is the share outside the
+subspace. Chinese is not filled because the two fills would overlap; its share at L32 is
+printed instead. A useful detector fills English near L27 while keeping the printed
+Chinese share low. The own-prompt subspace contains 0.947 of English at L27
+and 0.205 of Chinese at L32. A fixed different-prompt pairing contains 0.040 and -0.015.
+The subspace is constructed from vocabulary directions that rise and fall, so this remains
+a correlational result rather than evidence that those directions cause suppression.*
 
 ## Where the idea came from
 
@@ -87,7 +87,9 @@ share points against the full readout.
 - The method uses the LM head to find the subspace and to measure its contents.
 - The three layers were chosen from the aggregate English curve. A transfer test should
   choose them on held-in prompts or use a fixed model-level rule.
-- Each prompt gets its own subspace. The different-prompt control tests that dependence.
+- Each trajectory gets its own subspace. The different-prompt control shows that the basis
+  is mostly path-dependent. A transferable intervention could still average projected
+  differences from many extraction trajectories.
 
 ## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
 
@@ -95,14 +97,22 @@ The next test is to project a steering vector into `S` and evaluate it on
 [Steering-Lite](https://github.com/wassname/steering-lite):
 
 ```python
-v = mean(h_positive - h_negative)
-v_suppressed = S @ S.T @ v
+projected_differences = []
+for positive_trajectory, negative_trajectory in extraction_pairs:
+    midpoint_trajectory = (positive_trajectory + negative_trajectory) / 2
+    S_i = suppressed_activation_subspace(midpoint_trajectory)
+    difference_i = positive_trajectory[layer] - negative_trajectory[layer]
+    projected_differences.append(S_i @ S_i.T @ difference_i)
+
+v_suppressed = mean(projected_differences)
 h_steered = h + strength * v_suppressed
 ```
 
-Compare this with the full steering vector, the orthogonal complement, a random rank-32
-subspace, and another prompt's suppressed subspace. This would test whether the diagnostic
-also identifies a useful causal intervention space.
+The midpoint keeps the subspace selection from seeing which member of the pair is positive.
+Each extraction trajectory supplies its own basis, while their projected differences form
+one vector that can be applied to new prompts. Compare this with the full mean difference,
+the orthogonal complement, a random rank-32 subspace, and different-prompt pairing. This
+would test whether the diagnostic also identifies a transferable causal intervention.
 
 ## Reproduce the figure
 

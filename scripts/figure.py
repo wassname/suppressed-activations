@@ -55,39 +55,46 @@ def language_probability(ax: plt.Axes, rows: list[dict[str, str]]) -> None:
     ax.set_title("a   English appears before Chinese", loc="left", fontsize=10.5)
 
 
-def layered_readout(
+def suppressed_overlay(
     ax: plt.Axes,
-    rows: list[dict[str, str]],
+    probability_rows: list[dict[str, str]],
+    subspace_rows: list[dict[str, str]],
     selection: str,
     title: str,
     shares: tuple[str, str],
 ) -> None:
     for language in ("en", "zh"):
-        lang_rows = [
-            row for row in rows
-            if row["selection"] == selection and row["language"] == language
-        ]
+        lang_rows = [row for row in probability_rows if row["language"] == language]
         layer = np.array([int(row["layer"]) for row in lang_rows])
-        total = np.array([float(row["total_readout"]) for row in lang_rows])
-        inside = np.array([float(row["inside_subspace"]) for row in lang_rows])
-        color = COLORS[language]
-        ax.plot(layer, total, color=color, lw=2.0, zorder=3)
-        ax.fill_between(layer, 0, inside, where=inside >= 0, interpolate=True,
-                        color=color, alpha=0.52, lw=0, zorder=1)
-        ax.fill_between(layer, 0, inside, where=inside < 0, interpolate=True,
-                        color=color, alpha=0.18, hatch="////", lw=0, zorder=1)
+        probability = np.array([float(row["mean_probability"]) for row in lang_rows])
+        ax.plot(layer, probability, color=COLORS[language], lw=2.1, zorder=3)
+
+        if language == "en":
+            share_by_layer = {
+                int(row["layer"]): float(row["share"])
+                for row in subspace_rows
+                if row["selection"] == selection and row["language"] == language
+            }
+            shown = layer > 0
+            inside = probability[shown] * np.array([share_by_layer[l] for l in layer[shown]])
+            ax.fill_between(layer[shown], 0, inside, where=inside >= 0, interpolate=True,
+                            color=ENGLISH, alpha=0.52, lw=0, zorder=1)
+            ax.fill_between(layer[shown], 0, inside, where=inside < 0, interpolate=True,
+                            color=ENGLISH, alpha=0.18, hatch="////", lw=0, zorder=1)
 
     ax.axhline(0, color="0.78", lw=0.7, zorder=0)
     ax.axvline(27, color="0.78", lw=0.7, ls=":", zorder=0)
     ax.axvline(32, color="0.78", lw=0.7, ls=":", zorder=0)
-    ax.text(26.5, 0.098, shares[0], color=ENGLISH, fontsize=8, ha="right")
-    ax.text(31.7, 0.143, shares[1], color=CHINESE, fontsize=8, ha="right")
-    ax.set(xlim=(1, 32), ylim=(-0.014, 0.157), xlabel="layer index")
+    ax.text(26.5, 0.40, shares[0], color=ENGLISH, fontsize=8, ha="right")
+    ax.text(31.7, 0.62, shares[1], color=CHINESE, fontsize=8, ha="right")
+    ax.set(xlim=(0, 32), ylim=(-0.015, 0.67), xlabel="layer index")
     ax.set_title(title, loc="left", fontsize=10.5)
     if selection == "same prompt":
         ax.legend(
-            handles=[Line2D([], [], color="0.25", lw=1.7, label="complete readout"),
-                     Patch(facecolor="0.45", alpha=0.45, label="inside subspace")],
+            handles=[Line2D([], [], color="0.25", lw=1.7,
+                            label="same probability curve as a"),
+                     Patch(facecolor=ENGLISH, alpha=0.45,
+                           label="English probability × readout share")],
             loc="upper left", frameon=False, fontsize=7.5, handlelength=1.5,
         )
 
@@ -111,21 +118,21 @@ def main() -> None:
     subspaces = read_rows(ROOT / "data/suppressed_subspace_by_layer.csv")
 
     fig, axes = plt.subplots(
-        1, 3, figsize=(13.4, 4.15), constrained_layout=True,
+        1, 3, figsize=(13.4, 4.15), constrained_layout=True, sharey=True,
         gridspec_kw={"width_ratios": [1.16, 1, 1]},
     )
     language_probability(axes[0], curves)
-    layered_readout(
-        axes[1], subspaces, "same prompt",
-        "b   Own subspace\nEnglish inside; output mostly outside",
-        ("English: 95% inside", "Chinese: 20% inside"),
+    suppressed_overlay(
+        axes[1], curves, subspaces, "same prompt",
+        "b   Own-prompt subspace\ndesired: English filled; Chinese share low",
+        ("L27 English: 95% inside", "L32 Chinese: 20% inside"),
     )
-    layered_readout(
-        axes[2], subspaces, "different prompt",
-        "c   Different-prompt control\nNeither readout inside",
-        ("English: 4% inside", "Chinese: −1% inside"),
+    suppressed_overlay(
+        axes[2], curves, subspaces, "different prompt",
+        "c   Different-prompt control\ndesired: English unfilled",
+        ("L27 English: 4% inside", "L32 Chinese: −1% inside"),
     )
-    axes[1].set_ylabel("answer readout / residual norm")
+    axes[1].tick_params(labelleft=False)
     axes[2].tick_params(labelleft=False)
 
     for ax in axes:
