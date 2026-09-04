@@ -7,7 +7,9 @@
 from __future__ import annotations
 
 import csv
+import os
 from pathlib import Path
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -92,6 +94,9 @@ def layered_readout(
 
 
 def main() -> None:
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        env = {**os.environ, "PYTHONHASHSEED": "0"}
+        os.execve(sys.executable, [sys.executable, *sys.argv], env)
     plt.rcParams["svg.hashsalt"] = "suppressed-activations"
     curves = read_rows(ROOT / "data/qwen_logit_lens_de_zh.csv")
     subspaces = read_rows(ROOT / "data/suppressed_subspace_by_layer.csv")
