@@ -89,7 +89,7 @@ share points against the full readout.
   choose them on held-in prompts or use a fixed model-level rule.
 - Each prompt gets its own subspace. The different-prompt control tests that dependence.
 
-## Next: steering
+## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
 
 The next test is to project a steering vector into `S` and evaluate it on
 [Steering-Lite](https://github.com/wassname/steering-lite):
