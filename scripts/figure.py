@@ -92,6 +92,7 @@ def layered_readout(
 
 
 def main() -> None:
+    plt.rcParams["svg.hashsalt"] = "suppressed-activations"
     curves = read_rows(ROOT / "data/qwen_logit_lens_de_zh.csv")
     subspaces = read_rows(ROOT / "data/suppressed_subspace_by_layer.csv")
 
@@ -102,12 +103,12 @@ def main() -> None:
     language_probability(axes[0], curves)
     layered_readout(
         axes[1], subspaces, "same prompt",
-        "b   Own subspace\nwanted: English inside; Chinese output mostly outside",
+        "b   Own subspace\nEnglish inside; output mostly outside",
         ("English: 95% inside", "Chinese: 20% inside"),
     )
     layered_readout(
         axes[2], subspaces, "different prompt",
-        "c   Different-prompt control\nwanted: neither readout inside",
+        "c   Different-prompt control\nNeither readout inside",
         ("English: 4% inside", "Chinese: −1% inside"),
     )
     axes[1].set_ylabel("answer readout / residual norm")
@@ -121,7 +122,7 @@ def main() -> None:
     out = ROOT / "figs"
     out.mkdir(exist_ok=True)
     fig.savefig(out / "suppressed_activations.png", dpi=220, facecolor="white")
-    fig.savefig(out / "suppressed_activations.svg", facecolor="white")
+    fig.savefig(out / "suppressed_activations.svg", facecolor="white", metadata={"Date": None})
     plt.close(fig)
 
 
