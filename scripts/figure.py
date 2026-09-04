@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 import csv
-import os
 from pathlib import Path
-import sys
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -93,10 +92,20 @@ def layered_readout(
         )
 
 
+def canonicalize_svg_clip_ids(path: Path) -> None:
+    svg = path.read_text()
+    replacements: dict[str, str] = {}
+
+    def replace_id(match: re.Match[str]) -> str:
+        old_id = match.group(0)
+        if old_id not in replacements:
+            replacements[old_id] = f"p{len(replacements):010d}"
+        return replacements[old_id]
+
+    path.write_text(re.sub(r"\bp[0-9a-f]{10}\b", replace_id, svg))
+
+
 def main() -> None:
-    if os.environ.get("PYTHONHASHSEED") != "0":
-        env = {**os.environ, "PYTHONHASHSEED": "0"}
-        os.execve(sys.executable, [sys.executable, *sys.argv], env)
     plt.rcParams["svg.hashsalt"] = "suppressed-activations"
     curves = read_rows(ROOT / "data/qwen_logit_lens_de_zh.csv")
     subspaces = read_rows(ROOT / "data/suppressed_subspace_by_layer.csv")
@@ -127,7 +136,9 @@ def main() -> None:
     out = ROOT / "figs"
     out.mkdir(exist_ok=True)
     fig.savefig(out / "suppressed_activations.png", dpi=220, facecolor="white")
-    fig.savefig(out / "suppressed_activations.svg", facecolor="white", metadata={"Date": None})
+    svg_path = out / "suppressed_activations.svg"
+    fig.savefig(svg_path, facecolor="white", metadata={"Date": None})
+    canonicalize_svg_clip_ids(svg_path)
     plt.close(fig)
 
 
