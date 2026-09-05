@@ -119,7 +119,14 @@ rank-8 subspace also contains lexical context.
 A first forward pass computes a separate suppressed subspace for every prompt token. In a
 second pass, we project the LM-head `Spider` and `Ant` directions into each subspace and
 swap their coordinates at every prompt token through residual layers 23–30. C=1 is a full
-coordinate swap.
+coordinate swap at each layer.
+
+| trajectory | rank-8 suppressed readout |
+|---|---|
+| before | `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, `WEB` |
+| after Spider→Ant | `Web`, `Disc`, `web`, `丝绸`, `-web`, `_disc`, `_web`, `Bomb` |
+
+The readout loses `Spider`, but it does not gain `Ant`.
 
 | rank | clean token | clean log p | after Spider→Ant | after log p |
 |---:|---:|---:|---:|---:|
@@ -186,6 +193,14 @@ continuation begins:
 > 4. Hypothesis: The animal that spins webs has 4 legs. Is the hypothesis entailed by the
 > fact? &lt;think&gt; Thinking Process: 1. **Analyze the Request:** * Fact: “The number of
 > legs on the animal that spins webs is 4.”
+
+![The spider prompt changes from 8 to 4 after its suppressed component is replaced with the dog-prompt component](figs/causal_demo.png)
+
+*Figure 2: The spider→dog component replacement. Panel a states the two prompts, their
+independently selected readouts, the intervention, and the expected answer change. Panels b
+and c show the next-token distributions before and after replacement. Panel d compares the
+change in `log p(4) − log p(8)` with component removal and 256 perturbation-matched random
+replacements.*
 
 The full distributions, controls, generations, and diagnostics are in
 [`data/causal_demo.json`](data/causal_demo.json).
