@@ -2,11 +2,12 @@
 # requires-python = ">=3.12"
 # dependencies = ["matplotlib>=3.10", "numpy>=2"]
 # ///
-# Written by PI/claude-opus-4.6 for Michael J. Clark.
+"""Draw the public figures. Written by PI/claude-opus-4.6 and PI/gpt-5.4."""
 
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 import re
 
@@ -99,6 +100,109 @@ def suppressed_overlay(
         )
 
 
+def causal_demo(data: dict) -> plt.Figure:
+    rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
+    random_rows = [
+        row["metrics"]
+        for row in data["interventions"]
+        if row["condition"].startswith("random_seed=")
+    ]
+    metadata = data["metadata"]
+
+    fig, axes = plt.subplots(
+        1,
+        4,
+        figsize=(14.6, 4.25),
+        constrained_layout=True,
+        gridspec_kw={"width_ratios": [1.6, 1, 1, 1.2]},
+    )
+
+    ax = axes[0]
+    ax.axis("off")
+    translated_labels = {"المدرسة": "Arabic: school", "عودة": "Arabic: return"}
+    source_tokens = [repr(row["token"].strip()) for row in data["source_selected_tokens"]]
+    target_tokens = [
+        repr(translated_labels.get(row["token"].strip(), row["token"].strip()))
+        for row in data["target_selected_tokens"]
+    ]
+    source_words = ", ".join(source_tokens[:4]) + "\n  " + ", ".join(source_tokens[4:])
+    target_words = ", ".join(target_tokens[:4]) + "\n  " + ", ".join(target_tokens[4:])
+    ax.set_title("a   Sample-specific component replacement", loc="left", fontsize=10.5)
+    ax.text(
+        0,
+        0.94,
+        f'Source prompt\n  The Chinese translation of the German word\n  “Herz” is “\n'
+        f'Selected rank 8 without answer labels\n  {source_words}\n\n'
+        f'Target prompt\n  The Chinese translation of the German word\n  “Schule” is “\n'
+        f'Selected rank 8 without answer labels\n  {target_words}',
+        va="top",
+        fontsize=8.6,
+        linespacing=1.35,
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0,
+        0.25,
+        r"$h' = \operatorname{norm}\!\left(h - P_{heart}h"
+        r" + \operatorname{match}(P_{school}h_{school})\right)$",
+        fontsize=8.5,
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0,
+        0.11,
+        "Expected next token:  心 (heart)  →  学校 (school)\n"
+        "Patch: last prompt position, residual L23–L30",
+        fontsize=8.6,
+        transform=ax.transAxes,
+    )
+
+    for ax, condition, title, color in (
+        (axes[1], "base", "b   Clean next token: 心", ENGLISH),
+        (axes[2], "replace", "c   Replaced next token: 学校", CHINESE),
+    ):
+        top = rows[condition]["top"]
+        labels = [row["token"].replace(" ", "␠", 1) if row["token"].startswith(" ") else row["token"] for row in top]
+        probabilities = np.exp([row["logp"] for row in top])
+        y = np.arange(len(top))[::-1]
+        ax.barh(y, probabilities, color=color, alpha=0.82, height=0.66)
+        ax.set_yticks(y, labels)
+        ax.set_xlim(0, 0.62)
+        ax.set_xlabel("next-token probability")
+        ax.set_title(title, loc="left", fontsize=10.5)
+        for yi, probability in zip(y, probabilities):
+            ax.text(probability + 0.012, yi, f"{probability:.2f}", va="center", fontsize=7.5)
+
+    ax = axes[3]
+    random_odds = np.array([row["log_odds_target_vs_source"] for row in random_rows])
+    rng = np.random.default_rng(0)
+    ax.scatter(random_odds, 1 + rng.uniform(-0.13, 0.13, len(random_odds)), s=13, color="0.55", alpha=0.75)
+    points = [
+        (rows["base"]["log_odds_target_vs_source"], 0, "clean", ENGLISH),
+        (rows["remove"]["log_odds_target_vs_source"], 2, "remove heart", "0.35"),
+        (rows["replace"]["log_odds_target_vs_source"], 3, "heart → school", CHINESE),
+    ]
+    for x, y, label, color in points:
+        ax.scatter([x], [y], s=35, color=color, zorder=3)
+        ax.text(x, y + 0.20, f"{x:+.2f}", ha="center", color=color, fontsize=7.5)
+    ax.axvline(0, color="0.65", lw=0.8, ls=":")
+    ax.set_yticks([0, 1, 2, 3], ["clean", "32 matched random", "remove heart", "heart → school"])
+    ax.set_xlim(-14.5, 1.2)
+    ax.set_ylim(-0.45, 3.45)
+    ax.set_xlabel("log p(学校) − log p(心)")
+    ax.set_title("d   Only replacement favors school", loc="left", fontsize=10.5)
+
+    for ax in axes[1:]:
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.tick_params(labelsize=8)
+    fig.suptitle(
+        f"Qwen3.5-4B, rank {metadata['rank']} suppressed subspaces; residual norm restored",
+        fontsize=10,
+        color="0.25",
+    )
+    return fig
+
+
 def canonicalize_svg_clip_ids(path: Path) -> None:
     svg = path.read_text()
     replacements: dict[str, str] = {}
@@ -144,6 +248,16 @@ def main() -> None:
     out.mkdir(exist_ok=True)
     fig.savefig(out / "suppressed_activations.png", dpi=220, facecolor="white")
     svg_path = out / "suppressed_activations.svg"
+    fig.savefig(svg_path, facecolor="white", metadata={"Date": None})
+    canonicalize_svg_clip_ids(svg_path)
+    plt.close(fig)
+
+    demo = json.loads((ROOT / "data/causal_demo.json").read_text())
+    with plt.rc_context({"font.family": "Noto Sans CJK SC"}):
+        fig = causal_demo(demo)
+    assert_no_clip(fig)
+    fig.savefig(out / "causal_demo.png", dpi=220, facecolor="white")
+    svg_path = out / "causal_demo.svg"
     fig.savefig(svg_path, facecolor="white", metadata={"Date": None})
     canonicalize_svg_clip_ids(svg_path)
     plt.close(fig)

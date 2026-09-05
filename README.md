@@ -80,6 +80,80 @@ Chinese answer token for 1 of 53.
 These are signed shares of a readout, so they need not lie between zero and one. A negative
 share points against the full readout.
 
+## A causal component replacement
+
+The read-modify-compare layout below follows [Gurnee et al., Figures
+12-13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching). Their directions
+come from the Jacobian lens. This test uses only the LM-head rise-and-fall method above.
+
+The source prompt is:
+
+> The Chinese translation of the German word "Herz" is "
+
+The source run selects `heart`, `hearts`, `Heart`, `-heart`, `Cards`, `jantung`,
+`cards`, and `cardiac`. A second run on the same prompt template with `Schule` selects
+`school`, `schools`, `scho`, `Schools`, `szko`, `School`, `المدرسة`, and `عودة`.
+Most rows form multilingual semantic clusters, but `Cards`, `cards`, and `عودة` show that
+the rank-8 selections are not pure. Neither run receives the English or Chinese answer as
+a label.
+
+For residual layers 23 to 30 at the last prompt position, I replace the source sample's
+rank-8 component with the target sample's component:
+
+```python
+source_component = h @ S_source @ S_source.T
+target_component = h_target @ S_target @ S_target.T
+target_component = match_norm(target_component, source_component)
+h_replaced = match_norm(h - source_component + target_component, h)
+```
+
+The QR columns have no pairing. Each `S @ S.T` is a projector, so rotating either basis
+leaves the intervention unchanged. The final `match_norm` keeps the residual norm fixed.
+
+![Replacing heart's suppressed component with school's changes Qwen's next token from heart to school](figs/causal_demo.png)
+
+*Figure 2: A single held-in Qwen3.5-4B example. The predicted change is from `心`
+(heart) to `学校` (school). It occurs: the top next token changes from `心` to `学校`,
+and the log probability ratio changes from -12.83 to +0.12. The replaced distribution is
+uncertain: `p(学校) = 0.125` and `p(心) = 0.110`. None of 32 random
+rank-8 replacements matched for residual norm and per-layer perturbation norm changes the
+top token; their ratios range from -13.67 to -11.66. Removing the source component lowers
+`p(心)` from 0.561 to 0.186 but keeps `心` on top. The patch is present only while reading
+the prompt for the generations below; the model generates all later tokens without a
+hook. The replacement first says school, then notices that this conflicts with `Herz` and
+corrects itself. This shows a causal effect on this sample, not transfer to a new prompt.*
+
+Here are the 64 generated tokens for each condition:
+
+**Base**
+
+> 心" (xīn), which means "heart" in English. The German word "Herz" is a noun that
+> refers to the organ in the body that pumps blood. In the context of the German
+> language, "Herz" is a masculine noun, and its plural form is "Herzen". The
+
+**Replace heart with school**
+
+> 学校" (xué xiào), which means "school" in English. This is a common mistake, as
+> "Herz" actually means "heart" in German. The correct Chinese translation for "Herz"
+> is "心" (xīn).
+>
+> In the context of the German word "Herz
+
+**Matched-random replacement, seed 0**
+
+> 心" (xīn), which means "heart" in English. This word is used in various contexts,
+> such as in the phrase "Herz und Seele" (heart and soul), which translates to "heart
+> and soul" in English. The word "Herz" is also used in the phrase "Her
+
+**Remove the heart component**
+
+> 心" (xīn), which means "heart" in English. The German word "Herz" is a noun that
+> refers to the organ in the body that pumps blood. In the context of the German
+> language, "Herz" is a masculine noun, and its plural form is "Herzen". The
+
+The complete next-token distributions, all 32 random controls, token IDs, diagnostics, and
+unabridged generation strings are in [`data/causal_demo.json`](data/causal_demo.json).
+
 ## Limits
 
 - This is a diagnostic result. It does not yet show that the subspace causes hidden English
@@ -88,8 +162,12 @@ share points against the full readout.
 - The three layers were chosen from the aggregate English curve. A transfer test should
   choose them on held-in prompts or use a fixed model-level rule.
 - Each trajectory gets its own subspace. The different-prompt control shows that the basis
-  is mostly path-dependent. A transferable intervention could still average projected
-  differences from many extraction trajectories.
+  is mostly path-dependent. An intervention on the same sample can use an unsteered first
+  pass; a transferable intervention would need to combine many extraction trajectories.
+- The causal example was selected because both hidden English words rank first. It does not
+  estimate how often the replacement works across prompts.
+- The random control tests matched, content-free directions. It does not compare against a
+  different method for selecting a semantically loaded component from the target residual.
 
 ## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
 
@@ -135,5 +213,6 @@ If you use the method or figure, please cite
 
 - Gurnee, Wes, et al. ["Universal Neurons in GPT2 Language Models."](https://arxiv.org/abs/2401.12181) 2024.
 - Wendler, Chris, et al. ["Do Llamas Work in English? On the Latent Language of Multilingual Transformers."](https://arxiv.org/abs/2402.10588) 2024.
+- Gurnee, Wes, et al. ["Verbalizable Representations Form a Global Workspace in Language Models."](https://transformer-circuits.pub/2026/workspace/) 2026.
 
-<!-- Drafted from Michael J. Clark's public thread and minimally edited by PI/claude-opus-4.6. -->
+<!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4. -->

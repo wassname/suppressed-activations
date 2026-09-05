@@ -12,4 +12,9 @@ Question: does replacing the `heart` prompt's rank-8 suppressed component with t
 
 Likely failure (45%): rank 8 contains hidden English but its whole projected component also holds prompt-template content. Subtle failure (25%): repeated replacement during generation causes drift that is absent from the first-token test. Bug (20%): hook layer indexing or Qwen cache behavior differs between forward and generation. Clean success (10%): C=1 makes 座 top-1 and random does not.
 
+The first `seat` run changed the answer but produced the ambiguous phrase "seat of the soul".
+The final predeclared rule was unchanged; only the target sample changed to `school`, whose hidden
+English concept also ranked first and whose Chinese answer is one tokenizer token. For that run,
+replace 座 with 学校 in the table above.
+
 Written by PI/gpt-5.4.

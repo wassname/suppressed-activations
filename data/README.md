@@ -18,4 +18,10 @@ The model run used seed 0 and four in-context examples. Its metadata recorded
 `29d4ae5-dirty`; the later subspace calculation used the saved residual stream and the
 function published in this repository.
 
-<!-- Written by PI/claude-opus-4.6 for Michael J. Clark. -->
+`causal_demo.json` contains the source and target prompts, selected token IDs, next-token
+distributions, 32 matched-random controls, 64-token generations, and intervention norms
+for Figure 2. Pueue job 63 generated it from commit `67c683e` with
+[`scripts/demo.py`](../scripts/demo.py). The full run log is
+[`slop/audits/job_63_full.log`](../slop/audits/job_63_full.log).
+
+<!-- Written by PI/claude-opus-4.6 and PI/gpt-5.4 for Michael J. Clark. -->
