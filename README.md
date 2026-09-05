@@ -121,10 +121,10 @@ second pass, we project the LM-head `Spider` and `Ant` directions into each subs
 swap their coordinates at every prompt token through residual layers 23–30. C=1 is a full
 coordinate swap at each layer.
 
-| trajectory | rank-8 suppressed readout |
-|---|---|
-| before | `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, `WEB` |
-| after Spider→Ant | `Web`, `Disc`, `web`, `丝绸`, `-web`, `_disc`, `_web`, `Bomb` |
+```text
+[thoughts before: 丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
+[thoughts after Spider→Ant: Web, Disc, web, 丝绸, -web, _disc, _web, Bomb]
+```
 
 The readout loses `Spider`, but it does not gain `Ant`.
 
@@ -141,8 +141,38 @@ The readout loses `Spider`, but it does not gain `Ant`.
 | 9 | 0 | −6.500 | 0 | −6.567 |
 | 10 | 9 | −6.562 | 9 | −6.567 |
 
-The swap raises `log p(6)` by 0.121 nats, but it does not change the answer. Its full
-64-token continuation is shown below.
+The clean continuation is:
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+
+```
+
+After the Spider→Ant coordinate swap it is:
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+
+```
+
+Each block contains exactly 64 generated tokens and can therefore stop mid-sentence. The
+swap raises `log p(6)` by 0.121 nats, but it does not change the answer.
 
 Static directions, all-position swaps, individual layers, and four atomic spellings of
 `Ant` also failed to make `6` top. Means and first-SVD directions over the spelling
@@ -158,11 +188,11 @@ the same extraction rule fixed, its rank-8 readout contains `dog`, `Dog`, `canin
 multilingual dog tokens. After replacement, the source prompt's readout changes from web
 and spider terms to dog terms:
 
-| trajectory | rank-8 suppressed readout |
-|---|---|
-| spider source, before | `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, `WEB` |
-| dog target, before | `吠`, `собаки`, `狗粮`, `dog`, `Dog`, `Dog`, `สุนัข`, `canine` |
-| spider source, after replacement | `perros`, `hund`, `狗粮`, `krém`, `implanta`, `cbd`, `Bite`, `cão` |
+```text
+[thoughts before: 丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
+[replacement selected from: 吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]
+[thoughts after Spider→Dog: perros, hund, 狗粮, krém, implanta, cbd, Bite, cão]
+```
 
 We replace the spider prompt's whole rank-8 projection with twice the norm-matched
 dog-prompt projection at the final prompt token:
@@ -184,52 +214,8 @@ h_replaced = match_norm(h + 2 * (target - source), h)
 This replacement changes the answer from `8` to `4`. Its target-versus-source log odds
 move from −2.75 to +0.625, an effect larger than 248 of 256 residual-norm and
 perturbation-norm matched random replacements. C=2 was selected after a dose sweep, so
-this is an exploratory example rather than a held-out success rate.
-
-![The spider prompt changes from 8 to 4 after its suppressed component is replaced with the dog-prompt component](figs/causal_demo.png)
-
-*Figure 2: The spider→dog component replacement. Panel a states the two prompts, their
-independently selected readouts, the intervention, and the expected answer change. Panels b
-and c show the next-token distributions before and after replacement. Panel d compares the
-change in `log p(4) − log p(8)` with component removal and 256 perturbation-matched random
-replacements.*
-
-### Exact 64-token continuations
-
-These continue after the first answer, which exposes inserted words and damaged text. Each
-block contains exactly 64 generated tokens and can therefore stop mid-sentence.
-
-**Clean, used as the base for both demos**
-
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-
-```
-
-**After the direct Spider→Ant coordinate swap**
-
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-
-```
-
-**After the whole-component spider→dog replacement**
+this is an exploratory example rather than a held-out success rate. The 64-token
+continuation is:
 
 ```text
 4.
@@ -243,7 +229,7 @@ Thinking Process:
     *   Fact: "The number of legs on the animal that spins webs is 4."
 ```
 
-**After a perturbation-matched random replacement**
+The perturbation-matched random replacement instead continues with `8`:
 
 ```text
 8.
@@ -257,7 +243,7 @@ Thinking Process:
     *   Fact: "The number of legs on the animal that spins webs is 8."
 ```
 
-**After removing the detected spider component**
+Removing the detected spider component also continues with `8`:
 
 ```text
 8.
@@ -271,6 +257,14 @@ Thinking Process:
     *   Fact: "The number of legs on the animal that spins webs is 8."
 
 ```
+
+![The spider prompt changes from 8 to 4 after its suppressed component is replaced with the dog-prompt component](figs/causal_demo.png)
+
+*Figure 2: The spider→dog component replacement. Panel a states the two prompts, their
+independently selected readouts, the intervention, and the expected answer change. Panels b
+and c show the next-token distributions before and after replacement. Panel d compares the
+change in `log p(4) − log p(8)` with component removal and 256 perturbation-matched random
+replacements.*
 
 The full distributions, controls, generations, and diagnostics are in
 [`data/causal_demo.json`](data/causal_demo.json).
