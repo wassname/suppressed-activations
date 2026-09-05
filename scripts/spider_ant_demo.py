@@ -1,6 +1,7 @@
 """Test a sample-specific Spider→Ant intervention. Written by PI/gpt-5.4."""
 
 import json
+import math
 import subprocess
 import sys
 import time
@@ -33,6 +34,7 @@ RANK = 16
 STRENGTH = 8.0
 SOURCE_TOKEN = " spider"
 TARGET_TOKEN = " ant"
+ANIMAL_TARGETS = {"ant": (" ant", "6"), "dog": (" dog", "4"), "bird": (" bird", "2")}
 RANDOM_CONTROL_COUNT = 32
 MAX_NEW_TOKENS = 64
 
@@ -94,6 +96,19 @@ def coordinate_swap(h, directions, strength, mask, restore_norm=True):
     if restore_norm:
         patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
     return patched
+
+
+def projected_pair(model, tokenizer, basis, target_token):
+    language_model = model.model
+    source_id = one_token(tokenizer, SOURCE_TOKEN)
+    target_id = one_token(tokenizer, target_token)
+    centered = model.lm_head.weight.float() - model.lm_head.weight.float().mean(0)
+    gain = (1 + language_model.norm.weight).float()
+    token_vectors = torch.stack([centered[source_id] * gain, centered[target_id] * gain])
+    coordinates = torch.einsum("td,sdk->stk", token_vectors, basis)
+    projected = torch.einsum("stk,sdk->std", coordinates, basis)
+    projected = projected / projected.norm(dim=-1, keepdim=True)
+    return projected.transpose(1, 2)
 
 
 def target_hook(directions, strength, mask, record=None):
@@ -161,6 +176,9 @@ def score(tokenizer, logits, clean_logits, id6, id8, digit_ids):
         "digit_mass": float(digit_mass),
         "digit_conditional_p6": float(p[id6] / digit_mass),
         "digit_conditional_p8": float(p[id8] / digit_mass),
+        "digit_probabilities": {
+            str(i): float(p[token_id]) for i, token_id in enumerate(digit_ids)
+        },
         "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
         "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
         "entropy": float(-(p * logp).sum()),
@@ -209,18 +227,7 @@ def evaluate_prompt(model, tokenizer, prompt):
         rank=RANK, normalize_unembedding_rows=True,
     )
 
-    source_id = one_token(tokenizer, SOURCE_TOKEN)
-    target_id = one_token(tokenizer, TARGET_TOKEN)
-    centered_unembedding = model.lm_head.weight.float() - model.lm_head.weight.float().mean(0)
-    gain = (1 + language_model.norm.weight).float()
-    token_vectors = torch.stack([
-        centered_unembedding[source_id] * gain,
-        centered_unembedding[target_id] * gain,
-    ])
-    coordinates = torch.einsum("td,sdk->stk", token_vectors, basis)
-    projected = torch.einsum("stk,sdk->std", coordinates, basis)
-    projected = projected / projected.norm(dim=-1, keepdim=True)
-    directions = projected.transpose(1, 2)
+    directions = projected_pair(model, tokenizer, basis, TARGET_TOKEN)
 
     mask = torch.zeros(input_ids.shape[1], device=input_ids.device)
     mask[-1] = 1
@@ -256,6 +263,69 @@ def evaluate_prompt(model, tokenizer, prompt):
             "matching": random_record,
         })
 
+    animal_targets = []
+    if prompt == PROMPTS["spider"]:
+        target_distance = target_record["perturbation_norm"]
+        clean_h = residuals[INTERVENTION_LAYER][None]
+        for animal, (target_token, expected_output) in ANIMAL_TARGETS.items():
+            animal_directions = projected_pair(model, tokenizer, basis, target_token)
+            if animal == "ant":
+                strength = STRENGTH
+            else:
+                low, high = 0.0, 64.0
+                for _ in range(24):
+                    middle = (low + high) / 2
+                    candidate = coordinate_swap(clean_h, animal_directions, middle, mask)
+                    distance = float((candidate[:, -1] - clean_h[:, -1]).norm())
+                    low, high = (middle, high) if distance < target_distance else (low, middle)
+                strength = (low + high) / 2
+            animal_record = {}
+            animal_hook = target_hook(animal_directions, strength, mask, animal_record)
+            with layer_hook(layer, animal_hook):
+                animal_residuals, animal_logits = trajectory(
+                    model, input_ids, language_model.norm
+                )
+            torch.testing.assert_close(
+                torch.tensor(animal_record["perturbation_norm"]),
+                torch.tensor(target_distance), atol=1e-3, rtol=0,
+            )
+            _, animal_selected = suppressed_activation_subspace(
+                animal_residuals.permute(1, 0, 2), model.lm_head.weight,
+                1 + language_model.norm.weight,
+                early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER,
+                output_layer=OUTPUT_LAYER, rank=RANK,
+                normalize_unembedding_rows=True,
+            )
+            animal_metrics = score(
+                tokenizer, animal_logits, clean_logits, id6, id8, digit_ids
+            )
+            p_expected = animal_metrics["digit_probabilities"][expected_output]
+            p8 = animal_metrics["digit_probabilities"]["8"]
+            random_odds = [
+                math.log(row["metrics"]["digit_probabilities"][expected_output])
+                - math.log(row["metrics"]["digit_probabilities"]["8"])
+                for row in random_rows
+            ]
+            expected_odds = math.log(p_expected) - math.log(p8)
+            animal_targets.append({
+                "animal": animal,
+                "target_token": target_token,
+                "expected_output": expected_output,
+                "strength": strength,
+                "metrics": animal_metrics,
+                "p_expected": p_expected,
+                "log_odds_expected_vs_8": expected_odds,
+                "random_effects_below": sum(value < expected_odds for value in random_odds),
+                "matching": animal_record,
+                "thoughts_after": [
+                    tokenizer.decode([int(token_id)]) for token_id in animal_selected[-1]
+                ],
+                "generation": generate(
+                    model, tokenizer, input_ids, layer,
+                    target_hook(animal_directions, strength, mask), MAX_NEW_TOKENS,
+                ),
+            })
+
     generations = {
         "clean": generate(model, tokenizer, input_ids, layer, max_new_tokens=MAX_NEW_TOKENS),
         "targeted": generate(
@@ -282,6 +352,7 @@ def evaluate_prompt(model, tokenizer, prompt):
         "targeted": score(tokenizer, targeted_logits, clean_logits, id6, id8, digit_ids),
         "target_matching": target_record,
         "random_controls": random_rows,
+        "animal_targets": animal_targets,
         "generations": generations,
         "targeted_matches_forced_6": (
             generations["targeted"]["token_ids"]
@@ -324,6 +395,41 @@ def render_log(metadata, results):
             f"### {name} → {label}\n\n```text\n{generation['text']}\n```"
             for label, generation in result["generations"].items()
         )
+        animal_block = ""
+        if result["animal_targets"]:
+            animal_table = tabulate(
+                [[
+                    row["animal"], row["expected_output"], row["strength"],
+                    row["metrics"]["top"][0]["token"], row["p_expected"],
+                    row["log_odds_expected_vs_8"], row["random_effects_below"],
+                    row["matching"]["perturbation_norm"],
+                ] for row in result["animal_targets"]],
+                headers=[
+                    "target", "expected", "C", "top", "p(expected)",
+                    "log p(expected)/p(8)", "random below / 32", "distance",
+                ],
+                tablefmt="pipe", floatfmt=".4f",
+            )
+            animal_readouts = "\n".join(
+                f"[suppressed readout after Spider→{row['animal'].title()}: "
+                f"{', '.join(row['thoughts_after'])}]"
+                for row in result["animal_targets"]
+            )
+            animal_generations = "\n\n".join(
+                f"### Spider→{row['animal'].title()}\n\n"
+                f"```text\n{row['generation']['text']}\n```"
+                for row in result["animal_targets"]
+            )
+            animal_block = f"""### Equal-distance animal targets
+
+{animal_table}
+
+```text
+{animal_readouts}
+```
+
+{animal_generations}
+"""
         sections.append(f"""## {name}
 
 Prompt: `{result['prompt']}`
@@ -335,8 +441,9 @@ Prompt: `{result['prompt']}`
 
 {condition_table}
 
-Target effect exceeded {random_below}/32 matched random effects; {random_top6}/32 random controls also made `6` top. Targeted continuation equals the forced-`6` no-intervention continuation: `{result['targeted_matches_forced_6']}`.
+Target effect exceeded {random_below}/32 matched random effects; {random_top6}/32 random controls also placed `6` first. Targeted continuation equals the forced-`6` no-intervention continuation: `{result['targeted_matches_forced_6']}`.
 
+{animal_block}
 {generations}
 """)
     summary = tabulate(
