@@ -151,8 +151,17 @@ readout and a negative causal result. The reproducible script and full output ar
 
 A second prompt asks about “the animal that barks and is called man's best friend”. With
 the same extraction rule fixed, its rank-8 readout contains `dog`, `Dog`, `canine`, and
-multilingual dog tokens. We replace the spider prompt's whole rank-8 projection with twice
-the norm-matched dog-prompt projection at the final prompt token:
+multilingual dog tokens. After replacement, the source prompt's readout changes from web
+and spider terms to dog terms:
+
+| trajectory | rank-8 suppressed readout |
+|---|---|
+| spider source, before | `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, `WEB` |
+| dog target, before | `吠`, `собаки`, `狗粮`, `dog`, `Dog`, `Dog`, `สุนัข`, `canine` |
+| spider source, after replacement | `perros`, `hund`, `狗粮`, `krém`, `implanta`, `cbd`, `Bite`, `cão` |
+
+We replace the spider prompt's whole rank-8 projection with twice the norm-matched
+dog-prompt projection at the final prompt token:
 
 ```python
 source = h @ S_spider @ S_spider.T
