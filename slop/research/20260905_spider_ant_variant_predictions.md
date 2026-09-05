@@ -37,4 +37,18 @@ variant rows fill the rank-8 suppressed subspace and are likely nearly dependent
 coordinate exchange can have a large operator norm. The next test uses each pair separately
 and rank-2 mean or first-SVD prototypes.
 
+## Result from job 124
+
+The diagnosis is strongly supported: the normalized eight-row matrix has condition number
+1,403 at the final prompt position. The rank-2 alternatives remain coherent.
+
+At C=1, the lowercase word-boundary pair ` spider`↔` ant` gives the largest observed shift:
+p(6)=0.0379, p(8)=0.8632, and Δlog p(6)=+0.353 nats. This pair was selected after comparing
+four, so it is not a reusable default. The normalized mean and first shared-SVD directions
+agree closely: both give p(6)=0.0337 and Δlog p(6)=+0.235 nats. Every method still answers 8.
+
+The aggregate methods show that token variants can be pooled without collapse, but they do not
+produce a semantic Spider→Ant answer swap. The next run tests stronger doses of the lowercase,
+mean, and SVD directions, with and without residual-norm restoration.
+
 Written by PI/gpt-5.4.

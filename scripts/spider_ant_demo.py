@@ -25,21 +25,26 @@ MATCHED_VARIANT_PAIRS = (
 )
 
 
-def coordinate_swap(h, directions, strength, mask):
+def coordinate_swap(h, directions, strength, mask, restore_norm=False):
     pinv = torch.linalg.pinv(directions)
     coordinates = torch.einsum("bsd,sqd->bsq", h, pinv)
     swapped = coordinates.unflatten(-1, (-1, 2)).flip(-1).flatten(-2)
     delta = torch.einsum("bsq,sdq->bsd", swapped - coordinates, directions)
-    return h + strength * delta * mask[None, :, None]
+    patched = h + strength * delta * mask[None, :, None]
+    if restore_norm:
+        patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
+    return patched
 
 
-def hooks(directions, strength, mask):
+def hooks(directions, strength, mask, restore_norm=False):
     def make_hook():
         def hook(_module, _inputs, output):
             hidden = output[0] if isinstance(output, tuple) else output
             if hidden.shape[1] == 1:
                 return output
-            patched = coordinate_swap(hidden.float(), directions, strength, mask).to(hidden.dtype)
+            patched = coordinate_swap(
+                hidden.float(), directions, strength, mask, restore_norm=restore_norm
+            ).to(hidden.dtype)
             return replace_output(output, patched)
         return hook
     return {block: make_hook() for block in BLOCKS}
@@ -153,6 +158,30 @@ for method, token_vectors in prototype_sets.items():
             "generation": generate(model, tokenizer, ids, lm.layers, hs, max_new_tokens=64),
         })
 
+strong_rows = []
+for method in ("pair_3", "mean_atomic", "svd1_atomic"):
+    directions = prototype_sets[method].transpose(1, 2)
+    for restore_norm in (False, True):
+        for strength in (1.25, 1.5, 2.0, 3.0, 4.0, 8.0):
+            hs = hooks(directions, strength, all_positions, restore_norm=restore_norm)
+            with layer_hooks(lm.layers, hs):
+                intervened_residuals, logits = trajectory(model, ids, lm.norm)
+            _, after_selected = suppressed_activation_subspace(
+                intervened_residuals[:, -1][None], model.lm_head.weight, 1 + lm.norm.weight,
+                early_layer=23, peak_layer=25, output_layer=32, rank=8,
+                normalize_unembedding_rows=True,
+            )
+            logp = logits.log_softmax(-1)
+            strong_rows.append({
+                "method": method, "restore_norm": restore_norm, "strength": strength,
+                "top": top_tokens(tokenizer, logits, 10),
+                "p6": float(logp[id6].exp()), "p8": float(logp[id8].exp()),
+                "delta_logp6": float(logp[id6] - clean_logits.log_softmax(-1)[id6]),
+                "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+                "selected_tokens_after": [tokenizer.decode([int(i)]) for i in after_selected[0]],
+                "generation": generate(model, tokenizer, ids, lm.layers, hs, max_new_tokens=64),
+            })
+
 geometry = {}
 for normalization, token_vectors in (
     ("raw", projected_by_set["matched_atomic"]),
@@ -182,6 +211,7 @@ result = {
     "clean": top_tokens(tokenizer, clean_logits, 10),
     "rows": rows,
     "prototype_rows": prototype_rows,
+    "strong_rows": strong_rows,
     "geometry": geometry,
 }
 Path("data/spider_ant_demo.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
@@ -193,4 +223,7 @@ for row in rows:
 print("geometry:", geometry)
 for row in prototype_rows:
     print({k: row[k] for k in ("method", "strength", "p6", "p8", "delta_logp6", "log_odds_6_vs_8")}, "top=", row["top"][0]["token"])
+    print(row["generation"]["text"])
+for row in strong_rows:
+    print({k: row[k] for k in ("method", "restore_norm", "strength", "p6", "p8", "delta_logp6", "log_odds_6_vs_8")}, "top=", row["top"][0]["token"])
     print(row["generation"]["text"])
