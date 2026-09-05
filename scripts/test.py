@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 
+from scripts.spider_ant_demo import coordinate_swap, coordinate_swap_leg
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -83,6 +84,15 @@ def main() -> None:
         rtol=1e-4,
     )
     print("PASS: projection operators are basis-invariant and preserve requested norms")
+
+    h = torch.randn(1, 3, 5, generator=generator)
+    directions = torch.linalg.qr(torch.randn(5, 2, generator=generator)).Q[None]
+    mask = torch.tensor([False, False, True])
+    swapped = coordinate_swap(h, directions, 1.0, mask, restore_norm=False)
+    source = coordinate_swap_leg(h, directions, "source", mask, restore_norm=False)
+    target = coordinate_swap_leg(h, directions, "target", mask, restore_norm=False)
+    torch.testing.assert_close(swapped - h, (source - h) + (target - h))
+    print("PASS: source and target components sum to the C=1 coordinate delta")
 
     data = json.loads((Path(__file__).resolve().parents[1] / "data/causal_demo.json").read_text())
     rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
