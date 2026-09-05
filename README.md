@@ -42,6 +42,9 @@ the same rise and fall:
 > probability mass during the first half of layers. Then, around the middle layer, English
 > begins a sharp rise followed by a decline, while Chinese slowly grows and, after a
 > crossover with English, spikes on the last five layers.
+>
+> <img width="292" height="184" alt="image" src="https://github.com/user-attachments/assets/28ab1795-4a8a-4752-b4cb-337ed360075a" />
+
 
 This gives us known content that is readable in the middle and suppressed before the
 output: the English word for the answer.
