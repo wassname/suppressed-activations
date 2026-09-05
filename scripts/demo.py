@@ -212,7 +212,13 @@ def main(output_path: Path) -> None:
         source_basis, target_basis, target_residuals,
         operation="replace", strength=CONTROL_STRENGTH, record=semantic_record,
     )
-    replace_logits = run_forward(model, source_ids, blocks, replace_hooks)
+    with layer_hooks(blocks, replace_hooks):
+        replaced_residuals, replace_logits = trajectory(model, source_ids, final_norm)
+    _, replaced_selected = suppressed_activation_subspace(
+        replaced_residuals[:, -1][None], unembedding, norm_gain,
+        early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER, output_layer=OUTPUT_LAYER, rank=RANK,
+        normalize_unembedding_rows=True,
+    )
     matched_distances = {
         layer: values["perturbation_norm"] for layer, values in semantic_record.items()
     }
@@ -329,6 +335,10 @@ def main(output_path: Path) -> None:
             {"token_id": int(token_id), "token": tokenizer.decode([token_id])}
             for token_id in target_selected[0]
         ],
+        "replaced_selected_tokens": [
+            {"token_id": int(token_id), "token": tokenizer.decode([token_id])}
+            for token_id in replaced_selected[0]
+        ],
         "interventions": rows,
         "generations": generations,
         "dose_generations": dose_generations,
@@ -339,6 +349,7 @@ def main(output_path: Path) -> None:
 
     print("source selected:", [row["token"] for row in result["source_selected_tokens"]])
     print("target selected:", [row["token"] for row in result["target_selected_tokens"]])
+    print("after replacement:", [row["token"] for row in result["replaced_selected_tokens"]])
     for row in rows:
         m = row["metrics"]
         print(

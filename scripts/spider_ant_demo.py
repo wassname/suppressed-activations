@@ -65,8 +65,13 @@ for normalized in (False, True):
     for mask_name, mask in (("all", all_positions), ("spider_detected", detected)):
         for strength in (1.0, 2.0):
             hs = hooks(directions, strength, mask)
-            with layer_hooks(lm.layers, hs), torch.no_grad():
-                logits = model(input_ids=ids, use_cache=False).logits[0, -1].float()
+            with layer_hooks(lm.layers, hs):
+                intervened_residuals, logits = trajectory(model, ids, lm.norm)
+            _, after_selected = suppressed_activation_subspace(
+                intervened_residuals[:, -1][None], model.lm_head.weight, 1 + lm.norm.weight,
+                early_layer=23, peak_layer=25, output_layer=32, rank=8,
+                normalize_unembedding_rows=True,
+            )
             logp = logits.log_softmax(-1)
             generation = generate(model, tokenizer, ids, lm.layers, hs, max_new_tokens=64)
             rows.append({
@@ -75,6 +80,7 @@ for normalized in (False, True):
                 "p6": float(logp[id6].exp()), "p8": float(logp[id8].exp()),
                 "delta_logp6": float(logp[id6] - clean_logits.log_softmax(-1)[id6]),
                 "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+                "selected_tokens_after": [tokenizer.decode([int(i)]) for i in after_selected[0]],
                 "generation": generation,
             })
 result = {
