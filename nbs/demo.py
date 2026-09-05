@@ -45,6 +45,7 @@ from scripts.demo import (
     metrics,
     one_token,
     run_forward,
+    top_tokens,
     trajectory,
 )
 from suppressed_activation_subspace import suppressed_activation_subspace
@@ -108,7 +109,7 @@ norm_gain = 1.0 + final_norm.weight
 source_ids = tokenizer(SOURCE_PROMPT, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
 target_ids = tokenizer(TARGET_PROMPT, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
 source_residuals, clean_logits = trajectory(model, source_ids, final_norm)
-target_residuals, _ = trajectory(model, target_ids, final_norm)
+target_residuals, target_clean_logits = trajectory(model, target_ids, final_norm)
 
 source_basis, source_selected = suppressed_activation_subspace(
     source_residuals[:, -1][None],
@@ -165,6 +166,20 @@ def hooks(strength: float):
 # ## Read the suppressed tokens before and after replacement
 
 # %%
+clean_rows = []
+for name, logits, expected_id in (
+    ("source", clean_logits, source_output_id),
+    ("target", target_clean_logits, target_output_id),
+):
+    logp = logits.log_softmax(-1)
+    clean_rows.append({
+        "prompt": name,
+        "top next token": top_tokens(tokenizer, logits, 1)[0]["token"],
+        "expected token": tokenizer.decode([expected_id]),
+        "p(expected)": float(logp[expected_id].exp()),
+    })
+print(tabulate(clean_rows, headers="keys", tablefmt="rounded_outline", floatfmt="+.4f"))
+
 with layer_hooks(blocks, hooks(DEMO_STRENGTH)):
     replaced_residuals, _ = trajectory(model, source_ids, final_norm)
 _, replaced_selected = suppressed_activation_subspace(
@@ -178,10 +193,10 @@ _, replaced_selected = suppressed_activation_subspace(
     normalize_unembedding_rows=True,
 )
 readout_rows = [
-    {"trajectory": "spider, before", "suppressed readout": ", ".join(selected_words["source"])},
-    {"trajectory": "dog, before", "suppressed readout": ", ".join(selected_words["target"])},
+    {"trajectory": "source, before", "suppressed readout": ", ".join(selected_words["source"])},
+    {"trajectory": "target, before", "suppressed readout": ", ".join(selected_words["target"])},
     {
-        "trajectory": f"spider, after C={DEMO_STRENGTH:g}",
+        "trajectory": f"source, after C={DEMO_STRENGTH:g}",
         "suppressed readout": ", ".join(
             tokenizer.decode([token_id]) for token_id in replaced_selected[0]
         ),
