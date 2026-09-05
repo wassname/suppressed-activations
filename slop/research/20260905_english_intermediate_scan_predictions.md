@@ -8,7 +8,7 @@ Question: does the fixed L22/L27/L32 LM-head rise-and-fall score recover an unsp
 | maximum over prompt positions | may recover an intermediate written before the final position | only prompt words or output answers improve |
 | remove prompt-token IDs | should expose concepts that are absent from the text without using answer labels | rankings improve only because an observed spelling variant was removed |
 
-The fixed extraction layers remain L22 early, L27 peak, and L32 output. The scan evaluates hidden-concept ranks only after the target-free score is computed. A candidate pair advances only if both clean answers are correct and both hidden concepts enter rank 32 under the same rule.
+The fixed extraction layers remain L22 early, L27 peak, and L32 output. The scan evaluates hidden-concept ranks only after the target-free score is computed. We run the component-replacement test only when both clean answers are correct and both hidden concepts rank at most 32 under the same rule.
 
 Likely outcomes: 45% one non-translation family yields a usable pair; 30% the ordinary LM head does not expose indirect intermediates; 15% only an all-position extension works; 10% unknown or implementation error. The next run does not intervene, so it cannot establish causality.
 
