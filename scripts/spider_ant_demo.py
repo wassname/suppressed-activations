@@ -18,6 +18,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from suppressed_activation_subspace import (
     matched_random_rotation,
+    replace,
     suppressed_activation_subspace,
 )
 
@@ -36,6 +37,19 @@ SOURCE_TOKEN = " spider"
 TARGET_TOKEN = " ant"
 ANIMAL_TARGETS = {"ant": (" ant", "6"), "dog": (" dog", "4"), "bird": (" bird", "2")}
 TARGET_LEG_STRENGTHS = (1.0, 2.0, 4.0, 8.0, 12.0)
+SAMPLE_TARGETS = {
+    "ant": (
+        "Fact: The number of legs on the animal that lives in colonies and "
+        "follows pheromone trails is ",
+        "6",
+    ),
+    "dog": (
+        "Fact: The number of legs on the animal that barks and is called "
+        "man's best friend is ",
+        "4",
+    ),
+}
+SAMPLE_STRENGTHS = (1.0, 2.0, 4.0, 8.0, 12.0)
 RANDOM_CONTROL_COUNT = 32
 MAX_NEW_TOKENS = 64
 
@@ -181,6 +195,34 @@ def swap_leg_hook(directions, leg, mask, record=None, strength=1.0):
         patched = coordinate_swap_leg(h, directions, leg, mask, strength=strength)
         if record is not None:
             record_coordinate_change(record, h, patched, directions, mask)
+        return replace_output(output, patched.to(hidden.dtype))
+
+    return hook
+
+
+def sample_component_hook(
+    source_basis, target_basis, target_h, strength, mask, record=None
+):
+    def hook(_module, _inputs, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        if hidden.shape[1] == 1:
+            return output
+        h = hidden.float()
+        candidate = replace(
+            h, source_basis, target_h, target_basis,
+            strength=strength, restore_norm=True,
+        )
+        patched = torch.where(mask[None, :, None], candidate, h)
+        if record is not None:
+            position = int(mask.nonzero()[-1])
+            record.update({
+                "position": position,
+                "residual_norm_before": float(h[0, position].norm()),
+                "residual_norm_after": float(patched[0, position].norm()),
+                "perturbation_norm": float(
+                    (patched[0, position] - h[0, position]).norm()
+                ),
+            })
         return replace_output(output, patched.to(hidden.dtype))
 
     return hook
@@ -455,6 +497,75 @@ def evaluate_prompt(model, tokenizer, prompt):
                 ),
             })
 
+    sample_targets = []
+    if prompt == PROMPTS["spider"]:
+        source_basis = basis[-1]
+        for animal, (target_prompt, expected_output) in SAMPLE_TARGETS.items():
+            target_ids = tokenizer(
+                target_prompt, return_tensors="pt", add_special_tokens=False
+            ).input_ids.to(input_ids.device)
+            target_residuals, target_logits = trajectory(
+                model, target_ids, language_model.norm
+            )
+            target_basis, target_selected = suppressed_activation_subspace(
+                target_residuals.permute(1, 0, 2), model.lm_head.weight,
+                1 + language_model.norm.weight,
+                early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER,
+                output_layer=OUTPUT_LAYER, rank=RANK,
+                normalize_unembedding_rows=True,
+            )
+            target_basis = target_basis[-1]
+            target_h = target_residuals[INTERVENTION_LAYER, -1].float()
+            dose_rows = []
+            for dose in SAMPLE_STRENGTHS:
+                dose_record = {}
+                hook = sample_component_hook(
+                    source_basis, target_basis, target_h, dose, mask, dose_record
+                )
+                with layer_hook(layer, hook):
+                    _, dose_logits = trajectory(
+                        model, input_ids, language_model.norm
+                    )
+                dose_rows.append({
+                    "strength": dose,
+                    "metrics": score(
+                        tokenizer, dose_logits, clean_logits, id6, id8, digit_ids
+                    ),
+                    "matching": dose_record,
+                })
+            successful = [
+                row for row in dose_rows
+                if top_label(row["metrics"]) == expected_output
+            ]
+            first_success = None
+            if successful:
+                first = successful[0]
+                first_success = {
+                    "strength": first["strength"],
+                    "generation": generate(
+                        model, tokenizer, input_ids, layer,
+                        sample_component_hook(
+                            source_basis, target_basis, target_h,
+                            first["strength"], mask,
+                        ),
+                        MAX_NEW_TOKENS,
+                    ),
+                }
+            sample_targets.append({
+                "animal": animal,
+                "target_prompt": target_prompt,
+                "expected_output": expected_output,
+                "clean_target": score(
+                    tokenizer, target_logits, target_logits, id6, id8, digit_ids
+                ),
+                "selected_tokens": [
+                    tokenizer.decode([int(token_id)])
+                    for token_id in target_selected[-1]
+                ],
+                "doses": dose_rows,
+                "first_success": first_success,
+            })
+
     generations = {
         "clean": generate(model, tokenizer, input_ids, layer, max_new_tokens=MAX_NEW_TOKENS),
         "targeted": generate(
@@ -482,6 +593,7 @@ def evaluate_prompt(model, tokenizer, prompt):
         "target_matching": target_record,
         "random_controls": random_rows,
         "animal_targets": animal_targets,
+        "sample_targets": sample_targets,
         "generations": generations,
         "targeted_matches_forced_6": (
             generations["targeted"]["token_ids"]
@@ -636,6 +748,48 @@ def render_log(metadata, results):
 
 {animal_generations}
 """
+        sample_block = ""
+        if result["sample_targets"]:
+            sample_table = tabulate(
+                [[
+                    row["animal"], top_label(row["clean_target"]),
+                    dose["strength"], top_label(dose["metrics"]),
+                    *[
+                        dose["metrics"]["digit_probabilities"][digit]
+                        for digit in ("2", "4", "6", "8")
+                    ],
+                    dose["matching"]["perturbation_norm"],
+                ]
+                for row in result["sample_targets"]
+                for dose in row["doses"]],
+                headers=[
+                    "target sample", "target clean", "C", "source top",
+                    "p(2)", "p(4)", "p(6)", "p(8)", "distance",
+                ],
+                tablefmt="pipe", floatfmt=".4f",
+            )
+            sample_readouts = "\n".join(
+                f"[{row['animal']} target readout: "
+                f"{', '.join(row['selected_tokens'])}]"
+                for row in result["sample_targets"]
+            )
+            sample_generations = "\n\n".join(
+                f"### Whole {row['animal'].title()} sample component, "
+                f"C={row['first_success']['strength']:g}\n\n"
+                f"```text\n{row['first_success']['generation']['text']}\n```"
+                for row in result["sample_targets"]
+                if row["first_success"] is not None
+            )
+            sample_block = f"""### One-layer sample-component replacements
+
+```text
+{sample_readouts}
+```
+
+{sample_table}
+
+{sample_generations}
+"""
         sections.append(f"""## {name}
 
 Prompt: `{result['prompt']}`
@@ -650,6 +804,7 @@ Prompt: `{result['prompt']}`
 Target effect exceeded {random_below}/32 matched random effects; {random_top6}/32 random controls also placed `6` first. Targeted continuation equals the forced-`6` no-intervention continuation: `{result['targeted_matches_forced_6']}`.
 
 {animal_block}
+{sample_block}
 {generations}
 """)
     summary = tabulate(
@@ -705,6 +860,7 @@ def main():
         "source_token": SOURCE_TOKEN,
         "target_token": TARGET_TOKEN,
         "target_leg_strengths": TARGET_LEG_STRENGTHS,
+        "sample_strengths": SAMPLE_STRENGTHS,
         "random_control_count": RANDOM_CONTROL_COUNT,
         "max_new_tokens": MAX_NEW_TOKENS,
         "status": "running",
