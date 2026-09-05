@@ -2,6 +2,12 @@
 
 Job 63 tested whether a sample-specific component selected by the LM-head rise-and-fall score changes the next token when it is replaced by another sample's selected component.
 
+Command, recorded in [`job_63_status.json`](job_63_status.json):
+
+```bash
+uv run --project ../do_qwens_reason_in_english python scripts/demo.py --output data/causal_demo.json
+```
+
 ## Result
 
 The complete 94-line log reports:

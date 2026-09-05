@@ -90,8 +90,12 @@ The source prompt is:
 
 > The Chinese translation of the German word "Herz" is "
 
+The target prompt is:
+
+> The Chinese translation of the German word "Schule" is "
+
 The source run selects `heart`, `hearts`, `Heart`, `-heart`, `Cards`, `jantung`,
-`cards`, and `cardiac`. A second run on the same prompt template with `Schule` selects
+`cards`, and `cardiac`. The target run selects
 `school`, `schools`, `scho`, `Schools`, `szko`, `School`, `المدرسة`, and `عودة`.
 Most rows form multilingual semantic clusters, but `Cards`, `cards`, and `عودة` show that
 the rank-8 selections are not pure. Neither run receives the English or Chinese answer as

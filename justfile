@@ -2,7 +2,7 @@ demo:
     uv run scripts/demo.py
     uv run scripts/figure.py
 
-demo-check:
+demo-check: test
     uv run scripts/demo_check.py
     uv run scripts/figure.py
 
