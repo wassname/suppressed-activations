@@ -19,10 +19,10 @@ def main() -> None:
         for output in outputs
     )
     assert "'git':" in text and "-dirty" not in text
-    assert "'source': [' heart'" in text
-    assert "'target': [' school'" in text
+    assert "'Spider'" in text
+    assert "'dog'" in text
     assert all(value in text for value in ("-0.5000", "+0.0000", "+1.0000", "+2.0000"))
-    assert "学校" in text and "____" in text
+    assert "target/source log odds" in text and "吠吠" in text
     assert any("image/png" in output.get("data", {}) for output in outputs)
     assert notebook["metadata"]["jupytext"]["formats"] == "py:percent,ipynb"
     print("PASS: executed notebook has clean provenance, both directions, excessive doses, and Figure 2")

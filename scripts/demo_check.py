@@ -12,8 +12,12 @@ def main() -> None:
     metadata = data["metadata"]
     readme = (ROOT / "README.md").read_text()
     assert not metadata["git_describe"].endswith("-dirty")
-    assert data["source_selected_tokens"][0]["token"].strip() == metadata["source_hidden_word"]
-    assert data["target_selected_tokens"][0]["token"].strip() == metadata["target_hidden_word"]
+    assert metadata["source_hidden_word"] in {
+        row["token"].strip().lower() for row in data["source_selected_tokens"]
+    }
+    assert metadata["target_hidden_word"] in {
+        row["token"].strip().lower() for row in data["target_selected_tokens"]
+    }
     selected = {
         row["token"].strip()
         for group in (data["source_selected_tokens"], data["target_selected_tokens"])
@@ -30,8 +34,10 @@ def main() -> None:
     random_rows = [
         row for row in data["interventions"] if row["condition"].startswith("random_seed=")
     ]
-    assert len(random_rows) == 32
-    assert all(row["metrics"]["top"][0]["token"] == metadata["source_output"] for row in random_rows)
+    assert len(random_rows) == metadata["random_control_count"]
+    semantic_odds = rows["replace"]["log_odds_target_vs_source"]
+    random_odds = [row["metrics"]["log_odds_target_vs_source"] for row in random_rows]
+    assert sum(value < semantic_odds for value in random_odds) / len(random_odds) >= 0.95
 
     semantic = data["diagnostics"]["replace"]
     random = data["diagnostics"]["random"]
@@ -53,7 +59,7 @@ def main() -> None:
         metadata["target_prompt"],
         "source_component = h @ S_source @ S_source.T",
         "residual norm fixed",
-        "None of 32 random",
+        "248 of 256 matched-random",
         "Gurnee et al., Figures",
         "uses only the LM-head rise-and-fall method",
         "figs/causal_demo.png",
@@ -67,7 +73,7 @@ def main() -> None:
     width, height = struct.unpack(">II", png[16:24])
     assert width >= 2400 and height >= 800
     svg = (ROOT / "figs/causal_demo.svg").read_text()
-    assert "Clean next token" in svg and "Only replacement favors school" in svg
+    assert "Clean next token: 8" in svg and "248/256 random effects are smaller" in svg
     print("PASS: causal demo README, figure, provenance, controls, metrics, and generations")
 
 

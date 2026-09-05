@@ -10,6 +10,7 @@ import csv
 import json
 from pathlib import Path
 import re
+import textwrap
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -112,54 +113,52 @@ def causal_demo(data: dict) -> plt.Figure:
     fig, axes = plt.subplots(
         1,
         4,
-        figsize=(14.6, 4.25),
+        figsize=(14.8, 4.25),
         constrained_layout=True,
-        gridspec_kw={"width_ratios": [1.6, 1, 1, 1.2]},
+        gridspec_kw={"width_ratios": [1.75, 1, 1, 1.25]},
     )
 
     ax = axes[0]
     ax.axis("off")
-    translated_labels = {"المدرسة": "Arabic: school", "عودة": "Arabic: return"}
     source_tokens = [repr(row["token"].strip()) for row in data["source_selected_tokens"]]
-    target_tokens = [
-        repr(translated_labels.get(row["token"].strip(), row["token"].strip()))
-        for row in data["target_selected_tokens"]
-    ]
+    target_tokens = [repr(row["token"].strip()) for row in data["target_selected_tokens"]]
     source_words = ", ".join(source_tokens[:4]) + "\n  " + ", ".join(source_tokens[4:])
     target_words = ", ".join(target_tokens[:4]) + "\n  " + ", ".join(target_tokens[4:])
-    ax.set_title("a   Sample-specific component replacement", loc="left", fontsize=10.5)
+    source_prompt = textwrap.fill(metadata["source_prompt"].strip(), width=47)
+    target_prompt = textwrap.fill(metadata["target_prompt"].strip(), width=47)
+    ax.set_title("a   Per-prompt component replacement", loc="left", fontsize=10.5)
     ax.text(
         0,
         0.94,
-        f'Source prompt\n  The Chinese translation of the German word\n  “Herz” is “\n'
-        f'Selected rank 8 without answer labels\n  {source_words}\n\n'
-        f'Target prompt\n  The Chinese translation of the German word\n  “Schule” is “\n'
-        f'Selected rank 8 without answer labels\n  {target_words}',
+        f"Source prompt\n  {source_prompt}\n"
+        f"Selected rank 8, no hidden-word label\n  {source_words}\n\n"
+        f"Target prompt\n  {target_prompt}\n"
+        f"Selected rank 8, no hidden-word label\n  {target_words}",
         va="top",
-        fontsize=8.6,
-        linespacing=1.35,
+        fontsize=8.25,
+        linespacing=1.27,
         transform=ax.transAxes,
     )
     ax.text(
         0,
-        0.25,
-        r"$h' = \operatorname{norm}\!\left(h - P_{heart}h"
-        r" + \operatorname{match}(P_{school}h_{school})\right)$",
+        0.19,
+        r"$h' = \operatorname{norm}\!\left[h + 2\left("
+        r"\operatorname{match}(P_{dog}h_{dog}) - P_{spider}h\right)\right]$",
+        fontsize=8.2,
+        transform=ax.transAxes,
+    )
+    ax.text(
+        0,
+        0.07,
+        "Expected next token:  8  →  4\n"
+        "Last prompt position, residual L23–L30",
         fontsize=8.5,
-        transform=ax.transAxes,
-    )
-    ax.text(
-        0,
-        0.11,
-        "Expected next token:  心 (heart)  →  学校 (school)\n"
-        "Patch: last prompt position, residual L23–L30",
-        fontsize=8.6,
         transform=ax.transAxes,
     )
 
     for ax, condition, title, color in (
-        (axes[1], "base", "b   Clean next token: 心", ENGLISH),
-        (axes[2], "replace", "c   Replaced next token: 学校", CHINESE),
+        (axes[1], "base", "b   Clean next token: 8", ENGLISH),
+        (axes[2], "replace", "c   Replaced next token: 4", CHINESE),
     ):
         top = rows[condition]["top"]
         labels = [row["token"].replace(" ", "␠", 1) if row["token"].startswith(" ") else row["token"] for row in top]
@@ -167,7 +166,7 @@ def causal_demo(data: dict) -> plt.Figure:
         y = np.arange(len(top))[::-1]
         ax.barh(y, probabilities, color=color, alpha=0.82, height=0.66)
         ax.set_yticks(y, labels)
-        ax.set_xlim(0, 0.62)
+        ax.set_xlim(0, 1.0)
         ax.set_xlabel("next-token probability")
         ax.set_title(title, loc="left", fontsize=10.5)
         for yi, probability in zip(y, probabilities):
@@ -179,18 +178,23 @@ def causal_demo(data: dict) -> plt.Figure:
     ax.scatter(random_odds, 1 + rng.uniform(-0.13, 0.13, len(random_odds)), s=13, color="0.55", alpha=0.75)
     points = [
         (rows["base"]["log_odds_target_vs_source"], 0, "clean", ENGLISH),
-        (rows["remove"]["log_odds_target_vs_source"], 2, "remove heart", "0.35"),
-        (rows["replace"]["log_odds_target_vs_source"], 3, "heart → school", CHINESE),
+        (rows["remove"]["log_odds_target_vs_source"], 2, "remove spider", "0.35"),
+        (rows["replace"]["log_odds_target_vs_source"], 3, "spider → dog", CHINESE),
     ]
     for x, y, label, color in points:
         ax.scatter([x], [y], s=35, color=color, zorder=3)
         ax.text(x, y + 0.20, f"{x:+.2f}", ha="center", color=color, fontsize=7.5)
     ax.axvline(0, color="0.65", lw=0.8, ls=":")
-    ax.set_yticks([0, 1, 2, 3], ["clean", "32 matched random", "remove heart", "heart → school"])
-    ax.set_xlim(-14.5, 1.2)
+    ax.set_yticks(
+        [0, 1, 2, 3],
+        ["clean", f"{len(random_rows)} matched random", "remove spider", "spider → dog"],
+    )
+    all_odds = np.append(random_odds, [point[0] for point in points])
+    ax.set_xlim(all_odds.min() - 0.5, all_odds.max() + 0.5)
     ax.set_ylim(-0.45, 3.45)
-    ax.set_xlabel("log p(学校) − log p(心)")
-    ax.set_title("d   Only replacement favors school", loc="left", fontsize=10.5)
+    ax.set_xlabel("log p(4) − log p(8)")
+    smaller = int(np.sum(random_odds < rows["replace"]["log_odds_target_vs_source"]))
+    ax.set_title(f"d   {smaller}/{len(random_rows)} random effects are smaller", loc="left", fontsize=10.5)
 
     for ax in axes[1:]:
         ax.spines[["top", "right"]].set_visible(False)

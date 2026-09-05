@@ -44,15 +44,16 @@ from suppressed_activation_subspace import suppressed_activation_subspace
 MODEL = os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B")
 DEVICE = os.environ.get("SUPPRESSED_DEVICE", "cuda")
 SOURCE_PROMPT = os.environ.get(
-    "SUPPRESSED_SOURCE_PROMPT", 'The Chinese translation of the German word "Herz" is "'
+    "SUPPRESSED_SOURCE_PROMPT", "Fact: The number of legs on the animal that spins webs is "
 )
 TARGET_PROMPT = os.environ.get(
-    "SUPPRESSED_TARGET_PROMPT", 'The Chinese translation of the German word "Schule" is "'
+    "SUPPRESSED_TARGET_PROMPT",
+    "Fact: The number of legs on the animal that barks and is called man's best friend is ",
 )
-SOURCE_OUTPUT = os.environ.get("SUPPRESSED_SOURCE_OUTPUT", "心")
-TARGET_OUTPUT = os.environ.get("SUPPRESSED_TARGET_OUTPUT", "学校")
-EARLY_LAYER = int(os.environ.get("SUPPRESSED_EARLY_LAYER", 22))
-PEAK_LAYER = int(os.environ.get("SUPPRESSED_PEAK_LAYER", 27))
+SOURCE_OUTPUT = os.environ.get("SUPPRESSED_SOURCE_OUTPUT", "8")
+TARGET_OUTPUT = os.environ.get("SUPPRESSED_TARGET_OUTPUT", "4")
+EARLY_LAYER = int(os.environ.get("SUPPRESSED_EARLY_LAYER", 23))
+PEAK_LAYER = int(os.environ.get("SUPPRESSED_PEAK_LAYER", 25))
 OUTPUT_LAYER = int(os.environ.get("SUPPRESSED_OUTPUT_LAYER", 32))
 INTERVENTION_START = int(os.environ.get("SUPPRESSED_INTERVENTION_START", 23))
 INTERVENTION_END = int(os.environ.get("SUPPRESSED_INTERVENTION_END", 30))
@@ -106,6 +107,7 @@ source_basis, source_selected = suppressed_activation_subspace(
     peak_layer=PEAK_LAYER,
     output_layer=OUTPUT_LAYER,
     rank=RANK,
+    normalize_unembedding_rows=True,
 )
 target_basis, target_selected = suppressed_activation_subspace(
     target_residuals[:, -1][None],
@@ -115,6 +117,7 @@ target_basis, target_selected = suppressed_activation_subspace(
     peak_layer=PEAK_LAYER,
     output_layer=OUTPUT_LAYER,
     rank=RANK,
+    normalize_unembedding_rows=True,
 )
 source_basis, target_basis = source_basis[0], target_basis[0]
 selected_words = {
@@ -200,7 +203,7 @@ print(
 # %% [markdown]
 # ## The measured replacement and controls
 #
-# Figure 2 uses a prompt-only `C=1` replacement, source-component removal, and 32 random rank-8
+# Figure 2 uses a prompt-only `C=2` replacement, source-component removal, and 256 random rank-8
 # replacements matched for residual norm and perturbation norm. The notebook grid above instead
 # keeps the hook active during generation so that excessive strengths are visible.
 
