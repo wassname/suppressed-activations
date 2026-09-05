@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def main() -> None:
     data = json.loads((ROOT / "data/causal_demo.json").read_text())
+    spider_ant = json.loads((ROOT / "data/spider_ant_demo.json").read_text())
     metadata = data["metadata"]
     readme = (ROOT / "README.md").read_text()
     assert not metadata["git_describe"].endswith("-dirty")
@@ -54,6 +55,15 @@ def main() -> None:
     assert generations["random"]["text"].startswith(metadata["source_output"])
     assert generations["remove"]["text"].startswith(metadata["source_output"])
 
+    spider_row = next(
+        row for row in spider_ant["rows"]
+        if row["normalized"] and row["mask"] == "all" and row["strength"] == 1
+    )
+    assert spider_ant["clean"][0]["token"] == "8"
+    assert spider_row["top"][0]["token"] == "8"
+    assert spider_row["delta_logp6"] > 0
+    assert "Spider" in spider_ant["selected_tokens_at_final"]
+
     required_readme_text = (
         metadata["source_prompt"],
         metadata["target_prompt"],
@@ -62,7 +72,8 @@ def main() -> None:
         "248 of 256 matched-random",
         "Gurnee et al., Figures",
         "uses only the LM-head rise-and-fall method",
-        "figs/causal_demo.png",
+        "scripts/spider_ant_demo.py",
+        "0.121 nats",
     )
     assert all(text in readme for text in required_readme_text)
     for row in generations.values():
