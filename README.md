@@ -65,8 +65,21 @@ h_suppressed = h @ S @ S.T
 ```
 
 The vocabulary search chooses the directions. `S` is an orthonormal basis in the residual
-stream, so it can be used for projection, ablation, or steering. The complete PyTorch
-function is [`suppressed_activation_subspace.py`](suppressed_activation_subspace.py).
+stream. The complete PyTorch functions are in
+[`suppressed_activation_subspace.py`](suppressed_activation_subspace.py).
+
+```python
+h_inside = component(h, S)
+h_removed = remove(h, S, restore_norm=True)
+h_amplified = steer(h, S, strength=0.5, restore_norm=True)
+h_replaced = replace(h, S, h_target, S_target, restore_norm=True)
+```
+
+These operations depend on the projector `S @ S.T`, not the individual QR columns. The
+extraction is sample-specific and needs an unmodified residual trajectory through the
+output layer. You can then read or modify that same trajectory. Applying it during
+open-ended generation requires an unsteered first pass or a basis learned from other
+samples.
 
 The method receives no English or Chinese answer tokens. On the held-out half of this run,
 its top-32 vocabulary rows contain an English answer token for 42 of 53 prompts and a

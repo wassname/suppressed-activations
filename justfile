@@ -7,7 +7,7 @@ demo-check: test
     uv run scripts/figure.py
 
 test:
-    uv run --with torch python -m scripts.test
+    uv run --with torch --with numpy python -m scripts.test
 
 figure:
     uv run scripts/figure.py
