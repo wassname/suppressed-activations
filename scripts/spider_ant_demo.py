@@ -25,12 +25,12 @@ MATCHED_VARIANT_PAIRS = (
 )
 
 
-def coordinates(h, directions):
+def dual_coordinates(h, directions):
     return torch.einsum("bsd,sqd->bsq", h, torch.linalg.pinv(directions))
 
 
 def coordinate_swap(h, directions, strength, mask, restore_norm=False):
-    before = coordinates(h, directions)
+    before = dual_coordinates(h, directions)
     swapped = before.unflatten(-1, (-1, 2)).flip(-1).flatten(-2)
     delta = torch.einsum("bsq,sdq->bsd", swapped - before, directions)
     patched = h + strength * delta * mask[None, :, None]
@@ -49,8 +49,8 @@ def hooks(directions, strength, mask, restore_norm=False, record=None):
             patched = coordinate_swap(h, directions, strength, mask, restore_norm=restore_norm)
             if record is not None:
                 position = int(mask.nonzero()[-1].item())
-                before = coordinates(h, directions)[0, position]
-                after = coordinates(patched, directions)[0, position]
+                before = dual_coordinates(h, directions)[0, position]
+                after = dual_coordinates(patched, directions)[0, position]
                 record[block + 1] = {
                     "position": position,
                     "source_before": float(before[0]),

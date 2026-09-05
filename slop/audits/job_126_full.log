@@ -1,0 +1,57 @@
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]
+Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 1358.92it/s]
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 8880.32it/s]
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 113, in <module>
+    intervened_residuals, logits = trajectory(model, ids, lm.norm)
+                                   ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/scripts/demo.py", line 74, in trajectory
+    output = model(input_ids=input_ids, output_hidden_states=True, use_cache=False)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/utils/generic.py", line 939, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py", line 1631, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+                                       ~~~~~~~~~~^
+        input_ids=input_ids,
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/utils/generic.py", line 1068, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py", line 1206, in forward
+    hidden_states = decoder_layer(
+        hidden_states,
+    ...<5 lines>...
+        **kwargs,
+    )
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/transformers/modeling_layers.py", line 114, in __call__
+    return super().__call__(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1884, in _call_impl
+    return inner()
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1845, in inner
+    hook_result = hook(self, args, result)
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 49, in hook
+    patched = coordinate_swap(h, directions, strength, mask, restore_norm=restore_norm)
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 33, in coordinate_swap
+    before = coordinates(h, directions)
+TypeError: 'Tensor' object is not callable
