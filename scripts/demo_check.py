@@ -74,6 +74,8 @@ def main() -> None:
     assert spider_row["delta_logp6"] > 0
     assert len(spider_ant["metadata"]["matched_variant_pairs"]) == 4
     assert variant_row["generation"]["token_ids"]
+    assert spider_row["generation"]["text"] in readme
+    assert all(row["text"] in readme for row in generations.values())
     prototype_methods = {row["method"] for row in spider_ant["prototype_rows"]}
     assert prototype_methods == {"pair_1", "pair_2", "pair_3", "pair_4", "mean_atomic", "svd1_atomic"}
     assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["prototype_rows"])

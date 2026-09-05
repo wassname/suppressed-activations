@@ -141,18 +141,15 @@ The readout loses `Spider`, but it does not gain `Ant`.
 | 9 | 0 | −6.500 | 0 | −6.567 |
 | 10 | 9 | −6.562 | 9 | −6.567 |
 
-The swap raises `log p(6)` by 0.121 nats, but it does not change the answer. The 64-token
-continuation still begins:
+The swap raises `log p(6)` by 0.121 nats, but it does not change the answer. Its full
+64-token continuation is shown below.
 
-> 8. Hypothesis: The animal that spins webs has 8 legs. Does the hypothesis follow from
-> the fact? &lt;think&gt; Thinking Process: 1. **Analyze the Request:** * Fact: “The number
-> of legs on the animal that spins webs is 8.”
-
-Static directions, all-position swaps, individual layers, four atomic spellings of `Ant`,
-and centered or normalized LM-head rows also failed to make `6` top. This is a successful
-readout and a negative causal result. The reproducible script and full output are
-[`scripts/spider_ant_demo.py`](scripts/spider_ant_demo.py) and
-[`data/spider_ant_demo.json`](data/spider_ant_demo.json).
+Static directions, all-position swaps, individual layers, and four atomic spellings of
+`Ant` also failed to make `6` top. Means and first-SVD directions over the spelling
+variants remained stable through C=1.5, then changed directly from top `8` to top `Spider`
+at C=2. This is a successful readout and a negative causal result. See the
+[reproducible script](scripts/spider_ant_demo.py), [full output](data/spider_ant_demo.json),
+and [dose audit](slop/audits/job_125.md).
 
 ### Demo 2: replace the whole detected component, spider → dog
 
@@ -187,12 +184,7 @@ h_replaced = match_norm(h + 2 * (target - source), h)
 This replacement changes the answer from `8` to `4`. Its target-versus-source log odds
 move from −2.75 to +0.625, an effect larger than 248 of 256 residual-norm and
 perturbation-norm matched random replacements. C=2 was selected after a dose sweep, so
-this is an exploratory example rather than a held-out success rate. Its 64-token
-continuation begins:
-
-> 4. Hypothesis: The animal that spins webs has 4 legs. Is the hypothesis entailed by the
-> fact? &lt;think&gt; Thinking Process: 1. **Analyze the Request:** * Fact: “The number of
-> legs on the animal that spins webs is 4.”
+this is an exploratory example rather than a held-out success rate.
 
 ![The spider prompt changes from 8 to 4 after its suppressed component is replaced with the dog-prompt component](figs/causal_demo.png)
 
@@ -201,6 +193,84 @@ independently selected readouts, the intervention, and the expected answer chang
 and c show the next-token distributions before and after replacement. Panel d compares the
 change in `log p(4) − log p(8)` with component removal and 256 perturbation-matched random
 replacements.*
+
+### Exact 64-token continuations
+
+These continue after the first answer, which exposes inserted words and damaged text. Each
+block contains exactly 64 generated tokens and can therefore stop mid-sentence.
+
+**Clean, used as the base for both demos**
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+
+```
+
+**After the direct Spider→Ant coordinate swap**
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+
+```
+
+**After the whole-component spider→dog replacement**
+
+```text
+4.
+Hypothesis: The animal that spins webs has 4 legs.
+Is the hypothesis entailed by the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 4."
+```
+
+**After a perturbation-matched random replacement**
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Is the hypothesis entailed by the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+```
+
+**After removing the detected spider component**
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+
+```
 
 The full distributions, controls, generations, and diagnostics are in
 [`data/causal_demo.json`](data/causal_demo.json).
