@@ -5,7 +5,11 @@ from pathlib import Path
 
 import torch
 
-from scripts.spider_ant_demo import coordinate_swap, coordinate_swap_leg
+from scripts.spider_ant_demo import (
+    coordinate_swap,
+    coordinate_swap_leg,
+    sample_component_hook,
+)
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -93,6 +97,14 @@ def main() -> None:
     target = coordinate_swap_leg(h, directions, "target", mask, restore_norm=False)
     torch.testing.assert_close(swapped - h, (source - h) + (target - h))
     print("PASS: source and target components sum to the C=1 coordinate delta")
+
+    sample_mask = torch.tensor([False, False, True])
+    sample_hook = sample_component_hook(
+        directions[0], directions[0], h[0, -1], 1.0, sample_mask
+    )
+    sample_patched = sample_hook(None, None, h)
+    torch.testing.assert_close(sample_patched[:, :-1], h[:, :-1])
+    print("PASS: sample-component hook accepts a boolean position mask")
 
     data = json.loads((Path(__file__).resolve().parents[1] / "data/causal_demo.json").read_text())
     rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
