@@ -84,6 +84,15 @@ def top_tokens(tokenizer, logits, k=10):
     ]
 
 
+def top_label(metrics):
+    maximum = metrics["top"][0]["logp"]
+    tied = sorted(
+        row["token"] for row in metrics["top"]
+        if math.isclose(row["logp"], maximum, abs_tol=1e-7)
+    )
+    return tied[0] if len(tied) == 1 else f"{'/'.join(tied)} tie"
+
+
 def dual_coordinates(h, directions):
     return torch.einsum("bsd,sqd->bsq", h, torch.linalg.pinv(directions))
 
@@ -271,6 +280,14 @@ def evaluate_prompt(model, tokenizer, prompt):
             animal_directions = projected_pair(model, tokenizer, basis, target_token)
             assert clean_h.dtype == animal_directions.dtype == torch.float32
             assert clean_h.device == animal_directions.device
+            exact_record = {}
+            with layer_hook(
+                layer, target_hook(animal_directions, 1.0, mask, exact_record)
+            ):
+                _, exact_logits = trajectory(model, input_ids, language_model.norm)
+            exact_metrics = score(
+                tokenizer, exact_logits, clean_logits, id6, id8, digit_ids
+            )
             if animal == "ant":
                 strength = STRENGTH
             else:
@@ -321,6 +338,10 @@ def evaluate_prompt(model, tokenizer, prompt):
                 "target_token": target_token,
                 "expected_output": expected_output,
                 "strength": strength,
+                "exact_swap": {
+                    "metrics": exact_metrics,
+                    "matching": exact_record,
+                },
                 "metrics": animal_metrics,
                 "p_expected": p_expected,
                 "log_odds_expected_vs_8": expected_odds,
@@ -384,13 +405,13 @@ def render_log(metadata, results):
             for row in result["random_controls"]
         )
         summary_rows.append([
-            name, result["clean"]["top"][0]["token"], targeted["top"][0]["token"],
+            name, top_label(result["clean"]), top_label(targeted),
             targeted["p6"], targeted["p8"], targeted["log_odds_6_vs_8"],
             random_below, random_top6,
         ])
         condition_table = tabulate(
             [[
-                label, row["top"][0]["token"], row["p6"], row["p8"],
+                label, top_label(row), row["p6"], row["p8"],
                 row["log_odds_6_vs_8"], row["kl_from_clean"], row["entropy"],
             ] for label, row in (
                 ("clean", result["clean"]),
@@ -406,10 +427,26 @@ def render_log(metadata, results):
         )
         animal_block = ""
         if result["animal_targets"]:
+            exact_table = tabulate(
+                [[
+                    row["animal"], row["expected_output"],
+                    top_label(row["exact_swap"]["metrics"]),
+                    *[
+                        row["exact_swap"]["metrics"]["digit_probabilities"][digit]
+                        for digit in ("2", "4", "6", "8")
+                    ],
+                    row["exact_swap"]["matching"]["perturbation_norm"],
+                ] for row in result["animal_targets"]],
+                headers=[
+                    "target", "expected", "C=1 top",
+                    "p(2)", "p(4)", "p(6)", "p(8)", "distance",
+                ],
+                tablefmt="pipe", floatfmt=".4f",
+            )
             animal_table = tabulate(
                 [[
                     row["animal"], row["expected_output"], row["strength"],
-                    row["metrics"]["top"][0]["token"], row["p_expected"],
+                    top_label(row["metrics"]), row["p_expected"],
                     row["log_odds_expected_vs_8"], row["random_effects_below"],
                     row["matching"]["perturbation_norm"],
                 ] for row in result["animal_targets"]],
@@ -429,7 +466,11 @@ def render_log(metadata, results):
                 f"```text\n{row['generation']['text']}\n```"
                 for row in result["animal_targets"]
             )
-            animal_block = f"""### Equal-distance animal targets
+            animal_block = f"""### C=1 swap endpoint
+
+{exact_table}
+
+### Equal-distance animal extrapolations
 
 {animal_table}
 
@@ -543,8 +584,8 @@ def main():
 
     print("\n" + tabulate(
         [[
-            name, result["clean"]["top"][0]["token"],
-            result["targeted"]["top"][0]["token"],
+            name, top_label(result["clean"]),
+            top_label(result["targeted"]),
             result["targeted"]["log_odds_6_vs_8"],
         ] for name, result in results.items()],
         headers=["prompt", "clean", "targeted", "log p(6)/p(8)"],
