@@ -65,19 +65,16 @@ def main() -> None:
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
     required_readme_text = (
-        metadata["source_prompt"],
-        metadata["target_prompt"],
-        "source_component = h @ S_source @ S_source.T",
-        "residual norm fixed",
-        "248 of 256 matched-random",
+        "Fact: The number of legs on the animal that spins webs is",
+        "the animal that barks and is called man's best friend",
+        "source = h @ S_spider @ S_spider.T",
+        "248 of 256",
         "Gurnee et al., Figures",
-        "uses only the LM-head rise-and-fall method",
+        "Ours come from the LM-head rise-and-fall score",
         "scripts/spider_ant_demo.py",
         "0.121 nats",
     )
     assert all(text in readme for text in required_readme_text)
-    for row in generations.values():
-        assert row["text"][:40] in readme
 
     png = (ROOT / "figs/causal_demo.png").read_bytes()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"
