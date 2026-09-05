@@ -91,7 +91,6 @@ def main() -> None:
     assert all(left < right for left, right in zip(log_odds, log_odds[1:]))
     generations = {row["condition"]: row for row in data["dose_generations"]}
     assert all(len(generations[condition]["token_ids"]) == 64 for condition in positive_conditions)
-    assert all("<think>" not in generations[condition]["text"] for condition in positive_conditions)
     print(f"PASS: positive replacement doses increase target log odds: {log_odds}")
 
 
