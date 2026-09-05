@@ -24,4 +24,12 @@ The idea is not rejected if this one layer fails. Another implementation can int
 
 A credible positive result requires all of: top `6`, a coherent 64-token continuation, no concentrated/collapsed next-token distribution, and a larger 6-vs-8 log-odds change than at least 31/32 matched random rotations at that dose. No README claim changes before those observations exist.
 
+## Result
+
+Several conditions changed the first token from `8` to `6`. The best smaller-dose row was lowercase-space rank 16, final position, norm-restored C=8: p6=.61466, p8=.05717, KL=2.26093, and entropy=1.44536. The preceding position did nothing. Rank 32 never produced top `6`.
+
+The preregistered lowercase rank-8 primary at C=12 produced top `6`, p6=.34397, and p8=.14339, but exceeded only 30/32 matched random effects. Two random controls also produced stronger top-`6` changes. The 31/32 specificity requirement was contradicted.
+
+All top-`6` continuations were byte-identical because the intervention stops after the first generated token. Their coherence is self-conditioning evidence, not independent evidence of Ant semantics. See [`job_132.md`](../audits/job_132.md) and [`out/2026-09-05_191959_spider-ant/log.md`](../../out/2026-09-05_191959_spider-ant/log.md).
+
 Written by PI/gpt-5.4.
