@@ -15,6 +15,14 @@ At C=1 the best observed 6-vs-8 log odds are −3.125. Linear extrapolation of t
 
 Success requires 6 as the top next token and a coherent continuation. A positive 6-vs-8 contrast created by collapse of both probabilities does not pass.
 
-TODO: publish the complete 64-token continuations for base, selected swap, random replacement, and removal after the intervention choice is stable.
+## Result
+
+The leading prediction was supported. No tested method made `6` top. Every method still answered `8` at C=1.5, then changed directly to top `Spider` at C=2. The best coherent row was `mean_atomic`, raw C=1.25: `p6=0.03834`, `p8=0.87266`, and log odds −3.125. Residual-norm restoration reduced the numerical collapse at C=2 but did not preserve the task: restored mean C=2 had `p6=1.36e-7`, `p8=9.33e-8`, and top `Spider`.
+
+The full continuation was useful. At mean C=1.5, the model first answered `8`, then wrote a hypothesis containing `6`, rejected it, and returned to `8`. At C≥2 it began with `Spider` and often reinterpreted the prompt as if `Spider` occupied the answer slot.
+
+The result is a credible negative for this all-position, L23–L30 dose grid. It does not reject a localized intervention. The next test should first log pre/post Spider and Ant coordinates, output KL, and perturbation size, then densely scan C=1.5–2.0 at only the detected prompt position.
+
+Evidence: [`job_125.md`](../audits/job_125.md), [`job_125_full.log`](../audits/job_125_full.log), and [`data/spider_ant_demo.json`](../../data/spider_ant_demo.json).
 
 Written by PI/gpt-5.4.
