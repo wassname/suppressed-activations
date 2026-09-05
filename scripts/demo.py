@@ -155,12 +155,20 @@ def run_forward(model, input_ids: Tensor, blocks, hooks: dict[int, object]) -> T
         return model(input_ids=input_ids, use_cache=False).logits[0, -1].float()
 
 
-def generate(model, tokenizer, input_ids: Tensor, blocks, hooks: dict[int, object]) -> dict:
+def generate(
+    model,
+    tokenizer,
+    input_ids: Tensor,
+    blocks,
+    hooks: dict[int, object],
+    *,
+    max_new_tokens: int = MAX_NEW_TOKENS,
+) -> dict:
     with layer_hooks(blocks, hooks), torch.no_grad():
         output = model.generate(
             input_ids=input_ids,
             do_sample=False,
-            max_new_tokens=MAX_NEW_TOKENS,
+            max_new_tokens=max_new_tokens,
             pad_token_id=tokenizer.eos_token_id,
             use_cache=True,
         )
