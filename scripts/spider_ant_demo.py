@@ -39,7 +39,7 @@ def coordinate_swap(h, directions, strength, mask, restore_norm=False):
     return patched
 
 
-def hooks(directions, strength, mask, restore_norm=False, record=None):
+def hooks(directions, strength, mask, restore_norm=False, record=None, blocks=BLOCKS):
     def make_hook(block):
         def hook(_module, _inputs, output):
             hidden = output[0] if isinstance(output, tuple) else output
@@ -62,7 +62,7 @@ def hooks(directions, strength, mask, restore_norm=False, record=None):
                 }
             return replace_output(output, patched.to(hidden.dtype))
         return hook
-    return {block: make_hook(block) for block in BLOCKS}
+    return {block: make_hook(block) for block in blocks}
 
 
 torch.set_grad_enabled(False)
@@ -232,6 +232,28 @@ for restore_norm in (False, True):
             ),
         })
 
+coordinate_record = {}
+hs = hooks(
+    directions, 2.0, final_position,
+    restore_norm=False, record=coordinate_record, blocks=(29,),
+)
+with layer_hooks(lm.layers, hs):
+    _, logits = trajectory(model, ids, lm.norm)
+logp = logits.log_softmax(-1)
+p = logp.exp()
+single_layer_rows = [{
+    "method": "mean_atomic", "mask": "selected_final_position",
+    "residual_layer": 30, "restore_norm": False, "strength": 2.0,
+    "top": top_tokens(tokenizer, logits, 10),
+    "rank6": int((logits > logits[id6]).sum()) + 1,
+    "p6": float(logp[id6].exp()), "p8": float(logp[id8].exp()),
+    "delta_logp6": float(logp[id6] - clean_logp[id6]),
+    "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+    "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
+    "entropy": float(-(p * logp).sum()),
+    "coordinates_by_layer": coordinate_record,
+}]
+
 geometry = {}
 for normalization, token_vectors in (
     ("raw", projected_by_set["matched_atomic"]),
@@ -263,6 +285,7 @@ result = {
     "prototype_rows": prototype_rows,
     "strong_rows": strong_rows,
     "localized_rows": localized_rows,
+    "single_layer_rows": single_layer_rows,
     "geometry": geometry,
 }
 Path("data/spider_ant_demo.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
@@ -283,3 +306,5 @@ for row in localized_rows:
     print("coordinates:", row["coordinates_by_layer"])
     if row["generation"] is not None:
         print(row["generation"]["text"])
+for row in single_layer_rows:
+    print("single layer:", row)
