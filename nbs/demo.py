@@ -6,6 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
+#       jupytext_version: 1.19.5
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -17,7 +18,7 @@
 #
 # This notebook finds one prompt's vocabulary directions that rise in the middle layers and fall
 # before output. It then replaces that residual-stream component with the component from a second
-# prompt. Edit the configuration cell and read the dose grid in both directions.
+# prompt. Edit the configuration cell and read the dose grid at positive and negative strengths.
 #
 # The extraction and intervention functions are the same ones used for Figure 2 in the
 # [README](../README.md). This is sample-specific: extraction first runs each complete prompt
@@ -190,11 +191,12 @@ print(tabulate(readout_rows, headers="keys", tablefmt="rounded_outline"))
 
 
 # %% [markdown]
-# ## Sweep both directions
+# ## Sweep positive and negative strengths
 #
 # Positive strength moves from the source component toward the target component. Negative strength
-# moves in the opposite direction. The useful range is local: excessive intervention can repeat,
-# change task format, or become malformed, so the grid includes weak and excessive strengths.
+# moves in the opposite direction. Dog and C=2 were selected after inspecting candidate prompts and
+# this dose sweep, so this is an exploratory demo rather than a held-out success rate. Excessive
+# intervention can repeat, change task format, or become malformed.
 
 # %%
 print(
