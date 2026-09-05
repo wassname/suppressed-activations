@@ -23,4 +23,20 @@ The result that supports the same mechanism as the dog demo is: the clean target
 
 A negative result rejects only this prompt and fixed extraction rule. It does not reject whole-component replacement in general.
 
+## Result from jobs 117 and 119
+
+The Ant target cleanly answers `6` with probability 0.7243. Its rank-8 suppressed readout is
+`;font`, `_unix`, `Kate`, `สถาบัน`, `Soldier`, `división`, `在校园`, and `соци`, so it does
+not expose a coherent Ant intermediate.
+
+Positive replacement strength moves `log p(6) − log p(8)` from −3.500 at C=0 to −1.125 at
+C=2. This raises p(6) from 0.0267 to 0.2304, about 8.6 times, but 8 remains top at every
+tested strength. Negative strength moves the contrast in the opposite direction. At C=2,
+persistent generation repeats `_unix`, one of the target readout tokens.
+
+The run supports a substantial signed association between the target component and the answer
+6. It does not satisfy the predeclared same-mechanism criterion because no Ant terms appear and
+the answer does not flip. The target component may transport decoder-aligned lexical or
+answer-related content rather than an Ant concept.
+
 Written by PI/gpt-5.4.
