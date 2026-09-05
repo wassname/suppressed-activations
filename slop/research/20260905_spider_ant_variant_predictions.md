@@ -24,4 +24,17 @@ A successful result needs a coherent C=1 continuation beginning with 6. A larger
 
 TODO: after this run stabilizes, put the complete 64-token base, swap, random-replacement, and removal continuations in the README so lexical leakage and repetition remain visible.
 
+## Result from job 123
+
+The four-pair C=1 swap collapses both answer probabilities and makes `Web` top in every
+position and normalization variant. For normalized directions at all prompt positions,
+p(6) changes from 0.0267 to 1.73e-8 and p(8) changes from 0.8826 to 4.10e-9. The positive
+6-vs-8 log odds are therefore misleading: 6 fell by 14.25 log units while 8 fell further.
+The continuation begins `Web-spinning spiders have 8 legs.`
+
+This rejects the joint pseudoinverse formulation, not the token-variant idea. Eight projected
+variant rows fill the rank-8 suppressed subspace and are likely nearly dependent, so their
+coordinate exchange can have a large operator norm. The next test uses each pair separately
+and rank-2 mean or first-SVD prototypes.
+
 Written by PI/gpt-5.4.
