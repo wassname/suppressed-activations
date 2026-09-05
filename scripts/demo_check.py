@@ -57,11 +57,23 @@ def main() -> None:
 
     spider_row = next(
         row for row in spider_ant["rows"]
-        if row["normalized"] and row["mask"] == "all" and row["strength"] == 1
+        if row["variant_set"] == "single"
+        and row["normalized"]
+        and row["mask"] == "all"
+        and row["strength"] == 1
+    )
+    variant_row = next(
+        row for row in spider_ant["rows"]
+        if row["variant_set"] == "matched_atomic"
+        and row["normalized"]
+        and row["mask"] == "all"
+        and row["strength"] == 1
     )
     assert spider_ant["clean"][0]["token"] == "8"
     assert spider_row["top"][0]["token"] == "8"
     assert spider_row["delta_logp6"] > 0
+    assert len(spider_ant["metadata"]["matched_variant_pairs"]) == 4
+    assert variant_row["generation"]["token_ids"]
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
     required_readme_text = (
