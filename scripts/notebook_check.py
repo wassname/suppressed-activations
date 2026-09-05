@@ -21,7 +21,8 @@ def main() -> None:
     assert "'git':" in text and "-dirty" not in text
     assert "'Spider'" in text
     assert "'dog'" in text
-    assert "spider, after C=2" in text and "perros" in text
+    assert "source, after C=2" in text and "perros" in text
+    assert "top next token" in text and "p(expected)" in text
     assert all(value in text for value in ("-0.5000", "+0.0000", "+1.0000", "+2.0000"))
     assert "target/source log odds" in text and "吠吠" in text
     assert any("image/png" in output.get("data", {}) for output in outputs)
