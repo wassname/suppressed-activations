@@ -320,8 +320,10 @@ def evaluate_prompt(model, tokenizer, prompt):
 
     directions = projected_pair(model, tokenizer, basis, TARGET_TOKEN)
 
-    mask = torch.zeros(input_ids.shape[1], device=input_ids.device)
-    mask[-1] = 1
+    mask = torch.zeros(
+        input_ids.shape[1], device=input_ids.device, dtype=torch.bool
+    )
+    mask[-1] = True
     id6, id8 = one_token(tokenizer, "6"), one_token(tokenizer, "8")
     digit_ids = torch.tensor(
         [one_token(tokenizer, str(i)) for i in range(10)], device=input_ids.device
