@@ -35,6 +35,7 @@ STRENGTH = 8.0
 SOURCE_TOKEN = " spider"
 TARGET_TOKEN = " ant"
 ANIMAL_TARGETS = {"ant": (" ant", "6"), "dog": (" dog", "4"), "bird": (" bird", "2")}
+TARGET_LEG_STRENGTHS = (1.0, 2.0, 4.0, 8.0, 12.0)
 RANDOM_CONTROL_COUNT = 32
 MAX_NEW_TOKENS = 64
 
@@ -113,9 +114,11 @@ def coordinate_swap(h, directions, strength, mask, restore_norm=True):
     )
 
 
-def coordinate_swap_leg(h, directions, leg, mask, restore_norm=True):
+def coordinate_swap_leg(
+    h, directions, leg, mask, strength=1.0, restore_norm=True
+):
     before = dual_coordinates(h, directions)
-    coordinate_delta = before.flip(-1) - before
+    coordinate_delta = strength * (before.flip(-1) - before)
     keep = torch.tensor(
         [leg == "source", leg == "target"],
         device=h.device,
@@ -169,13 +172,13 @@ def target_hook(directions, strength, mask, record=None):
     return hook
 
 
-def swap_leg_hook(directions, leg, mask, record=None):
+def swap_leg_hook(directions, leg, mask, record=None, strength=1.0):
     def hook(_module, _inputs, output):
         hidden = output[0] if isinstance(output, tuple) else output
         if hidden.shape[1] == 1:
             return output
         h = hidden.float()
-        patched = coordinate_swap_leg(h, directions, leg, mask)
+        patched = coordinate_swap_leg(h, directions, leg, mask, strength=strength)
         if record is not None:
             record_coordinate_change(record, h, patched, directions, mask)
         return replace_output(output, patched.to(hidden.dtype))
@@ -338,6 +341,49 @@ def evaluate_prompt(model, tokenizer, prompt):
                     ),
                     "matching": leg_record,
                 }
+            target_doses = []
+            for dose in TARGET_LEG_STRENGTHS:
+                if dose == 1.0:
+                    dose_metrics = swap_legs["target"]["metrics"]
+                    dose_record = swap_legs["target"]["matching"]
+                else:
+                    dose_record = {}
+                    with layer_hook(
+                        layer,
+                        swap_leg_hook(
+                            animal_directions, "target", mask,
+                            dose_record, strength=dose,
+                        ),
+                    ):
+                        _, dose_logits = trajectory(
+                            model, input_ids, language_model.norm
+                        )
+                    dose_metrics = score(
+                        tokenizer, dose_logits, clean_logits, id6, id8, digit_ids
+                    )
+                target_doses.append({
+                    "strength": dose,
+                    "metrics": dose_metrics,
+                    "matching": dose_record,
+                })
+            successful_doses = [
+                row for row in target_doses
+                if top_label(row["metrics"]) == expected_output
+            ]
+            first_success = None
+            if successful_doses:
+                first = successful_doses[0]
+                first_success = {
+                    "strength": first["strength"],
+                    "generation": generate(
+                        model, tokenizer, input_ids, layer,
+                        swap_leg_hook(
+                            animal_directions, "target", mask,
+                            strength=first["strength"],
+                        ),
+                        MAX_NEW_TOKENS,
+                    ),
+                }
             if animal == "ant":
                 strength = STRENGTH
             else:
@@ -392,6 +438,8 @@ def evaluate_prompt(model, tokenizer, prompt):
                     "metrics": exact_metrics,
                     "matching": exact_record,
                     "legs": swap_legs,
+                    "target_doses": target_doses,
+                    "first_success": first_success,
                 },
                 "metrics": animal_metrics,
                 "p_expected": p_expected,
@@ -514,6 +562,33 @@ def render_log(metadata, results):
                 ],
                 tablefmt="pipe", floatfmt="+.4f",
             )
+            dose_table = tabulate(
+                [[
+                    row["animal"], dose["strength"],
+                    top_label(dose["metrics"]),
+                    *[
+                        dose["metrics"]["digit_probabilities"][digit]
+                        for digit in ("2", "4", "6", "8")
+                    ],
+                    dose["matching"]["perturbation_norm"],
+                ]
+                for row in result["animal_targets"]
+                for dose in row["exact_swap"]["target_doses"]],
+                headers=[
+                    "target", "target C", "top",
+                    "p(2)", "p(4)", "p(6)", "p(8)", "distance",
+                ],
+                tablefmt="pipe", floatfmt=".4f",
+            )
+            success_generations = "\n\n".join(
+                f"### {row['animal'].title()} target component, "
+                f"C={row['exact_swap']['first_success']['strength']:g}\n\n"
+                f"```text\n"
+                f"{row['exact_swap']['first_success']['generation']['text']}\n"
+                f"```"
+                for row in result["animal_targets"]
+                if row["exact_swap"]["first_success"] is not None
+            )
             animal_table = tabulate(
                 [[
                     row["animal"], row["expected_output"], row["strength"],
@@ -541,9 +616,15 @@ def render_log(metadata, results):
 
 {exact_table}
 
-### Components of the C=1 operation
+### Separately norm-restored sides of the C=1 operation
 
 {leg_table}
+
+### Target-coordinate dose sweep
+
+{dose_table}
+
+{success_generations}
 
 ### Equal-distance animal extrapolations
 
@@ -623,6 +704,7 @@ def main():
         "strength": STRENGTH,
         "source_token": SOURCE_TOKEN,
         "target_token": TARGET_TOKEN,
+        "target_leg_strengths": TARGET_LEG_STRENGTHS,
         "random_control_count": RANDOM_CONTROL_COUNT,
         "max_new_tokens": MAX_NEW_TOKENS,
         "status": "running",
