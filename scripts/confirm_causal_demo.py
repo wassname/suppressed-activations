@@ -299,7 +299,10 @@ def render_log(metadata, sources, targets, conditions, random_summary, generatio
         tablefmt="pipe",
         floatfmt=".4f",
     )
-    readout_rows = [[name, ", ".join(row["token"] for row in sample["selected"])] for name, sample in sources | targets.items()]
+    readout_rows = [
+        [name, ", ".join(row["token"] for row in sample["selected"])]
+        for name, sample in (sources | targets).items()
+    ]
     readouts = tabulate(readout_rows, headers=["sample", "selected vocabulary rows"], tablefmt="pipe")
     random_rows = tabulate(
         [[name, values["below"], RANDOM_CONTROL_COUNT, values["percentile"], values["random_top_expected"]]
@@ -525,14 +528,14 @@ def main():
         name: {key: value for key, value in row.items() if key not in {"patched_h", "source_h"}}
         for name, row in conditions.items()
     }
-    metadata |= {
+    completed_metadata = metadata | {
         "status": "complete",
         "ended_at": datetime.now().astimezone().isoformat(),
         "elapsed_seconds": time.monotonic() - clock,
         "peak_gpu_memory_gib": torch.cuda.max_memory_allocated() / 2**30,
     }
     artifact = {
-        "metadata": metadata,
+        "metadata": completed_metadata,
         "sources": {
             name: {key: value for key, value in row.items() if key not in {"input_ids", "residuals", "logits", "basis"}}
             for name, row in sources.items()
@@ -546,11 +549,21 @@ def main():
         "random_summary": random_summary,
         "generations": generations,
     }
-    (output_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
-    (output_dir / "result.json").write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n")
-    (output_dir / "log.md").write_text(
-        render_log(metadata, artifact["sources"], artifact["targets"], serializable_conditions, random_summary, generations)
+    rendered_log = render_log(
+        completed_metadata,
+        artifact["sources"],
+        artifact["targets"],
+        serializable_conditions,
+        random_summary,
+        generations,
     )
+    (output_dir / "metadata.json").write_text(
+        json.dumps(completed_metadata, ensure_ascii=False, indent=2) + "\n"
+    )
+    (output_dir / "result.json").write_text(
+        json.dumps(artifact, ensure_ascii=False, indent=2) + "\n"
+    )
+    (output_dir / "log.md").write_text(rendered_log)
     print(tabulate(
         [[name, row["metrics"]["top"][0]["token"], row["metrics"]["delta_log_odds_expected_vs_8"]]
          for name, row in conditions.items() if name in {"ant_C4", "dog_C4"}],
@@ -559,7 +572,7 @@ def main():
         floatfmt=".4f",
     ))
     print(f"output: {output_dir.relative_to(ROOT)}/log.md")
-    print(f"run identity: {git_describe} | {metadata['elapsed_seconds']:.1f}s")
+    print(f"run identity: {git_describe} | {completed_metadata['elapsed_seconds']:.1f}s")
 
 
 if __name__ == "__main__":
