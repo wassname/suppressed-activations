@@ -252,9 +252,8 @@ would test whether the diagnostic also identifies a transferable causal interven
 
 [`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
 editable [`nbs/demo.py`](nbs/demo.py). One configuration cell holds the prompts, layers,
-rank, strengths, and generation length. Its spider→dog dose grid runs in both directions
-from `C = -0.5` to `C = 2` and leaves the malformed persistent-steering outputs visible at
-excessive strengths.
+rank, strengths, and generation length. Its spider→dog dose grid runs from `C = -0.5` to
+`C = 2` and leaves the malformed persistent-steering outputs visible at excessive strengths.
 
 ```bash
 just notebook-run

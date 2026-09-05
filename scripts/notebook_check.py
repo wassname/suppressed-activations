@@ -21,11 +21,12 @@ def main() -> None:
     assert "'git':" in text and "-dirty" not in text
     assert "'Spider'" in text
     assert "'dog'" in text
+    assert "spider, after C=2" in text and "perros" in text
     assert all(value in text for value in ("-0.5000", "+0.0000", "+1.0000", "+2.0000"))
     assert "target/source log odds" in text and "吠吠" in text
     assert any("image/png" in output.get("data", {}) for output in outputs)
     assert notebook["metadata"]["jupytext"]["formats"] == "py:percent,ipynb"
-    print("PASS: executed notebook has clean provenance, both directions, excessive doses, and Figure 2")
+    print("PASS: executed notebook has clean provenance, before/after readouts, signed doses, and Figure 2")
 
 
 if __name__ == "__main__":
