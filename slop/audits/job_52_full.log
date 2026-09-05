@@ -1,0 +1,72 @@
+[pq] task 52: last 71 of 71 clean lines -- /home/code/.local/share/pueue/task_logs/52.log
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]
+Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 7262.86it/s]
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 8609.13it/s]
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/scripts/demo.py", line 326, in <module>
+    main(parser.parse_args().output)
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/scripts/demo.py", line 227, in main
+    logits = run_forward(model, source_ids, blocks, hooks)
+  File "/workspace/2026/suppressed-activations/scripts/demo.py", line 155, in run_forward
+    return model(input_ids=input_ids, use_cache=False).logits[0, -1].float()
+           ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/utils/generic.py", line 911, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py", line 1654, in forward
+    outputs: BaseModelOutputWithPast = self.model(
+                                       ~~~~~~~~~~^
+        input_ids=input_ids,
+        ^^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+        **kwargs,
+        ^^^^^^^^^
+    )
+    ^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/utils/generic.py", line 1040, in wrapper
+    output = func(self, *args, **kwargs)
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/utils/output_capturing.py", line 262, in wrapper
+    outputs = func(self, *args, **kwargs)
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py", line 1212, in forward
+    hidden_states = decoder_layer(
+        hidden_states,
+    ...<5 lines>...
+        **kwargs,
+    )
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/transformers/modeling_layers.py", line 110, in __call__
+    return super().__call__(*args, **kwargs)
+           ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1884, in _call_impl
+    return inner()
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/nn/modules/module.py", line 1845, in inner
+    hook_result = hook(self, args, result)
+  File "/workspace/2026/suppressed-activations/scripts/demo.py", line 136, in hook
+    patched = matched_random_rotation(h, random_delta, distance)
+  File "/workspace/2026/suppressed-activations/suppressed_activation_subspace.py", line 104, in matched_random_rotation
+    torch.testing.assert_close(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        (rotated - h).norm(dim=-1), distance.squeeze(-1), atol=2e-5, rtol=2e-5
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/workspace/2026/do_qwens_reason_in_english/.venv/lib/python3.13/site-packages/torch/testing/_comparison.py", line 1631, in assert_close
+    raise error_metas[0].to_error(msg)
+AssertionError: Tensor-likes are not close!
+Mismatched elements: 1 / 1 (100.0%)
+Greatest absolute difference: 4.9591064453125e-05 at index (0, 0) (up to 2e-05 allowed)
+Greatest relative difference: 4.2026971641462296e-05 at index (0, 0) (up to 2e-05 allowed)
