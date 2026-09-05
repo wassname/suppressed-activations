@@ -77,6 +77,9 @@ def main() -> None:
     prototype_methods = {row["method"] for row in spider_ant["prototype_rows"]}
     assert prototype_methods == {"pair_1", "pair_2", "pair_3", "pair_4", "mean_atomic", "svd1_atomic"}
     assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["prototype_rows"])
+    assert len(spider_ant["strong_rows"]) == 36
+    assert {row["restore_norm"] for row in spider_ant["strong_rows"]} == {False, True}
+    assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["strong_rows"])
     assert spider_ant["geometry"]["unit"]["condition_number_at_final_position"] > 1
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
