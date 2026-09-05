@@ -150,18 +150,22 @@ def hooks(strength: float):
 # %% [markdown]
 # ## Sweep both directions
 #
-# Positive strength moves from the `heart` component toward `school`. Negative strength moves in the
-# opposite direction. The useful range is local: excessive intervention produces repetition or
-# malformed output, which is why the grid includes weak and excessive strengths.
+# Positive strength moves from the source component toward the target component. Negative strength
+# moves in the opposite direction. The useful range is local: excessive intervention can repeat,
+# change task format, or become malformed, so the grid includes weak and excessive strengths.
 
 # %%
+print(
+    f"Positive C moves source → target at residual layers "
+    f"L{INTERVENTION_START}–L{INTERVENTION_END}."
+)
 metric_rows = []
 for strength in STRENGTHS:
     logits = clean_logits if strength == 0 else run_forward(model, source_ids, blocks, hooks(strength))
     row = metrics(tokenizer, logits, clean_logits, source_output_id, target_output_id)
     metric_rows.append(
         {
-            "C": strength,
+            "strength C": strength,
             "top token": row["top"][0]["token"],
             f"p({SOURCE_OUTPUT})": row["p_source"],
             f"p({TARGET_OUTPUT})": row["p_target"],
@@ -182,7 +186,7 @@ for strength in STRENGTHS:
         hooks(strength),
         max_new_tokens=MAX_NEW_TOKENS,
     )
-    generation_rows.append({"C": strength, "generation": result["text"]})
+    generation_rows.append({"strength C": strength, "generation": result["text"]})
 print(
     tabulate(
         generation_rows,
