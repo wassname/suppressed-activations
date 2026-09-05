@@ -18,16 +18,19 @@ def main() -> None:
         "".join(output.get("text", output.get("data", {}).get("text/plain", [])))
         for output in outputs
     )
+    source = (ROOT / "nbs/demo.py").read_text()
     assert "'git':" in text and "-dirty" not in text
-    assert "'Spider'" in text
-    assert "'dog'" in text
-    assert "source, after C=2" in text and "perros" in text
-    assert "top next token" in text and "p(expected)" in text
-    assert all(value in text for value in ("-0.5000", "+0.0000", "+1.0000", "+2.0000"))
-    assert "target/source log odds" in text and "吠吠" in text
-    assert any("image/png" in output.get("data", {}) for output in outputs)
+    assert "one vector at residual L26, final prompt token" in text
+    assert "'Spider'" in text and "'dog'" in text
+    assert "spider after ant, C=4" in text and "spider after dog, C=4" in text
+    assert "target/source log odds" in text and "distance/residual" in text
+    assert all(value in text for value in ("-1.0000", "+0.0000", "+1.0000", "+4.0000", "+8.0000"))
+    assert "animal that spins webs has 6 legs" in text
+    assert "animal that spins webs has 4 legs" in text
+    assert "238/256" in source and "235/256" in source
+    assert "not proof that an Ant or Dog concept" in source
     assert notebook["metadata"]["jupytext"]["formats"] == "py:percent,ipynb"
-    print("PASS: executed notebook has clean provenance, before/after readouts, signed doses, and Figure 2")
+    print("PASS: executed notebook has one-site extraction, two targets, signed doses, and exact continuations")
 
 
 if __name__ == "__main__":
