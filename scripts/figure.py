@@ -120,8 +120,12 @@ def causal_demo(data: dict) -> plt.Figure:
 
     ax = axes[0]
     ax.axis("off")
+    translated_labels = {"สุนัข": "Thai: dog"}
     source_tokens = [repr(row["token"].strip()) for row in data["source_selected_tokens"]]
-    target_tokens = [repr(row["token"].strip()) for row in data["target_selected_tokens"]]
+    target_tokens = [
+        repr(translated_labels.get(row["token"].strip(), row["token"].strip()))
+        for row in data["target_selected_tokens"]
+    ]
     source_words = ", ".join(source_tokens[:4]) + "\n  " + ", ".join(source_tokens[4:])
     target_words = ", ".join(target_tokens[:4]) + "\n  " + ", ".join(target_tokens[4:])
     source_prompt = textwrap.fill(metadata["source_prompt"].strip(), width=47)
