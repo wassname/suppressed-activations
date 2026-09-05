@@ -97,14 +97,33 @@ def dual_coordinates(h, directions):
     return torch.einsum("bsd,sqd->bsq", h, torch.linalg.pinv(directions))
 
 
-def coordinate_swap(h, directions, strength, mask, restore_norm=True):
-    before = dual_coordinates(h, directions)
-    swapped = before.flip(-1)
-    delta = torch.einsum("bsq,sdq->bsd", swapped - before, directions)
-    patched = h + strength * delta * mask[None, :, None]
+def apply_coordinate_delta(h, directions, coordinate_delta, mask, restore_norm=True):
+    delta = torch.einsum("bsq,sdq->bsd", coordinate_delta, directions)
+    patched = h + delta * mask[None, :, None]
     if restore_norm:
         patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
     return patched
+
+
+def coordinate_swap(h, directions, strength, mask, restore_norm=True):
+    before = dual_coordinates(h, directions)
+    coordinate_delta = strength * (before.flip(-1) - before)
+    return apply_coordinate_delta(
+        h, directions, coordinate_delta, mask, restore_norm=restore_norm
+    )
+
+
+def coordinate_swap_leg(h, directions, leg, mask, restore_norm=True):
+    before = dual_coordinates(h, directions)
+    coordinate_delta = before.flip(-1) - before
+    keep = torch.tensor(
+        [leg == "source", leg == "target"],
+        device=h.device,
+        dtype=h.dtype,
+    )
+    return apply_coordinate_delta(
+        h, directions, coordinate_delta * keep, mask, restore_norm=restore_norm
+    )
 
 
 def projected_pair(model, tokenizer, basis, target_token):
@@ -120,6 +139,22 @@ def projected_pair(model, tokenizer, basis, target_token):
     return projected.transpose(1, 2)
 
 
+def record_coordinate_change(record, h, patched, directions, mask):
+    position = int(mask.nonzero()[-1])
+    before = dual_coordinates(h, directions)[0, position]
+    after = dual_coordinates(patched, directions)[0, position]
+    record.update({
+        "position": position,
+        "source_before": float(before[0]),
+        "target_before": float(before[1]),
+        "source_after": float(after[0]),
+        "target_after": float(after[1]),
+        "residual_norm_before": float(h[0, position].norm()),
+        "residual_norm_after": float(patched[0, position].norm()),
+        "perturbation_norm": float((patched[0, position] - h[0, position]).norm()),
+    })
+
+
 def target_hook(directions, strength, mask, record=None):
     def hook(_module, _inputs, output):
         hidden = output[0] if isinstance(output, tuple) else output
@@ -128,19 +163,21 @@ def target_hook(directions, strength, mask, record=None):
         h = hidden.float()
         patched = coordinate_swap(h, directions, strength, mask)
         if record is not None:
-            position = int(mask.nonzero()[-1])
-            before = dual_coordinates(h, directions)[0, position]
-            after = dual_coordinates(patched, directions)[0, position]
-            record.update({
-                "position": position,
-                "source_before": float(before[0]),
-                "target_before": float(before[1]),
-                "source_after": float(after[0]),
-                "target_after": float(after[1]),
-                "residual_norm_before": float(h[0, position].norm()),
-                "residual_norm_after": float(patched[0, position].norm()),
-                "perturbation_norm": float((patched[0, position] - h[0, position]).norm()),
-            })
+            record_coordinate_change(record, h, patched, directions, mask)
+        return replace_output(output, patched.to(hidden.dtype))
+
+    return hook
+
+
+def swap_leg_hook(directions, leg, mask, record=None):
+    def hook(_module, _inputs, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        if hidden.shape[1] == 1:
+            return output
+        h = hidden.float()
+        patched = coordinate_swap_leg(h, directions, leg, mask)
+        if record is not None:
+            record_coordinate_change(record, h, patched, directions, mask)
         return replace_output(output, patched.to(hidden.dtype))
 
     return hook
@@ -288,6 +325,19 @@ def evaluate_prompt(model, tokenizer, prompt):
             exact_metrics = score(
                 tokenizer, exact_logits, clean_logits, id6, id8, digit_ids
             )
+            swap_legs = {}
+            for leg in ("source", "target"):
+                leg_record = {}
+                with layer_hook(
+                    layer, swap_leg_hook(animal_directions, leg, mask, leg_record)
+                ):
+                    _, leg_logits = trajectory(model, input_ids, language_model.norm)
+                swap_legs[leg] = {
+                    "metrics": score(
+                        tokenizer, leg_logits, clean_logits, id6, id8, digit_ids
+                    ),
+                    "matching": leg_record,
+                }
             if animal == "ant":
                 strength = STRENGTH
             else:
@@ -341,6 +391,7 @@ def evaluate_prompt(model, tokenizer, prompt):
                 "exact_swap": {
                     "metrics": exact_metrics,
                     "matching": exact_record,
+                    "legs": swap_legs,
                 },
                 "metrics": animal_metrics,
                 "p_expected": p_expected,
@@ -443,6 +494,26 @@ def render_log(metadata, results):
                 ],
                 tablefmt="pipe", floatfmt=".4f",
             )
+            leg_table = tabulate(
+                [[
+                    row["animal"], leg,
+                    *[
+                        row["exact_swap"]["legs"][leg]["metrics"]
+                        ["digit_probabilities"][digit]
+                        - result["clean"]["digit_probabilities"][digit]
+                        for digit in ("2", "4", "6", "8")
+                    ],
+                    row["exact_swap"]["legs"][leg]["matching"]
+                    ["perturbation_norm"],
+                ]
+                for row in result["animal_targets"]
+                for leg in ("source", "target")],
+                headers=[
+                    "pair", "swap component",
+                    "Δp(2)", "Δp(4)", "Δp(6)", "Δp(8)", "distance",
+                ],
+                tablefmt="pipe", floatfmt="+.4f",
+            )
             animal_table = tabulate(
                 [[
                     row["animal"], row["expected_output"], row["strength"],
@@ -469,6 +540,10 @@ def render_log(metadata, results):
             animal_block = f"""### C=1 swap endpoint
 
 {exact_table}
+
+### Components of the C=1 operation
+
+{leg_table}
 
 ### Equal-distance animal extrapolations
 
