@@ -14,4 +14,10 @@ The continuation counts as independent semantic evidence only if it differs from
 
 This run replaces the historical all-in-one script with one focused experiment. It writes `out/<timestamp>_spider-ant/log.md`, `metadata.json`, and `result.json`; it never writes `data/spider_ant_demo.json`.
 
+## Result
+
+Spider changed from top `8` to top `6`: p6=.61466, p8=.05717, and 6-vs-8 log odds +2.375. Byte stayed top `8` with KL=.000415. The target exceeded 30/32, not 31/32, matched random effects; five random controls also made `6` top. The post-intervention suppressed-score list contained no Ant-like token. The targeted and forced-first-6 generations were byte-identical.
+
+The run therefore supports a prompt-specific causal first-token change but does not yet establish Spider→Ant semantics. See [`job_138.md`](../audits/job_138.md) and the immutable [`log.md`](../../out/2026-09-05_195036_spider-ant/log.md).
+
 Written by PI/gpt-5.4.
