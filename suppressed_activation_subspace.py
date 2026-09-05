@@ -15,6 +15,7 @@ def suppressed_activation_subspace(
     peak_layer: int,
     output_layer: int,
     rank: int = 32,
+    normalize_unembedding_rows: bool = False,
 ) -> tuple[Tensor, Tensor]:
     """Find per-sample token directions written by `peak_layer` and suppressed by output."""
     h = residuals[:, [early_layer, peak_layer, output_layer]].float()
@@ -22,6 +23,11 @@ def suppressed_activation_subspace(
     h_norm = h_norm * rms_norm_gain.float()
 
     logits = h_norm @ unembedding.float().T
+    if normalize_unembedding_rows:
+        row_norm = (unembedding.float() * rms_norm_gain.float()).norm(dim=-1)
+        if torch.any(row_norm == 0):
+            raise ValueError("cannot normalize a zero unembedding row")
+        logits = logits / row_norm
     rise = logits[:, 1] - logits[:, 0]
     fall = logits[:, 1] - logits[:, 2]
     rise = rise - rise.mean(-1, keepdim=True)

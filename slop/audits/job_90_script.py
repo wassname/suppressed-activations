@@ -24,7 +24,6 @@ from suppressed_activation_subspace import (
     random_basis_like,
     remove,
     replace,
-    suppressed_activation_subspace,
 )
 
 MODEL = "Qwen/Qwen3.5-4B"
@@ -32,8 +31,6 @@ EARLY_LAYER = 23
 PEAK_LAYER = 25
 OUTPUT_LAYER = 32
 RANK = 8
-CONTROL_STRENGTH = 2.0
-RANDOM_CONTROL_COUNT = 256
 INTERVENTION_BLOCKS = range(22, 30)  # block 22 writes residual L23
 MAX_NEW_TOKENS = 64
 SOURCE_PROMPT = "Fact: The number of legs on the animal that spins webs is "
@@ -77,6 +74,32 @@ def trajectory(model, input_ids: Tensor, final_norm) -> tuple[Tensor, Tensor]:
         [hidden[0] for hidden in output.hidden_states[:-1]] + [raw_final["hidden"][0]]
     )
     return residuals, output.logits[0, -1].float()
+
+
+def normalized_suppressed_subspace(
+    residuals: Tensor,
+    unembedding: Tensor,
+    rms_norm_gain: Tensor,
+    *,
+    early_layer: int,
+    peak_layer: int,
+    output_layer: int,
+    rank: int,
+) -> tuple[Tensor, Tensor]:
+    h = residuals[:, [early_layer, peak_layer, output_layer]].float()
+    h = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6)
+    effective_unembedding = unembedding.float() * rms_norm_gain.float()
+    logits = (h @ effective_unembedding.T) / effective_unembedding.norm(dim=-1)
+    rise = logits[:, 1] - logits[:, 0]
+    fall = logits[:, 1] - logits[:, 2]
+    rise -= rise.mean(-1, keepdim=True)
+    fall -= fall.mean(-1, keepdim=True)
+    score = torch.minimum(rise.clamp_min(0), fall.clamp_min(0))
+    token_ids = score.topk(rank, dim=-1).indices
+    directions = (unembedding.float() - unembedding.float().mean(0))[token_ids]
+    directions = directions * rms_norm_gain.float()
+    basis = torch.linalg.qr(directions.transpose(1, 2), mode="reduced").Q
+    return basis, token_ids
 
 
 def top_tokens(tokenizer, logits: Tensor, k: int = 5) -> list[dict]:
@@ -193,15 +216,13 @@ def main(output_path: Path) -> None:
     source_residuals, clean_logits = trajectory(model, source_ids, final_norm)
     target_residuals, _ = trajectory(model, target_ids, final_norm)
 
-    source_basis, source_selected = suppressed_activation_subspace(
+    source_basis, source_selected = normalized_suppressed_subspace(
         source_residuals[:, -1][None], unembedding, norm_gain,
         early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER, output_layer=OUTPUT_LAYER, rank=RANK,
-        normalize_unembedding_rows=True,
     )
-    target_basis, target_selected = suppressed_activation_subspace(
+    target_basis, target_selected = normalized_suppressed_subspace(
         target_residuals[:, -1][None], unembedding, norm_gain,
         early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER, output_layer=OUTPUT_LAYER, rank=RANK,
-        normalize_unembedding_rows=True,
     )
     source_basis, target_basis = source_basis[0], target_basis[0]
     source_output_id = one_token(tokenizer, SOURCE_OUTPUT)
@@ -210,7 +231,7 @@ def main(output_path: Path) -> None:
     semantic_record: dict[int, dict] = {}
     replace_hooks = intervention_hooks(
         source_basis, target_basis, target_residuals,
-        operation="replace", strength=CONTROL_STRENGTH, record=semantic_record,
+        operation="replace", record=semantic_record,
     )
     replace_logits = run_forward(model, source_ids, blocks, replace_hooks)
     matched_distances = {
@@ -227,7 +248,7 @@ def main(output_path: Path) -> None:
     ]
     random_hooks = {}
     random_record: dict[int, dict] = {}
-    for seed in range(RANDOM_CONTROL_COUNT):
+    for seed in range(32):
         record = random_record if seed == 0 else None
         hooks = intervention_hooks(
             source_basis, target_basis, target_residuals,
@@ -261,7 +282,7 @@ def main(output_path: Path) -> None:
         for strength in strengths
     }
     for strength, hooks in strength_hooks.items():
-        logits = replace_logits if strength == CONTROL_STRENGTH else run_forward(model, source_ids, blocks, hooks)
+        logits = replace_logits if strength == 1 else run_forward(model, source_ids, blocks, hooks)
         rows.append({
             "condition": f"replace_C={strength:+g}",
             "metrics": metrics(tokenizer, logits, clean_logits, source_output_id, target_output_id),
@@ -271,7 +292,7 @@ def main(output_path: Path) -> None:
         "base": {},
         "replace": intervention_hooks(
             source_basis, target_basis, target_residuals,
-            operation="replace", strength=CONTROL_STRENGTH, prefill_only=True,
+            operation="replace", prefill_only=True,
         ),
         "random": intervention_hooks(
             source_basis, target_basis, target_residuals,
@@ -310,9 +331,6 @@ def main(output_path: Path) -> None:
             "output_layer": OUTPUT_LAYER,
             "intervention_residual_layers": [block + 1 for block in INTERVENTION_BLOCKS],
             "rank": RANK,
-            "control_strength": CONTROL_STRENGTH,
-            "random_control_count": RANDOM_CONTROL_COUNT,
-            "score": "rise-and-fall divided by effective LM-head row norm",
             "max_new_tokens": MAX_NEW_TOKENS,
             "source_prompt": SOURCE_PROMPT,
             "target_prompt": TARGET_PROMPT,

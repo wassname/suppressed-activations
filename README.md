@@ -98,81 +98,104 @@ share points against the full readout.
 
 ## A causal component replacement
 
-The read-modify-compare layout below follows [Gurnee et al., Figures
-12-13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching). Their directions
-come from the Jacobian lens. This test uses only the LM-head rise-and-fall method above.
+The presentation follows [Gurnee et al., Figures
+12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching). They report:
+
+> When we swap the spider lens vector for ant, the model's top output changes from “8”
+> to “6”, the number of legs on an ant.
+
+Their vectors come from the Jacobian lens. This experiment uses only the LM-head
+rise-and-fall method above.
 
 The source prompt is:
 
-> The Chinese translation of the German word "Herz" is "
+> Fact: The number of legs on the animal that spins webs is
 
-The target prompt is:
+The detector selects `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, and `WEB`.
+For a separately run target prompt, “the animal that barks and is called man's best
+friend”, it selects `吠`, `собаки`, `狗粮`, `dog`, `Dog`, `Dog`, `สุนัข`, and `canine`.
+The ranking does not receive `spider`, `dog`, `8`, or `4` as labels. For this English demo
+I divide each rise-and-fall score by its effective LM-head row norm; otherwise high-norm
+vocabulary rows dominate the ranking.
 
-> The Chinese translation of the German word "Schule" is "
-
-The source run selects `heart`, `hearts`, `Heart`, `-heart`, `Cards`, `jantung`,
-`cards`, and `cardiac`. The target run selects
-`school`, `schools`, `scho`, `Schools`, `szko`, `School`, `المدرسة`, and `عودة`.
-Most rows form multilingual semantic clusters, but `Cards`, `cards`, and `عودة` show that
-the rank-8 selections are not pure. Neither run receives the English or Chinese answer as
-a label.
-
-For residual layers 23 to 30 at the last prompt position, I replace the source sample's
-rank-8 component with the target sample's component:
+At the last prompt position in residual layers 23–30, I remove the source projection and
+insert twice the norm-matched target projection:
 
 ```python
-source_component = h @ S_source @ S_source.T
-target_component = h_target @ S_target @ S_target.T
-target_component = match_norm(target_component, source_component)
-h_replaced = match_norm(h - source_component + target_component, h)
+source = h @ S_spider @ S_spider.T
+target = match_norm(h_dog @ S_dog @ S_dog.T, source)
+h_replaced = match_norm(h + 2 * (target - source), h)
 ```
 
-The QR columns have no pairing. Each `S @ S.T` is a projector, so rotating either basis
-leaves the intervention unchanged. The final `match_norm` keeps the residual norm fixed.
+Each subspace is computed from its own unmodified run. The QR columns have no pairing;
+`S @ S.T` is unchanged if the basis rotates. The last operation restores the residual
+norm.
 
-![Replacing heart's suppressed component with school's changes Qwen's next token from heart to school](figs/causal_demo.png)
+![Replacing the detected spider component with the detected dog component changes Qwen's answer from 8 to 4](figs/causal_demo.png)
 
-*Figure 2: A single held-in Qwen3.5-4B example. The predicted change is from `心`
-(heart) to `学校` (school). It occurs: the top next token changes from `心` to `学校`,
-and the log probability ratio changes from -12.83 to +0.12. The replaced distribution is
-uncertain: `p(学校) = 0.125` and `p(心) = 0.110`. None of 32 random
-rank-8 replacements matched for residual norm and per-layer perturbation norm changes the
-top token; their ratios range from -13.67 to -11.66. Removing the source component lowers
-`p(心)` from 0.561 to 0.186 but keeps `心` on top. The patch is present only while reading
-the prompt for the generations below; the model generates all later tokens without a
-hook. The replacement first says school, then notices that this conflicts with `Herz` and
-corrects itself. This shows a causal effect on this sample, not transfer to a new prompt.*
+*Figure 2: Qwen3.5-4B first answers `8`. The separately extracted dog component predicts a
+change to `4`, and the C=2 prompt-only replacement makes `4` top: `p(4)=0.519` and
+`p(8)=0.278`. The log probability ratio moves from -2.75 to +0.625. Its effect is larger
+than 248 of 256 matched-random replacements (96.875th percentile); 13 of those random
+replacements also make `4` top, so the answer flip alone is not the control. Random
+replacements preserve the residual norm and match the semantic replacement's per-layer
+perturbation norm. Removing the source component alone leaves `8` on top. C=2 was chosen
+after inspecting a dose sweep, so the empirical random-tail value is descriptive, not a
+confirmatory p-value. The patch is active only while reading the final prompt token; later
+generation is unmodified.*
 
-Here are the 64 generated tokens for each condition:
+Here are the 64 generated tokens:
 
 **Base**
 
-> 心" (xīn), which means "heart" in English. The German word "Herz" is a noun that
-> refers to the organ in the body that pumps blood. In the context of the German
-> language, "Herz" is a masculine noun, and its plural form is "Herzen". The
-
-**Replace heart with school**
-
-> 学校" (xué xiào), which means "school" in English. This is a common mistake, as
-> "Herz" actually means "heart" in German. The correct Chinese translation for "Herz"
-> is "心" (xīn).
+> 8.
+> Hypothesis: The animal that spins webs has 8 legs.
+> Does the hypothesis follow from the fact?
 >
-> In the context of the German word "Herz
+> &lt;think&gt;
+> Thinking Process:
+>
+> 1. **Analyze the Request:**
+>    * Fact: “The number of legs on the animal that spins webs is 8.”
+
+**Replace spider with dog, C=2**
+
+> 4.
+> Hypothesis: The animal that spins webs has 4 legs.
+> Is the hypothesis entailed by the fact?
+>
+> &lt;think&gt;
+> Thinking Process:
+>
+> 1. **Analyze the Request:**
+>    * Fact: “The number of legs on the animal that spins webs is 4.”
 
 **Matched-random replacement, seed 0**
 
-> 心" (xīn), which means "heart" in English. This word is used in various contexts,
-> such as in the phrase "Herz und Seele" (heart and soul), which translates to "heart
-> and soul" in English. The word "Herz" is also used in the phrase "Her
+> 8.
+> Hypothesis: The animal that spins webs has 8 legs.
+> Is the hypothesis entailed by the fact?
+>
+> &lt;think&gt;
+> Thinking Process:
+>
+> 1. **Analyze the Request:**
+>    * Fact: “The number of legs on the animal that spins webs is 8.”
 
-**Remove the heart component**
+**Remove the spider component**
 
-> 心" (xīn), which means "heart" in English. The German word "Herz" is a noun that
-> refers to the organ in the body that pumps blood. In the context of the German
-> language, "Herz" is a masculine noun, and its plural form is "Herzen". The
+> 8.
+> Hypothesis: The animal that spins webs has 8 legs.
+> Does the hypothesis follow from the fact?
+>
+> &lt;think&gt;
+> Thinking Process:
+>
+> 1. **Analyze the Request:**
+>    * Fact: “The number of legs on the animal that spins webs is 8.”
 
-The complete next-token distributions, all 32 random controls, token IDs, diagnostics, and
-unabridged generation strings are in [`data/causal_demo.json`](data/causal_demo.json).
+The complete distributions, 256 random controls, token IDs, diagnostics, and exact
+strings are in [`data/causal_demo.json`](data/causal_demo.json).
 
 ## Limits
 
@@ -184,8 +207,10 @@ unabridged generation strings are in [`data/causal_demo.json`](data/causal_demo.
 - Each trajectory gets its own subspace. The different-prompt control shows that the basis
   is mostly path-dependent. An intervention on the same sample can use an unsteered first
   pass; a transferable intervention would need to combine many extraction trajectories.
-- The causal example was selected because both hidden English words rank first. It does not
-  estimate how often the replacement works across prompts.
+- L23/L25/L32 and row normalization were selected from the spider/ant source search. With
+  that rule fixed, dog and cat passed the rank-32 and clean-answer criterion on 2 of 9
+  held-out atomic animal prompts. Dog was then selected for the causal example. This does
+  not estimate a population success rate.
 - The random control tests matched, content-free directions. It does not compare against a
   different method for selecting a semantically loaded component from the target residual.
 
@@ -219,8 +244,9 @@ would test whether the diagnostic also identifies a transferable causal interven
 
 [`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
 editable [`nbs/demo.py`](nbs/demo.py). One configuration cell holds the prompts, layers,
-rank, strengths, and generation length. Its dose grid runs in both directions from
-`C = -0.5` to `C = 2` and leaves the malformed outputs visible at excessive strengths.
+rank, strengths, and generation length. Its spider→dog dose grid runs in both directions
+from `C = -0.5` to `C = 2` and leaves the malformed persistent-steering outputs visible at
+excessive strengths.
 
 ```bash
 just notebook-run
