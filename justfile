@@ -23,6 +23,10 @@ notebook-smoke:
 
 notebook-run:
     SUPPRESSED_ROOT=$PWD uv run jupytext --to ipynb --execute nbs/demo.py -o nbs/demo.ipynb
+    uv run scripts/notebook_check.py
+
+notebook-check:
+    uv run scripts/notebook_check.py
 
 figure:
     uv run scripts/figure.py

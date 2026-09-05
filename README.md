@@ -212,6 +212,17 @@ one vector that can be applied to new prompts. Compare this with the full mean d
 the orthogonal complement, a random rank-32 subspace, and different-prompt pairing. This
 would test whether the diagnostic also identifies a transferable causal intervention.
 
+## Try it in a notebook
+
+[`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
+editable [`nbs/demo.py`](nbs/demo.py). One configuration cell holds the prompts, layers,
+rank, strengths, and generation length. Its dose grid runs in both directions from
+`C = -0.5` to `C = 2` and leaves the malformed outputs visible at excessive strengths.
+
+```bash
+just notebook-run
+```
+
 ## Reproduce the figure
 
 ```bash
