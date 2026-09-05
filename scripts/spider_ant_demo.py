@@ -8,6 +8,9 @@ from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
 import torch
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -17,7 +20,6 @@ from suppressed_activation_subspace import (
     suppressed_activation_subspace,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
 MODEL = "Qwen/Qwen3.5-4B"
 PROMPTS = {
     "spider": "Fact: The number of legs on the animal that spins webs is ",
