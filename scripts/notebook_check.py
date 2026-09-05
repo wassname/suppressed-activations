@@ -21,7 +21,7 @@ def main() -> None:
     source = (ROOT / "nbs/demo.py").read_text()
     assert "'git':" in text and "-dirty" not in text
     assert "one vector at residual L26, final prompt token" in text
-    assert "'Spider'" in text and "'dog'" in text
+    assert "Spider" in text and "dog, target" in text
     assert "spider after ant, C=4" in text and "spider after dog, C=4" in text
     assert "target/source log odds" in text and "distance/residual" in text
     assert all(value in text for value in ("-1.0000", "+0.0000", "+1.0000", "+4.0000", "+8.0000"))
