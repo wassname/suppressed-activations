@@ -82,6 +82,11 @@ def main() -> None:
     assert len(spider_ant["strong_rows"]) == 36
     assert {row["restore_norm"] for row in spider_ant["strong_rows"]} == {False, True}
     assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["strong_rows"])
+    localized_rows = spider_ant["localized_rows"]
+    assert len(localized_rows) == 16
+    assert {row["mask"] for row in localized_rows} == {"selected_final_position"}
+    assert {row["restore_norm"] for row in localized_rows} == {False, True}
+    assert all(len(row["coordinates_by_layer"]) == 8 for row in localized_rows)
     assert spider_ant["geometry"]["unit"]["condition_number_at_final_position"] > 1
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
