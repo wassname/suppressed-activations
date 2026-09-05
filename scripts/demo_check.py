@@ -74,8 +74,6 @@ def main() -> None:
     assert spider_row["delta_logp6"] > 0
     assert len(spider_ant["metadata"]["matched_variant_pairs"]) == 4
     assert variant_row["generation"]["token_ids"]
-    assert spider_row["generation"]["text"] in readme
-    assert all(row["text"] in readme for row in generations.values())
     prototype_methods = {row["method"] for row in spider_ant["prototype_rows"]}
     assert prototype_methods == {"pair_1", "pair_2", "pair_3", "pair_4", "mean_atomic", "svd1_atomic"}
     assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["prototype_rows"])
@@ -102,16 +100,20 @@ def main() -> None:
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
     required_readme_text = (
+        "Can changing this subspace change the answer?",
         "Fact: The number of legs on the animal that spins webs is",
-        "the animal that barks and is called man's best friend",
-        "source = h @ S_spider @ S_spider.T",
-        "248 of 256",
-        "Gurnee et al., Figures",
-        "Ours come from the LM-head rise-and-fall score",
-        "scripts/spider_ant_demo.py",
-        "0.121 nats",
+        "barks and is called man's best friend",
+        "The experiment below uses only the LM-head",
+        "source = h_spider @ S_spider @ S_spider.T",
+        "C=4` extrapolates",
+        "238/256",
+        "235/256",
+        "next-answer state",
+        "nbs/demo.ipynb",
+        "recovered_log.md",
     )
     assert all(text in readme for text in required_readme_text)
+    assert "248 of 256" not in readme
 
     png = (ROOT / "figs/causal_demo.png").read_bytes()
     assert png[:8] == b"\x89PNG\r\n\x1a\n"

@@ -96,7 +96,7 @@ Chinese answer token for 1 of 53.
 These are signed shares of a readout, so they need not lie between zero and one. A negative
 share points against the full readout.
 
-## Is the readout causal?
+## Can changing this subspace change the answer?
 
 We follow the spider/ant demonstration in [Gurnee et al., Figures
 12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching):
@@ -104,120 +104,92 @@ We follow the spider/ant demonstration in [Gurnee et al., Figures
 > When we swap the spider lens vector for ant, the model's top output changes from “8”
 > to “6”, the number of legs on an ant.
 
-Their vectors come from the Jacobian lens. Ours come from the LM-head rise-and-fall score.
+Their vectors come from the Jacobian lens. The experiment below uses only the LM-head
+rise-and-fall method above.
 
-First we ask Qwen3.5-4B:
+The source prompt is:
 
 > **Fact: The number of legs on the animal that spins webs is**
 
-Our readout selects `丝绸`, `-web`, `Web`, `Disc`, `的战`, **`Spider`**, `web`, and
-`WEB`. It has found the unspoken animal, although the neighboring web tokens show that the
-rank-8 subspace also contains lexical context.
-
-### Demo 1: swap the detected word, Spider → Ant
-
-A first forward pass computes a separate suppressed subspace for every prompt token. In a
-second pass, we project the LM-head `Spider` and `Ant` directions into each subspace and
-swap their coordinates at every prompt token through residual layers 23–30. C=1 is a full
-coordinate swap at each layer.
+Its rank-8 readout contains the unspoken `Spider` plus several variants of the prompt's
+web word:
 
 ```text
-[thoughts before: 丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
-[thoughts after Spider→Ant: Web, Disc, web, 丝绸, -web, _disc, _web, Bomb]
+[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
 ```
 
-The readout loses `Spider`, but it does not gain `Ant`.
-
-| rank | clean token | clean log p | after Spider→Ant | after log p |
-|---:|---:|---:|---:|---:|
-| 1 | **8** | **−0.125** | **8** | **−0.129** |
-| 2 | 4 | −2.875 | 4 | −2.879 |
-| 3 | **6** | **−3.625** | **6** | **−3.504** |
-| 4 | 1 | −4.625 | 1 | −4.504 |
-| 5 | 2 | −5.000 | 2 | −5.004 |
-| 6 | 3 | −5.125 | 3 | −5.254 |
-| 7 | 5 | −5.625 | 5 | −5.629 |
-| 8 | 7 | −5.750 | 7 | −5.754 |
-| 9 | 0 | −6.500 | 0 | −6.567 |
-| 10 | 9 | −6.562 | 9 | −6.567 |
-
-The clean continuation is:
-
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-
-```
-
-After the Spider→Ant coordinate swap it is:
-
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-
-```
-
-Each block contains exactly 64 generated tokens and can therefore stop mid-sentence. The
-swap raises `log p(6)` by 0.121 nats, but it does not change the answer.
-
-Static directions, all-position swaps, individual layers, and four atomic spellings of
-`Ant` also failed to make `6` top. Means and first-SVD directions over the spelling
-variants remained stable through C=1.5, then changed directly from top `8` to top `Spider`
-at C=2. This is a successful readout and a negative causal result. See the
-[reproducible script](scripts/spider_ant_demo.py), [full output](data/spider_ant_demo.json),
-and [dose audit](slop/audits/job_125.md).
-
-### Demo 2: replace the whole detected component, spider → dog
-
-A second prompt asks about “the animal that barks and is called man's best friend”. With
-the same extraction rule fixed, its rank-8 readout contains `dog`, `Dog`, `canine`, and
-multilingual dog tokens. After replacement, the source prompt's readout changes from web
-and spider terms to dog terms:
-
-```text
-[thoughts before: 丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
-[replacement selected from: 吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]
-[thoughts after Spider→Dog: perros, hund, 狗粮, krém, implanta, cbd, Bite, cão]
-```
-
-We replace the spider prompt's whole rank-8 projection with twice the norm-matched
-dog-prompt projection at the final prompt token:
+For each complete prompt, an unmodified first pass extracts a separate subspace. We then
+change one residual vector, at L26 and the final source-prompt token:
 
 ```python
-source = h @ S_spider @ S_spider.T
-target = match_norm(h_dog @ S_dog @ S_dog.T, source)
-h_replaced = match_norm(h + 2 * (target - source), h)
+source = h_spider @ S_spider @ S_spider.T
+target = h_target @ S_target @ S_target.T
+target = target * norm(source) / norm(target)
+h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 ```
 
-| rank | clean token | clean log p | after spider→dog | after log p |
-|---:|---:|---:|---:|---:|
-| 1 | **8** | **−0.125** | **4** | **−0.656** |
-| 2 | **4** | **−2.875** | **8** | **−1.281** |
-| 3 | 6 | −3.625 | 6 | −2.656 |
-| 4 | 1 | −4.625 | 吠 | −2.781 |
-| 5 | 2 | −5.000 | 1 | −3.781 |
+`C=1` is the constructed source-to-target component replacement. `C=4` extrapolates
+three times as far past it. L23/L25/L32 extraction, rank 8, L26 intervention, and C=4 were
+selected during exploration on these prompts. They are demo settings, not defaults.
 
-This replacement changes the answer from `8` to `4`. Its target-versus-source log odds
-move from −2.75 to +0.625, an effect larger than 248 of 256 residual-norm and
-perturbation-norm matched random replacements. C=2 was selected after a dose sweep, so
-this is an exploratory example rather than a held-out success rate. The 64-token
-continuation is:
+### What changed
+
+| target prompt | C | answer | Δlog odds target/8↑ | p(target)↑ | p(8)↓ | ‖Δh‖/‖h‖↓ |
+|:---|---:|---:|---:|---:|---:|---:|
+| *clean spider* | *0* | *8* | *0.000* | *—* | *0.883* | *0.000* |
+| ant | 1 | 8 | +0.375 | 0.038 | 0.870 | 0.199 |
+| ant | 4 | **6** | **+3.750** | **0.487** | 0.379 | 0.679 |
+| dog | 1 | 8 | +0.500 | 0.089 | 0.847 | 0.208 |
+| dog | 4 | **4** | +3.250 | **0.490** | **0.297** | 0.720 |
+
+<sub>Table: Qwen3.5-4B next-token probabilities. The ant prompt asks about an animal that
+lives in colonies and follows pheromone trails. The dog prompt asks about an animal that
+barks and is called man's best friend. Each clean target prompt answers 6 or 4.</sub>
+
+The readouts themselves are useful counterevidence. Dog is visible in its target subspace,
+but ant is not. Re-extracting after either C=4 edit still returns spider and web rows:
+
+| trajectory | selected vocabulary rows |
+|:---|:---|
+| spider, before | 丝绸, -web, Web, Disc, 的战, Spider, web, WEB |
+| ant, target | ;font, _unix, Kate, สถาบัน, Soldier, división, 在校园, соци |
+| spider after ant, C=4 | Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider |
+| dog, target | 吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine |
+| spider after dog, C=4 | Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider |
+
+The 64-token greedy continuations begin:
+
+<details>
+<summary>Clean, ant C=4, and dog C=4</summary>
 
 ```text
+[clean]
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 8."
+```
+
+```text
+[ant C=4]
+6.
+Hypothesis: The animal that spins webs has 6 legs.
+Is the hypothesis entailed by the fact?
+
+<think>
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Fact: "The number of legs on the animal that spins webs is 6."
+```
+
+```text
+[dog C=4]
 4.
 Hypothesis: The animal that spins webs has 4 legs.
 Is the hypothesis entailed by the fact?
@@ -229,45 +201,25 @@ Thinking Process:
     *   Fact: "The number of legs on the animal that spins webs is 4."
 ```
 
-The perturbation-matched random replacement instead continues with `8`:
+</details>
 
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Is the hypothesis entailed by the fact?
+### What the controls say
 
-<think>
-Thinking Process:
+| target | Δlog odds↑ | random below↑ | random top target↓ | answer-only Δlog odds |
+|:---|---:|---:|---:|---:|
+| ant → 6 | **+3.750** | 238/256 (92.97%) | 19/256 | +8.375 from “three plus three” |
+| dog → 4 | +3.250 | 235/256 (91.80%) | 27/256 | +3.250 from “two plus two” |
 
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-```
+Both effects failed the preregistered 95% matched-random criterion. The arithmetic prompts
+reproduced or exceeded them. Each C=4 continuation also exactly matched the continuation
+obtained by forcing its first digit without any residual intervention.
 
-Removing the detected spider component also continues with `8`:
-
-```text
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-
-```
-
-![The spider prompt changes from 8 to 4 after its suppressed component is replaced with the dog-prompt component](figs/causal_demo.png)
-
-*Figure 2: The spider→dog component replacement. Panel a states the two prompts, their
-independently selected readouts, the intervention, and the expected answer change. Panels b
-and c show the next-token distributions before and after replacement. Panel d compares the
-change in `log p(4) − log p(8)` with component removal and 256 perturbation-matched random
-replacements.*
-
-The full distributions, controls, generations, and diagnostics are in
-[`data/causal_demo.json`](data/causal_demo.json).
+The operation changes this prompt's next-answer state. This experiment does not show that
+ant or dog identity was transferred, or that the rise-and-fall subspace is more causal than
+a matched random subspace. The [executed notebook](nbs/demo.ipynb) shows both targets,
+negative and positive strengths, and every exact continuation. The [fixed run
+report](out/2026-09-05_211609_causal-confirmation/recovered_log.md) contains all 256 random
+controls, arithmetic controls, byte controls, position controls, and raw-output links.
 
 ## Limits
 
@@ -279,12 +231,12 @@ The full distributions, controls, generations, and diagnostics are in
 - Each trajectory gets its own subspace. The different-prompt control shows that the basis
   is mostly path-dependent. An intervention on the same sample can use an unsteered first
   pass; a transferable intervention would need to combine many extraction trajectories.
-- L23/L25/L32 and row normalization were selected from the spider/ant source search. With
-  that rule fixed, dog and cat passed the rank-32 and clean-answer criterion on 2 of 9
-  held-out atomic animal prompts. Dog was then selected for the causal example. This does
-  not estimate a population success rate.
-- The random control tests matched, content-free directions. It does not compare against a
-  different method for selecting a semantically loaded component from the target residual.
+- The English-only demo settings came from a 64-condition layer, rank, and dose screen.
+  C=4 changes 68–72% of the residual norm and is an extrapolation. The demo does not
+  estimate a held-out success rate.
+- The C=4 answer changes did not meet the preregistered matched-random criterion. Arithmetic
+  target prompts reproduced them, so the supported interpretation is next-answer-state
+  transfer rather than animal identity.
 
 ## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
 
@@ -316,8 +268,9 @@ would test whether the diagnostic also identifies a transferable causal interven
 
 [`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
 editable [`nbs/demo.py`](nbs/demo.py). One configuration cell holds the prompts, layers,
-rank, strengths, and generation length. Its spider→dog dose grid runs from `C = -0.5` to
-`C = 2` and leaves the malformed persistent-steering outputs visible at excessive strengths.
+rank, strengths, and generation length. It shows ant and dog target prompts at
+`C = -1, 0, 1, 2, 4, 8`, including all exact 64-token continuations and the failed
+matched-random criterion.
 
 ```bash
 just notebook-run
