@@ -266,13 +266,22 @@ def evaluate_prompt(model, tokenizer, prompt):
     animal_targets = []
     if prompt == PROMPTS["spider"]:
         target_distance = target_record["perturbation_norm"]
-        clean_h = residuals[INTERVENTION_LAYER][None]
+        clean_h = residuals[INTERVENTION_LAYER][None].float()
         for animal, (target_token, expected_output) in ANIMAL_TARGETS.items():
             animal_directions = projected_pair(model, tokenizer, basis, target_token)
+            assert clean_h.dtype == animal_directions.dtype == torch.float32
+            assert clean_h.device == animal_directions.device
             if animal == "ant":
                 strength = STRENGTH
             else:
                 low, high = 0.0, 64.0
+                endpoint = coordinate_swap(clean_h, animal_directions, high, mask)
+                endpoint_distance = float((endpoint[:, -1] - clean_h[:, -1]).norm())
+                if endpoint_distance < target_distance:
+                    raise ValueError(
+                        f"{animal} reaches distance {endpoint_distance:.4f}, "
+                        f"below target {target_distance:.4f} at C={high:g}"
+                    )
                 for _ in range(24):
                     middle = (low + high) / 2
                     candidate = coordinate_swap(clean_h, animal_directions, middle, mask)

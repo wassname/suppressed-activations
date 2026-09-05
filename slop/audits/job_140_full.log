@@ -1,0 +1,26 @@
+output: out/2026-09-05_200002_spider-ant/log.md
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]
+Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 1864.96it/s]
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 8684.45it/s]
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 549, in <module>
+    main()
+    ~~~~^^
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 517, in main
+    name: evaluate_prompt(model, tokenizer, prompt) for name, prompt in PROMPTS.items()
+          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 278, in evaluate_prompt
+    candidate = coordinate_swap(clean_h, animal_directions, middle, mask)
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 92, in coordinate_swap
+    before = dual_coordinates(h, directions)
+  File "/workspace/2026/suppressed-activations/scripts/spider_ant_demo.py", line 88, in dual_coordinates
+    return torch.einsum("bsd,sqd->bsq", h, torch.linalg.pinv(directions))
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/functional.py", line 372, in einsum
+    return _VF.einsum(equation, operands)  # type: ignore[attr-defined]
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/torch/_native/registry.py", line 925, in eager_router
+    return _fallback.call_boxed(keyset, *args, **kwargs)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: expected scalar type BFloat16 but found Float
