@@ -91,6 +91,13 @@ def main() -> None:
     assert len(single_layer_rows) == 8
     assert {row["residual_layer"] for row in single_layer_rows} == set(range(23, 31))
     assert all(len(row["coordinates_by_layer"]) == 1 for row in single_layer_rows)
+    l26_dose_rows = spider_ant["l26_dose_rows"]
+    assert len(l26_dose_rows) == 7 * 2 * 13
+    assert {row["residual_layer"] for row in l26_dose_rows} == {26}
+    assert set(spider_ant["metadata"]["l26_ranks"]) == {8, 16, 32, 64}
+    l26_random_rows = spider_ant["l26_random_rows"]
+    assert len(l26_random_rows) == 9 * 32
+    assert {row["method"] for row in l26_random_rows} == {"lowercase_space_rank8"}
     assert spider_ant["geometry"]["unit"]["condition_number_at_final_position"] > 1
     assert "Spider" in spider_ant["selected_tokens_at_final"]
 
