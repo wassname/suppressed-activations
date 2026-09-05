@@ -96,30 +96,63 @@ Chinese answer token for 1 of 53.
 These are signed shares of a readout, so they need not lie between zero and one. A negative
 share points against the full readout.
 
-## A causal component replacement
+## Is the readout causal?
 
-The presentation follows [Gurnee et al., Figures
-12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching). They report:
+We follow the spider/ant demonstration in [Gurnee et al., Figures
+12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching):
 
 > When we swap the spider lens vector for ant, the model's top output changes from “8”
 > to “6”, the number of legs on an ant.
 
-Their vectors come from the Jacobian lens. This experiment uses only the LM-head
-rise-and-fall method above.
+Their vectors come from the Jacobian lens. Ours come from the LM-head rise-and-fall score.
 
-The source prompt is:
+First we ask Qwen3.5-4B:
 
-> Fact: The number of legs on the animal that spins webs is
+> **Fact: The number of legs on the animal that spins webs is**
 
-The detector selects `丝绸`, `-web`, `Web`, `Disc`, `的战`, `Spider`, `web`, and `WEB`.
-For a separately run target prompt, “the animal that barks and is called man's best
-friend”, it selects `吠`, `собаки`, `狗粮`, `dog`, `Dog`, `Dog`, `สุนัข`, and `canine`.
-The ranking does not receive `spider`, `dog`, `8`, or `4` as labels. For this English demo
-I divide each rise-and-fall score by its effective LM-head row norm; otherwise high-norm
-vocabulary rows dominate the ranking.
+Our readout selects `丝绸`, `-web`, `Web`, `Disc`, `的战`, **`Spider`**, `web`, and
+`WEB`. It has found the unspoken animal, although the neighboring web tokens show that the
+rank-8 subspace also contains lexical context.
 
-At the last prompt position in residual layers 23–30, I remove the source projection and
-insert twice the norm-matched target projection:
+### Demo 1: swap the detected word, Spider → Ant
+
+A first forward pass computes a separate suppressed subspace for every prompt token. In a
+second pass, we project the LM-head `Spider` and `Ant` directions into each subspace and
+swap their coordinates at every prompt token through residual layers 23–30. C=1 is a full
+coordinate swap.
+
+| rank | clean token | clean log p | after Spider→Ant | after log p |
+|---:|---:|---:|---:|---:|
+| 1 | **8** | **−0.125** | **8** | **−0.129** |
+| 2 | 4 | −2.875 | 4 | −2.879 |
+| 3 | **6** | **−3.625** | **6** | **−3.504** |
+| 4 | 1 | −4.625 | 1 | −4.504 |
+| 5 | 2 | −5.000 | 2 | −5.004 |
+| 6 | 3 | −5.125 | 3 | −5.254 |
+| 7 | 5 | −5.625 | 5 | −5.629 |
+| 8 | 7 | −5.750 | 7 | −5.754 |
+| 9 | 0 | −6.500 | 0 | −6.567 |
+| 10 | 9 | −6.562 | 9 | −6.567 |
+
+The swap raises `log p(6)` by 0.121 nats, but it does not change the answer. The 64-token
+continuation still begins:
+
+> 8. Hypothesis: The animal that spins webs has 8 legs. Does the hypothesis follow from
+> the fact? &lt;think&gt; Thinking Process: 1. **Analyze the Request:** * Fact: “The number
+> of legs on the animal that spins webs is 8.”
+
+Static directions, all-position swaps, individual layers, four atomic spellings of `Ant`,
+and centered or normalized LM-head rows also failed to make `6` top. This is a successful
+readout and a negative causal result. The reproducible script and full output are
+[`scripts/spider_ant_demo.py`](scripts/spider_ant_demo.py) and
+[`data/spider_ant_demo.json`](data/spider_ant_demo.json).
+
+### Demo 2: replace the whole detected component, spider → dog
+
+A second prompt asks about “the animal that barks and is called man's best friend”. With
+the same extraction rule fixed, its rank-8 readout contains `dog`, `Dog`, `canine`, and
+multilingual dog tokens. We replace the spider prompt's whole rank-8 projection with twice
+the norm-matched dog-prompt projection at the final prompt token:
 
 ```python
 source = h @ S_spider @ S_spider.T
@@ -127,75 +160,26 @@ target = match_norm(h_dog @ S_dog @ S_dog.T, source)
 h_replaced = match_norm(h + 2 * (target - source), h)
 ```
 
-Each subspace is computed from its own unmodified run. The QR columns have no pairing;
-`S @ S.T` is unchanged if the basis rotates. The last operation restores the residual
-norm.
+| rank | clean token | clean log p | after spider→dog | after log p |
+|---:|---:|---:|---:|---:|
+| 1 | **8** | **−0.125** | **4** | **−0.656** |
+| 2 | **4** | **−2.875** | **8** | **−1.281** |
+| 3 | 6 | −3.625 | 6 | −2.656 |
+| 4 | 1 | −4.625 | 吠 | −2.781 |
+| 5 | 2 | −5.000 | 1 | −3.781 |
 
-![Replacing the detected spider component with the detected dog component changes Qwen's answer from 8 to 4](figs/causal_demo.png)
+This replacement changes the answer from `8` to `4`. Its target-versus-source log odds
+move from −2.75 to +0.625, an effect larger than 248 of 256 residual-norm and
+perturbation-norm matched random replacements. C=2 was selected after a dose sweep, so
+this is an exploratory example rather than a held-out success rate. Its 64-token
+continuation begins:
 
-*Figure 2: Qwen3.5-4B first answers `8`. The separately extracted dog component predicts a
-change to `4`, and the C=2 prompt-only replacement makes `4` top: `p(4)=0.519` and
-`p(8)=0.278`. The log probability ratio moves from -2.75 to +0.625. Its effect is larger
-than 248 of 256 matched-random replacements (96.875th percentile); 13 of those random
-replacements also make `4` top, so the answer flip alone is not the control. Random
-replacements preserve the residual norm and match the semantic replacement's per-layer
-perturbation norm. Removing the source component alone leaves `8` on top. C=2 was chosen
-after inspecting a dose sweep, so the empirical random-tail value is descriptive, not a
-confirmatory p-value. The patch is active only while reading the final prompt token; later
-generation is unmodified.*
+> 4. Hypothesis: The animal that spins webs has 4 legs. Is the hypothesis entailed by the
+> fact? &lt;think&gt; Thinking Process: 1. **Analyze the Request:** * Fact: “The number of
+> legs on the animal that spins webs is 4.”
 
-Here are the 64 generated tokens:
-
-**Base**
-
-> 8.
-> Hypothesis: The animal that spins webs has 8 legs.
-> Does the hypothesis follow from the fact?
->
-> &lt;think&gt;
-> Thinking Process:
->
-> 1. **Analyze the Request:**
->    * Fact: “The number of legs on the animal that spins webs is 8.”
-
-**Replace spider with dog, C=2**
-
-> 4.
-> Hypothesis: The animal that spins webs has 4 legs.
-> Is the hypothesis entailed by the fact?
->
-> &lt;think&gt;
-> Thinking Process:
->
-> 1. **Analyze the Request:**
->    * Fact: “The number of legs on the animal that spins webs is 4.”
-
-**Matched-random replacement, seed 0**
-
-> 8.
-> Hypothesis: The animal that spins webs has 8 legs.
-> Is the hypothesis entailed by the fact?
->
-> &lt;think&gt;
-> Thinking Process:
->
-> 1. **Analyze the Request:**
->    * Fact: “The number of legs on the animal that spins webs is 8.”
-
-**Remove the spider component**
-
-> 8.
-> Hypothesis: The animal that spins webs has 8 legs.
-> Does the hypothesis follow from the fact?
->
-> &lt;think&gt;
-> Thinking Process:
->
-> 1. **Analyze the Request:**
->    * Fact: “The number of legs on the animal that spins webs is 8.”
-
-The complete distributions, 256 random controls, token IDs, diagnostics, and exact
-strings are in [`data/causal_demo.json`](data/causal_demo.json).
+The full distributions, controls, generations, and diagnostics are in
+[`data/causal_demo.json`](data/causal_demo.json).
 
 ## Limits
 

@@ -1,4 +1,5 @@
 demo:
+    uv run scripts/spider_ant_demo.py
     uv run scripts/demo.py
     uv run scripts/figure.py
 
