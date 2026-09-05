@@ -15,4 +15,16 @@ Success requires all of: `6` is top, its absolute probability is not collapsed, 
 
 A positive 6-vs-8 contrast with another top token does not pass.
 
+## Result
+
+Localization did not produce `6`. At C=1, the operation exactly exchanges the two dual coordinates at all eight intervened layers, but the next token remains `8`: `p6=0.03361`, `p8=0.86692`, and KL=0.00139. C=1.5 remains top `8`. At C=2 the top token changes directly to `Spider`; raw rank(6)=248274 and restored rank(6)=22.
+
+The coordinate log explains the abrupt failure. One exchange changes the coordinate difference by a factor of `1 - 2C`. C=2 therefore flips and triples it at each layer. Across eight layers, the raw C=2 coordinates grow to about `[504, -501]` at L30. Norm restoration bounds the residual norm but does not stop the coordinate pair from dominating its direction.
+
+The first prediction is supported only at C=1. The coherent-`6` prediction is contradicted. The “localization only delays collapse” prediction is supported. The implementation exchanges numeric coordinates correctly; it has not shown that these coordinates are a causal Ant concept.
+
+Jobs 127 and 128 have identical scientific log lines. Job 128 overwrote the fixed-path artifact and therefore records a dirty tree. See [`job_127.md`](../audits/job_127.md), [`job_128.md`](../audits/job_128.md), and the [fresh review](../reviews/20260905_jobs127_128_localized_review.md).
+
+Next: apply C=2 at one layer only. A healthy L30-only output would confirm that repeated over-relaxation caused the collapse; immediate `Spider` would implicate the direction itself.
+
 Written by PI/gpt-5.4.
