@@ -24,8 +24,11 @@ for Figure 2. Pueue job 109 generated it from commit `8e1c079` with
 [`scripts/demo.py`](../scripts/demo.py). The full run log is
 [`slop/audits/job_109_full.log`](../slop/audits/job_109_full.log).
 
-`spider_ant_demo.json` contains the negative two-pass Spider→Ant coordinate test, including
-the suppressed-token readout before and after each intervention. Pueue job 111 generated it
-from commit `552975e` with [`scripts/spider_ant_demo.py`](../scripts/spider_ant_demo.py).
+`spider_ant_demo.json` points to the selected immutable run in
+[`out/2026-09-05_191959_spider-ant/`](../out/2026-09-05_191959_spider-ant/). It contains
+the Spider→Ant readout, layer/rank/position screens, matched controls, and generations.
+Pueue job 132 generated it with [`scripts/spider_ant_demo.py`](../scripts/spider_ant_demo.py).
+Future runs write new timestamped directories under `out/`; selecting one for the public demo
+requires changing this symlink explicitly.
 
 <!-- Written by PI/claude-opus-4.6 and PI/gpt-5.4 for Michael J. Clark. -->
