@@ -12,4 +12,12 @@ The screen applies the final-position mean-atomic operation once at each residua
 
 The screen identifies a layer for a later dose sweep. It cannot by itself establish causal Ant steering without a matched random condition and coherent generation.
 
+## Result
+
+All eight single-layer rows remained top `8`, rank(`6`)=3, with KL at most .01283. This supports the 70% repetition prediction and contradicts an independently unstable layer in L23–L30.
+
+L26 had the largest movement toward `6`: p6 .02666→.03724, p8 .88257→.84758, and log odds 6-vs-8 -3.5→-3.125. The output remained top `8`. Ant-specific steering is unresolved because this screen did not include matched random directions.
+
+Sources: [`data/spider_ant_demo.json`](../../data/spider_ant_demo.json), [`job_130.md`](../audits/job_130.md), and [`job_130_full.log`](../audits/job_130_full.log).
+
 Written by PI/gpt-5.4.
