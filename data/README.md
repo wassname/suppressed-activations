@@ -18,10 +18,14 @@ The model run used seed 0 and four in-context examples. Its metadata recorded
 `29d4ae5-dirty`; the later subspace calculation used the saved residual stream and the
 function published in this repository.
 
-`causal_demo.json` contains the source and target prompts, selected token IDs, next-token
-distributions, 32 matched-random controls, 64-token generations, and intervention norms
-for Figure 2. Pueue job 63 generated it from commit `67c683e` with
+`causal_demo.json` contains the source, target, and post-replacement readouts; next-token
+distributions; 256 matched-random controls; 64-token generations; and intervention norms
+for Figure 2. Pueue job 109 generated it from commit `8e1c079` with
 [`scripts/demo.py`](../scripts/demo.py). The full run log is
-[`slop/audits/job_63_full.log`](../slop/audits/job_63_full.log).
+[`slop/audits/job_109_full.log`](../slop/audits/job_109_full.log).
+
+`spider_ant_demo.json` contains the negative two-pass Spider→Ant coordinate test, including
+the suppressed-token readout before and after each intervention. Pueue job 111 generated it
+from commit `552975e` with [`scripts/spider_ant_demo.py`](../scripts/spider_ant_demo.py).
 
 <!-- Written by PI/claude-opus-4.6 and PI/gpt-5.4 for Michael J. Clark. -->

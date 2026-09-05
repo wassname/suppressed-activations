@@ -37,7 +37,15 @@ from IPython.display import Image, display
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from scripts.demo import generate, intervention_hooks, metrics, one_token, run_forward, trajectory
+from scripts.demo import (
+    generate,
+    intervention_hooks,
+    layer_hooks,
+    metrics,
+    one_token,
+    run_forward,
+    trajectory,
+)
 from suppressed_activation_subspace import suppressed_activation_subspace
 
 # Edit this cell. `just notebook-smoke` overrides the same values with environment variables.
@@ -59,6 +67,7 @@ INTERVENTION_START = int(os.environ.get("SUPPRESSED_INTERVENTION_START", 23))
 INTERVENTION_END = int(os.environ.get("SUPPRESSED_INTERVENTION_END", 30))
 RANK = int(os.environ.get("SUPPRESSED_RANK", 8))
 MAX_NEW_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", 64))
+DEMO_STRENGTH = float(os.environ.get("SUPPRESSED_DEMO_STRENGTH", 2))
 STRENGTHS = tuple(
     float(value)
     for value in os.environ.get(
@@ -78,6 +87,7 @@ GIT_DESCRIBE = subprocess.run(
     "layers": (EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER),
     "intervention": (INTERVENTION_START, INTERVENTION_END),
     "rank": RANK,
+    "readout strength": DEMO_STRENGTH,
     "strengths": STRENGTHS,
 }
 
@@ -148,6 +158,35 @@ def hooks(strength: float):
         strength=strength,
         blocks_to_hook=blocks_to_hook,
     )
+
+
+# %% [markdown]
+# ## Read the suppressed tokens before and after replacement
+
+# %%
+with layer_hooks(blocks, hooks(DEMO_STRENGTH)):
+    replaced_residuals, _ = trajectory(model, source_ids, final_norm)
+_, replaced_selected = suppressed_activation_subspace(
+    replaced_residuals[:, -1][None],
+    unembedding,
+    norm_gain,
+    early_layer=EARLY_LAYER,
+    peak_layer=PEAK_LAYER,
+    output_layer=OUTPUT_LAYER,
+    rank=RANK,
+    normalize_unembedding_rows=True,
+)
+readout_rows = [
+    {"trajectory": "spider, before", "suppressed readout": ", ".join(selected_words["source"])},
+    {"trajectory": "dog, before", "suppressed readout": ", ".join(selected_words["target"])},
+    {
+        "trajectory": f"spider, after C={DEMO_STRENGTH:g}",
+        "suppressed readout": ", ".join(
+            tokenizer.decode([token_id]) for token_id in replaced_selected[0]
+        ),
+    },
+]
+print(tabulate(readout_rows, headers="keys", tablefmt="rounded_outline"))
 
 
 # %% [markdown]
