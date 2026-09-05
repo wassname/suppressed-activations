@@ -12,7 +12,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from scripts.demo import generate, layer_hooks, one_token, replace_output, top_tokens, trajectory
-from suppressed_activation_subspace import suppressed_activation_subspace
+from suppressed_activation_subspace import matched_random_rotation, suppressed_activation_subspace
 
 MODEL = "Qwen/Qwen3.5-4B"
 PROMPT = "Fact: The number of legs on the animal that spins webs is "
@@ -23,6 +23,9 @@ MATCHED_VARIANT_PAIRS = (
     (" spider", " ant"),
     (" spiders", " ants"),
 )
+L26_DOSES = (-4.0, -2.0, -1.0, 0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0)
+L26_RANKS = (8, 16, 32, 64)
+RANDOM_CONTROL_COUNT = 32
 
 
 def dual_coordinates(h, directions):
@@ -65,6 +68,21 @@ def hooks(directions, strength, mask, restore_norm=False, record=None, blocks=BL
     return {block: make_hook(block) for block in blocks}
 
 
+def matched_random_hook(directions, strength, mask, seed):
+    def hook(_module, _inputs, output):
+        hidden = output[0] if isinstance(output, tuple) else output
+        if hidden.shape[1] == 1:
+            return output
+        h = hidden.float()
+        target = coordinate_swap(h, directions, strength, mask, restore_norm=True)
+        distance = (target - h).norm(dim=-1, keepdim=True)
+        generator = torch.Generator(device=h.device).manual_seed(seed)
+        random_direction = torch.randn(h.shape, device=h.device, generator=generator)
+        patched = matched_random_rotation(h, random_direction, distance)
+        return replace_output(output, patched.to(hidden.dtype))
+    return hook
+
+
 torch.set_grad_enabled(False)
 tokenizer = AutoTokenizer.from_pretrained(MODEL)
 model = AutoModelForCausalLM.from_pretrained(MODEL, dtype=torch.bfloat16).cuda().eval()
@@ -90,14 +108,18 @@ vector_sets = {
 all_positions = torch.ones(selected.shape[0], device=selected.device)
 final_position = torch.zeros_like(all_positions)
 final_position[-1] = 1
+previous_position = torch.zeros_like(all_positions)
+previous_position[-2] = 1
 id6, id8 = one_token(tokenizer, "6"), one_token(tokenizer, "8")
 clean_logp = clean_logits.log_softmax(-1)
 clean_p = clean_logp.exp()
 rows = []
 projected_by_set = {}
+raw_vectors_by_set = {}
 for variant_set, pairs in vector_sets.items():
     token_ids = [token_id for pair in pairs for token_id in pair]
     vectors = torch.stack([(W[token_id] - W.mean(0)) * gain for token_id in token_ids])
+    raw_vectors_by_set[variant_set] = vectors
     coordinates = torch.einsum("td,sdk->stk", vectors, bases)
     projected = torch.einsum("stk,sdk->std", coordinates, bases)
     projected_by_set[variant_set] = projected
@@ -256,7 +278,109 @@ for block in BLOCKS:
         "coordinates_by_layer": coordinate_record,
     })
 
-geometry = {}
+l26_dose_rows = []
+l26_block = 25
+l26_digit_ids = torch.tensor(
+    [one_token(tokenizer, str(i)) for i in range(10)], device=ids.device
+)
+l26_rank_directions = {}
+for rank in L26_RANKS:
+    rank_basis, _ = suppressed_activation_subspace(
+        residuals.permute(1, 0, 2), model.lm_head.weight, 1 + lm.norm.weight,
+        early_layer=23, peak_layer=25, output_layer=32, rank=rank,
+        normalize_unembedding_rows=True,
+    )
+    rank_vectors = raw_vectors_by_set["matched_atomic"]
+    rank_coordinates = torch.einsum("td,sdk->stk", rank_vectors, rank_basis)
+    rank_projected = torch.einsum("stk,sdk->std", rank_coordinates, rank_basis)
+    rank_atomic = unit(rank_projected)
+    l26_rank_directions[rank] = rank_atomic[:, 4:6].transpose(1, 2)
+
+l26_conditions = [
+    ("mean_atomic_rank8", prototype_sets["mean_atomic"].transpose(1, 2),
+     "selected_final_position", final_position),
+    ("mean_atomic_rank8", prototype_sets["mean_atomic"].transpose(1, 2),
+     "previous_is_position", previous_position),
+    ("lowercase_space_rank8", l26_rank_directions[8],
+     "previous_is_position", previous_position),
+    *[
+        (f"lowercase_space_rank{rank}", l26_rank_directions[rank],
+         "selected_final_position", final_position)
+        for rank in L26_RANKS
+    ],
+]
+for method, l26_directions, mask_name, l26_mask in l26_conditions:
+    for restore_norm in (False, True):
+        for strength in L26_DOSES:
+            coordinate_record = {}
+            hs = hooks(
+                l26_directions, strength, l26_mask,
+                restore_norm=restore_norm, record=coordinate_record, blocks=(l26_block,),
+            )
+            with layer_hooks(lm.layers, hs):
+                _, logits = trajectory(model, ids, lm.norm)
+            logp = logits.log_softmax(-1)
+            p = logp.exp()
+            top_id = int(logits.argmax())
+            digit_mass = p[l26_digit_ids].sum()
+            l26_dose_rows.append({
+                "method": method, "mask": mask_name,
+                "residual_layer": 26, "restore_norm": restore_norm, "strength": strength,
+                "top": top_tokens(tokenizer, logits, 10),
+                "rank6": int((logits > logits[id6]).sum()) + 1,
+                "p6": float(p[id6]), "p8": float(p[id8]),
+                "digit_mass": float(digit_mass),
+                "digit_conditional_p6": float(p[id6] / digit_mass),
+                "digit_conditional_p8": float(p[id8] / digit_mass),
+                "delta_logp6": float(logp[id6] - clean_logp[id6]),
+                "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+                "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
+                "entropy": float(-(p * logp).sum()),
+                "coordinates_by_layer": coordinate_record,
+                "generation": (
+                    generate(model, tokenizer, ids, lm.layers, hs, max_new_tokens=64)
+                    if top_id == id6 else None
+                ),
+            })
+
+l26_random_rows = []
+l26_primary_directions = l26_rank_directions[8]
+for strength in (dose for dose in L26_DOSES if dose > 0):
+    for seed in range(RANDOM_CONTROL_COUNT):
+        hs = {
+            l26_block: matched_random_hook(
+                l26_primary_directions, strength, final_position, seed
+            )
+        }
+        with layer_hooks(lm.layers, hs):
+            _, logits = trajectory(model, ids, lm.norm)
+        logp = logits.log_softmax(-1)
+        p = logp.exp()
+        l26_random_rows.append({
+            "method": "lowercase_space_rank8", "mask": "selected_final_position",
+            "residual_layer": 26, "strength": strength, "seed": seed,
+            "top_token": tokenizer.decode([int(logits.argmax())]),
+            "rank6": int((logits > logits[id6]).sum()) + 1,
+            "p6": float(p[id6]), "p8": float(p[id8]),
+            "delta_logp6": float(logp[id6] - clean_logp[id6]),
+            "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+            "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
+            "entropy": float(-(p * logp).sum()),
+        })
+
+geometry = {
+    "l26_lowercase_by_rank": {
+        str(rank): {
+            "singular_values_at_final_position": torch.linalg.svdvals(
+                l26_rank_directions[rank][-1]
+            ).tolist(),
+            "condition_number_at_final_position": float(
+                torch.linalg.cond(l26_rank_directions[rank][-1])
+            ),
+        }
+        for rank in L26_RANKS
+    }
+}
 for normalization, token_vectors in (
     ("raw", projected_by_set["matched_atomic"]),
     ("unit", atomic),
@@ -277,6 +401,7 @@ result = {
         "extraction_layers": [23, 25, 32],
         "intervention_residual_layers": [block + 1 for block in BLOCKS],
         "matched_variant_pairs": MATCHED_VARIANT_PAIRS,
+        "l26_ranks": L26_RANKS,
     },
     "prompt": PROMPT,
     "prompt_tokens": [tokenizer.decode([int(i)]) for i in ids[0]],
@@ -288,6 +413,8 @@ result = {
     "strong_rows": strong_rows,
     "localized_rows": localized_rows,
     "single_layer_rows": single_layer_rows,
+    "l26_dose_rows": l26_dose_rows,
+    "l26_random_rows": l26_random_rows,
     "geometry": geometry,
 }
 Path("data/spider_ant_demo.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
@@ -310,3 +437,12 @@ for row in localized_rows:
         print(row["generation"]["text"])
 for row in single_layer_rows:
     print("single layer:", row)
+for row in l26_dose_rows:
+    print("L26 dose:", {k: row[k] for k in (
+        "restore_norm", "strength", "rank6", "p6", "p8", "digit_mass",
+        "log_odds_6_vs_8", "kl_from_clean", "entropy",
+    )}, "top=", row["top"][0]["token"])
+    if row["generation"] is not None:
+        print(row["generation"]["text"])
+for row in l26_random_rows:
+    print("L26 random:", row)
