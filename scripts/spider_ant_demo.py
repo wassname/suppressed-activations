@@ -232,27 +232,29 @@ for restore_norm in (False, True):
             ),
         })
 
-coordinate_record = {}
-hs = hooks(
-    directions, 2.0, final_position,
-    restore_norm=False, record=coordinate_record, blocks=(29,),
-)
-with layer_hooks(lm.layers, hs):
-    _, logits = trajectory(model, ids, lm.norm)
-logp = logits.log_softmax(-1)
-p = logp.exp()
-single_layer_rows = [{
-    "method": "mean_atomic", "mask": "selected_final_position",
-    "residual_layer": 30, "restore_norm": False, "strength": 2.0,
-    "top": top_tokens(tokenizer, logits, 10),
-    "rank6": int((logits > logits[id6]).sum()) + 1,
-    "p6": float(logp[id6].exp()), "p8": float(logp[id8].exp()),
-    "delta_logp6": float(logp[id6] - clean_logp[id6]),
-    "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
-    "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
-    "entropy": float(-(p * logp).sum()),
-    "coordinates_by_layer": coordinate_record,
-}]
+single_layer_rows = []
+for block in BLOCKS:
+    coordinate_record = {}
+    hs = hooks(
+        directions, 2.0, final_position,
+        restore_norm=False, record=coordinate_record, blocks=(block,),
+    )
+    with layer_hooks(lm.layers, hs):
+        _, logits = trajectory(model, ids, lm.norm)
+    logp = logits.log_softmax(-1)
+    p = logp.exp()
+    single_layer_rows.append({
+        "method": "mean_atomic", "mask": "selected_final_position",
+        "residual_layer": block + 1, "restore_norm": False, "strength": 2.0,
+        "top": top_tokens(tokenizer, logits, 10),
+        "rank6": int((logits > logits[id6]).sum()) + 1,
+        "p6": float(logp[id6].exp()), "p8": float(logp[id8].exp()),
+        "delta_logp6": float(logp[id6] - clean_logp[id6]),
+        "log_odds_6_vs_8": float(logp[id6] - logp[id8]),
+        "kl_from_clean": float((clean_p * (clean_logp - logp)).sum()),
+        "entropy": float(-(p * logp).sum()),
+        "coordinates_by_layer": coordinate_record,
+    })
 
 geometry = {}
 for normalization, token_vectors in (
