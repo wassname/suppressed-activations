@@ -3,12 +3,15 @@
 import json
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import torch
+from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from scripts.demo import generate, layer_hooks, one_token, replace_output, top_tokens, trajectory
@@ -26,6 +29,35 @@ MATCHED_VARIANT_PAIRS = (
 L26_DOSES = (-4.0, -2.0, -1.0, 0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 12.0, 16.0, 20.0, 24.0)
 L26_RANKS = (8, 16, 32, 64)
 RANDOM_CONTROL_COUNT = 32
+
+RUN_STARTED = datetime.now().astimezone()
+RUN_CLOCK = time.monotonic()
+RUN_GIT = subprocess.run(
+    ["git", "describe", "--always", "--dirty"], check=True, text=True, capture_output=True
+).stdout.strip()
+RUN_DIR = ROOT / "out" / f"{RUN_STARTED:%Y-%m-%d_%H%M%S}_spider-ant"
+RUN_DIR.mkdir(parents=True)
+RUN_CONFIG = {
+    "git_describe_at_start": RUN_GIT,
+    "started_at": RUN_STARTED.isoformat(),
+    "argv": sys.argv,
+    "model": MODEL,
+    "prompt": PROMPT,
+    "extraction_layers": [23, 25, 32],
+    "intervention_residual_layers": [block + 1 for block in BLOCKS],
+    "matched_variant_pairs": MATCHED_VARIANT_PAIRS,
+    "l26_ranks": L26_RANKS,
+    "l26_doses": L26_DOSES,
+    "random_control_count": RANDOM_CONTROL_COUNT,
+    "status": "running",
+}
+(RUN_DIR / "metadata.json").write_text(
+    json.dumps(RUN_CONFIG, ensure_ascii=False, indent=2) + "\n"
+)
+(RUN_DIR / "log.md").write_text(
+    f"# Spider→Ant run\n\nStatus: running\n\nSource: `{RUN_GIT}`\n"
+)
+print(f"output: {RUN_DIR.relative_to(ROOT)}")
 
 
 def dual_coordinates(h, directions):
@@ -392,17 +424,7 @@ for normalization, token_vectors in (
     }
 
 result = {
-    "metadata": {
-        "git_describe": subprocess.run(
-            ["git", "describe", "--always", "--dirty"],
-            check=True, text=True, capture_output=True,
-        ).stdout.strip(),
-        "model": MODEL,
-        "extraction_layers": [23, 25, 32],
-        "intervention_residual_layers": [block + 1 for block in BLOCKS],
-        "matched_variant_pairs": MATCHED_VARIANT_PAIRS,
-        "l26_ranks": L26_RANKS,
-    },
+    "metadata": RUN_CONFIG,
     "prompt": PROMPT,
     "prompt_tokens": [tokenizer.decode([int(i)]) for i in ids[0]],
     "spider_detected_positions": (selected == spider_id).any(-1).nonzero().flatten().tolist(),
@@ -417,32 +439,113 @@ result = {
     "l26_random_rows": l26_random_rows,
     "geometry": geometry,
 }
-Path("data/spider_ant_demo.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
-print("prompt tokens:", result["prompt_tokens"])
-print("Spider selected at positions:", result["spider_detected_positions"])
-for row in rows:
-    print({k: row[k] for k in ("variant_set", "normalized", "mask", "strength", "p6", "p8", "delta_logp6", "log_odds_6_vs_8")}, "top=", row["top"][0]["token"])
-    print(row["generation"]["text"])
-print("geometry:", geometry)
-for row in prototype_rows:
-    print({k: row[k] for k in ("method", "strength", "p6", "p8", "delta_logp6", "log_odds_6_vs_8")}, "top=", row["top"][0]["token"])
-    print(row["generation"]["text"])
-for row in strong_rows:
-    print({k: row[k] for k in ("method", "restore_norm", "strength", "p6", "p8", "delta_logp6", "log_odds_6_vs_8")}, "top=", row["top"][0]["token"])
-    print(row["generation"]["text"])
-for row in localized_rows:
-    print({k: row[k] for k in ("method", "mask", "restore_norm", "strength", "rank6", "p6", "p8", "log_odds_6_vs_8", "kl_from_clean", "entropy")}, "top=", row["top"][0]["token"])
-    print("coordinates:", row["coordinates_by_layer"])
-    if row["generation"] is not None:
-        print(row["generation"]["text"])
-for row in single_layer_rows:
-    print("single layer:", row)
-for row in l26_dose_rows:
-    print("L26 dose:", {k: row[k] for k in (
-        "restore_norm", "strength", "rank6", "p6", "p8", "digit_mass",
-        "log_odds_6_vs_8", "kl_from_clean", "entropy",
-    )}, "top=", row["top"][0]["token"])
-    if row["generation"] is not None:
-        print(row["generation"]["text"])
-for row in l26_random_rows:
-    print("L26 random:", row)
+RUN_CONFIG |= {
+    "ended_at": datetime.now().astimezone().isoformat(),
+    "elapsed_seconds": time.monotonic() - RUN_CLOCK,
+    "peak_gpu_memory_gib": torch.cuda.max_memory_allocated() / 2**30,
+    "model_revision": model.config._commit_hash,
+    "status": "complete",
+}
+result["metadata"] = RUN_CONFIG
+(RUN_DIR / "metadata.json").write_text(
+    json.dumps(RUN_CONFIG, ensure_ascii=False, indent=2) + "\n"
+)
+(RUN_DIR / "result.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
+
+primary_rows = [
+    row for row in l26_dose_rows
+    if row["method"] == "lowercase_space_rank8"
+    and row["mask"] == "selected_final_position"
+    and row["restore_norm"]
+]
+primary_table = tabulate(
+    [[
+        row["strength"], row["top"][0]["token"], row["p6"], row["p8"],
+        row["log_odds_6_vs_8"], row["kl_from_clean"], row["entropy"],
+    ] for row in primary_rows],
+    headers=["C", "top", "p(6)", "p(8)", "log p(6)/p(8)", "KL", "entropy"],
+    tablefmt="pipe", floatfmt=".4f",
+)
+top6_rows = [row for row in l26_dose_rows if row["top"][0]["token"] == "6"]
+top6_table = tabulate(
+    [[
+        row["method"], row["mask"], row["restore_norm"], row["strength"],
+        row["p6"], row["p8"], row["kl_from_clean"], row["entropy"],
+    ] for row in top6_rows],
+    headers=["method", "position", "norm", "C", "p(6)", "p(8)", "KL", "entropy"],
+    tablefmt="pipe", floatfmt=".4f",
+)
+random_summary = []
+for target in (row for row in primary_rows if row["strength"] > 0):
+    controls = [row for row in l26_random_rows if row["strength"] == target["strength"]]
+    random_summary.append([
+        target["strength"], target["log_odds_6_vs_8"],
+        sum(row["log_odds_6_vs_8"] < target["log_odds_6_vs_8"] for row in controls),
+        sum(row["top_token"] == "6" for row in controls),
+    ])
+random_table = tabulate(
+    random_summary,
+    headers=["C", "target log odds", "random effects below target / 32", "random top-6 / 32"],
+    tablefmt="pipe", floatfmt=".4f",
+)
+unique_generations = {}
+for row in top6_rows:
+    generation = row["generation"]
+    key = tuple(generation["token_ids"])
+    condition = f'{row["method"]}, {row["mask"]}, norm={row["restore_norm"]}, C={row["strength"]}'
+    unique_generations.setdefault(key, {"text": generation["text"], "conditions": []})[
+        "conditions"
+    ].append(condition)
+generation_blocks = "\n\n".join(
+    f"Produced by {len(item['conditions'])} condition(s): {', '.join(item['conditions'])}\n\n"
+    f"```text\n{item['text']}\n```"
+    for item in unique_generations.values()
+)
+config_json = json.dumps(RUN_CONFIG, ensure_ascii=False, indent=2)
+run_log = f"""# Spider→Ant run
+
+## Resolved configuration
+
+```json
+{config_json}
+```
+
+## Input and readout
+
+Prompt: `{PROMPT}`
+
+```text
+[thoughts before: {', '.join(result['selected_tokens_at_final'])}]
+```
+
+## Primary L26 dose sweep
+
+{primary_table}
+
+## Conditions that changed the first token from 8 to 6
+
+{top6_table}
+
+## Matched random controls for the primary condition
+
+{random_table}
+
+## Exact 64-token generations
+
+{generation_blocks or 'No targeted condition produced top token 6.'}
+
+## Artifacts
+
+- Full result: [`result.json`](result.json)
+- Metadata: [`metadata.json`](metadata.json)
+
+## Final result
+
+Targeted top-6 conditions: {len(top6_rows)}. Primary rank-8 C=12 random effects below target: {next(row[2] for row in random_summary if row[0] == 12.0)}/32.
+
+Written by PI/gpt-5.4.
+"""
+(RUN_DIR / "log.md").write_text(run_log)
+print(f"targeted top-6 conditions: {len(top6_rows)}")
+print(f"output: {RUN_DIR.relative_to(ROOT)}/log.md")
+print(f"run identity: {RUN_GIT} | {RUN_CONFIG['elapsed_seconds']:.1f}s")
