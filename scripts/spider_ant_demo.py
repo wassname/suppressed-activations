@@ -49,7 +49,9 @@ SAMPLE_TARGETS = {
         "4",
     ),
 }
-SAMPLE_STRENGTHS = (1.0, 2.0, 4.0, 8.0, 12.0)
+SAMPLE_RANK = 8
+SAMPLE_LAYERS = tuple(range(23, 31))
+SAMPLE_STRENGTHS = (1.0, 2.0, 4.0, 8.0)
 RANDOM_CONTROL_COUNT = 32
 MAX_NEW_TOKENS = 64
 
@@ -501,7 +503,14 @@ def evaluate_prompt(model, tokenizer, prompt):
 
     sample_targets = []
     if prompt == PROMPTS["spider"]:
-        source_basis = basis[-1]
+        sample_source_basis, _ = suppressed_activation_subspace(
+            residuals.permute(1, 0, 2), model.lm_head.weight,
+            1 + language_model.norm.weight,
+            early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER,
+            output_layer=OUTPUT_LAYER, rank=SAMPLE_RANK,
+            normalize_unembedding_rows=True,
+        )
+        source_basis = sample_source_basis[-1]
         for animal, (target_prompt, expected_output) in SAMPLE_TARGETS.items():
             target_ids = tokenizer(
                 target_prompt, return_tensors="pt", add_special_tokens=False
@@ -513,46 +522,32 @@ def evaluate_prompt(model, tokenizer, prompt):
                 target_residuals.permute(1, 0, 2), model.lm_head.weight,
                 1 + language_model.norm.weight,
                 early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER,
-                output_layer=OUTPUT_LAYER, rank=RANK,
+                output_layer=OUTPUT_LAYER, rank=SAMPLE_RANK,
                 normalize_unembedding_rows=True,
             )
             target_basis = target_basis[-1]
-            target_h = target_residuals[INTERVENTION_LAYER, -1].float()
             dose_rows = []
-            for dose in SAMPLE_STRENGTHS:
-                dose_record = {}
-                hook = sample_component_hook(
-                    source_basis, target_basis, target_h, dose, mask, dose_record
-                )
-                with layer_hook(layer, hook):
-                    _, dose_logits = trajectory(
-                        model, input_ids, language_model.norm
+            for residual_layer in SAMPLE_LAYERS:
+                target_h = target_residuals[residual_layer, -1].float()
+                target_layer = language_model.layers[residual_layer - 1]
+                for dose in SAMPLE_STRENGTHS:
+                    dose_record = {}
+                    hook = sample_component_hook(
+                        source_basis, target_basis, target_h, dose, mask, dose_record
                     )
-                dose_rows.append({
-                    "strength": dose,
-                    "metrics": score(
-                        tokenizer, dose_logits, clean_logits, id6, id8, digit_ids
-                    ),
-                    "matching": dose_record,
-                })
-            successful = [
-                row for row in dose_rows
-                if top_label(row["metrics"]) == expected_output
-            ]
-            first_success = None
-            if successful:
-                first = successful[0]
-                first_success = {
-                    "strength": first["strength"],
-                    "generation": generate(
-                        model, tokenizer, input_ids, layer,
-                        sample_component_hook(
-                            source_basis, target_basis, target_h,
-                            first["strength"], mask,
+                    with layer_hook(target_layer, hook):
+                        _, dose_logits = trajectory(
+                            model, input_ids, language_model.norm
+                        )
+                    dose_rows.append({
+                        "residual_layer": residual_layer,
+                        "strength": dose,
+                        "metrics": score(
+                            tokenizer, dose_logits, clean_logits,
+                            id6, id8, digit_ids,
                         ),
-                        MAX_NEW_TOKENS,
-                    ),
-                }
+                        "matching": dose_record,
+                    })
             sample_targets.append({
                 "animal": animal,
                 "target_prompt": target_prompt,
@@ -565,7 +560,6 @@ def evaluate_prompt(model, tokenizer, prompt):
                     for token_id in target_selected[-1]
                 ],
                 "doses": dose_rows,
-                "first_success": first_success,
             })
 
     generations = {
@@ -755,7 +749,8 @@ def render_log(metadata, results):
             sample_table = tabulate(
                 [[
                     row["animal"], top_label(row["clean_target"]),
-                    dose["strength"], top_label(dose["metrics"]),
+                    dose["residual_layer"], dose["strength"],
+                    top_label(dose["metrics"]),
                     *[
                         dose["metrics"]["digit_probabilities"][digit]
                         for digit in ("2", "4", "6", "8")
@@ -765,7 +760,7 @@ def render_log(metadata, results):
                 for row in result["sample_targets"]
                 for dose in row["doses"]],
                 headers=[
-                    "target sample", "target clean", "C", "source top",
+                    "target sample", "target clean", "layer", "C", "source top",
                     "p(2)", "p(4)", "p(6)", "p(8)", "distance",
                 ],
                 tablefmt="pipe", floatfmt=".4f",
@@ -775,22 +770,13 @@ def render_log(metadata, results):
                 f"{', '.join(row['selected_tokens'])}]"
                 for row in result["sample_targets"]
             )
-            sample_generations = "\n\n".join(
-                f"### Whole {row['animal'].title()} sample component, "
-                f"C={row['first_success']['strength']:g}\n\n"
-                f"```text\n{row['first_success']['generation']['text']}\n```"
-                for row in result["sample_targets"]
-                if row["first_success"] is not None
-            )
-            sample_block = f"""### One-layer sample-component replacements
+            sample_block = f"""### Rank-8 single-site sample-component screen
 
 ```text
 {sample_readouts}
 ```
 
 {sample_table}
-
-{sample_generations}
 """
         sections.append(f"""## {name}
 
@@ -862,6 +848,8 @@ def main():
         "source_token": SOURCE_TOKEN,
         "target_token": TARGET_TOKEN,
         "target_leg_strengths": TARGET_LEG_STRENGTHS,
+        "sample_rank": SAMPLE_RANK,
+        "sample_layers": SAMPLE_LAYERS,
         "sample_strengths": SAMPLE_STRENGTHS,
         "random_control_count": RANDOM_CONTROL_COUNT,
         "max_new_tokens": MAX_NEW_TOKENS,
