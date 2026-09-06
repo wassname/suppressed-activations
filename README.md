@@ -98,16 +98,31 @@ share points against the full readout.
 
 ## Are suppressed activations causal? Can changing this subspace change the answer?
 
-To see if this subspace allows causal replacement, we repeat the spider/dog version of the
-demonstration in [Gurnee et al., Figures
+To see if this subspace allows causal replacement, we repeat the spider/dog demonstration
+from [Gurnee et al., Figures
 12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching) using our
 suppressed-activation method.
 
-Prompt: **Fact: The number of legs on the animal that spins webs is**
+### Base
 
-Readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`
+Input (`repr`, including the trailing space):
 
-Answer: **8**, the number of legs on a spider.
+```python
+'Fact: The number of legs on the animal that spins webs is '
+```
+
+Readout (“what it is thinking but not saying”):
+
+```python
+['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']
+```
+
+Generation (next 12 tokens, verbatim):
+
+```text
+8.
+Hypothesis: The animal that spins webs
+```
 
 | rank | token | log p | p |
 |---:|:---|---:|---:|
@@ -122,17 +137,26 @@ Answer: **8**, the number of legs on a spider.
 | 9 | 0 | −6.500 | 0.002 |
 | 10 | 9 | −6.562 | 0.001 |
 
-We get the replacement component from a second prompt:
+### Causal intervention
 
-Target prompt: **Fact: The number of legs on the animal that barks and is called man's best friend is**
+Input (`repr`, unchanged):
 
-Replacement readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`
+```python
+'Fact: The number of legs on the animal that spins webs is '
+```
 
-After applying this replacement to the original prompt at `C=4`:
+Replacement readout (“what we insert”):
 
-Prompt: **Fact: The number of legs on the animal that spins webs is**
+```python
+['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']
+```
 
-Answer: **4**, the number of legs on a dog.
+Generation (next 12 tokens, verbatim):
+
+```text
+4.
+Hypothesis: The animal that spins webs
+```
 
 | rank | token | log p | p |
 |---:|:---|---:|---:|
@@ -147,8 +171,14 @@ Answer: **4**, the number of legs on a dog.
 | 9 | 7 | −4.713 | 0.009 |
 | 10 | 0 | −6.588 | 0.001 |
 
-For each complete prompt, an unmodified first pass extracts a separate subspace. We then
-change one residual vector at L26 and the final source-prompt token:
+The replacement readout comes from an unmodified pass over this target input:
+
+```python
+"Fact: The number of legs on the animal that barks and is called man's best friend is "
+```
+
+For each complete input, an unmodified first pass extracts a separate subspace. We then
+change one residual vector at L26 and the final source-input token:
 
 ```python
 source = h_spider @ S_spider @ S_spider.T
@@ -157,16 +187,12 @@ target = target * norm(source) / norm(target)
 h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 ```
 
-At `C=1`, the constructed replacement still answers `8`. The answer changes at `C=4`,
-which extrapolates past that replacement. Re-running the detector after intervention still
-returns spider-related rows: `[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web',
-' spider', ' Spider']`.
-
-The intervention changes the answer, but it does not establish a semantic `spider → dog`
+At `C=1`, the constructed replacement still generates `8` first. The displayed `C=4`
+intervention extrapolates past that replacement. Re-running the detector after intervention
+still returns spider-related rows, so this does not establish a semantic `spider → dog`
 swap. C=4 changes 72% of the residual norm, 21 of 256 matched-random interventions have
-an equal or larger effect, and a `2 + 2` target produces the same change. The supported
-result is a prompt-specific next-answer-state intervention. See the [executed
-notebook](nbs/demo.ipynb) and [fixed run
+an equal or larger effect, and a `2 + 2` target produces the same first-token change. See
+the [executed notebook](nbs/demo.ipynb) and [fixed run
 report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
 
 ## Limits

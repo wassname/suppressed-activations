@@ -29,15 +29,20 @@ def main() -> None:
     source = (ROOT / "nbs/demo.py").read_text()
     assert "'git':" in text and "-dirty" not in text
     assert "one vector at residual L26, final prompt token" in text
-    assert "spins webs" in text and "man's best friend" in text
-    assert "Suppressed readout" in text and "Target suppressed readout" in text
-    assert "Re-extracted suppressed readout" in text
+    assert "spins webs" in text and "man's best friend" in source
+    assert text.count("Input (`repr`") == 2
+    assert "what it is thinking but not saying" in text
+    assert "Replacement readout" in text and "what we insert" in text
     assert "Spider" in text and "dog" in text and "canine" in text
+    assert "8.\nHypothesis: The animal that spins webs" in text
+    assert "4.\nHypothesis: The animal that spins webs" in text
+    assert text.count("Generation (next 12 tokens, verbatim)") == 2
+    assert text.count("|   rank | token") == 2
     assert "0.883" in text and "0.490" in text
     assert "**8**" in text and "**4**" in text
     assert "matched-random" in source and "21 of 256" in source
     assert "2 + 2" in source and "semantic `spider → dog` swap" in source
-    assert "generate" not in source and "Exact continuations" not in source
+    assert "GENERATION_TOKENS" in source and "generate(" in source
     assert "SUPPRESSED_ANT" not in source and '"ant":' not in source
     assert "jacobian" not in source.lower() and "j-space" not in source.lower()
     assert notebook["metadata"]["jupytext"]["formats"] == "py:percent,ipynb"

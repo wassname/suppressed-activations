@@ -16,6 +16,7 @@ notebook-smoke:
     SUPPRESSED_REVISION=main SUPPRESSED_DEVICE=cpu SUPPRESSED_EARLY_LAYER=0 \
     SUPPRESSED_PEAK_LAYER=2 SUPPRESSED_OUTPUT_LAYER=5 \
     SUPPRESSED_INTERVENTION_LAYER=3 SUPPRESSED_RANK=2 SUPPRESSED_STRENGTH=0.125 \
+    SUPPRESSED_TOKENS=4 \
     uv run jupytext --to ipynb --execute nbs/demo.py -o .local/demo-smoke.ipynb
 
 notebook-run:

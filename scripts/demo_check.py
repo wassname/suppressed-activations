@@ -52,23 +52,26 @@ def main() -> None:
 
     required = (
         "Are suppressed activations causal?",
-        "Readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`",
-        "Replacement readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`",
+        "### Base",
+        "### Causal intervention",
+        "['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']",
+        "['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']",
+        "8.\nHypothesis: The animal that spins webs",
+        "4.\nHypothesis: The animal that spins webs",
         "source = h_spider @ S_spider @ S_spider.T",
-        "At `C=1`, the constructed replacement still answers `8`",
-        "Re-running the detector after intervention still",
-        "[' Silk', 'Spider', ' spiders'",
+        "At `C=1`, the constructed replacement still generates `8` first",
         "21 of 256 matched-random interventions",
-        "prompt-specific next-answer-state intervention",
     )
     assert all(text in readme for text in required)
+    assert readme.count("Generation (next 12 tokens, verbatim)") == 2
+    assert "the number of legs on a dog" not in readme
     assert "ant → 6" not in readme
     assert "64-token greedy continuations" not in readme
     assert "figs/causal_demo" not in readme
-    assert "one continuous Spider-to-Dog demonstration" in agents
-    assert "add Ant, translation, a dose grid" in agents
+    assert "two complete, directly comparable conditions" in agents
+    assert "Do not add Ant, translation" in agents
 
-    print("PASS: README follows the single spider-to-dog demonstration template")
+    print("PASS: README shows comparable base/intervention inputs, readouts, and generations")
 
 
 if __name__ == "__main__":
