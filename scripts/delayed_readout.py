@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -15,6 +16,9 @@ import torch
 from loguru import logger
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 
 from scripts.demo import generate, intervention_hooks, layer_hooks, top_tokens, trajectory
 from suppressed_activation_subspace import component, suppressed_activation_subspace
