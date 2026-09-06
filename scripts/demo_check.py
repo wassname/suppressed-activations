@@ -52,11 +52,12 @@ def main() -> None:
 
     required = (
         "Are suppressed activations causal?",
-        "Suppressed readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`",
-        "Target suppressed readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`",
+        "Readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`",
+        "Replacement readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`",
         "source = h_spider @ S_spider @ S_spider.T",
-        "`C=1` is the constructed replacement and still answers `8`",
-        "Re-extracted suppressed readout: `[' Silk', 'Spider', ' spiders'",
+        "At `C=1`, the constructed replacement still answers `8`",
+        "Re-running the detector after intervention still",
+        "[' Silk', 'Spider', ' spiders'",
         "21 of 256 matched-random interventions",
         "prompt-specific next-answer-state intervention",
     )
@@ -64,10 +65,10 @@ def main() -> None:
     assert "ant → 6" not in readme
     assert "64-token greedy continuations" not in readme
     assert "figs/causal_demo" not in readme
-    assert "one demonstration" in agents
-    assert "Do not add Ant, translation, long-generation" in agents
+    assert "one continuous Spider-to-Dog demonstration" in agents
+    assert "add Ant, translation, a dose grid" in agents
 
-    print("PASS: README contains one measured spider-to-dog demonstration")
+    print("PASS: README follows the single spider-to-dog demonstration template")
 
 
 if __name__ == "__main__":

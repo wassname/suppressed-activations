@@ -98,17 +98,16 @@ share points against the full readout.
 
 ## Are suppressed activations causal? Can changing this subspace change the answer?
 
-To test this, we repeat the spider/dog version of the demonstration in [Gurnee et al.,
-Figures 12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching)
-using our suppressed-activation method.
-
-### Before intervention
+To see if this subspace allows causal replacement, we repeat the spider/dog version of the
+demonstration in [Gurnee et al., Figures
+12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching) using our
+suppressed-activation method.
 
 Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-Suppressed readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`
+Readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`
 
-The unspoken `Spider` appears in the readout, and the model answers `8`.
+Answer: **8**, the number of legs on a spider.
 
 | rank | token | log p | p |
 |---:|:---|---:|---:|
@@ -123,36 +122,17 @@ The unspoken `Spider` appears in the readout, and the model answers `8`.
 | 9 | 0 | −6.500 | 0.002 |
 | 10 | 9 | −6.562 | 0.001 |
 
-### Replace the suppressed component
-
-A separate target prompt gives us a dog-related component:
+We get the replacement component from a second prompt:
 
 Target prompt: **Fact: The number of legs on the animal that barks and is called man's best friend is**
 
-Target suppressed readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`
+Replacement readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`
 
-This is the target prompt's readout, not the source prompt's readout after intervention. We
-extract both subspaces with unmodified forward passes, then change one residual vector at
-L26 and the final source-prompt token:
-
-```python
-source = h_spider @ S_spider @ S_spider.T
-target = h_dog @ S_dog @ S_dog.T
-target = target * norm(source) / norm(target)
-h_replaced = match_norm(h_spider + C * (target - source), h_spider)
-```
-
-`C=1` is the constructed replacement and still answers `8`. The result below uses `C=4`,
-a large extrapolation past the replacement.
-
-### After intervention
+After applying this replacement to the original prompt at `C=4`:
 
 Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-Re-extracted suppressed readout: `[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']`
-
-The prompt is unchanged, the readout still looks spider-related, but the top answer changes
-to `4`.
+Answer: **4**, the number of legs on a dog.
 
 | rank | token | log p | p |
 |---:|:---|---:|---:|
@@ -167,12 +147,27 @@ to `4`.
 | 9 | 7 | −4.713 | 0.009 |
 | 10 | 0 | −6.588 | 0.001 |
 
-This does not establish a semantic `spider → dog` swap. C=4 changes 72% of the residual
-norm, 21 of 256 matched-random interventions have an equal or larger effect, and a target
-prompt for `2 + 2` produces the same answer change. The supported result is a
-prompt-specific next-answer-state intervention. The [executed
-notebook](nbs/demo.ipynb) contains this single demo, and the [fixed run
-report](out/2026-09-05_211609_causal-confirmation/recovered_log.md) contains the controls.
+For each complete prompt, an unmodified first pass extracts a separate subspace. We then
+change one residual vector at L26 and the final source-prompt token:
+
+```python
+source = h_spider @ S_spider @ S_spider.T
+target = h_dog @ S_dog @ S_dog.T
+target = target * norm(source) / norm(target)
+h_replaced = match_norm(h_spider + C * (target - source), h_spider)
+```
+
+At `C=1`, the constructed replacement still answers `8`. The answer changes at `C=4`,
+which extrapolates past that replacement. Re-running the detector after intervention still
+returns spider-related rows: `[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web',
+' spider', ' Spider']`.
+
+The intervention changes the answer, but it does not establish a semantic `spider → dog`
+swap. C=4 changes 72% of the residual norm, 21 of 256 matched-random interventions have
+an equal or larger effect, and a `2 + 2` target produces the same change. The supported
+result is a prompt-specific next-answer-state intervention. See the [executed
+notebook](nbs/demo.ipynb) and [fixed run
+report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
 
 ## Limits
 
