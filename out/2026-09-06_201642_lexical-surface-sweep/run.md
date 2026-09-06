@@ -1,0 +1,55 @@
+---
+conditions: 40
+metric: "swap_log_odds_shift"
+---
+
+# One-at-a-time intervention sweep
+
+Each section varies one axis while all other values stay at the single default. Rows are in
+enumeration order, not sorted by outcome. Each log contains the exact prompt, readouts,
+top-token distribution, and generated continuation.
+
+| axis            | value              | default   | swap log-odds ↑   | p(4)+p(8) ↑   | repeat bigrams ↓   | first token   | donor readout overlap ↑   | log                                                                                                |
+|:----------------|:-------------------|:----------|:------------------|:--------------|:-------------------|:--------------|:--------------------------|:---------------------------------------------------------------------------------------------------|
+| lexical_surface | pair=1,C=1         |           | +0.125            | 0.300         | 0.000              | '8'           | 0.000                     | [000_lexical_surface_pair=1_C=1](conditions/000_lexical_surface_pair=1_C=1/run.md)                 |
+| lexical_surface | pair=1,C=2         |           | +0.375            | 0.273         | 0.000              | '**'          | 0.000                     | [001_lexical_surface_pair=1_C=2](conditions/001_lexical_surface_pair=1_C=2/run.md)                 |
+| lexical_surface | pair=1,C=4         |           | +0.375            | 0.271         | 0.000              | '**'          | 0.000                     | [002_lexical_surface_pair=1_C=4](conditions/002_lexical_surface_pair=1_C=4/run.md)                 |
+| lexical_surface | pair=1,C=8         |           | +0.250            | 0.178         | 0.000              | '**'          | 0.000                     | [003_lexical_surface_pair=1_C=8](conditions/003_lexical_surface_pair=1_C=8/run.md)                 |
+| lexical_surface | pair=2,C=1         |           | +0.000            | 0.272         | 0.000              | '**'          | 0.000                     | [004_lexical_surface_pair=2_C=1](conditions/004_lexical_surface_pair=2_C=1/run.md)                 |
+| lexical_surface | pair=2,C=2         |           | +0.250            | 0.249         | 0.000              | '**'          | 0.000                     | [005_lexical_surface_pair=2_C=2](conditions/005_lexical_surface_pair=2_C=2/run.md)                 |
+| lexical_surface | pair=2,C=4         |           | +0.125            | 0.208         | 0.000              | '**'          | 0.000                     | [006_lexical_surface_pair=2_C=4](conditions/006_lexical_surface_pair=2_C=4/run.md)                 |
+| lexical_surface | pair=2,C=8         |           | +1.000            | 0.081         | 0.000              | '**'          | 0.000                     | [007_lexical_surface_pair=2_C=8](conditions/007_lexical_surface_pair=2_C=8/run.md)                 |
+| lexical_surface | pair=3,C=1         |           | +0.125            | 0.297         | 0.000              | '8'           | 0.000                     | [008_lexical_surface_pair=3_C=1](conditions/008_lexical_surface_pair=3_C=1/run.md)                 |
+| lexical_surface | pair=3,C=2         |           | +0.125            | 0.269         | 0.000              | '**'          | 0.000                     | [009_lexical_surface_pair=3_C=2](conditions/009_lexical_surface_pair=3_C=2/run.md)                 |
+| lexical_surface | pair=3,C=4         |           | +0.875            | 0.173         | 0.129              | 'The'         | 0.000                     | [010_lexical_surface_pair=3_C=4](conditions/010_lexical_surface_pair=3_C=4/run.md)                 |
+| lexical_surface | pair=3,C=8         |           | +2.750            | 0.087         | 0.129              | 'The'         | 0.000                     | [011_lexical_surface_pair=3_C=8](conditions/011_lexical_surface_pair=3_C=8/run.md)                 |
+| lexical_surface | pair=4,C=1         |           | +0.125            | 0.251         | 0.000              | '**'          | 0.000                     | [012_lexical_surface_pair=4_C=1](conditions/012_lexical_surface_pair=4_C=1/run.md)                 |
+| lexical_surface | pair=4,C=2         |           | +0.125            | 0.226         | 0.000              | '**'          | 0.000                     | [013_lexical_surface_pair=4_C=2](conditions/013_lexical_surface_pair=4_C=2/run.md)                 |
+| lexical_surface | pair=4,C=4         |           | +0.000            | 0.203         | 0.000              | '**'          | 0.000                     | [014_lexical_surface_pair=4_C=4](conditions/014_lexical_surface_pair=4_C=4/run.md)                 |
+| lexical_surface | pair=4,C=8         |           | +2.375            | 0.069         | 0.129              | 'The'         | 0.000                     | [015_lexical_surface_pair=4_C=8](conditions/015_lexical_surface_pair=4_C=8/run.md)                 |
+| lexical_surface | pair=5,C=1         |           | +0.125            | 0.291         | 0.032              | 'The'         | 0.000                     | [016_lexical_surface_pair=5_C=1](conditions/016_lexical_surface_pair=5_C=1/run.md)                 |
+| lexical_surface | pair=5,C=2         |           | +0.125            | 0.276         | 0.000              | '**'          | 0.000                     | [017_lexical_surface_pair=5_C=2](conditions/017_lexical_surface_pair=5_C=2/run.md)                 |
+| lexical_surface | pair=5,C=4         |           | +0.000            | 0.285         | 0.000              | '**'          | 0.000                     | [018_lexical_surface_pair=5_C=4](conditions/018_lexical_surface_pair=5_C=4/run.md)                 |
+| lexical_surface | pair=5,C=8         |           | +0.250            | 0.274         | 0.000              | '**'          | 0.000                     | [019_lexical_surface_pair=5_C=8](conditions/019_lexical_surface_pair=5_C=8/run.md)                 |
+| lexical_surface | pair=6,C=1         |           | +0.125            | 0.272         | 0.000              | '**'          | 0.000                     | [020_lexical_surface_pair=6_C=1](conditions/020_lexical_surface_pair=6_C=1/run.md)                 |
+| lexical_surface | pair=6,C=2         |           | +0.000            | 0.272         | 0.000              | '**'          | 0.000                     | [021_lexical_surface_pair=6_C=2](conditions/021_lexical_surface_pair=6_C=2/run.md)                 |
+| lexical_surface | pair=6,C=4         |           | +0.000            | 0.246         | 0.000              | '**'          | 0.000                     | [022_lexical_surface_pair=6_C=4](conditions/022_lexical_surface_pair=6_C=4/run.md)                 |
+| lexical_surface | pair=6,C=8         |           | +0.375            | 0.186         | 0.129              | 'The'         | 0.000                     | [023_lexical_surface_pair=6_C=8](conditions/023_lexical_surface_pair=6_C=8/run.md)                 |
+| lexical_surface | pair=7,C=1         |           | +0.125            | 0.297         | 0.000              | '8'           | 0.000                     | [024_lexical_surface_pair=7_C=1](conditions/024_lexical_surface_pair=7_C=1/run.md)                 |
+| lexical_surface | pair=7,C=2         |           | +0.125            | 0.272         | 0.000              | '**'          | 0.000                     | [025_lexical_surface_pair=7_C=2](conditions/025_lexical_surface_pair=7_C=2/run.md)                 |
+| lexical_surface | pair=7,C=4         |           | +0.125            | 0.290         | 0.000              | '**'          | 0.000                     | [026_lexical_surface_pair=7_C=4](conditions/026_lexical_surface_pair=7_C=4/run.md)                 |
+| lexical_surface | pair=7,C=8         |           | +0.375            | 0.263         | 0.000              | '**'          | 0.000                     | [027_lexical_surface_pair=7_C=8](conditions/027_lexical_surface_pair=7_C=8/run.md)                 |
+| lexical_surface | union,C=1,divide=1 |           | +0.125            | 0.295         | 0.000              | '8'           | 0.000                     | [028_lexical_surface_union_C=1_divide=1](conditions/028_lexical_surface_union_C=1_divide=1/run.md) |
+| lexical_surface | union,C=2,divide=1 |           | +0.500            | 0.271         | 0.000              | '**'          | 0.000                     | [029_lexical_surface_union_C=2_divide=1](conditions/029_lexical_surface_union_C=2_divide=1/run.md) |
+| lexical_surface | union,C=4,divide=1 |           | +1.000            | 0.174         | 0.000              | '**'          | 0.000                     | [030_lexical_surface_union_C=4_divide=1](conditions/030_lexical_surface_union_C=4_divide=1/run.md) |
+| lexical_surface | union,C=8,divide=1 |           | +3.000            | 0.010         | 0.129              | '**'          | 0.000                     | [031_lexical_surface_union_C=8_divide=1](conditions/031_lexical_surface_union_C=8_divide=1/run.md) |
+| lexical_surface | union,C=1,divide=2 |           | +0.125            | 0.299         | 0.000              | '8'           | 0.000                     | [032_lexical_surface_union_C=1_divide=2](conditions/032_lexical_surface_union_C=1_divide=2/run.md) |
+| lexical_surface | union,C=2,divide=2 |           | +0.125            | 0.295         | 0.000              | '8'           | 0.000                     | [033_lexical_surface_union_C=2_divide=2](conditions/033_lexical_surface_union_C=2_divide=2/run.md) |
+| lexical_surface | union,C=4,divide=2 |           | +0.500            | 0.271         | 0.000              | '**'          | 0.000                     | [034_lexical_surface_union_C=4_divide=2](conditions/034_lexical_surface_union_C=4_divide=2/run.md) |
+| lexical_surface | union,C=8,divide=2 |           | +1.000            | 0.174         | 0.000              | '**'          | 0.000                     | [035_lexical_surface_union_C=8_divide=2](conditions/035_lexical_surface_union_C=8_divide=2/run.md) |
+| lexical_surface | union,C=1,divide=4 |           | +0.125            | 0.301         | 0.000              | '8'           | 0.000                     | [036_lexical_surface_union_C=1_divide=4](conditions/036_lexical_surface_union_C=1_divide=4/run.md) |
+| lexical_surface | union,C=2,divide=4 |           | +0.125            | 0.299         | 0.000              | '8'           | 0.000                     | [037_lexical_surface_union_C=2_divide=4](conditions/037_lexical_surface_union_C=2_divide=4/run.md) |
+| lexical_surface | union,C=4,divide=4 |           | +0.125            | 0.295         | 0.000              | '8'           | 0.000                     | [038_lexical_surface_union_C=4_divide=4](conditions/038_lexical_surface_union_C=4_divide=4/run.md) |
+| lexical_surface | union,C=8,divide=4 |           | +0.500            | 0.271         | 0.000              | '**'          | 0.000                     | [039_lexical_surface_union_C=8_divide=4](conditions/039_lexical_surface_union_C=8_divide=4/run.md) |
+
+-- Codex/gpt-5.6-sol
