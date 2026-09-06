@@ -76,6 +76,28 @@ def configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
+def normalization_strength_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for match_component_norm in (True, False):
+        for restore_residual_norm in (True, False):
+            for strength in (4.0, 8.0, 16.0, 32.0, 64.0):
+                value = (
+                    f"C={strength:g},component_norm={match_component_norm},"
+                    f"residual_norm={restore_residual_norm}"
+                )
+                rows.append((
+                    "normalization_strength",
+                    value,
+                    replace(
+                        DEFAULT,
+                        strength=strength,
+                        match_component_norm=match_component_norm,
+                        restore_residual_norm=restore_residual_norm,
+                    ),
+                ))
+    return rows
+
+
 def subspace(sample, cfg: Config, unembedding, norm_gain):
     end = sample["content_end"]
     residuals = sample["residuals"][:, end - cfg.readout_positions:end].permute(1, 0, 2)
@@ -184,7 +206,7 @@ selective transfer beyond this development prompt.
 """
 
 
-def run(output_dir: Path) -> None:
+def run(output_dir: Path, sweep: str) -> None:
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -214,8 +236,9 @@ def run(output_dir: Path) -> None:
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
+    sweep_configs = configs() if sweep == "oat" else normalization_strength_configs()
     rows = []
-    for index, (axis, value, cfg) in enumerate(configs()):
+    for index, (axis, value, cfg) in enumerate(sweep_configs):
         source_basis, _, _ = subspace(source, cfg, unembedding, norm_gain)
         target_basis, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
         positions = (
@@ -277,7 +300,7 @@ def run(output_dir: Path) -> None:
             condition_report(row, source_rendered, target_rendered)
         )
         rows.append(row)
-        logger.info("{}/{} {}", index + 1, len(configs()), condition_id)
+        logger.info("{}/{} {}", index + 1, len(sweep_configs), condition_id)
 
     result = {
         "model": MODEL,
@@ -304,4 +327,6 @@ def run(output_dir: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
-    run(parser.parse_args().output_dir)
+    parser.add_argument("--sweep", choices=("oat", "normalization-strength"), default="oat")
+    args = parser.parse_args()
+    run(args.output_dir, args.sweep)
