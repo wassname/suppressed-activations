@@ -47,6 +47,12 @@ oat-sweep:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_oat-sweep"
     uv run scripts/oat_sweep.py --output-dir "$output_dir"
 
+normalization-strength-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_normalization-strength-sweep"
+    uv run scripts/oat_sweep.py --sweep normalization-strength --output-dir "$output_dir"
+
 results:
     uv run scripts/results.py
 
