@@ -146,7 +146,7 @@ target = extract(TARGET_PROMPT)
 display(Markdown(f"""\
 Prompt: **{SOURCE_PROMPT}**
 
-Suppressed readout: `[{', '.join(source['selected'])}]`
+Suppressed readout: `{source['selected']!r}`
 
 {probability_table(source['logits'], SOURCE_OUTPUT)}
 """))
@@ -168,7 +168,7 @@ Suppressed readout: `[{', '.join(source['selected'])}]`
 display(Markdown(f"""\
 Target prompt: **{TARGET_PROMPT}**
 
-Target suppressed readout: `[{', '.join(target['selected'])}]`
+Target suppressed readout: `{target['selected']!r}`
 """))
 
 block = INTERVENTION_LAYER - 1  # decoder block output is the next residual
@@ -202,7 +202,7 @@ changed_selected = [tokenizer.decode([int(token_id)]) for token_id in changed_se
 display(Markdown(f"""\
 Prompt: **{SOURCE_PROMPT}**
 
-Re-extracted suppressed readout: `[{', '.join(changed_selected)}]`
+Re-extracted suppressed readout: `{changed_selected!r}`
 
 {probability_table(changed_logits, TARGET_OUTPUT)}
 """))

@@ -52,11 +52,11 @@ def main() -> None:
 
     required = (
         "Are suppressed activations causal?",
-        "Suppressed readout: `[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]`",
-        "Target suppressed readout: `[吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]`",
+        "Suppressed readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`",
+        "Target suppressed readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`",
         "source = h_spider @ S_spider @ S_spider.T",
         "`C=1` is the constructed replacement and still answers `8`",
-        "Re-extracted suppressed readout: `[Silk, Spider, spiders",
+        "Re-extracted suppressed readout: `[' Silk', 'Spider', ' spiders'",
         "21 of 256 matched-random interventions",
         "prompt-specific next-answer-state intervention",
     )
