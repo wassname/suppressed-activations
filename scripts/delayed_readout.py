@@ -34,6 +34,7 @@ from suppressed_activation_subspace import (
     match_norm,
     persistent_suppressed_activation_subspace,
     suppressed_activation_subspace,
+    union_suppressed_activation_subspace,
 )
 
 MODEL = "Qwen/Qwen3.5-4B"
@@ -92,14 +93,19 @@ def chat_input_ids(tokenizer, content: str, *, enable_thinking: bool) -> dict:
 
 
 def extract(
-    model, tokenizer, final_norm, unembedding, norm_gain, content: str, *, enable_thinking=True
+    model, tokenizer, final_norm, unembedding, norm_gain, content: str, *,
+    enable_thinking=True, aggregation="persistent",
 ) -> dict:
     chat = chat_input_ids(tokenizer, content, enable_thinking=enable_thinking)
     input_ids = chat["input_ids"]
     residuals, logits = trajectory(model, input_ids, final_norm)
     persistence_start = chat["content_end"] - PERSISTENCE_POSITIONS
     residuals_by_position = residuals[:, persistence_start:chat["content_end"]].permute(1, 0, 2)
-    basis, selected, scores_by_position = persistent_suppressed_activation_subspace(
+    selector = {
+        "persistent": persistent_suppressed_activation_subspace,
+        "union": union_suppressed_activation_subspace,
+    }[aggregation]
+    basis, selected, scores_by_position = selector(
         residuals_by_position,
         unembedding,
         norm_gain,
@@ -111,6 +117,7 @@ def extract(
     )
     return {
         "input_ids": input_ids,
+        "aggregation": aggregation,
         "residuals": residuals,
         "logits": logits,
         "basis": basis[0],
@@ -175,10 +182,14 @@ def readout(residuals, tokenizer, unembedding, norm_gain) -> list[str]:
     return [tokenizer.decode([int(token_id)]) for token_id in selected[0]]
 
 
-def persistent_readout(residuals, content_end, tokenizer, unembedding, norm_gain) -> dict:
+def aggregated_readout(residuals, content_end, tokenizer, unembedding, norm_gain, aggregation) -> dict:
     start = content_end - PERSISTENCE_POSITIONS
     residuals_by_position = residuals[:, start:content_end].permute(1, 0, 2)
-    _, selected, scores_by_position = persistent_suppressed_activation_subspace(
+    selector = {
+        "persistent": persistent_suppressed_activation_subspace,
+        "union": union_suppressed_activation_subspace,
+    }[aggregation]
+    _, selected, scores_by_position = selector(
         residuals_by_position,
         unembedding,
         norm_gain,
@@ -328,14 +339,17 @@ def distribution_table(rows: list[dict]) -> str:
     return tabulate(values, headers=headers, tablefmt="pipe", disable_numparse=True)
 
 
-def persistence_score_table(tokens: list[str], scores_by_position: list[list[float]]) -> str:
+def aggregation_score_table(
+    tokens: list[str], scores_by_position: list[list[float]], aggregation: str
+) -> str:
     rows = []
     for index, token in enumerate(tokens):
         scores = [position[index] for position in scores_by_position]
-        rows.append([repr(token), f"{min(scores):.3f}", *(f"{score:.3f}" for score in scores)])
+        aggregate = {"persistent": min, "union": max}[aggregation](scores)
+        rows.append([repr(token), f"{aggregate:.3f}", *(f"{score:.3f}" for score in scores)])
     return tabulate(
         rows,
-        headers=["token", "minimum", "position −3", "position −2", "position −1", "position 0"],
+        headers=["token", f"{aggregation} score", "position −3", "position −2", "position −1", "position 0"],
         tablefmt="pipe",
         disable_numparse=True,
     )
@@ -368,6 +382,11 @@ def persistence_diagnostics(source, target) -> list[dict]:
 
 
 def sweep_report(result: dict) -> str:
+    aggregation = result["config"]["aggregation"]
+    aggregation_description = {
+        "persistent": "highest minimum suppressed score across four user-content positions",
+        "union": "highest suppressed score at any of four user-content positions",
+    }[aggregation]
     sweep_rows = []
     for rank, row in enumerate(result["sweep"][:64], start=1):
         sweep_rows.append([
@@ -422,17 +441,17 @@ not held-out confirmation.
 
 ## Is the selected readout persistent?
 
-The basis contains the tokens with the highest minimum suppressed score across four user-content positions.
+The `{aggregation}` basis contains tokens with the {aggregation_description}.
 Each cosine compares a content position with the final content position. The donor direction is
 fixed; only its norm is matched separately at each source position.
 
 Source content tokens: `{result['source_persistence_input_tokens']!r}`
 
-{persistence_score_table(base['readout'], result['source_persistence_scores_by_position'])}
+{aggregation_score_table(base['readout'], result['source_persistence_scores_by_position'], aggregation)}
 
 Donor content tokens: `{result['target_persistence_input_tokens']!r}`
 
-{persistence_score_table(result['target_readout'], result['target_persistence_scores_by_position'])}
+{aggregation_score_table(result['target_readout'], result['target_persistence_scores_by_position'], aggregation)}
 
 {suffix_table}
 
@@ -502,7 +521,7 @@ Raw artifact: `result.json`.
 """
 
 
-def run_sweep(output_dir: Path) -> None:
+def run_sweep(output_dir: Path, aggregation: str) -> None:
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -515,11 +534,11 @@ def run_sweep(output_dir: Path) -> None:
     norm_gain = 1.0 + final_norm.weight
     source = extract(
         model, tokenizer, final_norm, unembedding, norm_gain, SOURCE_PROMPT,
-        enable_thinking=False,
+        enable_thinking=False, aggregation=aggregation,
     )
     target = extract(
         model, tokenizer, final_norm, unembedding, norm_gain, TARGET_PROMPT,
-        enable_thinking=False,
+        enable_thinking=False, aggregation=aggregation,
     )
     base_logits = source["logits"]
     source_id = one_token(tokenizer, "8")
@@ -555,8 +574,8 @@ def run_sweep(output_dir: Path) -> None:
         changed_residuals, changed_logits = trajectory(
             model, source["input_ids"], final_norm
         )
-    changed_readout = persistent_readout(
-        changed_residuals, source["content_end"], tokenizer, unembedding, norm_gain
+    changed_readout = aggregated_readout(
+        changed_residuals, source["content_end"], tokenizer, unembedding, norm_gain, aggregation
     )
     base_generation = generate(
         model, tokenizer, source["input_ids"], blocks, {}, max_new_tokens=DEMO_TOKENS
@@ -571,6 +590,7 @@ def run_sweep(output_dir: Path) -> None:
             "layers": SWEEP_LAYERS,
             "positions": sweep_positions,
             "basis_persistence_positions": PERSISTENCE_POSITIONS,
+            "aggregation": aggregation,
             "strengths": SWEEP_STRENGTHS,
             "metric": "change in target-vs-source log odds",
             "git": subprocess.run(
@@ -671,5 +691,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--sweep", action="store_true")
+    parser.add_argument("--aggregation", choices=("persistent", "union"), default="persistent")
     args = parser.parse_args()
-    (run_sweep if args.sweep else main)(args.output_dir)
+    if args.sweep:
+        run_sweep(args.output_dir, args.aggregation)
+    else:
+        main(args.output_dir)

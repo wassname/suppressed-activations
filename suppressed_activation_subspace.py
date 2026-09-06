@@ -103,6 +103,32 @@ def persistent_suppressed_activation_subspace(
     return basis, token_ids, scores_by_position
 
 
+def union_suppressed_activation_subspace(
+    residuals_by_position: Tensor,
+    unembedding: Tensor,
+    rms_norm_gain: Tensor,
+    *,
+    early_layer: int,
+    peak_layer: int,
+    output_layer: int,
+    rank: int = 32,
+    normalize_unembedding_rows: bool = False,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Select one subspace from tokens strongly suppressed at any supplied position."""
+    scores_by_position = suppressed_activation_scores(
+        residuals_by_position,
+        unembedding,
+        rms_norm_gain,
+        early_layer=early_layer,
+        peak_layer=peak_layer,
+        output_layer=output_layer,
+        normalize_unembedding_rows=normalize_unembedding_rows,
+    )
+    union_scores = scores_by_position.amax(dim=0, keepdim=True)
+    basis, token_ids = subspace_from_scores(union_scores, unembedding, rms_norm_gain, rank=rank)
+    return basis, token_ids, scores_by_position
+
+
 def component(h: Tensor, basis: Tensor) -> Tensor:
     """Project residuals `[..., d]` into sample-specific bases `[..., d, k]`."""
     coordinates = torch.matmul(h.unsqueeze(-2), basis).squeeze(-2)
