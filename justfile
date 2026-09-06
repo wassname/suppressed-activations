@@ -77,6 +77,12 @@ persistent-generation-sweep:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_persistent-generation-chat-fact"
     uv run scripts/oat_sweep.py --sweep persistent-generation --prompt-mode chat-fact --output-dir "$output_dir"
 
+persistent-direction-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_persistent-direction-raw"
+    uv run scripts/oat_sweep.py --sweep persistent-direction --prompt-mode raw --output-dir "$output_dir"
+
 results:
     uv run scripts/results.py
 
