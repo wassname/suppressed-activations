@@ -28,6 +28,7 @@ from scripts.delayed_readout import (
     SOURCE_PROMPT,
     TARGET_PROMPT,
     chat_input_ids,
+    assistant_prefill_input_ids,
     distribution_table,
     token_distribution,
 )
@@ -44,8 +45,8 @@ class Config:
     detector_layers: tuple[int, int, int] = (23, 25, 32)
     readout_positions: int = 4
     rank: int = 8
-    intervention_layer: int | tuple[int, ...] = (24, 26)
-    intervention_positions: int | str = 1
+    intervention_layer: int | tuple[int, ...] = (24,)
+    intervention_positions: int | str = 4
     strength: float = 2.0
     match_component_norm: bool = True
     restore_residual_norm: bool = True
@@ -386,6 +387,8 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
             chat = chat_input_ids(tokenizer, content, enable_thinking=False, instruction="")
         elif prompt_mode == "chat-instructed":
             chat = chat_input_ids(tokenizer, content, enable_thinking=False)
+        elif prompt_mode == "chat-assistant-prefill":
+            chat = assistant_prefill_input_ids(tokenizer, content)
         else:
             raise ValueError(prompt_mode)
         residuals, logits = trajectory(model, chat["input_ids"], final_norm)
@@ -534,7 +537,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--prompt-mode",
-        choices=("raw", "chat-fact", "chat-instructed"),
+        choices=("raw", "chat-fact", "chat-instructed", "chat-assistant-prefill"),
         default="raw",
     )
     args = parser.parse_args()
