@@ -132,6 +132,33 @@ def lexical_configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
+def layer_position_strength_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for intervention_layer in (8, 12, 16, 20, 23, 24, 26, 28, 30, 32):
+        for intervention_positions in (1, 2, 4):
+            for strength in (1.0, 2.0, 4.0, 8.0, 16.0):
+                value = (
+                    f"L={intervention_layer},positions={intervention_positions},"
+                    f"C={strength:g}"
+                )
+                rows.append((
+                    "layer_position_strength",
+                    value,
+                    replace(
+                        DEFAULT,
+                        intervention_layer=intervention_layer,
+                        intervention_positions=intervention_positions,
+                        strength=strength,
+                    ),
+                ))
+    return rows
+
+
+def first_answer(text: str) -> str | None:
+    match = re.search(r"(?<!\d)([48])(?!\d)", text)
+    return None if match is None else match.group(1)
+
+
 def subspace(sample, cfg: Config, unembedding, norm_gain):
     end = sample["content_end"]
     residuals = sample["residuals"][:, end - cfg.readout_positions:end].permute(1, 0, 2)
@@ -208,7 +235,10 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
     frontmatter = "\n".join(
         f"{key}: {yaml_value(value)}"
         for key, value in row.items()
-        if key not in {"top_tokens", "generation", "readout", "target_readout", "config"}
+        if key not in {
+            "top_tokens", "generation", "readout", "target_readout", "config",
+            "intervention_record",
+        }
     )
     return f"""---
 {frontmatter}
@@ -244,6 +274,12 @@ Unmodified donor readout:
 
 ```python
 {row['target_readout']!r}
+```
+
+Measured intervention norms:
+
+```json
+{json.dumps(row['intervention_record'], ensure_ascii=False, indent=2)}
 ```
 
 Generation ({row['generation_tokens']} tokens, verbatim):
@@ -295,6 +331,7 @@ def run(output_dir: Path, sweep: str) -> None:
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
         "lexical-surface": lexical_configs,
+        "layer-position-strength": layer_position_strength_configs,
     }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
@@ -311,6 +348,7 @@ def run(output_dir: Path, sweep: str) -> None:
             if cfg.intervention_positions == "all"
             else cfg.intervention_positions
         )
+        intervention_record = {}
         hooks = intervention_hooks(
             source_basis,
             target_basis,
@@ -324,6 +362,7 @@ def run(output_dir: Path, sweep: str) -> None:
             match_component_norm=cfg.match_component_norm,
             restore_norm=cfg.restore_residual_norm,
             prefill_only=True,
+            record=intervention_record,
         )
         with layer_hooks(blocks, hooks):
             changed_residuals, logits = trajectory(model, source["input_ids"], final_norm)
@@ -353,7 +392,10 @@ def run(output_dir: Path, sweep: str) -> None:
             ),
             "generation_tokens": len(generation["token_ids"]),
             "first_token": tokenizer.decode(generation["token_ids"][:1]),
+            "first_answer": first_answer(generation["text"]),
+            "source_fact_preserved": "spins webs" in generation["text"],
             "readout_overlap": len(set(readout) & set(target_readout)) / cfg.rank,
+            "intervention_record": intervention_record,
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
             "readout": readout,
@@ -394,7 +436,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
-        "--sweep", choices=("oat", "normalization-strength", "lexical-surface"), default="oat"
+        "--sweep",
+        choices=("oat", "normalization-strength", "lexical-surface", "layer-position-strength"),
+        default="oat",
     )
     args = parser.parse_args()
     run(args.output_dir, args.sweep)
