@@ -20,6 +20,7 @@ from suppressed_activation_subspace import (
     replace,
     steer,
     subspace_from_scores,
+    persistent_suppressed_activation_subspace,
 )
 
 
@@ -152,6 +153,21 @@ def main() -> None:
     _, selected = subspace_from_scores(scores, toy_unembedding, torch.ones(5), rank=2)
     assert selected.tolist() == [[1, 3]]
     print("PASS: subspace construction selects the highest supplied persistent scores")
+
+    residuals_by_position = torch.randn(4, 3, 5, generator=generator)
+    basis, selected, scores_by_position = persistent_suppressed_activation_subspace(
+        residuals_by_position,
+        toy_unembedding,
+        torch.ones(5),
+        early_layer=0,
+        peak_layer=1,
+        output_layer=2,
+        rank=2,
+    )
+    assert basis.shape == (1, 5, 2)
+    assert selected.shape == (1, 2)
+    assert scores_by_position.shape == (4, 5)
+    print("PASS: persistent selector aggregates sparse evidence without a hard minimum")
 
     data = json.loads((Path(__file__).resolve().parents[1] / "data/causal_demo.json").read_text())
     rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
