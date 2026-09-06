@@ -42,7 +42,6 @@ def chat_input_ids(tokenizer, content: str) -> torch.Tensor:
         [{"role": "user", "content": INSTRUCTION + content}],
         tokenize=True,
         add_generation_prompt=True,
-        enable_thinking=False,
         return_tensors="pt",
     )
     return encoded.input_ids.cuda()
@@ -115,14 +114,19 @@ def readout(residuals, tokenizer, unembedding, norm_gain) -> list[str]:
     return [tokenizer.decode([int(token_id)]) for token_id in selected[0]]
 
 
-def projection_share(residuals, basis) -> float:
-    h = residuals[INTERVENTION_LAYER, -1].float()
-    return float(component(h, basis).norm() / h.norm())
+def projection_shares(residuals, basis) -> dict[str, float]:
+    return {
+        f"L{layer}": float(
+            component(residuals[layer, -1].float(), basis).norm() / residuals[layer, -1].float().norm()
+        )
+        for layer in (EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER)
+    }
 
 
 def condition(
     model, tokenizer, final_norm, blocks, source, target, unembedding, norm_gain, forced_ids, strength: float
 ) -> dict:
+    record: dict[int, dict] = {}
     hooks = intervention_hooks(
         source["basis"],
         target["basis"],
@@ -132,6 +136,7 @@ def condition(
         blocks_to_hook=[INTERVENTION_LAYER - 1],
         positions=POSITIONS,
         prefill_only=True,
+        record=record,
     )
     trajectories = cached_trajectories(
         model, final_norm, blocks, source["input_ids"], forced_ids, hooks
@@ -139,9 +144,10 @@ def condition(
     return {
         "strength": strength,
         "readouts": [readout(x, tokenizer, unembedding, norm_gain) for x in trajectories],
-        "source_projection_share": [projection_share(x, source["basis"]) for x in trajectories],
-        "target_projection_share": [projection_share(x, target["basis"]) for x in trajectories],
+        "source_projection_shares": [projection_shares(x, source["basis"]) for x in trajectories],
+        "target_projection_shares": [projection_shares(x, target["basis"]) for x in trajectories],
         "top_tokens": [top_tokens(tokenizer, x[-1, -1].float() @ unembedding.float().T, k=5) for x in trajectories],
+        "patch_record": record,
     }
 
 
@@ -153,8 +159,8 @@ def report(result: dict) -> str:
                 name,
                 "prompt" if step == 0 else f"forced {step}",
                 repr(selected),
-                f"{item['source_projection_share'][step]:.4f}",
-                f"{item['target_projection_share'][step]:.4f}",
+                f"{item['source_projection_shares'][step]['L32']:.4f}",
+                f"{item['target_projection_shares'][step]['L32']:.4f}",
             ])
     table = tabulate(
         rows,
@@ -165,8 +171,9 @@ def report(result: dict) -> str:
     return f"""# Delayed readout
 
 Config: patch residual L{INTERVENTION_LAYER} at the last {POSITIONS} prompt positions. The
-detector reads L{EARLY_LAYER}, L{PEAK_LAYER}, and L{OUTPUT_LAYER}. Later states consume the same
-forced tokens with no additional patch.
+detector reads L{EARLY_LAYER}, L{PEAK_LAYER}, and L{OUTPUT_LAYER}. The Qwen template starts the
+assistant thinking section in the input. Later states consume the same forced thought tokens with
+no additional patch.
 
 Forced continuation (`repr`):
 
@@ -186,6 +193,7 @@ Raw artifact: `result.json`.
 
 
 def main(output_dir: Path) -> None:
+    torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
     model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=torch.bfloat16).cuda().eval()
