@@ -37,7 +37,7 @@ def main() -> None:
     assert "8.\nHypothesis: The animal that spins webs" in text
     assert "4.\nHypothesis: The animal that spins webs" in text
     assert text.count("Generation (next 12 tokens, verbatim)") == 2
-    assert text.count("|   rank | token") == 2
+    assert text.count("| rank   | token") == 2
     assert "0.882568" in text and "0.490091" in text and "0.297255" in text
     assert "**8**" in text and "**4**" in text
     assert "matched-random" in source and "21 of 256" in source
