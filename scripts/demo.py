@@ -112,6 +112,10 @@ def intervention_hooks(
     matched_distances: dict[int, float] | None = None,
     prefill_only: bool = False,
     positions: int = 1,
+    source_position: int | None = None,
+    target_position: int | None = None,
+    match_component_norm: bool = True,
+    restore_norm: bool = True,
     record: dict[int, dict] | None = None,
 ) -> dict[int, object]:
     random_source = random_basis_like(source_basis, random_seed)
@@ -124,16 +128,26 @@ def intervention_hooks(
             hidden = output[0] if isinstance(output, tuple) else output
             if prefill_only and hidden.shape[1] == 1:
                 return output
-            if positions > hidden.shape[1]:
-                raise ValueError(f"cannot patch {positions} positions in length {hidden.shape[1]}")
-            if positions > target_residuals.shape[1]:
-                raise ValueError(f"target has only {target_residuals.shape[1]} positions")
-            h = hidden[:, -positions:].float()
-            target_h = target_residuals[residual_layer, -positions:].unsqueeze(0).float()
+            source_end = hidden.shape[1] if source_position is None else source_position + 1
+            source_start = source_end - positions
+            if source_start < 0 or source_end > hidden.shape[1]:
+                raise ValueError(
+                    f"cannot patch positions [{source_start}:{source_end}] in length {hidden.shape[1]}"
+                )
+            h = hidden[:, source_start:source_end].float()
+            if target_position is None:
+                if positions > target_residuals.shape[1]:
+                    raise ValueError(f"target has only {target_residuals.shape[1]} positions")
+                target_h = target_residuals[residual_layer, -positions:].unsqueeze(0).float()
+            else:
+                target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1)
+                target_h = target_h.expand(h.shape[0], h.shape[1], -1).float()
             if operation == "replace":
                 patched = replace(
                     h, source_basis, target_h, target_basis,
-                    strength=strength, restore_norm=True,
+                    strength=strength,
+                    match_component_norm=match_component_norm,
+                    restore_norm=restore_norm,
                 )
             elif operation == "random":
                 if matched_distances is None:
@@ -146,11 +160,22 @@ def intervention_hooks(
             else:
                 raise ValueError(operation)
             if record is not None:
+                residual_norms = h.norm(dim=-1)[0]
+                perturbation_norms = (patched - h).norm(dim=-1)[0]
                 record[residual_layer] = {
                     "residual_norm": float(h.norm()),
                     "perturbation_norm": float((patched - h).norm()),
+                    "relative_perturbation_by_position": (
+                        perturbation_norms / residual_norms
+                    ).tolist(),
                 }
-            return replace_output(output, torch.cat([hidden[:, :-positions], patched.to(hidden.dtype)], dim=1))
+            return replace_output(
+                output,
+                torch.cat(
+                    [hidden[:, :source_start], patched.to(hidden.dtype), hidden[:, source_end:]],
+                    dim=1,
+                ),
+            )
 
         return hook
 

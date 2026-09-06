@@ -29,5 +29,11 @@ notebook-check:
 figure:
     uv run scripts/figure.py
 
+intervention-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_intervention-sweep"
+    uv run scripts/delayed_readout.py --sweep --output-dir "$output_dir"
+
 check: test demo-check
     uv run --with torch python -m py_compile suppressed_activation_subspace.py scripts/*.py
