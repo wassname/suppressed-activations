@@ -81,9 +81,8 @@ GIT_DESCRIBE = subprocess.run(
 }
 
 # %% [markdown]
-# ## Extract the two prompt-specific subspaces
-#
-# Each extraction is an unmodified forward pass. It does not receive *spider* or *dog* as a label.
+# Each prompt gets its own suppressed subspace from an unmodified forward pass. Extraction does not
+# receive *spider* or *dog* as a label:
 #
 # ```python
 # rise = logits[L25] - logits[L23]
@@ -140,7 +139,7 @@ source = extract(SOURCE_PROMPT)
 target = extract(TARGET_PROMPT)
 
 # %% [markdown]
-# ## Before intervention
+# The original prompt reads:
 
 # %%
 display(Markdown(f"""\
@@ -152,17 +151,7 @@ Suppressed readout: `{source['selected']!r}`
 """))
 
 # %% [markdown]
-# ## Replace the suppressed component
-#
-# The target prompt supplies a dog-related component. Its readout is shown before the operation; it
-# is not presented as the source prompt's readout after intervention.
-#
-# ```python
-# source = h_spider @ S_spider @ S_spider.T
-# target = h_dog @ S_dog @ S_dog.T
-# target = target * norm(source) / norm(target)
-# h_replaced = match_norm(h_spider + C * (target - source), h_spider)
-# ```
+# We replace this suppressed component with one extracted from:
 
 # %%
 display(Markdown(f"""\
@@ -196,7 +185,7 @@ _, changed_selected_ids = suppressed_activation_subspace(
 changed_selected = [tokenizer.decode([int(token_id)]) for token_id in changed_selected_ids[0]]
 
 # %% [markdown]
-# ## After intervention
+# After applying the replacement to the original prompt:
 
 # %%
 display(Markdown(f"""\
@@ -208,6 +197,16 @@ Re-extracted suppressed readout: `{changed_selected!r}`
 """))
 
 # %% [markdown]
+# For each complete prompt, an unmodified first pass extracts a separate subspace. We then change
+# one residual vector at L26 and the final source-prompt token:
+#
+# ```python
+# source = h_spider @ S_spider @ S_spider.T
+# target = h_dog @ S_dog @ S_dog.T
+# target = target * norm(source) / norm(target)
+# h_replaced = match_norm(h_spider + C * (target - source), h_spider)
+# ```
+#
 # The prompt is unchanged and the answer changes from 8 to 4. The re-extracted readout still looks
 # spider-related. This does not establish a semantic `spider → dog` swap: C=4 changes 72% of the
 # residual norm, 21 of 256 matched-random interventions have an equal or larger effect, and a
