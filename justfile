@@ -47,6 +47,12 @@ oat-sweep:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_oat-sweep"
     uv run scripts/oat_sweep.py --output-dir "$output_dir"
 
+causal-demo:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_causal-demo"
+    uv run scripts/oat_sweep.py --sweep demo --prompt-mode raw --output-dir "$output_dir"
+
 normalization-strength-sweep:
     #!/usr/bin/env bash
     set -euo pipefail

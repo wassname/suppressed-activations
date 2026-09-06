@@ -44,9 +44,9 @@ class Config:
     detector_layers: tuple[int, int, int] = (23, 25, 32)
     readout_positions: int = 4
     rank: int = 8
-    intervention_layer: int | tuple[int, ...] = 1
-    intervention_positions: int | str = "all"
-    strength: float = 4.0
+    intervention_layer: int | tuple[int, ...] = (24, 26)
+    intervention_positions: int | str = 1
+    strength: float = 2.0
     match_component_norm: bool = True
     restore_residual_norm: bool = True
     donor_position_offset: int = 0
@@ -78,6 +78,10 @@ def configs() -> list[tuple[str, str, Config]]:
             if candidate != DEFAULT:
                 rows.append((axis, str(value), candidate))
     return rows
+
+
+def demo_configs() -> list[tuple[str, str, Config]]:
+    return [("default", "default", DEFAULT)]
 
 
 def normalization_strength_configs() -> list[tuple[str, str, Config]]:
@@ -401,6 +405,7 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
     sweep_configs = {
+        "demo": demo_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
         "lexical-surface": lexical_configs,
@@ -520,17 +525,17 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sweep",
         choices=(
-            "oat", "normalization-strength", "lexical-surface",
+            "demo", "oat", "normalization-strength", "lexical-surface",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",
         ),
-        default="oat",
+        default="demo",
     )
     parser.add_argument(
         "--prompt-mode",
         choices=("raw", "chat-fact", "chat-instructed"),
-        default="chat-instructed",
+        default="raw",
     )
     args = parser.parse_args()
     run(args.output_dir, args.sweep, args.prompt_mode)
