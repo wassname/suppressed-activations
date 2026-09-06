@@ -168,9 +168,13 @@ assert len(clean_generation["token_ids"]) == GENERATION_TOKENS
 display(Markdown(f"""\
 Input (`repr`, including the trailing space):
 
+`PROMPT START`
+
 ```python
 {SOURCE_PROMPT!r}
 ```
+
+`PROMPT END`
 
 Rendered model input (`repr`, chat template; used for extraction and generation):
 
@@ -186,9 +190,13 @@ Readout ("what it is thinking but not saying"):
 
 Generation (next {GENERATION_TOKENS} tokens, verbatim):
 
+`GENERATION START`
+
 ```text
 {clean_generation['text']}
 ```
+
+`GENERATION END`
 
 {probability_table(source['logits'], SOURCE_OUTPUT, TARGET_OUTPUT)}
 """))
@@ -243,9 +251,13 @@ assert len(changed_generation["token_ids"]) == GENERATION_TOKENS
 display(Markdown(f"""\
 Input (`repr`, unchanged):
 
+`PROMPT START`
+
 ```python
 {SOURCE_PROMPT!r}
 ```
+
+`PROMPT END`
 
 Rendered model input (`repr`, unchanged):
 
@@ -261,9 +273,13 @@ Readout after intervention ("what it is thinking but not saying"):
 
 Generation (next {GENERATION_TOKENS} tokens, verbatim):
 
+`GENERATION START`
+
 ```text
 {changed_generation['text']}
 ```
+
+`GENERATION END`
 
 {probability_table(changed_logits, TARGET_OUTPUT, SOURCE_OUTPUT, source['logits'])}
 """))
