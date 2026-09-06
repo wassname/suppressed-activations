@@ -29,6 +29,7 @@ from scripts.demo import (
     top_tokens,
     trajectory,
 )
+from scripts.prompt import assistant_prefill_input_ids
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -87,34 +88,6 @@ def chat_input_ids(
     content_start = find_subsequence(input_ids[0].tolist(), content_ids)
     if tokenizer.decode(input_ids[0], skip_special_tokens=False) != rendered:
         raise ValueError("chat prompt changed during tokenization")
-    return {
-        "input_ids": input_ids.cuda(),
-        "content_start": content_start,
-        "content_end": content_start + len(content_ids),
-    }
-
-
-def assistant_prefill_input_ids(tokenizer, content: str) -> dict:
-    rendered = tokenizer.apply_chat_template(
-        [
-            {
-                "role": "user",
-                "content": "Complete the following fact, then explain your answer.",
-            },
-            {"role": "assistant", "content": content},
-        ],
-        tokenize=False,
-        continue_final_message=True,
-    )
-    trimmed_content = content.rstrip()
-    if not rendered.endswith(trimmed_content):
-        raise ValueError("chat template did not end at the assistant prefill")
-    rendered = rendered.removesuffix(trimmed_content) + content
-    content_ids = tokenizer(content, add_special_tokens=False).input_ids
-    input_ids = tokenizer(rendered, add_special_tokens=False, return_tensors="pt").input_ids
-    content_start = find_subsequence(input_ids[0].tolist(), content_ids)
-    if tokenizer.decode(input_ids[0], skip_special_tokens=False) != rendered:
-        raise ValueError("assistant-prefill chat prompt changed during tokenization")
     return {
         "input_ids": input_ids.cuda(),
         "content_start": content_start,

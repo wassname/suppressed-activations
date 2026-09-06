@@ -37,3 +37,44 @@ My read: it is very probable that the extra instruction and chat response format
 The current evidence supports the raw union intervention and leaves the chat-template demonstration unresolved.
 
 <!-- Written by Codex/gpt-5.6-sol. -->
+
+## 2026-09-06 -- Assistant-prefill chat crosses at moderate strength
+
+This entry resolves the earlier chat-template question with an assistant-prefill format.
+
+| C | first answer | p(4) | p(8) | exact donor-readout overlap |
+|---:|---:|---:|---:|---:|
+| 2.0 | 8 | 0.373941 | 0.544081 | 3/8 |
+| 2.5 | 4 | 0.684335 | 0.196065 | 4/8 |
+| 3.0 | 4 | 0.809186 | 0.066422 | 5/8 |
+| 4.0 | 4 | 0.824805 | 0.019398 | 6/8 |
+
+Here, `C` scales the constructed component replacement, and `p(4)` and `p(8)` are next-token
+probabilities at the first generation boundary. Every condition used the tokenizer's chat template
+for extraction and generation, with the incomplete fact as an assistant-message prefill. Evidence:
+[job 405 run table](out/2026-09-06_220932_chat-strength/run.md) and
+[C=2.5 condition log](out/2026-09-06_220932_chat-strength/conditions/001_strength_C=2.5/run.md).
+
+The continuation at the smallest measured crossing was:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is the **spider**. Spiders belong to the class *Arachnida*, which is
+```
+
+The recomputed readout at that condition was:
+
+```python
+['狗粮', '吠', 'สุนัข', ' собаки', '养犬', ' собак', ' perros', ' dogg']
+```
+
+My read: C=2.5 is a better notebook setting than the C=2 prior because it is the smallest tested
+value that changes the greedy answer while retaining a grammatical, on-topic continuation. This is
+a selected single-prompt result, so it does not show that the method transfers a reusable dog
+concept rather than a target-answer state.
+
+The assistant-prefill chat demonstration now changes both the answer and the suppressed readout.
+
+<!-- Written by Codex/gpt-5.6-sol. -->

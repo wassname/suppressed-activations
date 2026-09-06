@@ -17,12 +17,11 @@
 # # Can changing a suppressed activation subspace change the answer?
 #
 # This notebook contains one example. Qwen3.5-4B first answers that the web-spinning animal
-# has 8 legs. We replace one residual component with a component extracted from a dog prompt.
+# has 8 legs. We replace residual components with components extracted from a dog prompt.
 # At the displayed strength, the answer changes to 4.
 #
-# This is a prompt-specific next-answer-state intervention, not evidence that dog identity was
-# transferred. `C=1` is the constructed replacement and still answers 8. The displayed `C=4`
-# result is a large extrapolation selected during earlier exploration.
+# The tokenizer's chat template is used identically for extraction and generation. The exact fact
+# is an assistant-message prefill, so the model completes it with the number first.
 
 # %%
 import math
@@ -40,7 +39,8 @@ from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from scripts.demo import generate, intervention_hooks, layer_hooks, top_tokens, trajectory
-from suppressed_activation_subspace import suppressed_activation_subspace
+from scripts.prompt import assistant_prefill_input_ids
+from suppressed_activation_subspace import union_suppressed_activation_subspace
 
 # Edit this cell. `just notebook-smoke` overrides the same values with environment variables.
 MODEL = os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B")
@@ -60,23 +60,27 @@ TARGET_OUTPUT = os.environ.get("SUPPRESSED_DOG_OUTPUT", "4")
 EARLY_LAYER = int(os.environ.get("SUPPRESSED_EARLY_LAYER", 23))
 PEAK_LAYER = int(os.environ.get("SUPPRESSED_PEAK_LAYER", 25))
 OUTPUT_LAYER = int(os.environ.get("SUPPRESSED_OUTPUT_LAYER", 32))
-INTERVENTION_LAYER = int(os.environ.get("SUPPRESSED_INTERVENTION_LAYER", 26))
+INTERVENTION_LAYER = int(os.environ.get("SUPPRESSED_INTERVENTION_LAYER", 24))
+READOUT_POSITIONS = int(os.environ.get("SUPPRESSED_READOUT_POSITIONS", 4))
+INTERVENTION_POSITIONS = int(os.environ.get("SUPPRESSED_INTERVENTION_POSITIONS", 4))
 RANK = int(os.environ.get("SUPPRESSED_RANK", 8))
-STRENGTH = float(os.environ.get("SUPPRESSED_STRENGTH", 4))
+STRENGTH = float(os.environ.get("SUPPRESSED_STRENGTH", 2.5))
 GENERATION_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", 32))
-GIT_DESCRIBE = subprocess.run(
-    ["git", "describe", "--always", "--dirty"],
+GIT_COMMIT = subprocess.run(
+    ["git", "rev-parse", "--short", "HEAD"],
     cwd=ROOT,
     check=True,
     text=True,
     capture_output=True,
 ).stdout.strip()
 {
-    "git": GIT_DESCRIBE,
+    "git": GIT_COMMIT,
     "model": MODEL,
     "revision": REVISION,
     "extraction layers": (EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER),
-    "intervention": f"one vector at residual L{INTERVENTION_LAYER}, final prompt token",
+    "prompt format": "chat template with assistant fact prefill",
+    "intervention": f"residual L{INTERVENTION_LAYER}, final {INTERVENTION_POSITIONS} fact tokens",
+    "readout positions": READOUT_POSITIONS,
     "rank": RANK,
     "C": STRENGTH,
     "generation tokens": GENERATION_TOKENS,
@@ -105,12 +109,14 @@ norm_gain = 1.0 + final_norm.weight
 
 
 def extract(prompt):
-    input_ids = tokenizer(
-        prompt, return_tensors="pt", add_special_tokens=False
-    ).input_ids.to(DEVICE)
+    chat = assistant_prefill_input_ids(tokenizer, prompt, device=DEVICE)
+    input_ids = chat["input_ids"]
     residuals, logits = trajectory(model, input_ids, final_norm)
-    basis, selected = suppressed_activation_subspace(
-        residuals[:, -1][None],
+    residuals_by_position = residuals[
+        :, chat["content_end"] - READOUT_POSITIONS:chat["content_end"]
+    ].permute(1, 0, 2)
+    basis, selected, _ = union_suppressed_activation_subspace(
+        residuals_by_position,
         unembedding,
         norm_gain,
         early_layer=EARLY_LAYER,
@@ -125,6 +131,8 @@ def extract(prompt):
         "logits": logits,
         "basis": basis[0],
         "selected": [tokenizer.decode([int(token_id)]) for token_id in selected[0]],
+        "content_end": chat["content_end"],
+        "rendered": chat["rendered"],
     }
 
 
@@ -164,6 +172,12 @@ Input (`repr`, including the trailing space):
 {SOURCE_PROMPT!r}
 ```
 
+Rendered model input (`repr`, chat template; used for extraction and generation):
+
+```python
+{source['rendered']!r}
+```
+
 Readout ("what it is thinking but not saying"):
 
 ```python
@@ -195,12 +209,18 @@ hook_by_layer = intervention_hooks(
     operation="replace",
     strength=STRENGTH,
     blocks_to_hook=[block],
+    positions=INTERVENTION_POSITIONS,
+    source_position=source["content_end"] - 1,
+    target_position=target["content_end"] - 1,
     prefill_only=True,
 )
 with layer_hooks(blocks, hook_by_layer):
     changed_residuals, changed_logits = trajectory(model, source["input_ids"], final_norm)
-_, changed_selected_ids = suppressed_activation_subspace(
-    changed_residuals[:, -1][None],
+changed_by_position = changed_residuals[
+    :, source["content_end"] - READOUT_POSITIONS:source["content_end"]
+].permute(1, 0, 2)
+_, changed_selected_ids, _ = union_suppressed_activation_subspace(
+    changed_by_position,
     unembedding,
     norm_gain,
     early_layer=EARLY_LAYER,
@@ -227,6 +247,12 @@ Input (`repr`, unchanged):
 {SOURCE_PROMPT!r}
 ```
 
+Rendered model input (`repr`, unchanged):
+
+```python
+{source['rendered']!r}
+```
+
 Readout after intervention ("what it is thinking but not saying"):
 
 ```python
@@ -250,7 +276,8 @@ Generation (next {GENERATION_TOKENS} tokens, verbatim):
 # ```
 #
 # For each complete input, an unmodified first pass extracts a separate subspace. We then change
-# one residual vector at L26 and the final source-input token:
+# the final four fact-token residuals at L24. The donor's final fact-token component is used at
+# each source position:
 #
 # ```python
 # source = h_spider @ S_spider @ S_spider.T
@@ -259,11 +286,9 @@ Generation (next {GENERATION_TOKENS} tokens, verbatim):
 # h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 # ```
 #
-# At C=1, the constructed replacement still generates 8 first. The displayed C=4 intervention
-# extrapolates past that replacement. The readout after intervention remains spider-related, so
-# this does not establish a semantic `spider → dog` replacement. C=4 changes 72%
-# of the residual norm, 21 of 256 matched-random interventions have an equal or larger effect, and
-# a `2 + 2` target produces the same first-token change. See the [fixed run
-# report](../out/2026-09-05_211609_causal-confirmation/recovered_log.md).
+# C=2 was just below the answer crossing under this chat template. C=2.5 is the smallest tested
+# value that generated 4. This is a selected single-prompt demonstration. It does not establish a
+# reusable dog direction or distinguish dog identity transfer from target-answer-state transfer.
+# See the [measured sweep](../out/2026-09-06_220932_chat-strength/run.md).
 #
 # <!-- Notebook written by PI/gpt-5.4 from Michael J. Clark's requested demo structure. -->
