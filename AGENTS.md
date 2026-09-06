@@ -90,6 +90,56 @@ The source of truth is
 `out/2026-09-05_211609_causal-confirmation/result.json`. The readable report is
 `out/2026-09-05_211609_causal-confirmation/recovered_log.md`.
 
+## Intervention sweep metrics
+
+Use the spider answer token `8` as $A_0$, the dog answer token `4` as $A_1$, clean
+inference as $C_0$, and component replacement as $C_1$. Rank answer movement with:
+
+$$
+S_{\mathrm{swap}}
+= \left[\log p(A_1 \mid C_1)-\log p(A_0 \mid C_1)\right]
+- \left[\log p(A_1 \mid C_0)-\log p(A_0 \mid C_0)\right].
+$$
+
+The equivalent four-term form is:
+
+$$
+S_{\mathrm{swap}}
+= \log p(A_0 \mid C_0)-\log p(A_1 \mid C_0)
+-\log p(A_0 \mid C_1)+\log p(A_1 \mid C_1).
+$$
+
+Positive values mean movement from `8` toward `4`. This is a difference in log odds, in
+nats. Call it `swap_log_odds_shift` in code and logs.
+
+Report two coherence diagnostics separately:
+
+$$p_{\mathrm{valid}} = p(4)+p(8)$$
+
+and
+
+$$r_2 = 1 - \frac{\text{unique generated bigrams}}{\text{generated bigrams}}.$$
+
+Compute $r_2$ on generated non-special token IDs. Define it as zero when there are fewer
+than two such tokens. Low $p_{\mathrm{valid}}$ indicates that next-token probability moved
+away from both valid answers. High $r_2$ indicates a repetitive continuation. Do not use a
+repetition logits processor as a metric because it changes the distribution being measured.
+
+## Intervention sweep design
+
+Use one-at-a-time sweeps. State one default for every axis from prior evidence. Vary one
+axis while all other axes remain at those defaults. Include the default row once and identify
+it in the results table. Do not select a different default separately for each axis.
+
+Every condition writes a unique `run.md` with YAML frontmatter. It must contain the resolved
+config, $S_{\mathrm{swap}}$, $p_{\mathrm{valid}}$, $r_2$, the exact input and suppressed
+readout, the top-10 next-token table, and the exact generated continuation capped at 32 tokens.
+State the actual token count if EOS stops generation early. The sweep root `run.md` contains
+the cross-condition table and links each row to its condition log. `just results` rebuilds
+that table from condition `run.md` frontmatter.
+
+<!-- Written by Codex/gpt-5.6-sol from wassname's metric specification. -->
+
 ## Checks
 
 Run `just notebook-smoke`, then queue `just notebook-run` through pueue for the GPU. Run
