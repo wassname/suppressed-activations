@@ -63,7 +63,7 @@ def main() -> None:
         "0.297255",
         "Δ log p",
         "**+2.162**",
-        "*−1.088*",
+        "*-1.088*",
         "source = h_spider @ S_spider @ S_spider.T",
         "At `C=1`, the constructed replacement still generates `8` first",
         "21 of 256 matched-random interventions",
