@@ -117,17 +117,21 @@ Readout (“what it is thinking but not saying”):
 ['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']
 ```
 
-Generation (next 12 tokens, verbatim):
+Generation (next 32 tokens, verbatim):
 
 ```text
 8.
-Hypothesis: The animal that spins webs
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
 ```
 
 | rank | token | log p | p |
 |---:|:---|---:|---:|
 | 1 | **8** | **−0.125** | **0.882568** |
-| 2 | 4 | −2.875 | 0.056421 |
+| 2 | *4* | *−2.875* | *0.056421* |
 | 3 | 6 | −3.625 | 0.026651 |
 | 4 | 1 | −4.625 | 0.009804 |
 | 5 | 2 | −5.000 | 0.006738 |
@@ -139,39 +143,47 @@ Hypothesis: The animal that spins webs
 
 ### Causal intervention
 
+Now we replace the suppressed component selected from the spider prompt with the component
+selected from a dog prompt. The input stays unchanged. The readout below is recomputed after
+the intervention.
+
 Input (`repr`, unchanged):
 
 ```python
 'Fact: The number of legs on the animal that spins webs is '
 ```
 
-Replacement readout (“what we insert”):
+Readout after intervention (“what it is thinking but not saying”):
 
 ```python
-['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']
+[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']
 ```
 
-Generation (next 12 tokens, verbatim):
+Generation (next 32 tokens, verbatim):
 
 ```text
 4.
-Hypothesis: The animal that spins webs
+Hypothesis: The animal that spins webs has 4 legs.
+Is the hypothesis entailed by the fact?
+
+<think>
+Thinking Process
 ```
 
-| rank | token | log p | p |
-|---:|:---|---:|---:|
-| 1 | **4** | **−0.713** | **0.490091** |
-| 2 | 8 | −1.213 | 0.297255 |
-| 3 | 6 | −2.338 | 0.096505 |
-| 4 | 1 | −3.213 | 0.040229 |
-| 5 | 2 | −3.963 | 0.019003 |
-| 6 | 5 | −4.088 | 0.016770 |
-| 7 | 3 | −4.213 | 0.014799 |
-| 8 | 9 | −4.338 | 0.013060 |
-| 9 | 7 | −4.713 | 0.008976 |
-| 10 | 0 | −6.588 | 0.001377 |
+| rank | token | log p | p | Δ log p |
+|---:|:---|---:|---:|---:|
+| 1 | **4** | **−0.713** | **0.490091** | **+2.162** |
+| 2 | *8* | *−1.213* | *0.297255* | *−1.088* |
+| 3 | 6 | −2.338 | 0.096505 | +1.287 |
+| 4 | 1 | −3.213 | 0.040229 | +1.412 |
+| 5 | 2 | −3.963 | 0.019003 | +1.037 |
+| 6 | 5 | −4.088 | 0.016770 | +1.537 |
+| 7 | 3 | −4.213 | 0.014799 | +0.912 |
+| 8 | 9 | −4.338 | 0.013060 | +2.224 |
+| 9 | 7 | −4.713 | 0.008976 | +1.037 |
+| 10 | 0 | −6.588 | 0.001377 | −0.088 |
 
-The replacement readout comes from an unmodified pass over this target input:
+The dog component comes from an unmodified pass over this target input:
 
 ```python
 "Fact: The number of legs on the animal that barks and is called man's best friend is "
@@ -188,9 +200,9 @@ h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 ```
 
 At `C=1`, the constructed replacement still generates `8` first. The displayed `C=4`
-intervention extrapolates past that replacement. Re-running the detector after intervention
-still returns spider-related rows, so this does not establish a semantic `spider → dog`
-swap. C=4 changes 72% of the residual norm, 21 of 256 matched-random interventions have
+intervention extrapolates past that replacement. The readout after intervention remains
+spider-related, so this does not establish a semantic `spider → dog` replacement. C=4
+changes 72% of the residual norm, 21 of 256 matched-random interventions have
 an equal or larger effect, and a `2 + 2` target produces the same first-token change. See
 the [executed notebook](nbs/demo.ipynb) and [fixed run
 report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
@@ -216,8 +228,8 @@ report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
 
 [`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
 editable [`nbs/demo.py`](nbs/demo.py). It reproduces the single spider-to-dog example above:
-the two prompt-specific readouts, the residual replacement, and the before/after top-token
-tables.
+the base and post-intervention readouts, the residual replacement, both 32-token
+generations, and the before/after top-token tables.
 
 ```bash
 just notebook-run

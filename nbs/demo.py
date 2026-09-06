@@ -39,7 +39,7 @@ import torch
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from scripts.demo import generate, intervention_hooks, layer_hooks, run_forward, top_tokens, trajectory
+from scripts.demo import generate, intervention_hooks, layer_hooks, top_tokens, trajectory
 from suppressed_activation_subspace import suppressed_activation_subspace
 
 # Edit this cell. `just notebook-smoke` overrides the same values with environment variables.
@@ -63,7 +63,7 @@ OUTPUT_LAYER = int(os.environ.get("SUPPRESSED_OUTPUT_LAYER", 32))
 INTERVENTION_LAYER = int(os.environ.get("SUPPRESSED_INTERVENTION_LAYER", 26))
 RANK = int(os.environ.get("SUPPRESSED_RANK", 8))
 STRENGTH = float(os.environ.get("SUPPRESSED_STRENGTH", 4))
-GENERATION_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", 12))
+GENERATION_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", 32))
 GIT_DESCRIBE = subprocess.run(
     ["git", "describe", "--always", "--dirty"],
     cwd=ROOT,
@@ -128,18 +128,22 @@ def extract(prompt):
     }
 
 
-def probability_table(logits, highlighted_token):
+def probability_table(logits, expected_token, unexpected_token, base_logits=None):
+    base_logp = base_logits.float().log_softmax(-1) if base_logits is not None else None
     rows = []
     for rank, row in enumerate(top_tokens(tokenizer, logits, k=10), start=1):
         token = row["token"]
-        shown = f"**{token}**" if token == highlighted_token else token
-        rows.append([rank, shown, f'{row["logp"]:.3f}', f'{math.exp(row["logp"]):.6f}'])
-    return tabulate(
-        rows,
-        headers=["rank", "token", "log p", "p"],
-        tablefmt="pipe",
-        disable_numparse=True,
-    )
+        shown = f"**{token}**" if token == expected_token else token
+        if token == unexpected_token:
+            shown = f"*{token}*"
+        values = [rank, shown, f'{row["logp"]:.3f}', f'{math.exp(row["logp"]):.6f}']
+        if base_logp is not None:
+            values.append(f'{row["logp"] - float(base_logp[row["token_id"]]):+.3f}')
+        rows.append(values)
+    headers = ["rank", "token", "log p", "p"]
+    if base_logp is not None:
+        headers.append("Δ log p")
+    return tabulate(rows, headers=headers, tablefmt="pipe", disable_numparse=True)
 
 
 source = extract(SOURCE_PROMPT)
@@ -172,11 +176,15 @@ Generation (next {GENERATION_TOKENS} tokens, verbatim):
 {clean_generation['text']}
 ```
 
-{probability_table(source['logits'], SOURCE_OUTPUT)}
+{probability_table(source['logits'], SOURCE_OUTPUT, TARGET_OUTPUT)}
 """))
 
 # %% [markdown]
 # ## Causal intervention
+#
+# Now we replace the suppressed component selected from the spider prompt with the component
+# selected from a dog prompt. The input stays unchanged. The readout below is recomputed after
+# the intervention.
 
 # %%
 block = INTERVENTION_LAYER - 1  # decoder block output is the next residual
@@ -189,7 +197,19 @@ hook_by_layer = intervention_hooks(
     blocks_to_hook=[block],
     prefill_only=True,
 )
-changed_logits = run_forward(model, source["input_ids"], blocks, hook_by_layer)
+with layer_hooks(blocks, hook_by_layer):
+    changed_residuals, changed_logits = trajectory(model, source["input_ids"], final_norm)
+_, changed_selected_ids = suppressed_activation_subspace(
+    changed_residuals[:, -1][None],
+    unembedding,
+    norm_gain,
+    early_layer=EARLY_LAYER,
+    peak_layer=PEAK_LAYER,
+    output_layer=OUTPUT_LAYER,
+    rank=RANK,
+    normalize_unembedding_rows=True,
+)
+changed_selected = [tokenizer.decode([int(token_id)]) for token_id in changed_selected_ids[0]]
 changed_generation = generate(
     model,
     tokenizer,
@@ -207,10 +227,10 @@ Input (`repr`, unchanged):
 {SOURCE_PROMPT!r}
 ```
 
-Replacement readout ("what we insert"):
+Readout after intervention ("what it is thinking but not saying"):
 
 ```python
-{target['selected']!r}
+{changed_selected!r}
 ```
 
 Generation (next {GENERATION_TOKENS} tokens, verbatim):
@@ -219,11 +239,11 @@ Generation (next {GENERATION_TOKENS} tokens, verbatim):
 {changed_generation['text']}
 ```
 
-{probability_table(changed_logits, TARGET_OUTPUT)}
+{probability_table(changed_logits, TARGET_OUTPUT, SOURCE_OUTPUT, source['logits'])}
 """))
 
 # %% [markdown]
-# The replacement readout comes from an unmodified pass over this target input:
+# The dog component comes from an unmodified pass over this target input:
 #
 # ```python
 # "Fact: The number of legs on the animal that barks and is called man's best friend is "
@@ -240,8 +260,8 @@ Generation (next {GENERATION_TOKENS} tokens, verbatim):
 # ```
 #
 # At C=1, the constructed replacement still generates 8 first. The displayed C=4 intervention
-# extrapolates past that replacement. Re-running the detector after intervention still returns
-# spider-related rows, so this does not establish a semantic `spider → dog` swap. C=4 changes 72%
+# extrapolates past that replacement. The readout after intervention remains spider-related, so
+# this does not establish a semantic `spider → dog` replacement. C=4 changes 72%
 # of the residual norm, 21 of 256 matched-random interventions have an equal or larger effect, and
 # a `2 + 2` target produces the same first-token change. See the [fixed run
 # report](../out/2026-09-05_211609_causal-confirmation/recovered_log.md).

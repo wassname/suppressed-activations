@@ -55,18 +55,24 @@ def main() -> None:
         "### Base",
         "### Causal intervention",
         "['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']",
-        "['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']",
-        "8.\nHypothesis: The animal that spins webs",
-        "4.\nHypothesis: The animal that spins webs",
+        "[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']",
+        "8.\nHypothesis: The animal that spins webs has 8 legs.",
+        "4.\nHypothesis: The animal that spins webs has 4 legs.",
         "**0.882568**",
         "**0.490091**",
         "0.297255",
+        "Δ log p",
+        "**+2.162**",
+        "*−1.088*",
         "source = h_spider @ S_spider @ S_spider.T",
         "At `C=1`, the constructed replacement still generates `8` first",
         "21 of 256 matched-random interventions",
     )
     assert all(text in readme for text in required)
-    assert readme.count("Generation (next 12 tokens, verbatim)") == 2
+    assert readme.count("Generation (next 32 tokens, verbatim)") == 2
+    assert "Now we replace the suppressed component selected from the spider prompt" in readme
+    assert "Readout after intervention" in readme
+    assert "| 2 | *4* |" in readme and "| 2 | *8* |" in readme
     assert "the number of legs on a dog" not in readme
     assert "ant → 6" not in readme
     assert "64-token greedy continuations" not in readme
