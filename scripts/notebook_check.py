@@ -38,13 +38,13 @@ def main() -> None:
     assert "Readout after intervention" in text
     assert "['狗粮', '吠', 'สุนัข', ' собаки', '养犬', ' собак', ' perros', ' dogg']" in text
     assert "dog prompt" in source
-    assert "8.\nHypothesis: The animal that spins webs has 8 legs." in text
-    assert "4.\nHypothesis: The animal that spins webs has 4 legs." in text
+    assert "8.\n\n**Explanation:**\nThe animal that spins webs is the **spider**." in text
+    assert "4.\n\n**Explanation:**\nThe animal that spins webs is the **spider**." in text
     assert text.count("Generation (next 32 tokens, verbatim)") == 2
     assert text.count("| rank   | token") == 2 and "Δ log p" in text
-    assert "0.943160" in text and "0.684335" in text and "0.196065" in text
+    assert "0.945299" in text and "0.701417" in text and "0.200959" in text
     assert "**8**" in text and "*4*" in text and "**4**" in text and "*8*" in text
-    assert "+3.179" in text and "-1.571" in text
+    assert "+3.202" in text and "-1.548" in text
     assert "smallest tested" in source and "target-answer-state transfer" in source
     assert "GENERATION_TOKENS" in source and "generate(" in source
     assert "SUPPRESSED_ANT" not in source and '"ant":' not in source

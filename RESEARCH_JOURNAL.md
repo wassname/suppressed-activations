@@ -78,3 +78,27 @@ concept rather than a target-answer state.
 The assistant-prefill chat demonstration now changes both the answer and the suppressed readout.
 
 <!-- Written by Codex/gpt-5.6-sol. -->
+
+## 2026-09-06 -- Executed notebook reproduces the chat intervention
+
+This entry records the final notebook execution rather than the preceding sweep.
+
+| condition | first answer | p(4) | p(8) | suppressed readout |
+|---|---:|---:|---:|---|
+| Base | 8 | 0.028546 | 0.945299 | web-related |
+| Causal intervention | 4 | 0.701417 | 0.200959 | dog-related |
+
+The causal table reports `delta log p(4)=+3.202` and `delta log p(8)=-1.548` relative to Base.
+Both continuations contain exactly thirty-two generated tokens. They begin with the different
+answers and then identify the unchanged subject as a spider. Evidence: [executed
+notebook](nbs/demo.ipynb) from pueue job 406.
+
+My read: the notebook is a successful single-example causal demonstration under the requested
+L24, final-four-token prior, with C increased from the unsuccessful value of two to the smallest
+tested crossing at two and a half. The causal interpretation remains limited by configuration
+selection on this prompt and by the possibility that the intervention transfers an answer state
+rather than animal identity.
+
+The public notebook now contains the complete result needed to inspect this example.
+
+<!-- Written by Codex/gpt-5.6-sol. -->
