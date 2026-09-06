@@ -71,6 +71,12 @@ layer-combo-sweep prompt_mode="chat-fact":
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_layer-combo-{{prompt_mode}}"
     uv run scripts/oat_sweep.py --sweep layer-combo --prompt-mode "{{prompt_mode}}" --output-dir "$output_dir"
 
+persistent-generation-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_persistent-generation-chat-fact"
+    uv run scripts/oat_sweep.py --sweep persistent-generation --prompt-mode chat-fact --output-dir "$output_dir"
+
 results:
     uv run scripts/results.py
 

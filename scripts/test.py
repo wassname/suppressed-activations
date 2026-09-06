@@ -141,6 +141,12 @@ def main() -> None:
     assert not torch.equal(fixed_target_patched[:, 2:4], suffix_hidden[:, 2:4])
     print("PASS: persistent intervention uses explicit source and donor content positions")
 
+    decode_hidden = suffix_hidden[:, :1]
+    decode_patched = fixed_target_hook(None, None, decode_hidden)
+    assert decode_patched.shape == decode_hidden.shape
+    assert not torch.equal(decode_patched, decode_hidden)
+    print("PASS: persistent intervention patches one cached decode token")
+
     scores = torch.tensor([[0.0, 4.0, 2.0, 3.0, 1.0]])
     toy_unembedding = torch.randn(5, 5, generator=generator)
     _, selected = subspace_from_scores(scores, toy_unembedding, torch.ones(5), rank=2)
