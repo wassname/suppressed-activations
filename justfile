@@ -41,5 +41,14 @@ intervention-sweep-union:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_intervention-sweep-union"
     uv run scripts/delayed_readout.py --sweep --aggregation union --output-dir "$output_dir"
 
+oat-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_oat-sweep"
+    uv run scripts/oat_sweep.py --output-dir "$output_dir"
+
+results:
+    uv run scripts/results.py
+
 check: test demo-check
     uv run --with torch python -m py_compile suppressed_activation_subspace.py scripts/*.py
