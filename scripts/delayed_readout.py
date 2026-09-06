@@ -39,7 +39,7 @@ from suppressed_activation_subspace import (
 
 MODEL = "Qwen/Qwen3.5-4B"
 REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
-INSTRUCTION = ""
+INSTRUCTION = "Complete the fact with the number first, then explain your answer.\n\n"
 SOURCE_PROMPT = "Fact: The number of legs on the animal that spins webs is "
 TARGET_PROMPT = "Fact: The number of legs on the animal that barks and is called man's best friend is "
 EARLY_LAYER = 23
