@@ -111,6 +111,7 @@ def intervention_hooks(
     random_seed: int = 0,
     matched_distances: dict[int, float] | None = None,
     prefill_only: bool = False,
+    positions: int = 1,
     record: dict[int, dict] | None = None,
 ) -> dict[int, object]:
     random_source = random_basis_like(source_basis, random_seed)
@@ -123,8 +124,12 @@ def intervention_hooks(
             hidden = output[0] if isinstance(output, tuple) else output
             if prefill_only and hidden.shape[1] == 1:
                 return output
-            h = hidden[:, -1:].float()
-            target_h = target_residuals[residual_layer, -1].reshape(1, 1, -1).float()
+            if positions > hidden.shape[1]:
+                raise ValueError(f"cannot patch {positions} positions in length {hidden.shape[1]}")
+            if positions > target_residuals.shape[1]:
+                raise ValueError(f"target has only {target_residuals.shape[1]} positions")
+            h = hidden[:, -positions:].float()
+            target_h = target_residuals[residual_layer, -positions:].unsqueeze(0).float()
             if operation == "replace":
                 patched = replace(
                     h, source_basis, target_h, target_basis,
@@ -145,7 +150,7 @@ def intervention_hooks(
                     "residual_norm": float(h.norm()),
                     "perturbation_norm": float((patched - h).norm()),
                 }
-            return replace_output(output, torch.cat([hidden[:, :-1], patched.to(hidden.dtype)], dim=1))
+            return replace_output(output, torch.cat([hidden[:, :-positions], patched.to(hidden.dtype)], dim=1))
 
         return hook
 

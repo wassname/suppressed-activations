@@ -10,6 +10,7 @@ from scripts.spider_ant_demo import (
     coordinate_swap_leg,
     sample_component_hook,
 )
+from scripts.demo import intervention_hooks
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -105,6 +106,23 @@ def main() -> None:
     sample_patched = sample_hook(None, None, h)
     torch.testing.assert_close(sample_patched[:, :-1], h[:, :-1])
     print("PASS: sample-component hook accepts a boolean position mask")
+
+    suffix_source_basis = torch.linalg.qr(torch.randn(5, 2, generator=generator)).Q
+    suffix_target_basis = torch.linalg.qr(torch.randn(5, 2, generator=generator)).Q
+    suffix_target_residuals = torch.randn(2, 5, 5, generator=generator)
+    suffix_hidden = torch.randn(1, 5, 5, generator=generator)
+    suffix_hook = intervention_hooks(
+        suffix_source_basis,
+        suffix_target_basis,
+        suffix_target_residuals,
+        operation="replace",
+        blocks_to_hook=[0],
+        positions=2,
+    )[0]
+    suffix_patched = suffix_hook(None, None, suffix_hidden)
+    torch.testing.assert_close(suffix_patched[:, :-2], suffix_hidden[:, :-2])
+    assert not torch.equal(suffix_patched[:, -2:], suffix_hidden[:, -2:])
+    print("PASS: suffix intervention changes only the requested prompt positions")
 
     data = json.loads((Path(__file__).resolve().parents[1] / "data/causal_demo.json").read_text())
     rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
