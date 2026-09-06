@@ -30,7 +30,7 @@ from scripts.delayed_readout import (
     distribution_table,
     token_distribution,
 )
-from scripts.demo import generate, intervention_hooks, layer_hooks, one_token, trajectory
+from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     persistent_suppressed_activation_subspace,
     union_suppressed_activation_subspace,
@@ -100,6 +100,27 @@ def repetition_bigram_fraction(token_ids: list[int], special_ids: set[int]) -> f
     ids = [token_id for token_id in token_ids if token_id not in special_ids]
     bigrams = list(zip(ids, ids[1:]))
     return 0.0 if not bigrams else 1 - len(set(bigrams)) / len(bigrams)
+
+
+def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks) -> tuple[dict, torch.Tensor]:
+    with layer_hooks(blocks, hooks), torch.no_grad():
+        output = model.generate(
+            input_ids=input_ids,
+            do_sample=False,
+            max_new_tokens=32,
+            pad_token_id=tokenizer.eos_token_id,
+            use_cache=True,
+            return_dict_in_generate=True,
+            output_scores=True,
+        )
+    token_ids = output.sequences[0, input_ids.shape[1]:].tolist()
+    first_logits = output.scores[0][0].float()
+    if token_ids[0] != int(first_logits.argmax()):
+        raise ValueError("generated first token differs from cached prefill argmax")
+    return {
+        "token_ids": token_ids,
+        "text": tokenizer.decode(token_ids, skip_special_tokens=False),
+    }, first_logits
 
 
 def yaml_value(value) -> str:
@@ -184,7 +205,10 @@ def run(output_dir: Path) -> None:
     target = sample(TARGET_PROMPT)
     source_id = one_token(tokenizer, "8")
     target_id = one_token(tokenizer, "4")
-    base_logp = source["logits"].log_softmax(-1)
+    base_generation, base_generation_logits = generate_with_first_logits(
+        model, tokenizer, source["input_ids"], blocks, {}
+    )
+    base_logp = base_generation_logits.log_softmax(-1)
     base_log_odds = float(base_logp[target_id] - base_logp[source_id])
     special_ids = set(tokenizer.all_special_ids)
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
@@ -220,10 +244,10 @@ def run(output_dir: Path) -> None:
         )
         readout = [tokenizer.decode([int(token_id)]) for token_id in changed_ids]
         target_readout = [tokenizer.decode([int(token_id)]) for token_id in target_ids]
-        generation = generate(
-            model, tokenizer, source["input_ids"], blocks, hooks, max_new_tokens=32
+        generation, generation_logits = generate_with_first_logits(
+            model, tokenizer, source["input_ids"], blocks, hooks
         )
-        logp = logits.log_softmax(-1)
+        logp = generation_logits.log_softmax(-1)
         condition_id = f"{index:03d}_{axis}_{value}".replace(" ", "_").replace("/", "-")
         condition_dir = output_dir / "conditions" / condition_id
         condition_dir.mkdir(parents=True)
@@ -247,7 +271,7 @@ def run(output_dir: Path) -> None:
             "readout": readout,
             "target_readout": target_readout,
             "generation": generation,
-            "top_tokens": token_distribution(tokenizer, logits, source["logits"]),
+            "top_tokens": token_distribution(tokenizer, generation_logits, base_generation_logits),
         }
         (condition_dir / "run.md").write_text(
             condition_report(row, source_rendered, target_rendered)
@@ -266,6 +290,7 @@ def run(output_dir: Path) -> None:
         "base": {
             "p4": float(base_logp[target_id].exp()),
             "p8": float(base_logp[source_id].exp()),
+            "generation": base_generation,
         },
         "rows": rows,
     }
