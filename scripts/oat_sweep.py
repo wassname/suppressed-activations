@@ -28,10 +28,10 @@ from scripts.delayed_readout import (
     SOURCE_PROMPT,
     TARGET_PROMPT,
     chat_input_ids,
-    assistant_prefill_input_ids,
     distribution_table,
     token_distribution,
 )
+from scripts.prompt import assistant_prefill_input_ids
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     persistent_suppressed_activation_subspace,

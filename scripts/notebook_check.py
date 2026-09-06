@@ -28,22 +28,24 @@ def main() -> None:
     text = "".join(output_text(output) for output in outputs)
     source = (ROOT / "nbs/demo.py").read_text()
     assert "'git':" in text and "-dirty" not in text
-    assert "one vector at residual L26, final prompt token" in text
+    assert "chat template with assistant fact prefill" in text
+    assert "residual L24, final 4 fact tokens" in text
     assert "spins webs" in text and "man's best friend" in source
     assert text.count("Input (`repr`") == 2
+    assert text.count("Rendered model input (`repr`") == 2
+    assert "<|im_start|>user" in text and "<|im_start|>assistant" in text
     assert text.count("what it is thinking but not saying") == 2
     assert "Readout after intervention" in text
-    assert "[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']" in text
+    assert "['狗粮', '吠', 'สุนัข', ' собаки', '养犬', ' собак', ' perros', ' dogg']" in text
     assert "dog prompt" in source
     assert "8.\nHypothesis: The animal that spins webs has 8 legs." in text
     assert "4.\nHypothesis: The animal that spins webs has 4 legs." in text
     assert text.count("Generation (next 32 tokens, verbatim)") == 2
     assert text.count("| rank   | token") == 2 and "Δ log p" in text
-    assert "0.882568" in text and "0.490091" in text and "0.297255" in text
+    assert "0.943160" in text and "0.684335" in text and "0.196065" in text
     assert "**8**" in text and "*4*" in text and "**4**" in text and "*8*" in text
-    assert "+2.162" in text and "-1.088" in text
-    assert "matched-random" in source and "21 of 256" in source
-    assert "2 + 2" in source and "semantic `spider → dog` replacement" in source
+    assert "+3.179" in text and "-1.571" in text
+    assert "smallest tested" in source and "target-answer-state transfer" in source
     assert "GENERATION_TOKENS" in source and "generate(" in source
     assert "SUPPRESSED_ANT" not in source and '"ant":' not in source
     assert "jacobian" not in source.lower() and "j-space" not in source.lower()
