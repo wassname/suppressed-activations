@@ -133,8 +133,13 @@ def probability_table(logits, highlighted_token):
     for rank, row in enumerate(top_tokens(tokenizer, logits, k=10), start=1):
         token = row["token"]
         shown = f"**{token}**" if token == highlighted_token else token
-        rows.append([rank, shown, row["logp"], math.exp(row["logp"])])
-    return tabulate(rows, headers=["rank", "token", "log p", "p"], tablefmt="pipe", floatfmt=".3f")
+        rows.append([rank, shown, f'{row["logp"]:.3f}', f'{math.exp(row["logp"]):.6f}'])
+    return tabulate(
+        rows,
+        headers=["rank", "token", "log p", "p"],
+        tablefmt="pipe",
+        disable_numparse=True,
+    )
 
 
 source = extract(SOURCE_PROMPT)
