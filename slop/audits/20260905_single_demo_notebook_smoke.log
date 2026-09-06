@@ -1,0 +1,63 @@
+mkdir -p .local
+SUPPRESSED_ROOT=$PWD SUPPRESSED_MODEL=wassname/qwen3-5lyr-tiny-random SUPPRESSED_REVISION=main SUPPRESSED_DEVICE=cpu SUPPRESSED_EARLY_LAYER=0 SUPPRESSED_PEAK_LAYER=2 SUPPRESSED_OUTPUT_LAYER=5 SUPPRESSED_INTERVENTION_LAYER=3 SUPPRESSED_RANK=2 SUPPRESSED_STRENGTH=0.125 uv run jupytext --to ipynb --execute nbs/demo.py -o .local/demo-smoke.ipynb
+[IPKernelApp] WARNING | Kernel is running over TCP without encryption. All communication (including code and outputs) is sent in plain text and is susceptible to eavesdropping. Use IPC transport or launch with kernel manager-provisioned CurveZMQ keys to enable transport encryption.
+[jupytext] Reading nbs/demo.py in format py
+[jupytext] Executing notebook with kernel python3
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/.venv/bin/jupytext", line 10, in <module>
+    sys.exit(jupytext())
+             ~~~~~~~~^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/jupytext/cli.py", line 500, in jupytext
+    exit_code += jupytext_single_file(nb_file, args, log, notary=notary)
+                 ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/jupytext/cli.py", line 748, in jupytext_single_file
+    exec_proc.preprocess(notebook, resources=resources)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/nbconvert/preprocessors/execute.py", line 103, in preprocess
+    self.preprocess_cell(cell, resources, index)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/nbconvert/preprocessors/execute.py", line 124, in preprocess_cell
+    cell = self.execute_cell(cell, index, store_history=True)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/jupyter_core/utils/__init__.py", line 165, in wrapped
+    return loop.run_until_complete(inner)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^
+  File "/home/code/.local/share/uv/python/cpython-3.13.12-linux-x86_64-gnu/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/nbclient/client.py", line 1062, in async_execute_cell
+    await self._check_raise_for_error(cell, cell_index, exec_reply)
+  File "/workspace/2026/suppressed-activations/.venv/lib/python3.13/site-packages/nbclient/client.py", line 918, in _check_raise_for_error
+    raise CellExecutionError.from_cell_and_msg(cell, exec_reply_content)
+nbclient.exceptions.CellExecutionError: An error occurred while executing the following cell:
+------------------
+display(Markdown(f"""\
+Prompt: **{SOURCE_PROMPT}**
+
+Suppressed readout: `[{', '.join(source['selected'])}]`
+
+{probability_table(source['logits'], SOURCE_OUTPUT)}
+"""))
+------------------
+
+
+[31m---------------------------------------------------------------------------[39m
+[31mKeyError[39m                                  Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[3][39m[32m, line 6[39m
+[32m      2[39m Prompt: **{SOURCE_PROMPT}**
+[32m      3[39m 
+[32m      4[39m Suppressed readout: `[{[33m', '[39m.join(source[[33m'selected'[39m])}]`
+[32m      5[39m 
+[32m----> [39m[32m6[39m {probability_table(source[[33m'logits'[39m], SOURCE_OUTPUT)}
+[32m      7[39m """))
+
+[36mCell[39m[36m [39m[32mIn[2][39m[32m, line 40[39m, in [36mprobability_table[39m[34m(logits, highlighted_token)[39m
+[32m     36[39m     rows = []
+[32m     37[39m     [38;5;28;01mfor[39;00m rank, row [38;5;28;01min[39;00m enumerate(top_tokens(tokenizer, logits, k=[32m10[39m), start=[32m1[39m):
+[32m     38[39m         token = row[[33m"token"[39m]
+[32m     39[39m         shown = f"**{token}**" [38;5;28;01mif[39;00m token == highlighted_token [38;5;28;01melse[39;00m token
+[32m---> [39m[32m40[39m         rows.append([rank, shown, row[[33m"logp"[39m], row[[33m"p"[39m]])
+[32m     41[39m     [38;5;28;01mreturn[39;00m tabulate(rows, headers=[[33m"rank"[39m, [33m"token"[39m, [33m"log p"[39m, [33m"p"[39m], tablefmt=[33m"pipe"[39m, floatfmt=[33m".3f"[39m)
+
+[31mKeyError[39m: 'p'
+
+error: recipe `notebook-smoke` failed on line 19 with exit code 1

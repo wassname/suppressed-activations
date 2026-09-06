@@ -1,7 +1,4 @@
-demo:
-    uv run scripts/spider_ant_demo.py
-    uv run scripts/demo.py
-    uv run scripts/figure.py
+demo: notebook-run
 
 demo-check: test
     uv run scripts/demo_check.py
@@ -18,8 +15,7 @@ notebook-smoke:
     SUPPRESSED_ROOT=$PWD SUPPRESSED_MODEL=wassname/qwen3-5lyr-tiny-random \
     SUPPRESSED_REVISION=main SUPPRESSED_DEVICE=cpu SUPPRESSED_EARLY_LAYER=0 \
     SUPPRESSED_PEAK_LAYER=2 SUPPRESSED_OUTPUT_LAYER=5 \
-    SUPPRESSED_INTERVENTION_LAYER=3 SUPPRESSED_RANK=2 SUPPRESSED_TOKENS=4 \
-    SUPPRESSED_STRENGTHS=-0.125,0,0.125 \
+    SUPPRESSED_INTERVENTION_LAYER=3 SUPPRESSED_RANK=2 SUPPRESSED_STRENGTH=0.125 \
     uv run jupytext --to ipynb --execute nbs/demo.py -o .local/demo-smoke.ipynb
 
 notebook-run:

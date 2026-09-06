@@ -96,130 +96,83 @@ Chinese answer token for 1 of 53.
 These are signed shares of a readout, so they need not lie between zero and one. A negative
 share points against the full readout.
 
-## Can changing this subspace change the answer?
+## Are suppressed activations causal? Can changing this subspace change the answer?
 
-We follow the spider/ant demonstration in [Gurnee et al., Figures
-12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching):
+To test this, we repeat the spider/dog version of the demonstration in [Gurnee et al.,
+Figures 12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching)
+using our suppressed-activation method.
 
-> When we swap the spider lens vector for ant, the model's top output changes from “8”
-> to “6”, the number of legs on an ant.
+### Before intervention
 
-Their vectors come from the Jacobian lens. The experiment below uses only the LM-head
-rise-and-fall method above.
+Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-The source prompt is:
+Suppressed readout: `[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]`
 
-> **Fact: The number of legs on the animal that spins webs is**
+The unspoken `Spider` appears in the readout, and the model answers `8`.
 
-Its rank-8 readout contains the unspoken `Spider` plus several variants of the prompt's
-web word:
+| rank | token | log p | p |
+|---:|:---|---:|---:|
+| 1 | **8** | **−0.125** | **0.883** |
+| 2 | 4 | −2.875 | 0.056 |
+| 3 | 6 | −3.625 | 0.027 |
+| 4 | 1 | −4.625 | 0.010 |
+| 5 | 2 | −5.000 | 0.007 |
+| 6 | 3 | −5.125 | 0.006 |
+| 7 | 5 | −5.625 | 0.004 |
+| 8 | 7 | −5.750 | 0.003 |
+| 9 | 0 | −6.500 | 0.002 |
+| 10 | 9 | −6.562 | 0.001 |
 
-```text
-[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]
-```
+### Replace the suppressed component
 
-For each complete prompt, an unmodified first pass extracts a separate subspace. We then
-change one residual vector, at L26 and the final source-prompt token:
+A separate target prompt gives us a dog-related component:
+
+Target prompt: **Fact: The number of legs on the animal that barks and is called man's best friend is**
+
+Target suppressed readout: `[吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]`
+
+This is the target prompt's readout, not the source prompt's readout after intervention. We
+extract both subspaces with unmodified forward passes, then change one residual vector at
+L26 and the final source-prompt token:
 
 ```python
 source = h_spider @ S_spider @ S_spider.T
-target = h_target @ S_target @ S_target.T
+target = h_dog @ S_dog @ S_dog.T
 target = target * norm(source) / norm(target)
 h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 ```
 
-`C=1` is the constructed source-to-target component replacement. `C=4` extrapolates
-three times as far past it. L23/L25/L32 extraction, rank 8, L26 intervention, and C=4 were
-selected during exploration on these prompts. They are demo settings, not defaults.
+`C=1` is the constructed replacement and still answers `8`. The result below uses `C=4`,
+a large extrapolation past the replacement.
 
-### What changed
+### After intervention
 
-| target prompt | C | answer | Δlog odds target/8↑ | p(target)↑ | p(8)↓ | ‖Δh‖/‖h‖↓ |
-|:---|---:|---:|---:|---:|---:|---:|
-| *clean spider* | *0* | *8* | *0.000* | *—* | *0.883* | *0.000* |
-| ant | 1 | 8 | +0.375 | 0.038 | 0.870 | 0.199 |
-| ant | 4 | **6** | **+3.750** | **0.487** | 0.379 | 0.679 |
-| dog | 1 | 8 | +0.500 | 0.089 | 0.847 | 0.208 |
-| dog | 4 | **4** | +3.250 | **0.490** | **0.297** | 0.720 |
+Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-<sub>Table: Qwen3.5-4B next-token probabilities. The ant prompt asks about an animal that
-lives in colonies and follows pheromone trails. The dog prompt asks about an animal that
-barks and is called man's best friend. Each clean target prompt answers 6 or 4.</sub>
+Re-extracted suppressed readout: `[Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider]`
 
-The readouts themselves are useful counterevidence. Dog is visible in its target subspace,
-but ant is not. Re-extracting after either C=4 edit still returns spider and web rows:
+The prompt is unchanged, the readout still looks spider-related, but the top answer changes
+to `4`.
 
-| trajectory | selected vocabulary rows |
-|:---|:---|
-| spider, before | 丝绸, -web, Web, Disc, 的战, Spider, web, WEB |
-| ant, target | ;font, _unix, Kate, สถาบัน, Soldier, división, 在校园, соци |
-| spider after ant, C=4 | Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider |
-| dog, target | 吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine |
-| spider after dog, C=4 | Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider |
+| rank | token | log p | p |
+|---:|:---|---:|---:|
+| 1 | **4** | **−0.713** | **0.490** |
+| 2 | 8 | −1.213 | 0.297 |
+| 3 | 6 | −2.338 | 0.097 |
+| 4 | 1 | −3.213 | 0.040 |
+| 5 | 2 | −3.963 | 0.019 |
+| 6 | 5 | −4.088 | 0.017 |
+| 7 | 3 | −4.213 | 0.015 |
+| 8 | 9 | −4.338 | 0.013 |
+| 9 | 7 | −4.713 | 0.009 |
+| 10 | 0 | −6.588 | 0.001 |
 
-The 64-token greedy continuations begin:
-
-<details>
-<summary>Clean, ant C=4, and dog C=4</summary>
-
-```text
-[clean]
-8.
-Hypothesis: The animal that spins webs has 8 legs.
-Does the hypothesis follow from the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 8."
-```
-
-```text
-[ant C=4]
-6.
-Hypothesis: The animal that spins webs has 6 legs.
-Is the hypothesis entailed by the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 6."
-```
-
-```text
-[dog C=4]
-4.
-Hypothesis: The animal that spins webs has 4 legs.
-Is the hypothesis entailed by the fact?
-
-<think>
-Thinking Process:
-
-1.  **Analyze the Request:**
-    *   Fact: "The number of legs on the animal that spins webs is 4."
-```
-
-</details>
-
-### What the controls say
-
-| target | Δlog odds↑ | random below↑ | random top target↓ | answer-only Δlog odds |
-|:---|---:|---:|---:|---:|
-| ant → 6 | **+3.750** | 238/256 (92.97%) | 19/256 | +8.375 from “three plus three” |
-| dog → 4 | +3.250 | 235/256 (91.80%) | 27/256 | +3.250 from “two plus two” |
-
-Both effects failed the preregistered 95% matched-random criterion. The arithmetic prompts
-reproduced or exceeded them. Each C=4 continuation also exactly matched the continuation
-obtained by forcing its first digit without any residual intervention.
-
-The operation changes this prompt's next-answer state. This experiment does not show that
-ant or dog identity was transferred, or that the rise-and-fall subspace is more causal than
-a matched random subspace. The [executed notebook](nbs/demo.ipynb) shows both targets,
-negative and positive strengths, and every exact continuation. The [fixed run
-report](out/2026-09-05_211609_causal-confirmation/recovered_log.md) contains all 256 random
-controls, arithmetic controls, byte controls, position controls, and raw-output links.
+This does not establish a semantic `spider → dog` swap. C=4 changes 72% of the residual
+norm, 21 of 256 matched-random interventions have an equal or larger effect, and a target
+prompt for `2 + 2` produces the same answer change. The supported result is a
+prompt-specific next-answer-state intervention. The [executed
+notebook](nbs/demo.ipynb) contains this single demo, and the [fixed run
+report](out/2026-09-05_211609_causal-confirmation/recovered_log.md) contains the controls.
 
 ## Limits
 
@@ -238,39 +191,12 @@ controls, arithmetic controls, byte controls, position controls, and raw-output 
   target prompts reproduced them, so the supported interpretation is next-answer-state
   transfer rather than animal identity.
 
-## [Next: steering](https://github.com/wassname/suppressed-activations/issues/1)
-
-The next test is to project a steering vector into `S` and evaluate it on
-[Steering-Lite](https://github.com/wassname/steering-lite). Constructing `S` for a new
-prompt uses its later residuals, so an adaptive intervention would require an unsteered
-first pass. The test below instead uses `S` only on extraction prompts and applies one
-fixed vector to held-out prompts:
-
-```python
-projected_differences = []
-for positive_trajectory, negative_trajectory in extraction_pairs:
-    midpoint_trajectory = (positive_trajectory + negative_trajectory) / 2
-    S_i = suppressed_activation_subspace(midpoint_trajectory)
-    difference_i = positive_trajectory[layer] - negative_trajectory[layer]
-    projected_differences.append(S_i @ S_i.T @ difference_i)
-
-v_suppressed = mean(projected_differences)
-h_steered = h + strength * v_suppressed
-```
-
-The midpoint keeps the subspace selection from seeing which member of the pair is positive.
-Each extraction trajectory supplies its own basis, while their projected differences form
-one vector that can be applied to new prompts. Compare this with the full mean difference,
-the orthogonal complement, a random rank-32 subspace, and different-prompt pairing. This
-would test whether the diagnostic also identifies a transferable causal intervention.
-
 ## Try it in a notebook
 
 [`nbs/demo.ipynb`](nbs/demo.ipynb) is an executed Qwen3.5-4B notebook paired with the
-editable [`nbs/demo.py`](nbs/demo.py). One configuration cell holds the prompts, layers,
-rank, strengths, and generation length. It shows ant and dog target prompts at
-`C = -1, 0, 1, 2, 4, 8`, including all exact 64-token continuations and the failed
-matched-random criterion.
+editable [`nbs/demo.py`](nbs/demo.py). It reproduces the single spider-to-dog example above:
+the two prompt-specific readouts, the residual replacement, and the before/after top-token
+tables.
 
 ```bash
 just notebook-run
