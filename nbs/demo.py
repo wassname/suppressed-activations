@@ -39,7 +39,7 @@ import torch
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from scripts.demo import intervention_hooks, layer_hooks, run_forward, top_tokens, trajectory
+from scripts.demo import generate, intervention_hooks, layer_hooks, run_forward, top_tokens, trajectory
 from suppressed_activation_subspace import suppressed_activation_subspace
 
 # Edit this cell. `just notebook-smoke` overrides the same values with environment variables.
@@ -63,6 +63,7 @@ OUTPUT_LAYER = int(os.environ.get("SUPPRESSED_OUTPUT_LAYER", 32))
 INTERVENTION_LAYER = int(os.environ.get("SUPPRESSED_INTERVENTION_LAYER", 26))
 RANK = int(os.environ.get("SUPPRESSED_RANK", 8))
 STRENGTH = float(os.environ.get("SUPPRESSED_STRENGTH", 4))
+GENERATION_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", 12))
 GIT_DESCRIBE = subprocess.run(
     ["git", "describe", "--always", "--dirty"],
     cwd=ROOT,
@@ -78,6 +79,7 @@ GIT_DESCRIBE = subprocess.run(
     "intervention": f"one vector at residual L{INTERVENTION_LAYER}, final prompt token",
     "rank": RANK,
     "C": STRENGTH,
+    "generation tokens": GENERATION_TOKENS,
 }
 
 # %% [markdown]
@@ -137,29 +139,41 @@ def probability_table(logits, highlighted_token):
 
 source = extract(SOURCE_PROMPT)
 target = extract(TARGET_PROMPT)
+clean_generation = generate(
+    model, tokenizer, source["input_ids"], blocks, {}, max_new_tokens=GENERATION_TOKENS
+)
+assert len(clean_generation["token_ids"]) == GENERATION_TOKENS
 
 # %% [markdown]
-# The original prompt reads:
+# ## Base
 
 # %%
 display(Markdown(f"""\
-Prompt: **{SOURCE_PROMPT}**
+Input (`repr`, including the trailing space):
 
-Suppressed readout: `{source['selected']!r}`
+```python
+{SOURCE_PROMPT!r}
+```
+
+Readout ("what it is thinking but not saying"):
+
+```python
+{source['selected']!r}
+```
+
+Generation (next {GENERATION_TOKENS} tokens, verbatim):
+
+```text
+{clean_generation['text']}
+```
 
 {probability_table(source['logits'], SOURCE_OUTPUT)}
 """))
 
 # %% [markdown]
-# We replace this suppressed component with one extracted from:
+# ## Causal intervention
 
 # %%
-display(Markdown(f"""\
-Target prompt: **{TARGET_PROMPT}**
-
-Target suppressed readout: `{target['selected']!r}`
-"""))
-
 block = INTERVENTION_LAYER - 1  # decoder block output is the next residual
 hook_by_layer = intervention_hooks(
     source["basis"],
@@ -168,37 +182,50 @@ hook_by_layer = intervention_hooks(
     operation="replace",
     strength=STRENGTH,
     blocks_to_hook=[block],
+    prefill_only=True,
 )
 changed_logits = run_forward(model, source["input_ids"], blocks, hook_by_layer)
-with layer_hooks(blocks, hook_by_layer):
-    changed_residuals, _ = trajectory(model, source["input_ids"], final_norm)
-_, changed_selected_ids = suppressed_activation_subspace(
-    changed_residuals[:, -1][None],
-    unembedding,
-    norm_gain,
-    early_layer=EARLY_LAYER,
-    peak_layer=PEAK_LAYER,
-    output_layer=OUTPUT_LAYER,
-    rank=RANK,
-    normalize_unembedding_rows=True,
+changed_generation = generate(
+    model,
+    tokenizer,
+    source["input_ids"],
+    blocks,
+    hook_by_layer,
+    max_new_tokens=GENERATION_TOKENS,
 )
-changed_selected = [tokenizer.decode([int(token_id)]) for token_id in changed_selected_ids[0]]
+assert len(changed_generation["token_ids"]) == GENERATION_TOKENS
 
-# %% [markdown]
-# After applying the replacement to the original prompt:
-
-# %%
 display(Markdown(f"""\
-Prompt: **{SOURCE_PROMPT}**
+Input (`repr`, unchanged):
 
-Re-extracted suppressed readout: `{changed_selected!r}`
+```python
+{SOURCE_PROMPT!r}
+```
+
+Replacement readout ("what we insert"):
+
+```python
+{target['selected']!r}
+```
+
+Generation (next {GENERATION_TOKENS} tokens, verbatim):
+
+```text
+{changed_generation['text']}
+```
 
 {probability_table(changed_logits, TARGET_OUTPUT)}
 """))
 
 # %% [markdown]
-# For each complete prompt, an unmodified first pass extracts a separate subspace. We then change
-# one residual vector at L26 and the final source-prompt token:
+# The replacement readout comes from an unmodified pass over this target input:
+#
+# ```python
+# "Fact: The number of legs on the animal that barks and is called man's best friend is "
+# ```
+#
+# For each complete input, an unmodified first pass extracts a separate subspace. We then change
+# one residual vector at L26 and the final source-input token:
 #
 # ```python
 # source = h_spider @ S_spider @ S_spider.T
@@ -207,10 +234,11 @@ Re-extracted suppressed readout: `{changed_selected!r}`
 # h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 # ```
 #
-# The prompt is unchanged and the answer changes from 8 to 4. The re-extracted readout still looks
-# spider-related. This does not establish a semantic `spider → dog` swap: C=4 changes 72% of the
-# residual norm, 21 of 256 matched-random interventions have an equal or larger effect, and a
-# target prompt for `2 + 2` produces the same answer change. See the [fixed run
+# At C=1, the constructed replacement still generates 8 first. The displayed C=4 intervention
+# extrapolates past that replacement. Re-running the detector after intervention still returns
+# spider-related rows, so this does not establish a semantic `spider → dog` swap. C=4 changes 72%
+# of the residual norm, 21 of 256 matched-random interventions have an equal or larger effect, and
+# a `2 + 2` target produces the same first-token change. See the [fixed run
 # report](../out/2026-09-05_211609_causal-confirmation/recovered_log.md).
 #
 # <!-- Notebook written by PI/gpt-5.4 from Michael J. Clark's requested demo structure. -->
