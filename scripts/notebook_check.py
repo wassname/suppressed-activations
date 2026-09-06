@@ -6,31 +6,42 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def output_text(output: dict) -> str:
+    parts = []
+    text = output.get("text", "")
+    parts.extend(text if isinstance(text, list) else [text])
+    for value in output.get("data", {}).values():
+        parts.extend(value if isinstance(value, list) else [value])
+    return "".join(str(part) for part in parts)
+
+
 def main() -> None:
     notebook = json.loads((ROOT / "nbs/demo.ipynb").read_text())
     code_cells = [cell for cell in notebook["cells"] if cell["cell_type"] == "code"]
     assert code_cells
-    assert all(cell["execution_count"] is not None for cell in code_cells)
+    assert [cell["execution_count"] for cell in code_cells] == list(
+        range(1, len(code_cells) + 1)
+    )
     outputs = [output for cell in code_cells for output in cell["outputs"]]
     assert not any(output["output_type"] == "error" for output in outputs)
 
-    text = "".join(
-        "".join(output.get("text", output.get("data", {}).get("text/plain", [])))
-        for output in outputs
-    )
+    text = "".join(output_text(output) for output in outputs)
     source = (ROOT / "nbs/demo.py").read_text()
     assert "'git':" in text and "-dirty" not in text
     assert "one vector at residual L26, final prompt token" in text
-    assert "Spider" in text and "dog, target" in text
-    assert "spider after ant, C=4" in text and "spider after dog, C=4" in text
-    assert "target/source log odds" in text and "distance/residual" in text
-    assert all(value in text for value in ("-1.0000", "+0.0000", "+1.0000", "+4.0000", "+8.0000"))
-    assert "animal that spins webs has 6 legs" in text
-    assert "animal that spins webs has 4 legs" in text
-    assert "238/256" in source and "235/256" in source
-    assert "not proof that an Ant or Dog concept" in source
+    assert "spins webs" in text and "man's best friend" in text
+    assert "Suppressed readout" in text and "Target suppressed readout" in text
+    assert "Re-extracted suppressed readout" in text
+    assert "Spider" in text and "dog" in text and "canine" in text
+    assert "0.883" in text and "0.490" in text
+    assert "**8**" in text and "**4**" in text
+    assert "matched-random" in source and "21 of 256" in source
+    assert "2 + 2" in source and "semantic `spider → dog` swap" in source
+    assert "generate" not in source and "Exact continuations" not in source
+    assert "SUPPRESSED_ANT" not in source and '"ant":' not in source
+    assert "jacobian" not in source.lower() and "j-space" not in source.lower()
     assert notebook["metadata"]["jupytext"]["formats"] == "py:percent,ipynb"
-    print("PASS: executed notebook has one-site extraction, two targets, signed doses, and exact continuations")
+    print("PASS: executed notebook contains one spider-to-dog demo and two top-token tables")
 
 
 if __name__ == "__main__":

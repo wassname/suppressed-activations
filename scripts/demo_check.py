@@ -1,127 +1,73 @@
-"""Check the committed causal demo. Written by PI/gpt-5.4."""
+"""Check the single public causal demonstration. Written by PI/gpt-5.4."""
 
 import json
+import math
 from pathlib import Path
-import struct
 
 ROOT = Path(__file__).resolve().parents[1]
+RESULT = ROOT / "out/2026-09-05_211609_causal-confirmation/result.json"
+
+
+def selected_tokens(sample: dict) -> list[str]:
+    return [row["token"].strip() for row in sample["selected"]]
 
 
 def main() -> None:
-    data = json.loads((ROOT / "data/causal_demo.json").read_text())
-    spider_ant = json.loads((ROOT / "data/spider_ant_demo.json").read_text())
-    metadata = data["metadata"]
+    data = json.loads(RESULT.read_text())
     readme = (ROOT / "README.md").read_text()
-    assert not metadata["git_describe"].endswith("-dirty")
-    assert metadata["source_hidden_word"] in {
-        row["token"].strip().lower() for row in data["source_selected_tokens"]
-    }
-    assert metadata["target_hidden_word"] in {
-        row["token"].strip().lower() for row in data["target_selected_tokens"]
-    }
-    selected = {
-        row["token"].strip()
-        for group in (data["source_selected_tokens"], data["target_selected_tokens"])
-        for row in group
-    }
-    assert metadata["source_output"] not in selected
-    assert metadata["target_output"] not in selected
+    agents = (ROOT / "AGENTS.md").read_text()
 
-    rows = {row["condition"]: row["metrics"] for row in data["interventions"]}
-    assert rows["base"]["top"][0]["token"] == metadata["source_output"]
-    assert rows["replace"]["top"][0]["token"] == metadata["target_output"]
-    assert rows["remove"]["p_source"] < rows["base"]["p_source"]
+    assert not data["metadata"]["git_describe_at_start"].endswith("-dirty")
+    assert data["metadata"]["model_revision"] == data["metadata"]["tokenizer_revision"]
+    assert data["metadata"]["intervention_layer"] == 26
+    assert data["metadata"]["rank"] == 8
+    assert data["metadata"]["strength"] == 4
 
-    random_rows = [
-        row for row in data["interventions"] if row["condition"].startswith("random_seed=")
-    ]
-    assert len(random_rows) == metadata["random_control_count"]
-    semantic_odds = rows["replace"]["log_odds_target_vs_source"]
-    random_odds = [row["metrics"]["log_odds_target_vs_source"] for row in random_rows]
-    assert sum(value < semantic_odds for value in random_odds) / len(random_odds) >= 0.95
+    source_tokens = selected_tokens(data["sources"]["spider"])
+    target_tokens = selected_tokens(data["targets"]["dog"])
+    assert "Spider" in source_tokens
+    assert {"dog", "Dog", "canine"} <= set(target_tokens)
 
-    semantic = data["diagnostics"]["replace"]
-    random = data["diagnostics"]["random"]
-    assert semantic.keys() == random.keys()
-    for layer in semantic:
-        difference = abs(semantic[layer]["perturbation_norm"] - random[layer]["perturbation_norm"])
-        assert difference < 1e-4
-
-    generations = {row["condition"]: row for row in data["generations"]}
-    assert generations.keys() == {"base", "replace", "random", "remove"}
-    assert all(len(row["token_ids"]) == metadata["max_new_tokens"] for row in generations.values())
-    assert generations["base"]["text"].startswith(metadata["source_output"])
-    assert generations["replace"]["text"].startswith(metadata["target_output"])
-    assert generations["random"]["text"].startswith(metadata["source_output"])
-    assert generations["remove"]["text"].startswith(metadata["source_output"])
-
-    spider_row = next(
-        row for row in spider_ant["rows"]
-        if row["variant_set"] == "single"
-        and row["normalized"]
-        and row["mask"] == "all"
-        and row["strength"] == 1
+    clean = data["conditions"]["spider_clean"]["metrics"]
+    dog_c1 = data["conditions"]["dog_C1"]["metrics"]
+    dog_c4 = data["conditions"]["dog_C4"]["metrics"]
+    assert clean["top"][0]["token"] == "8"
+    assert dog_c1["top"][0]["token"] == "8"
+    assert dog_c4["top"][0]["token"] == "4"
+    assert math.isclose(clean["p_8"], 0.882568, abs_tol=1e-6)
+    assert math.isclose(dog_c4["p_expected"], 0.490091, abs_tol=1e-6)
+    assert math.isclose(dog_c4["p_8"], 0.297255, abs_tol=1e-6)
+    assert math.isclose(
+        dog_c4["delta_log_odds_expected_vs_8"], 3.25, abs_tol=1e-6
     )
-    variant_row = next(
-        row for row in spider_ant["rows"]
-        if row["variant_set"] == "matched_atomic"
-        and row["normalized"]
-        and row["mask"] == "all"
-        and row["strength"] == 1
-    )
-    assert spider_ant["clean"][0]["token"] == "8"
-    assert spider_row["top"][0]["token"] == "8"
-    assert spider_row["delta_logp6"] > 0
-    assert len(spider_ant["metadata"]["matched_variant_pairs"]) == 4
-    assert variant_row["generation"]["token_ids"]
-    prototype_methods = {row["method"] for row in spider_ant["prototype_rows"]}
-    assert prototype_methods == {"pair_1", "pair_2", "pair_3", "pair_4", "mean_atomic", "svd1_atomic"}
-    assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["prototype_rows"])
-    assert len(spider_ant["strong_rows"]) == 36
-    assert {row["restore_norm"] for row in spider_ant["strong_rows"]} == {False, True}
-    assert all(len(row["generation"]["token_ids"]) == 64 for row in spider_ant["strong_rows"])
-    localized_rows = spider_ant["localized_rows"]
-    assert len(localized_rows) == 16
-    assert {row["mask"] for row in localized_rows} == {"selected_final_position"}
-    assert {row["restore_norm"] for row in localized_rows} == {False, True}
-    assert all(len(row["coordinates_by_layer"]) == 8 for row in localized_rows)
-    single_layer_rows = spider_ant["single_layer_rows"]
-    assert len(single_layer_rows) == 8
-    assert {row["residual_layer"] for row in single_layer_rows} == set(range(23, 31))
-    assert all(len(row["coordinates_by_layer"]) == 1 for row in single_layer_rows)
-    l26_dose_rows = spider_ant["l26_dose_rows"]
-    assert len(l26_dose_rows) == 7 * 2 * 13
-    assert {row["residual_layer"] for row in l26_dose_rows} == {26}
-    assert set(spider_ant["metadata"]["l26_ranks"]) == {8, 16, 32, 64}
-    l26_random_rows = spider_ant["l26_random_rows"]
-    assert len(l26_random_rows) == 9 * 32
-    assert {row["method"] for row in l26_random_rows} == {"lowercase_space_rank8"}
-    assert spider_ant["geometry"]["unit"]["condition_number_at_final_position"] > 1
-    assert "Spider" in spider_ant["selected_tokens_at_final"]
 
-    required_readme_text = (
-        "Can changing this subspace change the answer?",
-        "Fact: The number of legs on the animal that spins webs is",
-        "barks and is called man's best friend",
-        "The experiment below uses only the LM-head",
+    assert data["random_summary"]["dog"]["below"] == 235
+    assert data["random_summary"]["dog"]["random_top_expected"] == 27
+    arithmetic = data["conditions"]["two_plus_two_C4"]["metrics"]
+    assert arithmetic["top"][0]["token"] == "4"
+    assert arithmetic["delta_log_odds_expected_vs_8"] == 3.25
+    assert data["generations"]["spider_dog_C4"]["token_ids"] == data["generations"][
+        "spider_forced_4"
+    ]["token_ids"]
+
+    required = (
+        "Are suppressed activations causal?",
+        "Suppressed readout: `[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]`",
+        "Target suppressed readout: `[吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]`",
         "source = h_spider @ S_spider @ S_spider.T",
-        "C=4` extrapolates",
-        "238/256",
-        "235/256",
-        "next-answer state",
-        "nbs/demo.ipynb",
-        "recovered_log.md",
+        "`C=1` is the constructed replacement and still answers `8`",
+        "Re-extracted suppressed readout: `[Silk, Spider, spiders",
+        "21 of 256 matched-random interventions",
+        "prompt-specific next-answer-state intervention",
     )
-    assert all(text in readme for text in required_readme_text)
-    assert "248 of 256" not in readme
+    assert all(text in readme for text in required)
+    assert "ant → 6" not in readme
+    assert "64-token greedy continuations" not in readme
+    assert "figs/causal_demo" not in readme
+    assert "one demonstration" in agents
+    assert "Do not add Ant, translation, long-generation" in agents
 
-    png = (ROOT / "figs/causal_demo.png").read_bytes()
-    assert png[:8] == b"\x89PNG\r\n\x1a\n"
-    width, height = struct.unpack(">II", png[16:24])
-    assert width >= 2400 and height >= 800
-    svg = (ROOT / "figs/causal_demo.svg").read_text()
-    assert "Clean next token: 8" in svg and "248/256 random effects are smaller" in svg
-    print("PASS: causal demo README, figure, provenance, controls, metrics, and generations")
+    print("PASS: README contains one measured spider-to-dog demonstration")
 
 
 if __name__ == "__main__":
