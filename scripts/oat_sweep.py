@@ -196,6 +196,27 @@ def persistent_generation_configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
+def persistent_direction_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for aggregation in ("persistent", "union"):
+        for intervention_layers in ((24,), (24, 26)):
+            for strength in (1.0, 2.0, 4.0):
+                layers = "+".join(map(str, intervention_layers))
+                value = f"aggregation={aggregation},L={layers},C={strength:g}"
+                rows.append((
+                    "persistent_direction",
+                    value,
+                    replace(
+                        DEFAULT,
+                        aggregation=aggregation,
+                        intervention_layer=intervention_layers,
+                        intervention_positions=1,
+                        strength=strength,
+                    ),
+                ))
+    return rows
+
+
 def first_answer(text: str) -> str | None:
     match = re.search(r"(?<!\d)([48])(?!\d)", text)
     return None if match is None else match.group(1)
@@ -386,6 +407,7 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
         "layer-position-strength": layer_position_strength_configs,
         "layer-combo": layer_combo_configs,
         "persistent-generation": persistent_generation_configs,
+        "persistent-direction": persistent_direction_configs,
     }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
@@ -501,6 +523,7 @@ if __name__ == "__main__":
             "oat", "normalization-strength", "lexical-surface",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
+            "persistent-direction",
         ),
         default="oat",
     )
