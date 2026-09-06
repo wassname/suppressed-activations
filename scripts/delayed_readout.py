@@ -97,7 +97,10 @@ def chat_input_ids(
 def assistant_prefill_input_ids(tokenizer, content: str) -> dict:
     rendered = tokenizer.apply_chat_template(
         [
-            {"role": "user", "content": "Complete the following fact."},
+            {
+                "role": "user",
+                "content": "Complete the following fact, then explain your answer.",
+            },
             {"role": "assistant", "content": content},
         ],
         tokenize=False,

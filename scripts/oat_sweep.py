@@ -85,6 +85,13 @@ def demo_configs() -> list[tuple[str, str, Config]]:
     return [("default", "default", DEFAULT)]
 
 
+def chat_strength_configs() -> list[tuple[str, str, Config]]:
+    return [
+        ("strength", f"C={strength:g}", replace(DEFAULT, strength=strength))
+        for strength in (2.0, 2.5, 3.0, 4.0)
+    ]
+
+
 def normalization_strength_configs() -> list[tuple[str, str, Config]]:
     rows = []
     for match_component_norm in (True, False):
@@ -409,6 +416,7 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
 
     sweep_configs = {
         "demo": demo_configs,
+        "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
         "lexical-surface": lexical_configs,
@@ -528,7 +536,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sweep",
         choices=(
-            "demo", "oat", "normalization-strength", "lexical-surface",
+            "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",
