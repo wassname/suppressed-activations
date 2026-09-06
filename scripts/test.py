@@ -19,6 +19,7 @@ from suppressed_activation_subspace import (
     remove,
     replace,
     steer,
+    subspace_from_scores,
 )
 
 
@@ -123,6 +124,28 @@ def main() -> None:
     torch.testing.assert_close(suffix_patched[:, :-2], suffix_hidden[:, :-2])
     assert not torch.equal(suffix_patched[:, -2:], suffix_hidden[:, -2:])
     print("PASS: suffix intervention changes only the requested prompt positions")
+
+    fixed_target_hook = intervention_hooks(
+        suffix_source_basis,
+        suffix_target_basis,
+        suffix_target_residuals,
+        operation="replace",
+        blocks_to_hook=[0],
+        positions=2,
+        source_position=3,
+        target_position=1,
+    )[0]
+    fixed_target_patched = fixed_target_hook(None, None, suffix_hidden)
+    torch.testing.assert_close(fixed_target_patched[:, :2], suffix_hidden[:, :2])
+    torch.testing.assert_close(fixed_target_patched[:, 4:], suffix_hidden[:, 4:])
+    assert not torch.equal(fixed_target_patched[:, 2:4], suffix_hidden[:, 2:4])
+    print("PASS: persistent intervention uses explicit source and donor content positions")
+
+    scores = torch.tensor([[0.0, 4.0, 2.0, 3.0, 1.0]])
+    toy_unembedding = torch.randn(5, 5, generator=generator)
+    _, selected = subspace_from_scores(scores, toy_unembedding, torch.ones(5), rank=2)
+    assert selected.tolist() == [[1, 3]]
+    print("PASS: subspace construction selects the highest supplied persistent scores")
 
     data = json.loads((Path(__file__).resolve().parents[1] / "data/causal_demo.json").read_text())
     rows = {row["condition"]: row["metrics"] for row in data["interventions"]}

@@ -26,4 +26,37 @@
 `out/<timestamp>_delayed-readout/run.md` and raw JSON. The report states whether the readout
 changed, remained spider-related, or could not be interpreted because a check failed.
 
+## Layer and dose sweep
+
+> “hone in on supressed acivaiton through layers, and persistant subspace through tokens” — wassname
+
+1. [/] goal: Test a persistent suppressed readout before interpreting causal steering.
+   - subtle failure mode: extraction reads assistant template tokens or unions unrelated per-position tokens.
+   - discriminator: `run.md` names the exact four user-content tokens and reports every selected token's suppressed score at every position.
+   - method: rank tokens by the minimum rise-and-fall suppressed score across the four positions, then construct one fixed rank-8 basis.
+   - verify: the source and donor readout tables plus the recomputed post-intervention readout are present in the unique job log.
+
+2. [/] goal: Separate direction persistence from intervention duration.
+   - subtle failure mode: a longer intervention changes donor directions as well as source positions, so position count is uninterpretable.
+   - discriminator: use the fixed donor component at its final user-content token for every patched source position.
+   - verify: unit test checks explicit source and donor positions; job logs per-position perturbation norms.
+
+3. [ ] goal: After the persistent default, independently compare representation and normalization.
+   - representation: strict persistent set, union, and per-position directions.
+   - normalization: component matching/full residual restoration, neither, and each separately.
+   - subtle failure mode: a factorial sweep hides why a result moved.
+   - discriminator: change one family per job and retain the same target-vs-source log-odds metric.
+
+- [ ] goal: compare layer, suffix length, and C without changing prompt format
+  - sweep all residual layers L1–L32, suffix lengths 1–4, and C in 0.25–8
+  - rank only by change in `log p(4) - log p(8)` from Base
+  - log per-position and aggregate perturbation sizes so C is not mistaken for an absolute dose
+  - failure mode: selecting the maximum from 768 rows is presented as confirmation
+  - discriminator: `run.md` labels the best row as development-selected and requires held-out confirmation
+  - deliverable: a unique `run.md` with the complete Base and selected-intervention generations
+
+Prediction: suffix length need not be monotonic because positions are edited separately. If the
+old L26 effect is real under the chat-formatted prompt, L26/C4/one-position should have positive
+log-odds shift. A negative value there would show that prompt formatting changed the phenomenon.
+
 -- Codex/gpt-5
