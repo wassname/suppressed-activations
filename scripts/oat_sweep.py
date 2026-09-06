@@ -44,7 +44,7 @@ class Config:
     detector_layers: tuple[int, int, int] = (23, 25, 32)
     readout_positions: int = 4
     rank: int = 8
-    intervention_layer: int = 1
+    intervention_layer: int | tuple[int, ...] = 1
     intervention_positions: int | str = "all"
     strength: float = 4.0
     match_component_norm: bool = True
@@ -147,6 +147,26 @@ def layer_position_strength_configs() -> list[tuple[str, str, Config]]:
                     replace(
                         DEFAULT,
                         intervention_layer=intervention_layer,
+                        intervention_positions=intervention_positions,
+                        strength=strength,
+                    ),
+                ))
+    return rows
+
+
+def layer_combo_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for intervention_layers in ((24,), (26,), (24, 26), (23, 24, 25, 26)):
+        for intervention_positions in (1, 4):
+            for strength in (1.0, 2.0, 4.0, 8.0):
+                layers = "+".join(map(str, intervention_layers))
+                value = f"L={layers},positions={intervention_positions},C={strength:g}"
+                rows.append((
+                    "layer_combo",
+                    value,
+                    replace(
+                        DEFAULT,
+                        intervention_layer=intervention_layers,
                         intervention_positions=intervention_positions,
                         strength=strength,
                     ),
@@ -297,7 +317,7 @@ selective transfer beyond this development prompt.
 """
 
 
-def run(output_dir: Path, sweep: str) -> None:
+def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -310,7 +330,17 @@ def run(output_dir: Path, sweep: str) -> None:
     norm_gain = 1.0 + final_norm.weight
 
     def sample(content):
-        chat = chat_input_ids(tokenizer, content, enable_thinking=False)
+        if prompt_mode == "raw":
+            input_ids = tokenizer(
+                content, add_special_tokens=False, return_tensors="pt"
+            ).input_ids.cuda()
+            chat = {"input_ids": input_ids, "content_start": 0, "content_end": input_ids.shape[1]}
+        elif prompt_mode == "chat-fact":
+            chat = chat_input_ids(tokenizer, content, enable_thinking=False, instruction="")
+        elif prompt_mode == "chat-instructed":
+            chat = chat_input_ids(tokenizer, content, enable_thinking=False)
+        else:
+            raise ValueError(prompt_mode)
         residuals, logits = trajectory(model, chat["input_ids"], final_norm)
         return {**chat, "residuals": residuals, "logits": logits}
 
@@ -332,6 +362,7 @@ def run(output_dir: Path, sweep: str) -> None:
         "normalization-strength": normalization_strength_configs,
         "lexical-surface": lexical_configs,
         "layer-position-strength": layer_position_strength_configs,
+        "layer-combo": layer_combo_configs,
     }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
@@ -349,13 +380,18 @@ def run(output_dir: Path, sweep: str) -> None:
             else cfg.intervention_positions
         )
         intervention_record = {}
+        intervention_layers = (
+            (cfg.intervention_layer,)
+            if isinstance(cfg.intervention_layer, int)
+            else cfg.intervention_layer
+        )
         hooks = intervention_hooks(
             source_basis,
             target_basis,
             target["residuals"],
             operation="replace",
             strength=cfg.strength,
-            blocks_to_hook=[cfg.intervention_layer - 1],
+            blocks_to_hook=[layer - 1 for layer in intervention_layers],
             positions=positions,
             source_position=source["content_end"] - 1,
             target_position=target["content_end"] - 1 - cfg.donor_position_offset,
@@ -417,6 +453,7 @@ def run(output_dir: Path, sweep: str) -> None:
             text=True, capture_output=True,
         ).stdout.strip(),
         "default": asdict(DEFAULT),
+        "prompt_mode": prompt_mode,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "base": {
             "p4": float(base_logp[target_id].exp()),
@@ -437,8 +474,16 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--sweep",
-        choices=("oat", "normalization-strength", "lexical-surface", "layer-position-strength"),
+        choices=(
+            "oat", "normalization-strength", "lexical-surface",
+            "layer-position-strength", "layer-combo",
+        ),
         default="oat",
     )
+    parser.add_argument(
+        "--prompt-mode",
+        choices=("raw", "chat-fact", "chat-instructed"),
+        default="chat-instructed",
+    )
     args = parser.parse_args()
-    run(args.output_dir, args.sweep)
+    run(args.output_dir, args.sweep, args.prompt_mode)
