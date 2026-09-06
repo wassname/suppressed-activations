@@ -128,17 +128,24 @@ def intervention_hooks(
             hidden = output[0] if isinstance(output, tuple) else output
             if prefill_only and hidden.shape[1] == 1:
                 return output
-            source_end = hidden.shape[1] if source_position is None else source_position + 1
-            source_start = source_end - positions
+            source_end = (
+                hidden.shape[1]
+                if source_position is None or hidden.shape[1] == 1
+                else source_position + 1
+            )
+            active_positions = 1 if hidden.shape[1] == 1 else positions
+            source_start = source_end - active_positions
             if source_start < 0 or source_end > hidden.shape[1]:
                 raise ValueError(
                     f"cannot patch positions [{source_start}:{source_end}] in length {hidden.shape[1]}"
                 )
             h = hidden[:, source_start:source_end].float()
             if target_position is None:
-                if positions > target_residuals.shape[1]:
+                if active_positions > target_residuals.shape[1]:
                     raise ValueError(f"target has only {target_residuals.shape[1]} positions")
-                target_h = target_residuals[residual_layer, -positions:].unsqueeze(0).float()
+                target_h = target_residuals[
+                    residual_layer, -active_positions:
+                ].unsqueeze(0).float()
             else:
                 target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1)
                 target_h = target_h.expand(h.shape[0], h.shape[1], -1).float()

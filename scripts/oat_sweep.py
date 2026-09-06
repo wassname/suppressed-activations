@@ -52,6 +52,7 @@ class Config:
     donor_position_offset: int = 0
     lexical_forms: str = "detector"
     lexical_divisor: int = 1
+    continue_generation: bool = False
 
 
 DEFAULT = Config()
@@ -169,6 +170,27 @@ def layer_combo_configs() -> list[tuple[str, str, Config]]:
                         intervention_layer=intervention_layers,
                         intervention_positions=intervention_positions,
                         strength=strength,
+                    ),
+                ))
+    return rows
+
+
+def persistent_generation_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for intervention_layers in ((24,), (26,), (24, 26), (23, 24, 25, 26)):
+        for intervention_positions in (1, 4):
+            for strength in (0.25, 0.5, 1.0, 2.0):
+                layers = "+".join(map(str, intervention_layers))
+                value = f"L={layers},positions={intervention_positions},C={strength:g}"
+                rows.append((
+                    "persistent_generation",
+                    value,
+                    replace(
+                        DEFAULT,
+                        intervention_layer=intervention_layers,
+                        intervention_positions=intervention_positions,
+                        strength=strength,
+                        continue_generation=True,
                     ),
                 ))
     return rows
@@ -363,6 +385,7 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
         "lexical-surface": lexical_configs,
         "layer-position-strength": layer_position_strength_configs,
         "layer-combo": layer_combo_configs,
+        "persistent-generation": persistent_generation_configs,
     }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
@@ -397,7 +420,7 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
             target_position=target["content_end"] - 1 - cfg.donor_position_offset,
             match_component_norm=cfg.match_component_norm,
             restore_norm=cfg.restore_residual_norm,
-            prefill_only=True,
+            prefill_only=not cfg.continue_generation,
             record=intervention_record,
         )
         with layer_hooks(blocks, hooks):
@@ -477,6 +500,7 @@ if __name__ == "__main__":
         choices=(
             "oat", "normalization-strength", "lexical-surface",
             "layer-position-strength", "layer-combo",
+            "persistent-generation",
         ),
         default="oat",
     )
