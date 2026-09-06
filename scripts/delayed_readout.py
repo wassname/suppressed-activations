@@ -68,16 +68,22 @@ def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
 
 def chat_input_ids(tokenizer, content: str, *, enable_thinking: bool) -> dict:
     user_content = INSTRUCTION + content
-    encoded = tokenizer.apply_chat_template(
+    rendered = tokenizer.apply_chat_template(
         [{"role": "user", "content": user_content}],
-        tokenize=True,
+        tokenize=False,
         add_generation_prompt=True,
         enable_thinking=enable_thinking,
-        return_tensors="pt",
     )
+    trimmed_boundary = user_content.rstrip() + "<|im_end|>"
+    exact_boundary = user_content + "<|im_end|>"
+    if rendered.count(trimmed_boundary) != 1:
+        raise ValueError("expected one trimmed user-content boundary in chat template")
+    rendered = rendered.replace(trimmed_boundary, exact_boundary)
     content_ids = tokenizer(user_content, add_special_tokens=False).input_ids
-    input_ids = encoded.input_ids
+    input_ids = tokenizer(rendered, add_special_tokens=False, return_tensors="pt").input_ids
     content_start = find_subsequence(input_ids[0].tolist(), content_ids)
+    if tokenizer.decode(input_ids[0], skip_special_tokens=False) != rendered:
+        raise ValueError("chat prompt changed during tokenization")
     return {
         "input_ids": input_ids.cuda(),
         "content_start": content_start,
