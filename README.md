@@ -106,7 +106,7 @@ using our suppressed-activation method.
 
 Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-Suppressed readout: `[丝绸, -web, Web, Disc, 的战, Spider, web, WEB]`
+Suppressed readout: `['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']`
 
 The unspoken `Spider` appears in the readout, and the model answers `8`.
 
@@ -129,7 +129,7 @@ A separate target prompt gives us a dog-related component:
 
 Target prompt: **Fact: The number of legs on the animal that barks and is called man's best friend is**
 
-Target suppressed readout: `[吠, собаки, 狗粮, dog, Dog, Dog, สุนัข, canine]`
+Target suppressed readout: `['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']`
 
 This is the target prompt's readout, not the source prompt's readout after intervention. We
 extract both subspaces with unmodified forward passes, then change one residual vector at
@@ -149,7 +149,7 @@ a large extrapolation past the replacement.
 
 Prompt: **Fact: The number of legs on the animal that spins webs is**
 
-Re-extracted suppressed readout: `[Silk, Spider, spiders, 丝绸, silk, -web, spider, Spider]`
+Re-extracted suppressed readout: `[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']`
 
 The prompt is unchanged, the readout still looks spider-related, but the top answer changes
 to `4`.
