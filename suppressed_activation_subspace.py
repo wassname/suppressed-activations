@@ -86,7 +86,7 @@ def persistent_suppressed_activation_subspace(
     rank: int = 32,
     normalize_unembedding_rows: bool = False,
 ) -> tuple[Tensor, Tensor, Tensor]:
-    """Select one subspace from tokens suppressed at every supplied position."""
+    """Select tokens that are repeatedly suppressed across supplied positions."""
     scores_by_position = suppressed_activation_scores(
         residuals_by_position,
         unembedding,
@@ -96,7 +96,8 @@ def persistent_suppressed_activation_subspace(
         output_layer=output_layer,
         normalize_unembedding_rows=normalize_unembedding_rows,
     )
-    persistent_scores = scores_by_position.amin(dim=0, keepdim=True)
+    positive_fraction = (scores_by_position > 0).float().mean(dim=0, keepdim=True)
+    persistent_scores = scores_by_position.mean(dim=0, keepdim=True) * positive_fraction
     basis, token_ids = subspace_from_scores(
         persistent_scores, unembedding, rms_norm_gain, rank=rank
     )
