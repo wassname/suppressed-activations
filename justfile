@@ -65,6 +65,12 @@ layer-position-strength-sweep:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_layer-position-strength-sweep"
     uv run scripts/oat_sweep.py --sweep layer-position-strength --output-dir "$output_dir"
 
+layer-combo-sweep prompt_mode="chat-fact":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_layer-combo-{{prompt_mode}}"
+    uv run scripts/oat_sweep.py --sweep layer-combo --prompt-mode "{{prompt_mode}}" --output-dir "$output_dir"
+
 results:
     uv run scripts/results.py
 

@@ -67,8 +67,10 @@ def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
     return matches[0]
 
 
-def chat_input_ids(tokenizer, content: str, *, enable_thinking: bool) -> dict:
-    user_content = INSTRUCTION + content
+def chat_input_ids(
+    tokenizer, content: str, *, enable_thinking: bool, instruction: str = INSTRUCTION
+) -> dict:
+    user_content = instruction + content
     rendered = tokenizer.apply_chat_template(
         [{"role": "user", "content": user_content}],
         tokenize=False,
