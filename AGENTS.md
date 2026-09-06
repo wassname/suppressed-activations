@@ -9,8 +9,8 @@ intervention`. Each condition must show the same fields in the same order:
 
 1. the exact input string as Python `repr`, including its trailing space;
 2. the suppressed readout, presented as “what it is thinking but not saying”;
-3. the exact next 12 generated tokens, verbatim;
-4. the top-10 next-token table with token, log probability, and probability.
+3. the exact next 32 generated tokens, verbatim;
+4. the top-10 next-token table with token, log probability, and probability; the causal table also shows change in log probability from Base.
 
 The public section must follow this template:
 
@@ -30,47 +30,55 @@ Readout (“what it is thinking but not saying”):
 
 ['丝绸', '-web', 'Web', 'Disc', '的战', 'Spider', 'web', ' WEB']
 
-Generation (next 12 tokens, verbatim):
+Generation (next 32 tokens, verbatim):
 
 8.
-Hypothesis: The animal that spins webs
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
 
 [clean top-10 token/log-p/probability table]
 
 ### Causal intervention
 
+Now we replace the suppressed component selected from the spider prompt with the component selected from a dog prompt. The input stays unchanged. The readout below is recomputed after the intervention.
+
 Input (`repr`, unchanged):
 
 'Fact: The number of legs on the animal that spins webs is '
 
-Replacement readout (“what we insert”):
+Readout after intervention (“what it is thinking but not saying”):
 
-['吠', ' собаки', '狗粮', 'dog', 'Dog', ' Dog', 'สุนัข', ' canine']
+[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']
 
-Generation (next 12 tokens, verbatim):
+Generation (next 32 tokens, verbatim):
 
 4.
-Hypothesis: The animal that spins webs
+Hypothesis: The animal that spins webs has 4 legs.
+Is the hypothesis entailed by the fact?
 
-[intervened top-10 token/log-p/probability table]
+<think>
+Thinking Process
+
+[intervened top-10 token/log-p/probability/change-in-log-p table]
 
 [target-input provenance, replacement pseudocode, and one short limitations paragraph]
 ```
 
 Use fenced text blocks for the exact input and generation strings. These are model strings,
-not explanations written by an agent. Keep the two 12-token generations byte-for-byte as
+not explanations written by an agent. Keep the two 32-token generations byte-for-byte as
 decoded by the pinned tokenizer. Do not replace them with a next-token label or a gloss such
 as “the number of legs on a dog.”
 
-The dog rows come from the target input's readout. They are not the source input's detector
-output after intervention. The target input is
+The causal readout is the source input's detector output after intervention, not the dog
+prompt's readout. The dog component comes from
 `"Fact: The number of legs on the animal that barks and is called man's best friend is "`.
-If the post-intervention detector output is reported, label it separately; its measured value
-is `[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']`.
 
 Use the measured probabilities: clean `p(8)=0.882568`; after C=4,
-`p(4)=0.490091` and `p(8)=0.297255`. Bold `8` in the first table and `4` in the
-second.
+`p(4)=0.490091` and `p(8)=0.297255`. Bold expected `8` in the first table and `4`
+in the second. Italicize alternative `4` in the first table and `8` in the second.
 
 Do not add Ant, translation, a dose grid, or another generated prompt. Do not call C=4 a
 literal `spider → dog` token swap. C=1 is the constructed component replacement and still

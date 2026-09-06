@@ -31,17 +31,19 @@ def main() -> None:
     assert "one vector at residual L26, final prompt token" in text
     assert "spins webs" in text and "man's best friend" in source
     assert text.count("Input (`repr`") == 2
-    assert "what it is thinking but not saying" in text
-    assert "Replacement readout" in text and "what we insert" in text
-    assert "Spider" in text and "dog" in text and "canine" in text
-    assert "8.\nHypothesis: The animal that spins webs" in text
-    assert "4.\nHypothesis: The animal that spins webs" in text
-    assert text.count("Generation (next 12 tokens, verbatim)") == 2
-    assert text.count("| rank   | token") == 2
+    assert text.count("what it is thinking but not saying") == 2
+    assert "Readout after intervention" in text
+    assert "[' Silk', 'Spider', ' spiders', '丝绸', ' silk', '-web', ' spider', ' Spider']" in text
+    assert "dog prompt" in source
+    assert "8.\nHypothesis: The animal that spins webs has 8 legs." in text
+    assert "4.\nHypothesis: The animal that spins webs has 4 legs." in text
+    assert text.count("Generation (next 32 tokens, verbatim)") == 2
+    assert text.count("| rank   | token") == 2 and "Δ log p" in text
     assert "0.882568" in text and "0.490091" in text and "0.297255" in text
-    assert "**8**" in text and "**4**" in text
+    assert "**8**" in text and "*4*" in text and "**4**" in text and "*8*" in text
+    assert "+2.162" in text and "-1.088" in text
     assert "matched-random" in source and "21 of 256" in source
-    assert "2 + 2" in source and "semantic `spider → dog` swap" in source
+    assert "2 + 2" in source and "semantic `spider → dog` replacement" in source
     assert "GENERATION_TOKENS" in source and "generate(" in source
     assert "SUPPRESSED_ANT" not in source and '"ant":' not in source
     assert "jacobian" not in source.lower() and "j-space" not in source.lower()
