@@ -67,7 +67,7 @@ def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
 
 
 def chat_input_ids(tokenizer, content: str, *, enable_thinking: bool) -> dict:
-    user_content = (INSTRUCTION + content).strip()
+    user_content = INSTRUCTION + content
     encoded = tokenizer.apply_chat_template(
         [{"role": "user", "content": user_content}],
         tokenize=True,
@@ -398,7 +398,7 @@ def sweep_report(result: dict) -> str:
     base = result["demo"]["base"]
     changed = result["demo"]["causal"]
     best = result["best"]
-    return f"""# Layer × suffix length × C sweep
+    return f"""# Layer × content length × C sweep
 
 One score ranks all conditions:
 

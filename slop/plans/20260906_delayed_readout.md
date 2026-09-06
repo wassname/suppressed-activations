@@ -31,7 +31,7 @@ changed, remained spider-related, or could not be interpreted because a check fa
 > “hone in on supressed acivaiton through layers, and persistant subspace through tokens” — wassname
 
 1. [/] goal: Test a persistent suppressed readout before interpreting causal steering.
-   - subtle failure mode: extraction reads assistant template tokens or unions unrelated per-position tokens.
+   - subtle failure mode: extraction reads assistant template tokens, removes the source's trailing space, or unions unrelated per-position tokens.
    - discriminator: `run.md` names the exact four user-content tokens and reports every selected token's suppressed score at every position.
    - method: rank tokens by the minimum rise-and-fall suppressed score across the four positions, then construct one fixed rank-8 basis.
    - verify: the source and donor readout tables plus the recomputed post-intervention readout are present in the unique job log.
