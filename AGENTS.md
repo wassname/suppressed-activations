@@ -112,7 +112,7 @@ $$
 Positive values mean movement from `8` toward `4`. This is a difference in log odds, in
 nats. Call it `swap_log_odds_shift` in code and logs.
 
-Report two coherence diagnostics separately:
+Report two coherence diagnostics separately. Name the first `bare_answer_mass`:
 
 $$p_{\mathrm{valid}} = p(4)+p(8)$$
 
@@ -122,8 +122,10 @@ $$r_2 = 1 - \frac{\text{unique generated bigrams}}{\text{generated bigrams}}.$$
 
 Compute $r_2$ on generated non-special token IDs. Define it as zero when there are fewer
 than two such tokens. Low $p_{\mathrm{valid}}$ indicates that next-token probability moved
-away from both valid answers. High $r_2$ indicates a repetitive continuation. Do not use a
-repetition logits processor as a metric because it changes the distribution being measured.
+away from both bare answer tokens. It does not by itself show incoherence because a coherent
+response can start with formatting or prose and state the answer later. High $r_2$ indicates
+a repetitive continuation. Do not use a repetition logits processor as a metric because it
+changes the distribution being measured.
 
 ## Intervention sweep design
 
