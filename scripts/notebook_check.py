@@ -32,6 +32,7 @@ def main() -> None:
     assert "residual L24, final 4 fact tokens" in text
     assert "spins webs" in text and "man's best friend" in source
     assert text.count("Input (`repr`") == 2
+    assert text.count("`PROMPT START`") == 2 and text.count("`PROMPT END`") == 2
     assert text.count("Rendered model input (`repr`") == 2
     assert "<|im_start|>user" in text and "<|im_start|>assistant" in text
     assert text.count("what it is thinking but not saying") == 2
@@ -41,6 +42,7 @@ def main() -> None:
     assert "8.\n\n**Explanation:**\nThe animal that spins webs is the **spider**." in text
     assert "4.\n\n**Explanation:**\nThe animal that spins webs is the **spider**." in text
     assert text.count("Generation (next 32 tokens, verbatim)") == 2
+    assert text.count("`GENERATION START`") == 2 and text.count("`GENERATION END`") == 2
     assert text.count("| rank   | token") == 2 and "Δ log p" in text
     assert "0.945299" in text and "0.701417" in text and "0.200959" in text
     assert "**8**" in text and "*4*" in text and "**4**" in text and "*8*" in text
