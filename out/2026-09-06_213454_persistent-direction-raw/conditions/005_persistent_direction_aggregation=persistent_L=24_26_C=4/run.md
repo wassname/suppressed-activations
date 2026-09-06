@@ -1,0 +1,120 @@
+---
+condition_id: "005_persistent_direction_aggregation=persistent_L=24_26_C=4"
+axis: "persistent_direction"
+value: "aggregation=persistent,L=24+26,C=4"
+is_default: false
+swap_log_odds_shift: -0.25
+valid_answer_mass: 0.9039760231971741
+p4: 0.042871855199337006
+p8: 0.8611041903495789
+repeated_bigram_fraction: 0.032258064516129004
+generation_tokens: 32
+first_token: "8"
+first_answer: "8"
+source_fact_preserved: true
+readout_overlap: 0.25
+log: "conditions/005_persistent_direction_aggregation=persistent_L=24_26_C=4/run.md"
+---
+
+# 005_persistent_direction_aggregation=persistent_L=24_26_C=4
+
+Resolved config:
+
+```json
+{
+  "aggregation": "persistent",
+  "detector_layers": [
+    23,
+    25,
+    32
+  ],
+  "readout_positions": 4,
+  "rank": 8,
+  "intervention_layer": [
+    24,
+    26
+  ],
+  "intervention_positions": 1,
+  "strength": 4.0,
+  "match_component_norm": true,
+  "restore_residual_norm": true,
+  "donor_position_offset": 0,
+  "lexical_forms": "detector",
+  "lexical_divisor": 1,
+  "continue_generation": false
+}
+```
+
+Source input (`repr`):
+
+```python
+'Fact: The number of legs on the animal that spins webs is '
+```
+
+Donor input (`repr`):
+
+```python
+"Fact: The number of legs on the animal that barks and is called man's best friend is "
+```
+
+Readout after intervention:
+
+```python
+[' doga', 'ปั่น', ' Quantidade', '高中阶段', ' тан', '农药', 'Attack', ' instytuc']
+```
+
+Unmodified donor readout:
+
+```python
+[' doga', ' patologie', ' verlassen', ' Emas', ' Quantidade', '_approval', ' Unik', ' врач']
+```
+
+Measured intervention norms:
+
+```json
+{
+  "24": {
+    "residual_norm": 23.754743576049805,
+    "perturbation_norm": 11.30860710144043,
+    "relative_perturbation_by_position": [
+      0.4760567843914032
+    ]
+  },
+  "26": {
+    "residual_norm": 24.5109806060791,
+    "perturbation_norm": 17.05669403076172,
+    "relative_perturbation_by_position": [
+      0.6958796977996826
+    ]
+  }
+}
+```
+
+Generation (32 tokens, verbatim):
+
+```text
+8.
+Hypothesis: The animal that spins webs has 8 legs.
+Does the hypothesis follow from the fact?
+
+<think>
+Thinking Process:
+```
+
+| rank   | token   | log p   | p        | change in log p   |
+|:-------|:--------|:--------|:---------|:------------------|
+| 1      | '8'     | -0.150  | 0.861104 | -0.025            |
+| 2      | '6'     | -3.025  | 0.048580 | +0.600            |
+| 3      | '4'     | -3.150  | 0.042872 | -0.275            |
+| 4      | '1'     | -4.150  | 0.015772 | +0.475            |
+| 5      | '2'     | -4.400  | 0.012283 | +0.600            |
+| 6      | '3'     | -5.025  | 0.006575 | +0.100            |
+| 7      | '5'     | -5.400  | 0.004519 | +0.225            |
+| 8      | '7'     | -5.525  | 0.003988 | +0.225            |
+| 9      | '0'     | -6.275  | 0.001884 | +0.225            |
+| 10     | '9'     | -6.587  | 0.001378 | -0.025            |
+
+TODO validate: semantic replacement requires a donor-like post-intervention readout and
+selective transfer beyond this development prompt.
+
+-- Codex/gpt-5.6-sol
