@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
-from contextlib import contextmanager
 from pathlib import Path
 
 import torch
@@ -195,7 +195,9 @@ def main(output_dir: Path) -> None:
     norm_gain = 1.0 + final_norm.weight
     source = extract(model, tokenizer, final_norm, unembedding, norm_gain, SOURCE_PROMPT)
     target = extract(model, tokenizer, final_norm, unembedding, norm_gain, TARGET_PROMPT)
-    forced_ids = generate(model, tokenizer, source["input_ids"], blocks, {}, max_new_tokens=FORCED_TOKENS)["token_ids"]
+    generation_input_ids = source["input_ids"]
+    assert torch.equal(source["input_ids"], generation_input_ids)
+    forced_ids = generate(model, tokenizer, generation_input_ids, blocks, {}, max_new_tokens=FORCED_TOKENS)["token_ids"]
     result = {
         "config": {
             "model": MODEL,
@@ -206,12 +208,20 @@ def main(output_dir: Path) -> None:
             "intervention_layer": INTERVENTION_LAYER,
             "positions": POSITIONS,
             "forced_tokens": FORCED_TOKENS,
+            "git": subprocess.run(
+                ["git", "describe", "--always", "--dirty"],
+                cwd=ROOT,
+                check=True,
+                text=True,
+                capture_output=True,
+            ).stdout.strip(),
         },
         "source_content": SOURCE_PROMPT,
         "target_content": TARGET_PROMPT,
         "source_rendered_prompt": source["rendered_prompt"],
         "target_rendered_prompt": target["rendered_prompt"],
         "source_input_ids": source["input_ids"][0].tolist(),
+        "generation_input_ids": generation_input_ids[0].tolist(),
         "target_input_ids": target["input_ids"][0].tolist(),
         "forced_token_ids": forced_ids,
         "forced_text": tokenizer.decode(forced_ids, skip_special_tokens=False),
