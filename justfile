@@ -53,6 +53,12 @@ normalization-strength-sweep:
     output_dir="out/$(date +%Y-%m-%d_%H%M%S)_normalization-strength-sweep"
     uv run scripts/oat_sweep.py --sweep normalization-strength --output-dir "$output_dir"
 
+lexical-surface-sweep:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="out/$(date +%Y-%m-%d_%H%M%S)_lexical-surface-sweep"
+    uv run scripts/oat_sweep.py --sweep lexical-surface --output-dir "$output_dir"
+
 results:
     uv run scripts/results.py
 

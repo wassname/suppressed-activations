@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, replace
@@ -49,6 +50,8 @@ class Config:
     match_component_norm: bool = True
     restore_residual_norm: bool = True
     donor_position_offset: int = 0
+    lexical_forms: str = "detector"
+    lexical_divisor: int = 1
 
 
 DEFAULT = Config()
@@ -98,6 +101,37 @@ def normalization_strength_configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
+LEXICAL_PAIRS = (
+    ("Spider", "Dog"),
+    (" Spider", " Dog"),
+    (" spider", " dog"),
+    (" spiders", " dogs"),
+    ("\nspider", "\ndog"),
+    ("\n spider", "\n dog"),
+    ("\nSpider", "\nDog"),
+)
+
+
+def lexical_configs() -> list[tuple[str, str, Config]]:
+    rows = []
+    for pair_index in range(len(LEXICAL_PAIRS)):
+        for strength in (1.0, 2.0, 4.0, 8.0):
+            value = f"pair={pair_index + 1},C={strength:g}"
+            rows.append(("lexical_surface", value, replace(
+                DEFAULT, lexical_forms=f"pair_{pair_index + 1}", strength=strength,
+            )))
+    for divisor in (1, 2, 4):
+        for strength in (1.0, 2.0, 4.0, 8.0):
+            value = f"union,C={strength:g},divide={divisor}"
+            rows.append(("lexical_surface", value, replace(
+                DEFAULT,
+                lexical_forms="union",
+                lexical_divisor=divisor,
+                strength=strength / divisor,
+            )))
+    return rows
+
+
 def subspace(sample, cfg: Config, unembedding, norm_gain):
     end = sample["content_end"]
     residuals = sample["residuals"][:, end - cfg.readout_positions:end].permute(1, 0, 2)
@@ -116,6 +150,27 @@ def subspace(sample, cfg: Config, unembedding, norm_gain):
         normalize_unembedding_rows=True,
     )
     return basis[0], token_ids[0], scores
+
+
+def lexical_subspaces(tokenizer, unembedding, norm_gain, lexical_forms: str):
+    pairs = (
+        LEXICAL_PAIRS
+        if lexical_forms == "union"
+        else (LEXICAL_PAIRS[int(lexical_forms.removeprefix("pair_")) - 1],)
+    )
+    centered = unembedding.float() - unembedding.float().mean(0)
+
+    def basis(forms):
+        token_ids_by_form = [
+            tokenizer(form, add_special_tokens=False).input_ids for form in forms
+        ]
+        directions = torch.stack([
+            (centered[token_ids] * norm_gain.float()).mean(0)
+            for token_ids in token_ids_by_form
+        ])
+        return torch.linalg.qr(directions.T, mode="reduced").Q
+
+    return basis([source for source, _ in pairs]), basis([target for _, target in pairs])
 
 
 def repetition_bigram_fraction(token_ids: list[int], special_ids: set[int]) -> float:
@@ -236,11 +291,21 @@ def run(output_dir: Path, sweep: str) -> None:
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
-    sweep_configs = configs() if sweep == "oat" else normalization_strength_configs()
+    sweep_configs = {
+        "oat": configs,
+        "normalization-strength": normalization_strength_configs,
+        "lexical-surface": lexical_configs,
+    }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
-        source_basis, _, _ = subspace(source, cfg, unembedding, norm_gain)
-        target_basis, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
+        _, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
+        if cfg.lexical_forms == "detector":
+            source_basis, _, _ = subspace(source, cfg, unembedding, norm_gain)
+            target_basis, _, _ = subspace(target, cfg, unembedding, norm_gain)
+        else:
+            source_basis, target_basis = lexical_subspaces(
+                tokenizer, unembedding, norm_gain, cfg.lexical_forms
+            )
         positions = (
             source["content_end"] - source["content_start"]
             if cfg.intervention_positions == "all"
@@ -271,7 +336,7 @@ def run(output_dir: Path, sweep: str) -> None:
             model, tokenizer, source["input_ids"], blocks, hooks
         )
         logp = generation_logits.log_softmax(-1)
-        condition_id = f"{index:03d}_{axis}_{value}".replace(" ", "_").replace("/", "-")
+        condition_id = re.sub(r"[^A-Za-z0-9_.=-]+", "_", f"{index:03d}_{axis}_{value}")
         condition_dir = output_dir / "conditions" / condition_id
         condition_dir.mkdir(parents=True)
         row = {
@@ -310,6 +375,7 @@ def run(output_dir: Path, sweep: str) -> None:
             text=True, capture_output=True,
         ).stdout.strip(),
         "default": asdict(DEFAULT),
+        "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "base": {
             "p4": float(base_logp[target_id].exp()),
             "p8": float(base_logp[source_id].exp()),
@@ -327,6 +393,8 @@ def run(output_dir: Path, sweep: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--sweep", choices=("oat", "normalization-strength"), default="oat")
+    parser.add_argument(
+        "--sweep", choices=("oat", "normalization-strength", "lexical-surface"), default="oat"
+    )
     args = parser.parse_args()
     run(args.output_dir, args.sweep)
