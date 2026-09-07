@@ -56,3 +56,22 @@ All-content band C0.5 is not better: ant remains relevant but is truncated; dog 
 Readout limitation remains: condition27 ant prefill readout begins `spinning`, `ปั่น`, `división`; dog prefill begins `dog`, ` Dog`, ` dog`. Neither final-decode top list is clearly target-like. Correct recomputation is not the same as useful semantic readout.
 
 Code review of `target_concept`: template animal selection and coordinate vector selection now use that argument, independently of `target_output`. CLI explicit prompt/output overrides survive preset handling; `--target` supplies the animal concept. No remaining answer-digit-to-animal mapping found in `scripts/oat_sweep.py`. Thus ant antennae `0→2` and dog tails `0→1` have no identified digit-selection coupling in this code path. The source concept remains deliberately spider.
+
+## Future-coordinate ant audit — 2026-09-08
+
+Written by Codex/GPT-6. Independently read all 40 continuations in `out/2026-09-07_future-coordinate-ant/result.json` and the estimator/patch code. C0 generation and target probabilities match base. Every row covers [33,34,35] and 31 decode calls. Maximum float32 coordinate-swap algebra error is 4.58e-6.
+
+Three unprojected settings produce `6` and name ant without immediate task corruption: L12 C2 (p6 0.9256), L16 C2 (0.9524), L20 C4 (0.9324). All are only 32-token continuations. L12 C2 is exactly:
+
+```text
+6.
+
+**Explanation:**
+The animal that spins webs is the **ant**. Ants belong to the class *Insecta* (insects),
+```
+
+L16 C2 already introduces “the term "ant" is often used colloquially”; its eventual coherence cannot be inferred from the cap. L12 C4 changes the clue to “spins **winters**”; L16 C4 says “spins traditional woven weather.” L24 C4 retains `8` and repeats “ant spider”. No rank4 projected condition produces `6`; the strongest L24 projected condition instead starts ` **V** (or **5**).` These failures are preserved in the result artifact, not omitted from the candidate assessment.
+
+Estimator code sums raw penultimate vocabulary projections over valid positions, differentiates with respect to earlier residual states, then averages source-position gradients and 16 corpus records. Causal attention makes each source gradient include its current/future selected targets. It is not an average of per-source future means, and omits final normalization by design. Split-half cosines measure estimator agreement, not concept selectivity or causal validity. The finite-difference probe is one corpus/word/layer/direction, not comprehensive gradient validation.
+
+Named suppression diagnostics are still the normalized unembedding detector at layers23/25/32, not a future-J readout. In L12 C2, final prompt-position ant centered values are `[2.0258,1.9520,2.2040]`: rise −0.07379, fall −0.25197, score0. The rank reported for zero is a tied-rank lower bound. This does not mean ant is absent; it means that named token does not satisfy this detector's rise-then-fall rule. Candidate L12 C2's visible top suppression list is not ant-like. Successful short causal steering therefore does not yet establish the requested suppressed ant readout.
