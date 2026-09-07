@@ -1044,6 +1044,10 @@ def run(
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
+        "attenuation-coverage": lambda: [("attenuation_coverage", f"L{layer}_positions{positions}_C{strength}", replace(
+            template_attenuation_configs()[7][2], intervention_layer=(layer,),
+            intervention_positions=positions, strength=strength,
+        )) for layer in (12, 16, 20) for positions in (3, "all") for strength in (0.0, 1.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1499,6 +1503,7 @@ if __name__ == "__main__":
             "template-selector",
             "template-state",
             "template-attenuation",
+            "attenuation-coverage",
             "template-transport",
             "template-clamp",
             "template-scope",

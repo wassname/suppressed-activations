@@ -618,3 +618,40 @@ on the evaluation prompts.
 The coherent baseline makes the unresolved subspace and readout tests easier to interpret.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Attenuation-selected steering transfers, but ant identity calibration shifts
+
+The restricted intervention gives coherent animal descriptions while its readout remains unvalidated.
+
+The fixed method selects four raw-residual directions whose paired template contrast loses squared magnitude from layer 25 to 32. It fits this span on four explicit-name template pairs, then projects the mean difference from all eight pairs into it. At layer 20, strength 2, the projected displacement is scaled to the full difference norm. Steering covers the final three prompt positions and every decode step. This is attenuation of a contrast in fixed coordinates, not yet proof of suppressed semantic information.
+
+Job 651, original ant, reports:
+
+> p_target: 0.9717682600021362
+> p_source: 0.010795370675623417
+
+Its full output begins:
+
+> 6.
+>
+> The ant is a tiny insect known for its remarkable ability to carry objects many times its own weight.
+
+The next sentences describe colonies, pheromones, soil aeration and seed dispersal. [Full ant evidence](out/2026-09-08_clean-identity-ant/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md).
+
+Job 652, original dog, reports:
+
+> p_target: 0.7863069176673889
+
+Its output begins `4.` and describes a dog, smell, play and commands. [Full dog evidence](out/2026-09-08_clean-identity-dog/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md). Jobs 653 and 654 keep the configuration fixed on rephrased sources and produce coherent dog and ant descriptions respectively: [dog](out/2026-09-08_attenuation-fresh-dog/run.md), [ant](out/2026-09-08_attenuation-validation-ant/run.md). Adding the clean identity diagnostic leaves original generation tokens and target probabilities exactly unchanged from the prior attenuation runs, checked by JSON equality.
+
+The clean identity diagnostic measures signed distance from the midpoint of explicit-name template centroids, with positive meaning target. All four held-out named-template pairs separate for both animals. These are correlated template pairs, not independent token examples. For the implicit ant task, clean spider scores are `[-0.3352128267288208, 0.3261594772338867, 0.5017805099487305]`: two positions are wrongly target-positive. Matching the extraction instruction still gives `[-0.2423253059387207, 0.31994643807411194, 0.38094115257263184]`. [Instruction-control evidence](out/2026-09-08_identity-instruction-ant/result.json). The instruction difference does not suffice to explain the failure. The independent subspace reviewer found no dimension or ordering bug and confirmed the split, while noting explicit lexical identity is an alternative explanation for named-template separation.
+
+`hack_s` (reward-hacking count) and `gt_s` (ground-truth pass count) are not defined for these inference runs. Coherent descriptions do not establish a valid suppressed readout. The static and transported vocabulary-component decoders also fail clean ant identity; no intervened classifier movement is counted as independent evidence because steering uses the same contrast.
+
+Interpretation, Codex/GPT-6: a reusable animal contrast is probable, given the coherent continuations across rephrasings. Absolute ant identity calibration across explicit names and implicit descriptions is not established. Testing direct animal naming without a leg-count question is the next behavioral discriminator.
+
+Jobs 656 and 657 test direct naming with the same fixed intervention. Ant produces ` **spider**.` and describes eight legs. Dog produces ` **dog**.` but repeats attempted corrections, including `*(Okay, I am stuck in a loop. Let me think clearly.` [Ant naming](out/2026-09-08_attenuation-name-ant/result.json), [dog naming](out/2026-09-08_attenuation-name-dog/result.json). The independent continuation reviewer confirmed both failures. Next we vary intervention depth and prompt coverage while retaining continuous decode steering; this tests whether unedited source context reintroduces the contradiction.
+
+Generation transfer and readout validity remain separate claims.
+
+<!-- Written by Codex/GPT-6. -->
