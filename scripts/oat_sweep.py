@@ -1061,6 +1061,12 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             discarded_fraction=fraction,
         )) for fraction in (0.0, 0.25, 0.5, 0.75, 1.0)],
+        "attenuation-isolation": lambda: [("attenuation_isolation", f"{part}_C{strength}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            delta_component="discarded" if part == "discarded" else "difference",
+            discarded_fraction=1.0 if part == "full" else 0.0,
+            match_component_norm=False, strength=strength,
+        )) for part in ("selected", "discarded", "full") for strength in (0.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1285,6 +1291,9 @@ def run(
                         },
                     }
                 projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
+                if cfg.delta_component == "discarded":
+                    assert cfg.discarded_fraction == 0.0
+                    projected = {layer: delta-projected[layer] for layer, delta in fixed_deltas.items()}
                 persistence["projected_norm_fraction"] = {
                     layer: float(projected[layer].norm() / delta.norm())
                     for layer, delta in fixed_deltas.items()
@@ -1537,6 +1546,7 @@ if __name__ == "__main__":
             "attenuation-local",
             "attenuation-rank",
             "attenuation-complement",
+            "attenuation-isolation",
             "template-transport",
             "template-clamp",
             "template-scope",
