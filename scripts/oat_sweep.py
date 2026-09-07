@@ -130,10 +130,11 @@ def template_contrast_configs():
 
 
 def template_projection_configs():
-    rows = [("template_projection", f"rank{rank}_C{strength}", replace(
+    rows = [("template_projection", f"L{layer}_rank{rank}_C{strength}", replace(
         DEFAULT, template_contrast=True, persistent_rank=rank,
+        intervention_layer=(layer,),
         strength=strength, match_component_norm=True, restore_residual_norm=False,
-    )) for rank in (4, 8, 16, 32) for strength in (0.0, 0.5, 1.0, 2.0)]
+    )) for layer in (20, 24) for rank in (4, 8, 16, 32) for strength in (0.0, 0.5, 1.0, 2.0)]
     rows.extend(("template_selected_random", str(seed), replace(
         DEFAULT, template_contrast=True, strength=1.0,
         random_delta_seed=seed, match_component_norm=False, restore_residual_norm=False,
