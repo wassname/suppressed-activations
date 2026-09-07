@@ -106,6 +106,13 @@ Gate acts on signed coordinate dominance, not known conceptpresence; fewer edits
 a competing explanation. Cachedtokens are different states, not one repeatedstate.
 Queued575 ant follower7882 and576 dog follower4586, out/2026-09-08_future-gated-{ant,dog}.
 
+564 tail control finished: base0 correct (p0=.40254), clean dog donor0 WRONG
+(expected1,p1=.13930); intervention0 (p1=.04971), dog/riddle explanation then
+re-evaluation. Thus both attempted consequence tasks fail clean-donor first-answer
+prerequisite. Do not infer concept-specific failure from them; preserve fulloutputs.
+564 follower44997 completed. Exec842 may still await other follower polls; inspect
+before reusing11835/8840/20868/80392/30357/64341/40209/7882/4586.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 
