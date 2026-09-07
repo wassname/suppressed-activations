@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:39 — Codex/GPT-6
+
+629freshdog SUCCESS20s, follower63606 CLOSED. All21stdoutlines/fulltexts read:
+dog4 natural coherent domesticdog/hunting/herding/guarding/commands description.
+631antdetector SUCCESS40s, follower28900 CLOSED; all31stdoutlines and6fulltexts/
+readouts read. EarlierD8/20/32 and16/20/24 bothstay8spider, naturalormatched.
+Readoutfinance/construction; retainednorm .049865/.053192 vs .081415 late.
+Late matched reproduces6then spider8 correction. Noantidentity in6conditions.
+632dogdetector92500stilllive. svd_review now considering suppression on matched
+explicitanimaltemplates with contrastive score rather than anotherblindwindowgrid.
+No implementation yet. Fullbaselineant failsfresh628(6beetle), dogfreshpasses.
+
 ### Update04:37 — Codex/GPT-6
 
 628freshant SUCCESS21s; follower55125 CLOSED. Full21stdoutlines andfullbase/donor/
