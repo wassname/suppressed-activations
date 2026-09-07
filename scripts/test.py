@@ -10,7 +10,7 @@ from scripts.spider_ant_demo import (
     coordinate_swap_leg,
     sample_component_hook,
 )
-from scripts.demo import intervention_hooks
+from scripts.demo import intervention_hooks, layer_hooks
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -27,6 +27,14 @@ from suppressed_activation_subspace import (
 
 def main() -> None:
     generator = torch.Generator().manual_seed(1)
+    block = torch.nn.Identity()
+    captured = []
+    capture_handle = block.register_forward_hook(lambda _m, _i, output: captured.append(output))
+    with layer_hooks([block], {0: lambda _m, _i, output: output + 1}):
+        edited = block(torch.zeros(1, 1, 3))
+    torch.testing.assert_close(captured[0], edited)
+    capture_handle.remove()
+    print("PASS: intervention runs before an existing hidden-state capture hook")
     # Verify nonorthogonal coordinate exchange through the production hook. -- Codex
     directions = torch.randn(11, 2, generator=generator)
     directions /= directions.norm(dim=0)

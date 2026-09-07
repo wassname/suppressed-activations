@@ -57,7 +57,7 @@ def replace_output(output, hidden: Tensor):
 
 @contextmanager
 def layer_hooks(blocks, hook_by_layer: dict[int, object]):
-    handles = [blocks[layer].register_forward_hook(hook) for layer, hook in hook_by_layer.items()]
+    handles = [blocks[layer].register_forward_hook(hook, prepend=True) for layer, hook in hook_by_layer.items()]
     try:
         yield
     finally:
