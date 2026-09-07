@@ -542,3 +542,34 @@ with natural and norm-matched projections, to separate magnitude loss from a
 direction mismatch. This is an alternative subspace test, not suppressed-only evidence.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Corrected chat attention changes the extracted subspace
+
+The earlier stopping fix also changed prompt attention.
+
+Independent CPU reproduction of the installed Transformers mask function:
+
+```text
+old masked_positions [13]
+new masked_positions []
+```
+
+Source: [mask audit and exact test](slop/audits/2026-09-07_template-clamp.md).
+The old call set padding to tokenizer EOS, the chat-message ending, while retaining
+the model's different end-of-text EOS. Automatic mask construction therefore hid
+the user-turn ending. The corrected padding and EOS in 57a3898 restored attention
+to that token; 4a9c8c0 makes the all-ones mask explicit for unpadded prompts.
+
+The selected projected dog run changed its first answer after this fix. Its saved
+future-effect directions were nearly unchanged, but its selected suppression
+tokens and persistence values changed. The full comparison is in the audit.
+The first-token change must not be attributed to a longer continuation limit.
+
+Interpretation, Codex/GPT-6: my previous termination-only statement was wrong.
+The simple stopping test omitted the padding-token-in-prompt case. Earlier outputs
+remain observations, but comparisons across this fix include an attention change.
+Current validation uses the corrected mask consistently for both animal tasks.
+
+The attention correction needs to remain part of every future result's provenance.
+
+<!-- Written by Codex/GPT-6. -->
