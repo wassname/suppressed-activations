@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:55 — Codex/GPT-6
+
+641freshdog/642validationant SUCCESS20/22s, followers73555/72030CLOSED;
+639tail14650CLOSED. Allfulltexts/21stdoutlinesread. Fixedpeakmatchedindex3
+works3antwordings(original/fresh/validation1),2dog(original/fresh), naturalEOS.
+AntreadoutsstillSOC/social; dogfreshreadoutdogforms. Antpeakspanprojectedcontrast
+mean norm14.477→16.478 L25→32, so notsuppression. Retains.54023ofL20delta.
+swap_review auditing638–641fullresults, notyetreturned.
+svd_review reviewing nextattenuationcriterion: jointspanQ ofpairedP25/O32,
+positiveeigenspace ofCov(PQ)-Cov(OQ) top4, projectL20delta. Thiswouldenforce
+mean-squarecontrastdecrease butnotprovecausalsuppression. Noimplementationyet.
+AllourGPUjobsnowfinished. Need nexttestafterreview, preservecoherentbaseline.
+
 ### Update04:52 — Codex/GPT-6
 
 639dog and640freshant complete(all43stdoutlines/12fulltextsread each).
