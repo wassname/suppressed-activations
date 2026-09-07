@@ -282,6 +282,7 @@ def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction,
                         result = model(input_ids=ids, attention_mask=torch.ones_like(ids),
                                        use_cache=False, output_hidden_states=True)
                     endpoints.append(result.hidden_states[31][0, valid].float().mean(0))
+                    del result
                 columns.append((endpoints[1]-endpoints[0]) / (2*epsilon))
             scales.append(torch.stack(columns, dim=1))
         estimates.append(torch.stack(scales))
@@ -1294,6 +1295,7 @@ def run(
             span_readouts = {}
             layer = intervention_layers[0]
             if cfg.transport_readout:
+                assert prompt_mode == "chat-assistant-prefill"
                 transport, transport_diagnostics = fit_span_transport(
                     model, tokenizer, shared, layer, lens_corpus_arrow, extraction_instruction, output_dir,
                 )
@@ -1307,7 +1309,7 @@ def run(
                 values, ids = scores.topk(cfg.rank)
                 span_readouts[name] = {"tokens": [tokenizer.decode([i]) for i in ids.tolist()],
                                        "scores": values.tolist()}
-            persistence["span_readout"] = {"method": "RMS-scaled residual projected into fitted span, then gain-weighted unembedding; not probabilities",
+            persistence["span_readout"] = {"method": "RMS-scaled fitted-span coordinates, optionally transported by mean-J to L31, then gain-weighted unembedding; not probabilities",
                                            "transported_to_layer31": cfg.transport_readout,
                                            "layer": layer, **span_readouts}
         _, last_ids = suppressed_activation_subspace(
