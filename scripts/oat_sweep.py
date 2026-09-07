@@ -109,14 +109,14 @@ def template_contrast_configs():
 
 
 CONCEPT_TEMPLATES = (
-    "A photograph shows a {animal}. The animal is ",
-    "I noticed a {animal} nearby. That animal is ",
-    "Someone described a {animal} to me. The animal is ",
-    "The story mentions a {animal}. That animal is ",
-    "Imagine a {animal} in a garden. This animal is ",
-    "We are discussing a {animal}. The creature is ",
-    "A drawing depicts a {animal}. This creature is ",
-    "I read about a {animal} yesterday. That creature is ",
+    "A photograph is labeled '{animal}'. The animal is ",
+    "I noticed something labeled '{animal}' nearby. That animal is ",
+    "Someone wrote '{animal}' as the creature's name. The animal is ",
+    "The story mentions an animal called '{animal}'. That animal is ",
+    "Imagine an animal identified as '{animal}'. This animal is ",
+    "We are discussing the animal '{animal}'. The creature is ",
+    "A drawing depicts an animal labeled '{animal}'. This creature is ",
+    "I read about the animal '{animal}' yesterday. That creature is ",
 )
 
 
@@ -715,9 +715,11 @@ def run(
         for template in CONCEPT_TEMPLATES:
             pair = [sample(template.format(animal=animal), generate=False)
                     for animal in ("spider", target_animal)]
-            torch.testing.assert_close(pair[0]["input_ids"][0, -3:], pair[1]["input_ids"][0, -3:])
-            differences.append((pair[1]["residuals"][:, -3:].float()
-                                - pair[0]["residuals"][:, -3:].float()).mean(1))
+            source_end, target_end = [item["content_end"] for item in pair]
+            torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
+                                       pair[1]["input_ids"][0, target_end-3:target_end])
+            differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
+                                - pair[0]["residuals"][:, source_end-3:source_end].float()).mean(1))
             template_provenance.append([
                 tokenizer.decode(item["input_ids"][0], skip_special_tokens=False) for item in pair
             ])
@@ -884,7 +886,7 @@ def run(
             "generation_tokens": len(generation["token_ids"]),
             "first_token": tokenizer.decode(generation["token_ids"][:1]),
             "first_answer": first_answer(generation["text"], (source_output, target_output)),
-            "source_fact_preserved": "spins webs" in generation["text"],
+            "mentions_spins_webs": "spins webs" in generation["text"],
             "readout_overlap": len(set(readout) & set(target_readout)) / cfg.rank,
             "intervention_record": intervention_record,
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
