@@ -158,6 +158,22 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+Update 2026-09-08 01:34 — Codex/GPT-6: supersedes pending jobs below.
+566–568 finished. Ant L12 raw C2 starts6/ant but later says spiders have four legs;
+dog L16 raw C2 loops correcting its dog riddle; dog L24 projected C2 sustains4/dog
+but adds a spider8 versus dog4 conditional explanation. All were capped128.
+575 ant gated finished: L16 C2 gating removes the ungated spider6 correction loop,
+but adds false honeycomb/spinning claims; L12 C2 gated is more consistent ant6.
+No clean general result yet. Full12 ant outputs read; independent review requested.
+576 dog gated is followed by existing session4586.
+
+570–573 all crashed before interventions, identical `KeyError: 16`: new
+template-band-strength grid was omitted from the template-fitting predicate.
+Fixed in f54cad7; all16 CPU tests pass. Original full crash logs committed under
+slop/audits/2026-09-08_band-strength-crash. `pueue restart` created NEW jobs578–581
+(not reuse of old IDs). Followers:578=15540,579=16983,580=81138,581=72077.
+Await these followers, inspect all generated text. User README/.gitignore untouched.
+
 Wait735 and consequence followers; inspect ALL new generations/readouts and controls.
 Freeze useful conditions for confirmation; do not select a separate setting per prompt.
 Ant readout and sustained reliability remain unresolved. If future swap is weak,
