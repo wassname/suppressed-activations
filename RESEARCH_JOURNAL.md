@@ -655,3 +655,34 @@ Jobs 656 and 657 test direct naming with the same fixed intervention. Ant produc
 Generation transfer and readout validity remain separate claims.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Select the steering subspace at the layer where it is applied
+
+Selecting directions locally changed dog naming from a correction loop to a coherent description.
+
+Job 662 compares subspaces selected at L20 or L25, with both interventions applied at L20. Here a subspace is a set of residual-stream directions; the selector chooses four directions where the template contrast loses squared magnitude between the selection layer and L32. Both conditions use Qwen3.5-4B, the same template-averaged dog-minus-spider difference, C=2, the last three prompt positions, and continuous steering through generation. Projected differences are scaled to the same full-difference norm; the residual itself is not renormalized. The paired configs differ only in the selection layer.
+
+The source asks to name the animal that spins webs. The L20-selected condition starts:
+
+>  **dog**.
+>
+> Description:
+> The dog is a domesticated canine that has been raised by humans for thousands of years to serve as a loyal companion, a working partner, and a family member.
+
+It continues with commands, emotions and companionship, then ends normally. The L25-selected condition also names dog, but repeatedly restarts its correction and ends at the token limit with:
+
+> *(Okay, I am stuck in a loop. Let me think clearly.
+
+Both records contain exactly:
+
+```text
+"perturbation_norm": 18.939538955688477
+```
+
+This is the aggregate norm of the edit across the patched prompt positions, not the residual norm. Sources: [local selection, condition 003](out/2026-09-08_051304_attenuation-local-dog/conditions/003_attenuation_local_peak20_positions3_matchedTrue_C2.0/run.md), [late selection, condition 011](out/2026-09-08_051304_attenuation-local-dog/conditions/011_attenuation_local_peak25_positions3_matchedTrue_C2.0/run.md), and [raw paired records](out/2026-09-08_051304_attenuation-local-dog/result.json). The full continuations, settings and decode coverage are retained there. `hack_s` (reward-hacking count) and `gt_s` (ground-truth pass count) are not defined for this inference experiment; naming the desired animal alone would miss the correction-loop failure.
+
+Interpretation, Codex/GPT-6: I think direction quality, rather than edit magnitude alone, probably explains this paired improvement because the applied norms and other settings match. A plausible mechanism is that directions selected in a later representation are poorly suited to an earlier layer. This does not prove that mechanism, establish the best layer generally, or validate the suppressed readout. The local ant naming tests still produce bee or spider rather than ant; see the [follow-up evidence](slop/audits/2026-09-07_attenuation-naming.md).
+
+My working prior is to select the subspace where it will be applied, then test transfer to other prompts and concepts.
+
+<!-- Written by Codex/GPT-6 at wassname's request. -->
