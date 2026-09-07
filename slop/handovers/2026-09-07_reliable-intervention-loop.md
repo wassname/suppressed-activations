@@ -6,6 +6,20 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:52 — Codex/GPT-6
+
+639dog and640freshant complete(all43stdoutlines/12fulltextsread each).
+639follower14650 printedwholelog butterminaltailnotyetpolled;64037297CLOSED.
+Dogpeaknatural/matched andoutputnatural/matched dog4 coherent;updatematched
+genericblackwhitepet(notcleardog),updatenatural8. Freshant onlypeakmatched
+clearlyant6coherent;outputmatchedantcolonybutfabricatedsilkbridges/pollen,
+othersgenericinsect orspider. Peakmatchedindex3 thusworksoriginalboth+freshant.
+Do notclaim suppression: thisis L25conceptcontrast rank4 projectedontoL20delta,
+normmatchedC2, rawstates; readoutantstillpoor. Allselectedsameconfig.
+641freshdog/642validation1ant fixedindex3 queued, followersfromlasttool.
+Pathsout/2026-09-08_peak-fixed-{fresh-dog,validation-ant}. Nextreadallresults,
+independentreview andfurthernewwording before reliabilityclaim.
+
 ### Update04:49 — Codex/GPT-6
 
 637smoke SUCCESS14s no livefollower. Reviewdimensionspass. Smokeupdate projected
