@@ -173,6 +173,15 @@ def future_coordinate_configs():
         for strength in (0.0, 0.5, 1.0, 2.0, 4.0)]
 
 
+def future_gated_configs():
+    return [("future_gated", f"L{layer}_rank{rank}_C{strength}_gate{gate}", replace(
+        DEFAULT, coordinate_swap=True, future_coordinate=True, persistent_rank=rank,
+        intervention_layer=(layer,), strength=strength, source_dominant_only=gate,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer, rank in ((12, 0), (16, 0), (24, 4))
+        for strength in (1.0, 2.0) for gate in (False, True)]
+
+
 def fit_future_rows(model, tokenizer, corpus_path, output_dir):
     """Contract the official mean-J estimator with three vocabulary rows. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
@@ -898,7 +907,7 @@ def run(
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
     future_vectors, future_provenance = {}, {}
-    if sweep == "future-coordinate":
+    if sweep in ("future-coordinate", "future-gated"):
         future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
 
     template_deltas, template_provenance, template_targets = {}, [], {}
@@ -933,6 +942,7 @@ def run(
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
         "future-coordinate": future_coordinate_configs,
+        "future-gated": future_gated_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -1220,6 +1230,7 @@ if __name__ == "__main__":
             "template-scope",
             "template-band-strength",
             "future-coordinate",
+            "future-gated",
             "svd",
             "svd-refine",
             "svd-detector",
