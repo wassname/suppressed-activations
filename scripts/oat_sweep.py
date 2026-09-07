@@ -33,7 +33,7 @@ from scripts.delayed_readout import (
     token_distribution,
 )
 from scripts.prompt import assistant_prefill_input_ids
-from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
+from scripts.demo import intervention_hooks, layer_hooks, one_token
 from suppressed_activation_subspace import (
     component,
     token_persistent_subspace,
@@ -58,6 +58,7 @@ class Config:
     lexical_divisor: int = 1
     continue_generation: bool = False
     persistent_rank: int = 0
+    random_delta_seed: int = -1
 
 
 DEFAULT = Config()
@@ -97,6 +98,53 @@ def svd_detector_configs():
     return rows
 
 
+def svd_band_configs():
+    rows = [("default", "default", DEFAULT)]
+    for layers in ((24,), (22, 23, 24), (24, 25, 26)):
+        for ongoing in (False, True):
+            for strength in (2.0, 4.0, 8.0, 12.0):
+                rows.append(("svd_band", f"layers={layers},decode={ongoing},C={strength:g}", replace(
+                    DEFAULT, persistent_rank=1, strength=strength,
+                    intervention_layer=layers, continue_generation=ongoing,
+                    restore_residual_norm=False, match_component_norm=False,
+                )))
+    return rows
+
+
+def svd_control_configs():
+    candidate = replace(DEFAULT, persistent_rank=1, strength=12.0,
+                        restore_residual_norm=False, match_component_norm=False)
+    return [("svd_control", "selected", candidate),
+            ("svd_control", "zero", replace(candidate, strength=0.0))] + [
+        ("svd_control", f"random={seed}", replace(candidate, random_delta_seed=seed))
+        for seed in range(16)
+    ]
+
+
+def svd_tokens_configs():
+    rows = [("default", "default", DEFAULT)]
+    for tokens in (2, 8, 12):
+        for rank in (1, 2):
+            for strength in (4.0, 8.0, 12.0):
+                rows.append(("svd_tokens", f"tokens={tokens},rank={rank},C={strength:g}", replace(
+                    DEFAULT, readout_positions=tokens, persistent_rank=rank, strength=strength,
+                    restore_residual_norm=False, match_component_norm=False,
+                )))
+    return rows
+
+
+def svd_candidates_configs():
+    rows = [("default", "default", DEFAULT)]
+    for candidates in (32, 64):
+        for rank in (1, 2, 4):
+            for strength in (4.0, 8.0, 12.0):
+                rows.append(("svd_candidates", f"candidates={candidates},rank={rank},C={strength:g}", replace(
+                    DEFAULT, rank=candidates, persistent_rank=rank, strength=strength,
+                    restore_residual_norm=False, match_component_norm=False,
+                )))
+    return rows
+
+
 def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     bases, diagnostics = [], {}
     for name, sample in (("source", source), ("target", target)):
@@ -118,13 +166,20 @@ def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
         means = [sample["residuals"][layer, sample["content_end"]-cfg.readout_positions:
                   sample["content_end"]].float().mean(0) for sample in (source, target)]
         deltas[layer] = component(means[1] - means[0], shared)
+        if cfg.random_delta_seed >= 0:
+            generator = torch.Generator(device=shared.device).manual_seed(cfg.random_delta_seed + layer)
+            direction = torch.randn(means[0].shape, device=shared.device, generator=generator)
+            deltas[layer] = direction * deltas[layer].norm() / direction.norm()
     return deltas, diagnostics
+
+
 TARGET_PRESETS = {
     "dog": (TARGET_PROMPT, "4"),
     "ant": (
         "Fact: The number of legs on the animal that lives in colonies and follows pheromone trails is ",
         "6",
     ),
+    "ant-anthill": ("Fact: The number of legs on the animal that builds anthills is ", "6"),
 }
 AXES = {
     "aggregation": ["persistent", "union"],
@@ -436,7 +491,7 @@ Base next-token distribution:
 
 {distribution_table(row['base_top_tokens'])}
 
-Suppression-score readout after intervention (union detector, not SVD basis labels):
+Suppression-score readout after intervention ({row['config']['aggregation']} detector, not SVD basis labels):
 
 ```python
 {row['readout']!r}
@@ -535,6 +590,10 @@ def run(
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
+        "svd-band": svd_band_configs,
+        "svd-control": svd_control_configs,
+        "svd-tokens": svd_tokens_configs,
+        "svd-candidates": svd_candidates_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -695,6 +754,10 @@ if __name__ == "__main__":
             "svd",
             "svd-refine",
             "svd-detector",
+            "svd-band",
+            "svd-control",
+            "svd-tokens",
+            "svd-candidates",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",
