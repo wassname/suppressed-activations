@@ -623,15 +623,17 @@ def subspace(sample, cfg: Config, unembedding, norm_gain):
 def named_suppression_diagnostics(sample, cfg, scores, token_ids, centered_rows, *, post_edit=False):
     """Separate absent, already-written, and unsuppressed concepts. -- Codex/GPT-6"""
     start = sample["content_end"] - cfg.readout_positions
-    h = sample["residuals"][list(cfg.detector_layers), start:sample["content_end"]].float()
+    h = sample["residuals"][:, start:sample["content_end"]].float()
     h = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6)
-    logits = h @ centered_rows.T
+    layer_logits = h @ centered_rows.T
+    logits = layer_logits[list(cfg.detector_layers)]
     named_scores = scores[:, token_ids]
     ranks = (scores[:, :, None] > named_scores[:, None, :]).sum(1) + 1
     patch_start = (sample["content_start"] if cfg.intervention_positions == "all"
                    else sample["content_end"] - cfg.intervention_positions)
     return [{"position": start + position, "patched": post_edit and start + position >= patch_start, "concepts": {
         word: {"token_id": token_ids[i], "centered_logits_early_peak_output": logits[:, position, i].tolist(),
+               "centered_logits_by_residual_layer": layer_logits[:, position, i].tolist(),
                "rise": float(logits[1, position, i] - logits[0, position, i]),
                "fall": float(logits[1, position, i] - logits[2, position, i]),
                "suppression_score": float(named_scores[position, i]),
@@ -790,6 +792,7 @@ Fixed-concept diagnostic (same normalized scoring geometry; vocabulary-centered 
 Columns follow detector early/peak/output layers. Rank is one plus the number of strictly
 greater scores, so tied zero scores can share a rank. No ant suppression is implied by an
 ant continuation: a missing rise or fall also gives a zero suppression score.
+The full layer curve starts at residual layer 0 (embedding output); layer N is block N's output.
 
 ```json
 {json.dumps(row['named_suppression_diagnostics'], ensure_ascii=False, indent=2)}
