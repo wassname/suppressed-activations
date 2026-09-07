@@ -71,6 +71,7 @@ class Config:
     source_dominant_only: bool = False
     template_contrast: bool = False
     contrastive_suppression: bool = False
+    template_state_span: str = "none"
     template_clamp: bool = False
     future_coordinate: bool = False
     future_lexical_union: bool = False
@@ -160,6 +161,15 @@ def template_selector_configs():
         persistent_rank=4, intervention_layer=(20,), strength=strength,
         match_component_norm=matched, restore_residual_norm=False,
     )) for contrastive in (False, True) for matched in (False, True)
+        for strength in (0.0, 2.0)]
+
+
+def template_state_configs():
+    return [("template_state", f"{span}_matched{matched}_C{strength}", replace(
+        DEFAULT, template_contrast=True, template_state_span=span,
+        persistent_rank=4, intervention_layer=(20,), strength=strength,
+        match_component_norm=matched, restore_residual_norm=False,
+    )) for span in ("peak", "update", "output") for matched in (False, True)
         for strength in (0.0, 2.0)]
 
 
@@ -983,6 +993,7 @@ def run(
         "template-projection": template_projection_configs,
         "template-detector": template_detector_configs,
         "template-selector": template_selector_configs,
+        "template-state": template_state_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
@@ -1029,7 +1040,8 @@ def run(
             pair = [sample(template.format(animal=animal), generate=False, instruction=extraction_instruction)
                     for animal in ("spider", target_concept)]
             source_end, target_end = [item["content_end"] for item in pair]
-            if any(cfg.contrastive_suppression for _, (_, _, cfg) in indexed_configs):
+            if any(cfg.contrastive_suppression or cfg.template_state_span != "none"
+                   for _, (_, _, cfg) in indexed_configs):
                 template_suffixes.append(torch.stack([
                     item["residuals"][:, item["content_end"]-3:item["content_end"]]
                     for item in pair
@@ -1119,7 +1131,20 @@ def run(
                                    future_span_words=forms, future_span_singular_values=span_singular_values,
                                    projected_norm_fraction=retained)
             if cfg.persistent_rank:
-                if cfg.contrastive_suppression:
+                if cfg.template_state_span != "none":
+                    suffixes = torch.stack(template_suffixes).float()
+                    contrasts = suffixes[:, 1] - suffixes[:, 0]
+                    peak = contrasts[:, cfg.detector_layers[1]].flatten(0, 1)
+                    output = contrasts[:, cfg.detector_layers[2]].flatten(0, 1)
+                    columns = {"peak": peak, "update": peak-output, "output": output}[cfg.template_state_span].T
+                    vectors, values, _ = torch.linalg.svd(columns, full_matrices=False)
+                    assert torch.linalg.matrix_rank(columns) >= cfg.persistent_rank
+                    shared = vectors[:, :cfg.persistent_rank]
+                    diagnostics = {"selector": "raw_template_contrast_" + cfg.template_state_span,
+                                   "singular_values": values.tolist(),
+                                   "peak_projected_contrast_norm": float((peak @ shared).norm(dim=-1).mean()),
+                                   "output_projected_contrast_norm": float((output @ shared).norm(dim=-1).mean())}
+                elif cfg.contrastive_suppression:
                     suffixes = torch.stack(template_suffixes).permute(1, 0, 3, 2, 4)
                     scores = suppressed_activation_scores(
                         suffixes.flatten(0, 2), unembedding, norm_gain,
@@ -1360,6 +1385,7 @@ if __name__ == "__main__":
             "template-projection",
             "template-detector",
             "template-selector",
+            "template-state",
             "template-clamp",
             "template-scope",
             "template-band-strength",
