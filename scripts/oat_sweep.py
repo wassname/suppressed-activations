@@ -1070,7 +1070,11 @@ def run(
         "bee-correction-projected": lambda: [("bee_correction_projected", f"projected{projected}_correction{correction}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             bee_correction=correction, project_bee_correction=projected,
-        )) for projected in (False, True) for correction in (0.25, 0.5, 1.0, 2.0, 4.0)],
+        )) for projected, correction in (
+            [(projected, correction) for projected in (False, True)
+             for correction in (0.25, 0.5, 1.0, 2.0, 4.0)]
+            + [(True, correction) for correction in (1.25, 1.5, 1.75)]
+        )],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
