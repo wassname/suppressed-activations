@@ -252,3 +252,60 @@ than the earlier statement about the initial coarse grid.
 Named-coordinate swaps are now being tested separately from fixed donor displacements.
 
 <!-- Written by Codex. -->
+
+## 2026-09-07 - Named-coordinate swaps measured
+
+Named-coordinate swaps change the readout and animal words more readily than they produce a consistent explanation.
+
+Jobs 512 and 513 used Qwen3.5-4B at L24, last three prompt tokens plus all cached
+generation steps. Each tested raw and persistent-space-projected named directions
+at C=0,.25,.5,1,2,4. C=1 is exact coordinate exchange; larger values extrapolate,
+without residual renormalization. These are unembedding-derived directions, not
+the paper's future-Jacobian estimator. Code commit: `325d005`.
+
+Raw ant C4 readout:
+
+```python
+[' ant', ' Ant', 'Ant', '.ant', ' ANT', '_ant', '抗', ' antim']
+```
+
+Its full continuation:
+
+```text
+8.
+
+**Explanation:**
+The animal that spins webs is an **ant**. Ants belong to the class *Insecta* (insects).
+```
+
+Expected ant answer was6, not8. No ant condition produced6 first. Dog produced4
+in three conditions, but each continuation mixed dog with spider. Raw dog C2:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is a **dog** (specifically, a spider). Spiders are classified as arachn
+```
+
+This row has p4=0.4633 versus base0.0285 and log-odds movement+3.625 nats.
+All twenty-four generations were inspected; samples above are selected to show
+the mismatch between numerical and semantic effects, not held-out successes.
+
+Sources: [ant grid](out/2026-09-07_coordinate-swap-ant/run.md),
+[dog grid](out/2026-09-07_coordinate-swap-dog/run.md),
+[complete audit](slop/audits/2026-09-07_named-coordinate-swap.md).
+Independent review confirmed C0 identity, three prefill positions and thirty-one
+decode calls, and float32 coordinate algebra. Post-cast coordinates were not
+logged. Runs took about half a minute each, excluding queue time.
+Reward-hacking `hack_s` and ground-truth `gt_s` are undefined for this experiment;
+digit matches are not counted as semantic passes.
+
+My interpretation: named directions avoid the social-feature problem for raw ant
+steering, but their word-level effects do not yet give consistent downstream
+computation. Earlier-layer intervention is a useful next discriminator; dynamic
+swapping can also reverse target-dominant coordinates and needs a separate control.
+
+The measured improvement is in named readout and animal wording, not reliable concept replacement.
+
+<!-- Written by Codex. -->
