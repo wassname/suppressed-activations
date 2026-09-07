@@ -36,7 +36,7 @@ from scripts.delayed_readout import (
     distribution_table,
     token_distribution,
 )
-from scripts.prompt import assistant_prefill_input_ids
+from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
@@ -214,7 +214,9 @@ def future_union_configs():
     )) for union in (False, True) for matched in (False, True) for strength in (0.0, 1.0)]
 
 
-def fit_future_rows(model, tokenizer, corpus_path, output_dir, *, lexical_union=False):
+def fit_future_rows(
+    model, tokenizer, corpus_path, output_dir, *, lexical_union=False, instruction=PREFILL_INSTRUCTION,
+):
     """Contract the official mean-J estimator with named vocabulary rows. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
     texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
@@ -228,7 +230,7 @@ def fit_future_rows(model, tokenizer, corpus_path, output_dir, *, lexical_union=
     model.requires_grad_(False)
     for index, text in enumerate(texts):
         content = tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:128])
-        chat = assistant_prefill_input_ids(tokenizer, content)
+        chat = assistant_prefill_input_ids(tokenizer, content, instruction=instruction)
         ids = chat["input_ids"]
         valid = torch.arange(max(16, chat["content_start"]), chat["content_end"] - 1, device=ids.device)
         assert len(valid) > 0
@@ -886,6 +888,7 @@ def run(
     max_new_tokens: int = 32,
     lens_corpus_arrow: Path | None = None,
     target_concept: str = "dog",
+    prefill_instruction: str = PREFILL_INSTRUCTION,
 ) -> None:
     started = time.monotonic()
     git_state = subprocess.run(
@@ -923,7 +926,7 @@ def run(
         elif prompt_mode == "chat-instructed":
             chat = chat_input_ids(tokenizer, content, enable_thinking=False)
         elif prompt_mode == "chat-assistant-prefill":
-            chat = assistant_prefill_input_ids(tokenizer, content)
+            chat = assistant_prefill_input_ids(tokenizer, content, instruction=prefill_instruction)
         else:
             raise ValueError(prompt_mode)
         if not generate:
@@ -988,6 +991,7 @@ def run(
         future_vectors, future_provenance = fit_future_rows(
             model, tokenizer, lens_corpus_arrow, output_dir,
             lexical_union=any(cfg.future_lexical_union for _, (_, _, cfg) in indexed_configs),
+            instruction=prefill_instruction,
         )
 
     template_deltas, template_provenance, template_targets = {}, [], {}
@@ -1194,6 +1198,7 @@ def run(
             "is_default": axis == "default",
             "readout_from_generation": True,
             "attention_mask_policy": "all ones: prompts are unpadded",
+            "prefill_instruction": prefill_instruction,
             "expected_base_answer": source_output,
             "expected_steered_answer": target_output,
             "persistence": persistence,
@@ -1322,6 +1327,7 @@ if __name__ == "__main__":
         default="raw",
     )
     parser.add_argument("--target-prompt")
+    parser.add_argument("--prefill-instruction", default=PREFILL_INSTRUCTION)
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
@@ -1347,4 +1353,5 @@ if __name__ == "__main__":
         args.max_new_tokens,
         args.lens_corpus_arrow,
         {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
+        args.prefill_instruction,
     )
