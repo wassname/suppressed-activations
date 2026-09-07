@@ -40,6 +40,8 @@ from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
+    suppressed_activation_scores,
+    subspace_from_scores,
     suppressed_activation_subspace,
     token_persistent_subspace,
     persistent_suppressed_activation_subspace,
@@ -68,6 +70,7 @@ class Config:
     coordinate_swap: bool = False
     source_dominant_only: bool = False
     template_contrast: bool = False
+    contrastive_suppression: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
     future_lexical_union: bool = False
@@ -149,6 +152,15 @@ def template_detector_configs():
         match_component_norm=matched, restore_residual_norm=False,
     )) for early, peak, late in ((23, 25, 32), (8, 20, 32), (16, 20, 24))
         for matched in (False, True)]
+
+
+def template_selector_configs():
+    return [("template_selector", f"contrastive{contrastive}_matched{matched}_C{strength}", replace(
+        DEFAULT, template_contrast=True, contrastive_suppression=contrastive,
+        persistent_rank=4, intervention_layer=(20,), strength=strength,
+        match_component_norm=matched, restore_residual_norm=False,
+    )) for contrastive in (False, True) for matched in (False, True)
+        for strength in (0.0, 2.0)]
 
 
 def template_clamp_configs():
@@ -970,6 +982,7 @@ def run(
         "template-contrast": template_contrast_configs,
         "template-projection": template_projection_configs,
         "template-detector": template_detector_configs,
+        "template-selector": template_selector_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
@@ -1009,12 +1022,18 @@ def run(
         )
 
     template_deltas, template_provenance, template_targets = {}, [], {}
+    template_suffixes = []
     if any(cfg.template_contrast for _, (_, _, cfg) in indexed_configs):
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
             pair = [sample(template.format(animal=animal), generate=False, instruction=extraction_instruction)
                     for animal in ("spider", target_concept)]
             source_end, target_end = [item["content_end"] for item in pair]
+            if any(cfg.contrastive_suppression for _, (_, _, cfg) in indexed_configs):
+                template_suffixes.append(torch.stack([
+                    item["residuals"][:, item["content_end"]-3:item["content_end"]]
+                    for item in pair
+                ]))
             torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
                                        pair[1]["input_ids"][0, target_end-3:target_end])
             differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
@@ -1100,7 +1119,28 @@ def run(
                                    future_span_words=forms, future_span_singular_values=span_singular_values,
                                    projected_norm_fraction=retained)
             if cfg.persistent_rank:
-                shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+                if cfg.contrastive_suppression:
+                    suffixes = torch.stack(template_suffixes).permute(1, 0, 3, 2, 4)
+                    scores = suppressed_activation_scores(
+                        suffixes.flatten(0, 2), unembedding, norm_gain,
+                        early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+                        output_layer=cfg.detector_layers[2], normalize_unembedding_rows=True,
+                    ).reshape(2, -1, unembedding.shape[0]).mean(1)
+                    contrast = scores[1] - scores[0]
+                    signed_scores = torch.stack([-contrast, contrast]).clamp_min(0)
+                    assert (signed_scores > 0).sum(1).min() >= cfg.persistent_rank
+                    bases, ids = subspace_from_scores(
+                        signed_scores, unembedding, norm_gain, rank=cfg.persistent_rank,
+                        normalize_unembedding_rows=True,
+                    )
+                    shared = torch.linalg.qr(bases.permute(1, 0, 2).flatten(1), mode="reduced").Q
+                    diagnostics = {"selector": "matched_template_suppression_difference",
+                                   "selected_tokens": [tokenizer.decode([i]) for i in ids.flatten().tolist()],
+                                   "source_scores": scores[0, ids].tolist(),
+                                   "target_scores": scores[1, ids].tolist(),
+                                   "score_difference": contrast[ids].tolist()}
+                else:
+                    shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
                 projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
                 persistence["projected_norm_fraction"] = {
                     layer: float(projected[layer].norm() / delta.norm())
@@ -1316,6 +1356,7 @@ if __name__ == "__main__":
             "template-contrast",
             "template-projection",
             "template-detector",
+            "template-selector",
             "template-clamp",
             "template-scope",
             "template-band-strength",
