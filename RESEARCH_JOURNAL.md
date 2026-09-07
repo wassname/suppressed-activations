@@ -495,3 +495,50 @@ Scope runs took200/199seconds; clamps188/187seconds; future smoke33seconds.
 Goal remains active: long validation and meaningful ant readout remain unresolved.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Longer future-effect swaps expose explanation failures
+
+Longer continuations separate answer changes from sustained concept changes.
+
+The ant future-effect swap at L12, C2 starts with the intended answer but later says:
+
+> only ants (and some spiders, though spiders are arachnids with four legs) are known for constructing and spinning webs.
+
+Source: [long ant result](out/2026-09-08_future-ant-L12-C2-long/result.json), job566.
+This is not a clean ant explanation. The dog L16 C2 continuation likewise enters
+a repeated correction loop. These runs used the same official assistant-prefill
+template and continuous steering through the generated continuation.
+
+Source-dominant gating means skipping the swap when the target coordinate already
+exceeds the source coordinate. In the paired gated dog run at L24, rank4, C2, the
+model instead says:
+
+> it is important to clarify a common misconception: **dogs do not spin webs.**
+
+Source: [gated dog result](out/2026-09-08_future-gated-dog/result.json), job576,
+condition011. It sustains dog/four-leg discussion with a qualification, unlike the
+lower-layer correction loops. The explanation still reaches the token cap.
+All paired ant and dog outputs were read by the main agent and an independent
+reviewer. [Complete audit](slop/audits/2026-09-07_template-clamp.md).
+The audit verifies patch coverage and gate equations, but these runs have no
+fresh zero-strength or random-direction controls. Reward-hacking count `hack_s`
+and ground-truth pass count `gt_s` are not measured by this causal-demo task;
+neither is inferred from the first answer or repetition metric.
+
+Interpretation, Codex/GPT-6: I think it is probable that avoiding some unnecessary
+updates improves selected explanations, because paired outputs differ despite
+identical first-answer probabilities. It is not a general cure: lower-layer dog
+runs still loop. A coherent qualification is not equivalent to invented biology,
+but neither establishes reliable transfer across prompts.
+
+The stronger-band jobs failed before intervening with `KeyError: 16`. The new grid
+was omitted from template fitting. The fix is committed in f54cad7, and fitting
+now follows selected configuration fields in 759e6e3. Original full crash logs
+are preserved in [the crash audit directory](slop/audits/2026-09-08_band-strength-crash).
+New jobs578 to581 rerun those conditions; their outcomes remain pending here.
+
+The next test restricts the fixed template difference to the future-effect span,
+with natural and norm-matched projections, to separate magnitude loss from a
+direction mismatch. This is an alternative subspace test, not suppressed-only evidence.
+
+<!-- Written by Codex/GPT-6. -->
