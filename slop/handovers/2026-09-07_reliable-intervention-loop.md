@@ -27,12 +27,21 @@ dog clamps still reconcile/restart. These are full-residual edits, not a solved
 suppressed-only intervention. Two-column future projection did not improve identity.
 Complete evidence is in template-clamp audit and `out/2026-09-08_*` logs.
 
-Pending GPU jobs, all followed, no status polling needed:
--603 lexical-union C0 smoke, session89485. Full union grid NOT queued yet.
--604/605 ant original default/neutral wrapper, sessions80740/83284.
--606/607 ant validation1 default/neutral, sessions26825/58967.
--608/609 dog original default/neutral, sessions59461/54997.
--610/611 dog validation1 default/neutral, sessions76701/57054.
+Latest jobs, updated04:12 — Codex/GPT-6:
+-603 smoke SUCCESS62s; all37 stdout lines read. Six singular values .2479–.9275,
+ retained template norm .2542, C0 exact logits/tokens, positions33–35 and7decode.
+ Its follower89485 is CLOSED. Full union grids612ant/613dog now queued/followed:
+ sessions44021/37894, out/2026-09-08_future-union-{ant,dog}.
+-604ant/608dog original default SUCCESS24/27s, reproduce earlier L20C2 outputs.
+-605–607/609–611 FAILED argparse before model load: pueue lost quotes around
+ multiword arguments. All six full13line logs read; no model results from these.
+ Replacement commands pass the entire command as one shell-quoted argument;
+ stored pueue argv checked to retain inner quotes and trailing source space.
+-614ant original neutral follower11426.
+-615ant validation1 default88731;616neutral12194.
+-617dog original neutral83595.
+-618dog validation1 default4088;619neutral22010.
+ All603–611 followers are CLOSED; never poll them again.
 
 Wrapper jobs use future-template index15 (FULL template L20 C2), last3 plus
 every decode token, max128, official assistant-prefill. Neutral user instruction
@@ -43,8 +52,8 @@ cause is indiscriminate repeated steering. A bare digit then EOS is not success.
 Compare full text, donor controls, post-edit readout and coverage, not only log odds.
 GPU default lane remains1; other-repo600–602 precede these jobs. Do not modify them.
 
-After603 passes, queue future-union eight-condition grids for both animals128tokens:
-pair/6-form span × natural/equal norm × C0/1, L20. Follow each job. Preserve failures.
+Future-union jobs612/613 compare pair/6-form span × natural/equal norm × C0/1,
+L20,128tokens. Read all16 full generations before judging; preserve failures.
 Current user README.md and .gitignore edits remain untouched.
 
 ## Model, methods, and checks
@@ -73,8 +82,8 @@ QR projection logs singular values and retained norm; norm restoration is explic
 
 603 corpus argument:
 `/home/code/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-2-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-train.arrow`.
-Smoke path out/2026-09-08_future-union-smoke. Read full stdout/rank/C0 coverage
-before queuing full8condition union sweeps. Existing followers remain attached.
+Smoke path out/2026-09-08_future-union-smoke. Full stdout/rank/C0 coverage read;
+full8condition union sweeps are now queued. See latest follower list above.
 
 ## Additional evidence and pitfalls
 
