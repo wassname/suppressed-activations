@@ -224,6 +224,8 @@ def fit_future_rows(model, tokenizer, corpus_path, output_dir):
                   "corpus_path": str(corpus_path), "corpus_sha256": hashlib.sha256(corpus_path.read_bytes()).hexdigest(),
                   "words": words, "target_residual_layer": 31, "source_residual_layers": layers,
                   "per_prompt_vector_norms": stacked.norm(dim=-1).tolist(),
+                  "split_half_cosines": torch.nn.functional.cosine_similarity(
+                      stacked[:8].mean(0), stacked[8:].mean(0), dim=-1).tolist(),
                   "finite_difference_checks": derivative_checks, "corpus": corpus}
     (output_dir / "future_lens.json").write_text(json.dumps(provenance, ensure_ascii=False, indent=2))
     torch.save(vectors, output_dir / "future_lens_vectors.pt")
