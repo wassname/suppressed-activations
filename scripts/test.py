@@ -46,6 +46,16 @@ def main() -> None:
     torch.testing.assert_close(swapped.norm(dim=-1), hidden.norm(dim=-1))
     torch.testing.assert_close(swap_hook(None, None, hidden[:, -1:]) @ dual, (hidden[:, -1:] @ dual).flip(-1))
     print("PASS: coordinate swap exchanges nonorthogonal coordinates, preserves complement, covers decode")
+    source_only_hook = intervention_hooks(
+        directions[None], directions[None], torch.zeros(2, 5, 11),
+        operation="coordinate_swap", coordinate_directions=directions,
+        source_dominant_only=True, blocks_to_hook=[0], positions=3, restore_norm=False,
+    )[0]
+    source_only = source_only_hook(None, None, hidden)
+    source_only_coords = (source_only @ dual)[:, -3:]
+    assert torch.all(source_only_coords[..., 1] >= source_only_coords[..., 0] - 1e-6)
+    torch.testing.assert_close(source_only_hook(None, None, source_only), source_only, atol=1e-6, rtol=1e-5)
+    print("PASS: source-dominant swap reaches target side and a second edit leaves it there")
     residuals = torch.randn(1, 3, 11, generator=generator).expand(4, -1, -1)
     unembedding = torch.randn(30, 11, generator=generator)
     basis, persistence, _ = token_persistent_subspace(
