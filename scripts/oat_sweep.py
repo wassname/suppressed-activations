@@ -931,7 +931,7 @@ Measured intervention norms:
 {json.dumps(row['intervention_record'], ensure_ascii=False, indent=2)}
 ```
 
-Subspace and intervention diagnostics (the selector field identifies the method):
+Subspace and intervention diagnostics:
 
 ```json
 {json.dumps(row['persistence'], ensure_ascii=False, indent=2)}
