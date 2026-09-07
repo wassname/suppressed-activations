@@ -136,6 +136,22 @@ def main() -> None:
     assert not torch.equal(suffix_patched[:, -2:], suffix_hidden[:, -2:])
     print("PASS: suffix intervention changes only the requested prompt positions")
 
+    delta = component(torch.randn(5, generator=generator), suffix_source_basis)
+    fixed_hook = intervention_hooks(
+        suffix_source_basis, suffix_target_basis, suffix_target_residuals,
+        operation="fixed_delta", fixed_deltas={1: delta}, strength=2.0,
+        blocks_to_hook=[0], positions=2, restore_norm=False,
+    )[0]
+    fixed_patched = fixed_hook(None, None, suffix_hidden)
+    torch.testing.assert_close(fixed_patched[:, :-2], suffix_hidden[:, :-2])
+    torch.testing.assert_close(
+        fixed_patched[:, -2:] - suffix_hidden[:, -2:],
+        (2 * delta).expand(1, 2, -1),
+    )
+    torch.testing.assert_close(remove(fixed_patched, suffix_source_basis),
+                               remove(suffix_hidden, suffix_source_basis), atol=2e-6, rtol=2e-6)
+    print("PASS: fixed displacement is identical across patched tokens and preserves orthogonal content")
+
     fixed_target_hook = intervention_hooks(
         suffix_source_basis,
         suffix_target_basis,

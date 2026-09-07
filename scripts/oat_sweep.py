@@ -59,6 +59,7 @@ class Config:
     continue_generation: bool = False
     persistent_rank: int = 0
     random_delta_seed: int = -1
+    delta_component: str = "difference"
 
 
 DEFAULT = Config()
@@ -145,6 +146,13 @@ def svd_candidates_configs():
     return rows
 
 
+def svd_parts_configs():
+    return [("svd_parts", part, replace(
+        DEFAULT, persistent_rank=1, strength=12.0, delta_component=part,
+        restore_residual_norm=False, match_component_norm=False,
+    )) for part in ("difference", "source_remove", "target_add")]
+
+
 def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     bases, diagnostics = [], {}
     for name, sample in (("source", source), ("target", target)):
@@ -165,7 +173,9 @@ def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     for layer in layers:
         means = [sample["residuals"][layer, sample["content_end"]-cfg.readout_positions:
                   sample["content_end"]].float().mean(0) for sample in (source, target)]
-        deltas[layer] = component(means[1] - means[0], shared)
+        displacement = {"difference": means[1] - means[0],
+                        "source_remove": -means[0], "target_add": means[1]}[cfg.delta_component]
+        deltas[layer] = component(displacement, shared)
         if cfg.random_delta_seed >= 0:
             generator = torch.Generator(device=shared.device).manual_seed(cfg.random_delta_seed + layer)
             direction = torch.randn(means[0].shape, device=shared.device, generator=generator)
@@ -530,7 +540,7 @@ Generation ({row['generation_tokens']} tokens, verbatim):
 TODO validate: semantic replacement requires a donor-like post-intervention readout and
 selective transfer beyond this development prompt.
 
--- Codex/gpt-5.6-sol
+-- Codex/GPT-6; runner originally Codex/gpt-5.6-sol
 """
 
 
@@ -594,6 +604,7 @@ def run(
         "svd-control": svd_control_configs,
         "svd-tokens": svd_tokens_configs,
         "svd-candidates": svd_candidates_configs,
+        "svd-parts": svd_parts_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -758,6 +769,7 @@ if __name__ == "__main__":
             "svd-control",
             "svd-tokens",
             "svd-candidates",
+            "svd-parts",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",

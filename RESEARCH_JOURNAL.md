@@ -140,3 +140,25 @@ fixed transfer test. Evidence: [earlier causal confirmation](out/2026-09-05_2116
 The fixed configuration does not produce a working ant demonstration.
 
 <!-- Written by Codex/gpt-5.6-sol. -->
+
+## 2026-09-07 -- Token-persistent SVD changes digits mainly through source removal
+
+This experiment tests a suppressed subspace shared across past tokens.
+
+Thin SVD combines per-token suppressed spaces separately for source and donor. Their shared span receives a fixed projected difference of mean residuals. The corrected runner captures readouts during actual generation, and checks exact zero-strength identity. It completed 208 development conditions across rank, strength, detector depth, layer bands, continued generation, donor wording, token windows, and controls. [Complete evidence and code audit](slop/audits/2026-09-07_svd-token-persistence.md).
+
+The final separation at retained rank 1, L24, four tokens, C=12 gave these measured values:
+
+```text
+source_remove: p6=0.7933498024940491, swap_log_odds_shift=6.125
+difference:    p6=0.6720733046531677, swap_log_odds_shift=5.375
+target_add:    p6=0.01483974326401949, swap_log_odds_shift=0.0
+```
+
+The score is the change in log probability ratio of six versus eight, in nats. [Job 500](out/2026-09-07_svd-ant-parts/run.md). Removal and combined edits both generate six then explain that the animal is a spider. Continued edits often generate social-related content instead of ants. A matched-size random edit and some dog-directed settings also generate six. Dog rank 4 at C=8 does give a dog-related readout and p4=0.862182. These are selected development results, not generalization estimates.
+
+My interpretation: source removal probably explains the apparent ant transfer at the selected setting, because removal alone is stronger and donor addition alone has no log-odds effect. The SVD construction itself passes the tested projector and hook invariants. The next useful change should improve donor concept extraction; increasing strength has already exposed the wrong social feature. Reward-hacking and ground-truth pass counts are not defined for this inference experiment, so digit matches are not relabelled as semantic passes.
+
+The code and full continuations are ready for review, while coherent ant concept replacement remains unresolved.
+
+<!-- Written by Codex/GPT-6. -->
