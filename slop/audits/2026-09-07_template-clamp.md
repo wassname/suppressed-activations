@@ -292,3 +292,23 @@ Inference: the padding-mask correction is a concrete upstream explanation for th
 Pre57a3898 outcomes remain recorded observations under their actual settings. Comparisons across that boundary are attention-confounded and must not be presented as termination-only or pure length comparisons. These earlier runs also do not establish equivalence between generation and an unmasked extraction forward merely because their rendered strings match.
 
 — Codex/GPT-6
+# Named-curve transient-suppression check — Codex/GPT-6, 2026-09-08
+
+CPU-only exploratory check, not a new intervention result. Sources:
+`out/2026-09-08_future-template-{ant,dog}/result.json`, row15,
+`named_suppression_diagnostics`. Fixed early layer4, candidate peaks8–24,
+later layers peak+1 through32. Score is maximum over candidate pairs of
+`min(relu(peak-early), relu(peak-later))`. These windows were chosen before
+computing this check, but after seeing the fixed-detector failure; not held out.
+
+Clean spider prompt, positions33/34/35: spider scores0/1.029/1.022;
+ant0/0/.951; dog1.278/.302/.474. Post-ant-edit ant0/0/1.200.
+Thus widening the layer window this way still does not establish spider or ant
+suppression across all three positions. Dog fluctuations in the clean spider
+prompt also warn that a broad search can select unrelated concepts. These three
+named curves do not evaluate a full-vocabulary detector or disprove other windows.
+No production detector change was made. Independent review requested.
+
+Current CPU suite `uv run --no-sync python -m scripts.test` passed all16 checks,
+including coordinate exchange, complement preservation and cached-decode edits.
+This is algebra/coverage evidence, not semantic-coherence evidence.
