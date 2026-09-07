@@ -142,6 +142,15 @@ def template_projection_configs():
     return rows
 
 
+def template_detector_configs():
+    return [("template_detector", f"D{early}_{peak}_{late}_matched{matched}", replace(
+        DEFAULT, template_contrast=True, persistent_rank=4,
+        detector_layers=(early, peak, late), intervention_layer=(20,), strength=2.0,
+        match_component_norm=matched, restore_residual_norm=False,
+    )) for early, peak, late in ((23, 25, 32), (8, 20, 32), (16, 20, 24))
+        for matched in (False, True)]
+
+
 def template_clamp_configs():
     return [("template_clamp", f"L{layer}_C{strength}", replace(
         DEFAULT, template_contrast=True, template_clamp=True,
@@ -960,6 +969,7 @@ def run(
         "coordinate-band": coordinate_band_configs,
         "template-contrast": template_contrast_configs,
         "template-projection": template_projection_configs,
+        "template-detector": template_detector_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
@@ -1305,6 +1315,7 @@ if __name__ == "__main__":
             "coordinate-band",
             "template-contrast",
             "template-projection",
+            "template-detector",
             "template-clamp",
             "template-scope",
             "template-band-strength",
