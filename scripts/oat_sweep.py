@@ -75,6 +75,7 @@ class Config:
     discarded_fraction: float = 0.0
     normalize_selector_residuals: bool = False
     bee_correction: float = 0.0
+    bee_correction_seed: int = -1
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
@@ -1056,6 +1057,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             bee_correction=correction,
         )) for correction in (0.0, 0.25, 0.5, 1.0, 2.0)],
+        "bee-correction-controls": lambda: [("bee_correction_controls", f"seed{seed}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            bee_correction=0.25, bee_correction_seed=seed,
+        )) for seed in range(-1, 16)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1310,8 +1315,12 @@ def run(
             if cfg.bee_correction:
                 assert target_concept == "ant" and cfg.template_state_span != "none"
                 correction = (torch.stack(template_suffixes)[:, 1].float() - torch.stack(bee_suffixes).float()).mean(dim=(0, 2))
+                if cfg.bee_correction_seed >= 0:
+                    generator = torch.Generator(device=correction.device).manual_seed(cfg.bee_correction_seed)
+                    random_correction = torch.randn(correction.shape, device=correction.device, generator=generator)
+                    correction = random_correction * correction.norm(dim=-1, keepdim=True) / random_correction.norm(dim=-1, keepdim=True)
                 persistence["bee_correction"] = {
-                    "method": "unrestricted ant-minus-bee template mean; not suppressed-only",
+                    "method": "matched-norm random correction" if cfg.bee_correction_seed >= 0 else "unrestricted ant-minus-bee template mean; not suppressed-only",
                     "coefficient_after_strength": cfg.strength * cfg.bee_correction,
                     "per_token_norm_after_strength": {
                         layer: float((cfg.strength * cfg.bee_correction * correction[layer]).norm())
@@ -1555,6 +1564,7 @@ if __name__ == "__main__":
             "attenuation-rank-expanded",
             "attenuation-scale",
             "attenuation-bee-correction",
+            "bee-correction-controls",
             "template-transport",
             "template-clamp",
             "template-scope",
