@@ -158,6 +158,11 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+Queued583 ant future-gated index3 (L12 raw C2 gateTrue) and584 dog index11
+(L24 rank4 C2 gateTrue) for256 tokens, to test whether selected coherent passages
+finish or reverse after the128 cap. These are configuration-selected development
+checks, not shared-setting or heldout validation. -- Codex/GPT-6
+
 Update 01:43 — Codex/GPT-6: 759e6e3 adds future-template projection comparison.
 Predeclared: L16/20 × full/projected/norm-matched × C0/.5/1/2, both animals,
 last3+all generated tokens. Project the fixed template donor−source difference
