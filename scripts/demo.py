@@ -65,13 +65,13 @@ def layer_hooks(blocks, hook_by_layer: dict[int, object]):
             handle.remove()
 
 
-def trajectory(model, input_ids: Tensor, final_norm, *, use_cache=False, **forward_kwargs) -> tuple[Tensor, Tensor]:
+def trajectory(model, input_ids: Tensor, final_norm) -> tuple[Tensor, Tensor]:
     raw_final: dict[str, Tensor] = {}
     handle = final_norm.register_forward_pre_hook(
         lambda _module, inputs: raw_final.__setitem__("hidden", inputs[0].detach())
     )
     with torch.no_grad():
-        output = model(input_ids=input_ids, output_hidden_states=True, use_cache=use_cache, **forward_kwargs)
+        output = model(input_ids=input_ids, output_hidden_states=True, use_cache=False)
     handle.remove()
     residuals = torch.stack(
         [hidden[0] for hidden in output.hidden_states[:-1]] + [raw_final["hidden"][0]]
@@ -171,7 +171,7 @@ def intervention_hooks(
                 patched = remove(h, source_basis, restore_norm=True)
             else:
                 raise ValueError(operation)
-            if record is not None:
+            if record is not None and residual_layer not in record:
                 residual_norms = h.norm(dim=-1)[0]
                 perturbation_norms = (patched - h).norm(dim=-1)[0]
                 record[residual_layer] = {
