@@ -1314,6 +1314,7 @@ def run(
                 persistence.update(diagnostics)
             if cfg.bee_correction:
                 assert target_concept == "ant" and cfg.template_state_span != "none"
+                persistence["base_component_norms_before_correction"] = persistence.pop("per_token_component_norms_after_strength")
                 correction = (torch.stack(template_suffixes)[:, 1].float() - torch.stack(bee_suffixes).float()).mean(dim=(0, 2))
                 if cfg.bee_correction_seed >= 0:
                     generator = torch.Generator(device=correction.device).manual_seed(cfg.bee_correction_seed)
