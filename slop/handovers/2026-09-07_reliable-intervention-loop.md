@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:46 — Codex/GPT-6
+
+636dogselector SUCCESS48s,follower38357CLOSED. All35stdoutlines/8fulltextsread.
+ContrastivematchedC2 dog4 coherentdogdescription p4=p8=.3224; naturalstays8.
+Thuscontrastive stillonlydog,notant. Priorfinal said"bothstrengths" but actually
+two normalizationmodes atC2; preservecorrect terminology.
+9f8b53b implements rawtemplate-state spancomparison: Dpeak25,Doutput32,
+Dpeak-Doutput; 24columns=8templates×3positions, rank4SVD. FixedL20,C0/2,
+natural/matched =12conditions. Logspeak/outputprojectedcontrastnorms andSVDs.
+Theseare downstream-update spans,notestablishedsuppression. svd_review reviewing.
+Syntaxcompileexit0. GPU8tokenC0updatesmoke637queued,path
+out/2026-09-08_template-state-smoke; followerhandlefromlasttool. Fullnotqueued.
+
 ### Update04:44 — Codex/GPT-6
 
 634smoke SUCCESS14s follower62713 CLOSED. 2b5346d addsfullrankassertbeforeQR
