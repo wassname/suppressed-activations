@@ -121,12 +121,16 @@ unmodified donor readout was `['Social', 'social', ' vor', 'V', ' vaya', 'ocial'
 ' división']`. Evidence: [job 485 run table](out/2026-09-07_182300_chat-ant-strength/run.md)
 and [fixed C=2.5 condition](out/2026-09-07_102128_chat-ant-heldout/conditions/000_default_default/run.md).
 
+The clean donor generated `6.` followed by an explanation that identified the animal as an ant,
+with `p(6)=0.899812`. Evidence: [job 487 donor check](out/2026-09-07_183000_chat-ant-donor-check/conditions/000_default_default/run.md).
+
 My read: the current spider-to-dog demo is probably pair-specific. The ant result is more
 consistent with a detector that selected an unrelated subspace than with an intervention that was
-only too weak, because every tested strength reduced the target answer probability and the donor
-readout was not ant-related. A different ant prompt could distinguish prompt-specific detector
-failure from a broader lack of transfer, but it would be a new development test rather than part
-of this held-out result.
+only too weak, because every tested strength reduced the target answer probability even though the
+clean donor answered correctly. The donor readout may encode the prompt's social-colony feature
+rather than the answer, so a different ant wording could distinguish prompt-specific detector
+failure from a broader lack of transfer. That would be a new development test rather than part of
+this held-out result.
 
 The fixed configuration does not produce a working ant demonstration.
 
