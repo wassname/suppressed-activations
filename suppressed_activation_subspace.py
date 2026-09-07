@@ -41,12 +41,18 @@ def subspace_from_scores(
     rms_norm_gain: Tensor,
     *,
     rank: int,
+    normalize_unembedding_rows: bool = False,
 ) -> tuple[Tensor, Tensor]:
     """Construct an orthonormal token-direction basis from suppressed scores."""
     token_ids = suppressed_score.topk(rank, dim=-1).indices
 
-    centered_unembedding = unembedding.float() - unembedding.float().mean(0)
-    token_directions = centered_unembedding[token_ids] * rms_norm_gain.float()
+    if normalize_unembedding_rows:
+        directions = unembedding.float() * rms_norm_gain.float()
+        directions = directions / directions.norm(dim=-1, keepdim=True)
+        token_directions = directions[token_ids] - directions.mean(0)
+    else:
+        centered_unembedding = unembedding.float() - unembedding.float().mean(0)
+        token_directions = centered_unembedding[token_ids] * rms_norm_gain.float()
     basis = torch.linalg.qr(token_directions.transpose(1, 2), mode="reduced").Q
     return basis, token_ids
 
@@ -72,7 +78,8 @@ def suppressed_activation_subspace(
         output_layer=output_layer,
         normalize_unembedding_rows=normalize_unembedding_rows,
     )
-    return subspace_from_scores(scores, unembedding, rms_norm_gain, rank=rank)
+    return subspace_from_scores(scores, unembedding, rms_norm_gain, rank=rank,
+                                normalize_unembedding_rows=normalize_unembedding_rows)
 
 
 def persistent_suppressed_activation_subspace(
@@ -99,7 +106,8 @@ def persistent_suppressed_activation_subspace(
     positive_fraction = (scores_by_position > 0).float().mean(dim=0, keepdim=True)
     persistent_scores = scores_by_position.mean(dim=0, keepdim=True) * positive_fraction
     basis, token_ids = subspace_from_scores(
-        persistent_scores, unembedding, rms_norm_gain, rank=rank
+        persistent_scores, unembedding, rms_norm_gain, rank=rank,
+        normalize_unembedding_rows=normalize_unembedding_rows,
     )
     return basis, token_ids, scores_by_position
 
@@ -126,7 +134,10 @@ def union_suppressed_activation_subspace(
         normalize_unembedding_rows=normalize_unembedding_rows,
     )
     union_scores = scores_by_position.amax(dim=0, keepdim=True)
-    basis, token_ids = subspace_from_scores(union_scores, unembedding, rms_norm_gain, rank=rank)
+    basis, token_ids = subspace_from_scores(
+        union_scores, unembedding, rms_norm_gain, rank=rank,
+        normalize_unembedding_rows=normalize_unembedding_rows,
+    )
     return basis, token_ids, scores_by_position
 
 

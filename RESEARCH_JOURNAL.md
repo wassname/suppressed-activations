@@ -309,3 +309,46 @@ swapping can also reverse target-dominant coordinates and needs a separate contr
 The measured improvement is in named readout and animal wording, not reliable concept replacement.
 
 <!-- Written by Codex. -->
+
+## 2026-09-07 - Earlier layers, matched templates, and a detector geometry fix
+
+The active research now tests intervention timing and how the concept direction is estimated.
+
+Jobs 516/517 test raw coordinate swaps at L4,8,12,16,20,24. Jobs 518/519 test
+source-dominant-only swaps at single layers and five-layer bands. Jobs 520/521
+test averaged activation differences from eight template pairs differing only in
+the animal name, with no answer digits or leg-count task in extraction. All retain
+last-three-prompt and continuous-decode steering. Each condition will save its full
+generation. These jobs were queued, not completed, when this entry was written.
+
+The scientist panel (Kimi, DeepSeek, Grok, Inkling) favored matched-template contrasts
+before future-effect VJPs after a correction round. Several first-round mathematical
+criticisms were withdrawn. [Brief, corrections and review decisions](slop/handovers/2026-09-07_reliable-intervention-loop.md)
+preserve what was accepted and rejected. Panel agreement is advice, not an experiment.
+
+A separate code review confirmed that normalized suppression scoring and basis
+construction used different vector directions. For unembedding rows `(2,0),(0,1)`
+and unit gain, scoring token zero uses `(.5,-.5)` but the old basis uses `(1,-.5)`.
+For residual `(1,2)`, their projections are `(-.5,.5)` and zero, respectively.
+Basis construction now applies normalization before centering when the scoring flag
+requests it. The default unnormalized branch is unchanged.
+
+The new regression output is:
+
+```text
+PASS: normalized detector spans resist row scaling and match scored directions
+```
+
+Source: [test](scripts/test.py), [implementation](suppressed_activation_subspace.py).
+This fix changes projected intervention geometry; raw named-swap vectors are unchanged.
+Queued projected-template conditions will use the corrected basis and record its geometry
+and executed commit. The prior projected L24 results remain historical measurements.
+
+My interpretation: consistent scored directions are necessary for our claimed detector
+subspace, but whether this repair improves animal transfer remains unmeasured. The
+next decision should follow the queued generations. Reward-hacking and semantic pass
+counts are not yet measured for these jobs.
+
+The goal remains reliable concept transfer, with independent prompt checks after candidate selection.
+
+<!-- Written by Codex/GPT-6. -->

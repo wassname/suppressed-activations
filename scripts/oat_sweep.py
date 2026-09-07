@@ -230,7 +230,7 @@ def svd_continuous_refine_configs():
 
 
 def persistent_shared_basis(source, target, cfg, unembedding, norm_gain):
-    bases, diagnostics = [], {}
+    bases, diagnostics = [], {"basis_geometry": "centered_unit_gain_weighted_unembedding"}
     for name, sample in (("source", source), ("target", target)):
         end = sample["content_end"]
         basis, persistence, ids = token_persistent_subspace(
@@ -659,6 +659,8 @@ def run(
     target_prompt: str,
     source_output: str,
     target_output: str,
+    source_prompt: str = SOURCE_PROMPT,
+    condition_index: int | None = None,
 ) -> None:
     started = time.monotonic()
     torch.set_grad_enabled(False)
@@ -693,7 +695,7 @@ def run(
         generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured)
         return {**chat, "residuals": captured[0], "logits": logits, "generation": generation}
 
-    source = sample(SOURCE_PROMPT)
+    source = sample(source_prompt)
     target = sample(target_prompt)
     source_id = one_token(tokenizer, source_output)
     target_id = one_token(tokenizer, target_output)
@@ -747,8 +749,11 @@ def run(
         "persistent-generation": persistent_generation_configs,
         "persistent-direction": persistent_direction_configs,
     }[sweep]()
+    indexed_configs = list(enumerate(sweep_configs))
+    if condition_index is not None:
+        indexed_configs = [indexed_configs[condition_index]]
     rows = []
-    for index, (axis, value, cfg) in enumerate(sweep_configs):
+    for index, (axis, value, cfg) in indexed_configs:
         _, base_ids, _ = subspace(source, cfg, unembedding, norm_gain)
         _, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
         if cfg.lexical_forms == "detector":
@@ -912,7 +917,7 @@ def run(
         ).stdout.strip(),
         "default": asdict(DEFAULT),
         "prompt_mode": prompt_mode,
-        "source_prompt": SOURCE_PROMPT,
+        "source_prompt": source_prompt,
         "target_prompt": target_prompt,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "base": {
@@ -969,6 +974,8 @@ if __name__ == "__main__":
         default="raw",
     )
     parser.add_argument("--target-prompt", default=TARGET_PROMPT)
+    parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
+    parser.add_argument("--condition-index", type=int)
     parser.add_argument("--source-output", default="8")
     parser.add_argument("--target-output", default="4")
     parser.add_argument("--target", choices=TARGET_PRESETS)
@@ -982,4 +989,6 @@ if __name__ == "__main__":
         args.target_prompt,
         args.source_output,
         args.target_output,
+        args.source_prompt,
+        args.condition_index,
     )
