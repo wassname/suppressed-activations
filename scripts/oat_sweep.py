@@ -931,7 +931,7 @@ Measured intervention norms:
 {json.dumps(row['intervention_record'], ensure_ascii=False, indent=2)}
 ```
 
-SVD persistence diagnostics (eigenvalues of average token projectors):
+Subspace and intervention diagnostics (the selector field identifies the method):
 
 ```json
 {json.dumps(row['persistence'], ensure_ascii=False, indent=2)}
