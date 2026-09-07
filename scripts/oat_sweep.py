@@ -1251,6 +1251,19 @@ def run(
             model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
         )
         changed_residuals = captured[0]
+        if cfg.template_state_span != "none":
+            span_readouts = {}
+            layer = intervention_layers[0]
+            for name, states in (("base", source["residuals"]), ("donor", target["residuals"]),
+                                 ("intervened", changed_residuals), ("last_decode", captured[-1])):
+                h = states[layer, -1].float()
+                h = h * torch.rsqrt(h.square().mean() + 1e-6)
+                scores = (component(h, shared) * norm_gain.float()) @ unembedding.float().T
+                values, ids = scores.topk(cfg.rank)
+                span_readouts[name] = {"tokens": [tokenizer.decode([i]) for i in ids.tolist()],
+                                       "scores": values.tolist()}
+            persistence["span_readout"] = {"method": "RMS-scaled residual projected into fitted span, then gain-weighted unembedding; not probabilities",
+                                           "layer": layer, **span_readouts}
         _, last_ids = suppressed_activation_subspace(
             captured[-1][:, -1][None], unembedding, norm_gain,
             early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
