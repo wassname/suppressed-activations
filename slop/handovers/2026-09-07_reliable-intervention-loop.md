@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:58 — Codex/GPT-6
+
+a5a250d adds template-attenuation grid: peak_split versusattenuation, rank4,
+first4wholetemplatesfit/last4heldout forspan, L20C0/2natural/matched. Attenuation
+positiveeigenspace ofuncenteredsecondmomentdifference P25^TP25-O32^TO32 in
+jointspan. Requires4positiveeigenvalues. Logsfit/heldoutperdirectionmeansquares
+andsignedmeans. Template delta stillall8, soholdoutclaimONLYspangeometry.
+svd_reviewreviewing, syntaxcompileexit0. GPUC0smoke643antqueued,path
+out/2026-09-08_attenuation-smoke-ant; followerfromlasttool. Checkheldoutfall
+before fullsteering. Existingpeaktemplate_state configsunchanged, spectrumkey
+nowgeneric notsingular_values becauseeigenvaluespossible. No fullrunyet.
+
 ### Update04:55 — Codex/GPT-6
 
 641freshdog/642validationant SUCCESS20/22s, followers73555/72030CLOSED;
