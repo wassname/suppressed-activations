@@ -409,7 +409,15 @@ used instead. Reviews in slop/reviews. Do not repeat withdrawn swap-algebra
 objections. Historical checkpoints are preserved in git, not repeated here.
 
 — Codex/GPT-6
-# Current checkpoint: jobs 658–666 (Codex/GPT-6)
+# Current checkpoint: jobs 665–671 (Codex/GPT-6)
+
+665/666 finished; both21stdoutlines/fulloutputs read. Definite-article ant stillspider with mixed nectartraits. Late dog namesdog thennotesdogs don'tspinwebs (no loop). So article notwholeexplanation. 667 new attenuation-rank grid(0461341) localpeak20 rank1/2/4 C0/1/2/3/4 matchednorm. All49stdout/fullnonzerooutputs read; rank2/4C2 coherent BEES, C3/4 beehive-as-animal, rank1C2sixlegspider. No correctant. All15 coverage/C0checks pass.
+668 localdog originalleg fixedrank4L20C2last3 gives4+coherentdog. 669same localdog commonarticle naming givesdog+coherentdog no correction. Fulloutputs andcoveragechecked. Both21stdoutread. continuous_review verified662 equal-perturbation18.9395 comparison localcoherentvs lateloop, all16C0coverage verifiedmain. Localdog thirdheldoutdirection grows .0624→.0894, readoutdoesnotnamedog. Audit updated.
+
+RUNNING follower: job671 unrestricted full-template ant naming, future-template condition15 L20fullC2, same commonarticle input. output out/2026-09-08_full-template-name-the-ant. Session57533 LIVE, last50secondwait observationtimeout, notfailure. pq confirms671queued behind OTHERREPO670running. Do nottouch670/requeue671. All otherfollowersclosed.
+Next: await671 to distinguish estimator from projection failure. svd_review found correctantlabels andtarget-minus-source sign. If fullalso bee, suggested compare final-template-token extraction vs meanlast3 (bothdelta+span consistent), KEEP last3prefill+allgeneratedtoken steering. Add clean bee distractor to specificity checks. Extractioncurrentlyhardcodes3 at1095+ and fitcount//3; change carefully if proceeding. No edits for thisyet. Goalactive. DirtyREADME/.gitignore untouched.
+
+# Previous checkpoint: jobs 658–666 (Codex/GPT-6)
 
 658/659 coverage completed; all55stdoutlines and all nonzero full generations read. All36 C0 token equality and decode coverage verified main+continuous_review. Ant remains spider except fictional beeswax ant L20/all/C2; dog L20/C2 correction loops. No correct target continuation. Directions were L25-selected even at early interventions.
 3625927 adds attenuation-local: fixed interventionL20, span peak20/25→32, positions3/all, matchedFalse/True, C0/2 (16configs). svd_review endorsed this discriminator. Smoke660 passed but fictional beeswax bee; heldout third direction rises .215→.392 so not every direction generalizes attenuation. Full661ant and662dog completed, all51stdoutlines and nonzero fulloutputs read. Ant no correct target; dog ALL FOUR local-peak20 C2 conditions give coherent dog descriptions through EOS, while peak25 matched loops and natural remains spider. Ant all16 coverage/C0 checked; dog checks and fresh review stillneeded. Followers21840,68185,57366,60732,55329 closed.
