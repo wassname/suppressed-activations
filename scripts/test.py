@@ -65,6 +65,21 @@ def main() -> None:
     torch.testing.assert_close(persistence[:3], torch.ones(3))
     torch.testing.assert_close(basis.T @ basis, torch.eye(3), atol=1e-6, rtol=1e-6)
     print("PASS: identical token spaces have unit SVD persistence")
+    rescaled_unembedding = unembedding * torch.linspace(0.3, 4.0, unembedding.shape[0])[:, None]
+    normalized_bases = [token_persistent_subspace(
+        residuals, matrix, torch.ones(11), persistent_rank=3,
+        early_layer=0, peak_layer=1, output_layer=2, rank=3,
+        normalize_unembedding_rows=True,
+    )[0] for matrix in (unembedding, rescaled_unembedding)]
+    torch.testing.assert_close(normalized_bases[0] @ normalized_bases[0].T,
+                               normalized_bases[1] @ normalized_bases[1].T, atol=2e-6, rtol=1e-5)
+    counterexample_basis, _ = subspace_from_scores(
+        torch.tensor([[1., 0.]]), torch.tensor([[2., 0.], [0., 1.]]), torch.ones(2),
+        rank=1, normalize_unembedding_rows=True,
+    )
+    torch.testing.assert_close(component(torch.tensor([[1., 2.]]), counterexample_basis),
+                               torch.tensor([[-.5, .5]]))
+    print("PASS: normalized detector spans resist row scaling and match scored directions")
     source_basis = torch.linalg.qr(torch.randn(3, 11, 4, generator=generator), mode="reduced").Q
     target_basis = torch.linalg.qr(torch.randn(3, 11, 4, generator=generator), mode="reduced").Q
     source_rotation = torch.linalg.qr(torch.randn(3, 4, 4, generator=generator), mode="reduced").Q

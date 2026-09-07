@@ -55,3 +55,15 @@ and other consequences; add matched random controls at the selected layer/dose.
 If none, adapt the next method using evidence, not a generic null verdict. Promising
 untried mechanisms: dynamic per-generated-token suppression space (shadow forward),
 layer-specific future-effect VJPs, matched-template coordinate clamping.
+
+Before GPU execution: fixed normalized detector/basis geometry mismatch. Scored
+direction is gain-weighted row normalized BEFORE vocabulary centering; basis now
+matches. Tests verify invariance to positive row scaling and a two-dimensional
+counterexample. Raw named directions unchanged. Projected queued runs use corrected
+bases (`basis_geometry` diagnostic). Journal contains proof and limitations.
+
+Added --source-prompt and --condition-index to rerun a fixed sweep condition on new
+phrasing without selecting per-prompt settings. Four held-out prompts predeclared
+in slop/research/2026-09-07_heldout-intervention-prompts.json before new outputs seen.
+Wait orchestration cell635 follows all six job sessions until completion; it may
+remain active across assistant actions. Never restart jobs due to an expired observer.
