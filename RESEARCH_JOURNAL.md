@@ -213,3 +213,42 @@ semantic passes.
 The main continuous comparison is complete, and intermediate strengths remain under test.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 - Intermediate continuous strengths completed
+
+The pending intermediate-strength runs finished before the named-coordinate swap tests.
+
+Job 507, dog rank four C=5, logs `p_target=0.5034767985343933` and
+`p_source=0.39210814237594604`. Its entire continuation is:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is the **dog** (or more accurately, the **dog** in the context of the id
+```
+
+Source: [dog refinement](out/2026-09-07_svd-dog-continuous-refine/result.json).
+Job 508, ant rank one C=10, logs `p_target=0.5622626543045044` and produces:
+
+```text
+6.
+
+**Explanation:**
+The animal that spins social or hunting webs is the **social spider** (specifically the genus *Araneus*, such
+```
+
+Source: [ant refinement](out/2026-09-07_svd-ant-continuous-refine/result.json).
+All eighteen continuations were inspected. These are selected development conditions,
+not held-out results. Both retain the previous last-three-prompt plus continuous-decode
+coverage. Reward-hacking count `hack_s` and ground-truth count `gt_s` are not defined
+for this inference experiment; digit matches are not counted as semantic passes.
+
+My interpretation: the dog refinement shows partial semantic transfer without immediate
+repetition, but its explanation remains truncated and asserts a web-spinning dog. Ant
+still produces social content rather than an ant identity. This is more specific evidence
+than the earlier statement about the initial coarse grid.
+
+Named-coordinate swaps are now being tested separately from fixed donor displacements.
+
+<!-- Written by Codex. -->
