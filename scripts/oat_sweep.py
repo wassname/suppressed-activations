@@ -800,6 +800,7 @@ def run(
     condition_index: int | None = None,
     max_new_tokens: int = 32,
     lens_corpus_arrow: Path | None = None,
+    target_concept: str = "dog",
 ) -> None:
     started = time.monotonic()
     git_state = subprocess.run(
@@ -860,7 +861,7 @@ def run(
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope"):
-        target_animal = {"4": "dog", "6": "ant"}[target_output]
+        target_animal = target_concept
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
             pair = [sample(template.format(animal=animal), generate=False)
@@ -936,13 +937,13 @@ def run(
         fixed_deltas, persistence = (None, {})
         coordinate_directions = None
         if cfg.coordinate_swap:
-            target_word = {"4": " dog", "6": " ant"}[target_output]
+            target_word = " " + target_concept
             ids = [one_token(tokenizer, word) for word in (" spider", target_word)]
             coordinate_directions = ((unembedding[ids].float() - unembedding.float().mean(0)) * norm_gain.float()).T
             raw_norms = coordinate_directions.norm(dim=0)
             persistence = {"concept_tokens": [" spider", target_word], "direction_estimator": "centered_unembedding"}
             if cfg.future_coordinate:
-                coordinate_directions = future_vectors[intervention_layers[0]][:, [0, {"4": 1, "6": 2}[target_output]]]
+                coordinate_directions = future_vectors[intervention_layers[0]][:, [0, {"dog": 1, "ant": 2}[target_concept]]]
                 raw_norms = coordinate_directions.norm(dim=0)
                 persistence = {"concept_tokens": [" spider", target_word], "direction_estimator": "future_vjp", **future_provenance}
             if cfg.persistent_rank:
@@ -1065,6 +1066,7 @@ def run(
             clamped_donor = {"generation": donor_changed, "intervention_record": donor_record}
         row = {
             "model": MODEL,
+            "target_concept": target_concept,
             "revision": REVISION,
             "git": git_state,
             "code_sha256": code_hashes,
@@ -1127,6 +1129,7 @@ def run(
         "prompt_mode": prompt_mode,
         "source_prompt": source_prompt,
         "target_prompt": target_prompt,
+        "target_concept": target_concept,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "base": {
             "source_output": source_output,
@@ -1186,17 +1189,20 @@ if __name__ == "__main__":
         choices=("raw", "chat-fact", "chat-instructed", "chat-assistant-prefill"),
         default="raw",
     )
-    parser.add_argument("--target-prompt", default=TARGET_PROMPT)
+    parser.add_argument("--target-prompt")
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
     parser.add_argument("--lens-corpus-arrow", type=Path)
     parser.add_argument("--source-output", default="8")
-    parser.add_argument("--target-output", default="4")
-    parser.add_argument("--target", choices=TARGET_PRESETS)
+    parser.add_argument("--target-output")
+    parser.add_argument("--target", choices=TARGET_PRESETS, default="dog")
     args = parser.parse_args()
-    if args.target is not None:
-        args.target_prompt, args.target_output = TARGET_PRESETS[args.target]
+    preset_prompt, preset_output = TARGET_PRESETS[args.target]
+    if args.target_prompt is None:
+        args.target_prompt = preset_prompt
+    if args.target_output is None:
+        args.target_output = preset_output
     run(
         args.output_dir,
         args.sweep,
@@ -1208,4 +1214,5 @@ if __name__ == "__main__":
         args.condition_index,
         args.max_new_tokens,
         args.lens_corpus_arrow,
+        {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
     )
