@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:35 — Codex/GPT-6
+
+627dog SUCCESS183s, follower38088 CLOSED. Main read all44 fullgenerations/readouts
+and107stdoutlines. L20C2 ranks4/8/16/32 all coherentdog4 naturalcompletion.
+Rank8 p4=.8149,p8=.0758 readout entirelydogforms; generation dogbarks/smell/
+service/hunting/companions. L24C1 all4ranks also dog4, somegenericbreederrors.
+L24C2 degenerates: rank4/16first2 loops;rank8badwording;rank32dog-odog loop.
+Random4first4butspiderdescription, othersspider8. Thus8 selected conditions
+retain count+identity, not jointant/dog success. swap_review auditing independently.
+Earlierant626 has no coherentant6. Treatdog positivecontrol for631/632windows.
+All five open jobs were followed per pq;628/629/631/632 pending.630otherrepo
+finished,633otherrepo priority1 ahead of ours; do not alter. CLIhelp54903exit0.
+
 ### Update04:33 — Codex/GPT-6
 
 40101f8 adds template-detector sixconditions: windows23/25/32,8/20/32,16/20/24
