@@ -1,13 +1,15 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["accelerate>=1.10", "loguru>=0.7", "tabulate>=0.9", "torch>=2.8", "transformers>=5.5"]
+# dependencies = ["accelerate>=1.10", "loguru>=0.7", "pyarrow>=21", "tabulate>=0.9", "torch>=2.8", "transformers>=5.5"]
 # ///
 """One-at-a-time intervention sweep. Written by Codex/gpt-5.6-sol."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import random
 import re
 import subprocess
 import sys
@@ -16,6 +18,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import torch
+import pyarrow.ipc as arrow_ipc
 from loguru import logger
 from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -65,6 +68,7 @@ class Config:
     source_dominant_only: bool = False
     template_contrast: bool = False
     template_clamp: bool = False
+    future_coordinate: bool = False
 
 
 DEFAULT = Config()
@@ -150,6 +154,80 @@ def template_scope_configs():
         match_component_norm=False, restore_residual_norm=False,
     )) for positions in (3, "all") for strength in (0.0, 0.125, 0.25, 0.5))
     return rows
+
+
+def future_coordinate_configs():
+    return [("future_coordinate", f"L{layer}_rank{rank}_C{strength}", replace(
+        DEFAULT, coordinate_swap=True, future_coordinate=True, persistent_rank=rank,
+        intervention_layer=(layer,), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (12, 16, 20, 24) for rank in (0, 4)
+        for strength in (0.0, 0.5, 1.0, 2.0, 4.0)]
+
+
+def fit_future_rows(model, tokenizer, corpus_path, output_dir):
+    """Contract the official mean-J estimator with three vocabulary rows. -- Codex/GPT-6"""
+    texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
+    texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
+    assert len(texts) == 16
+    layers = (12, 16, 20, 24)
+    words = (" spider", " dog", " ant")
+    output_rows = model.lm_head.weight[[one_token(tokenizer, word) for word in words]].float()
+    samples, corpus, derivative_checks = [], [], []
+    model.requires_grad_(False)
+    for index, text in enumerate(texts):
+        content = tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:128])
+        chat = assistant_prefill_input_ids(tokenizer, content)
+        ids = chat["input_ids"]
+        valid = torch.arange(max(16, chat["content_start"]), chat["content_end"] - 1, device=ids.device)
+        assert len(valid) > 0
+        corpus.append({"text": content, "input_ids": ids[0].tolist(), "valid_positions": valid.tolist(),
+                       "rendered": tokenizer.decode(ids[0], skip_special_tokens=False)})
+        def grad_leaf(_module, _inputs, output):
+            return output.requires_grad_(True)
+        with torch.enable_grad(), layer_hooks(model.model.layers, {11: grad_leaf}):
+            output = model(input_ids=ids, use_cache=False, output_hidden_states=True)
+            hidden = tuple(output.hidden_states[layer] for layer in layers)
+            target = output.hidden_states[31]
+            per_word = []
+            for word_index, row in enumerate(output_rows):
+                scalar = (target[0, valid].float() @ row).sum()
+                gradients = torch.autograd.grad(scalar, hidden, retain_graph=word_index < 2)
+                per_word.append(torch.stack([g[0, valid].float().mean(0) for g in gradients]))
+                if index == 0 and word_index == 0:
+                    probe_gradient = gradients[0][0, valid[0]].detach().float()
+            samples.append(torch.stack(per_word).detach())
+        del output, hidden, target, gradients, scalar
+        if index == 0:
+            direction = probe_gradient / probe_gradient.norm()
+            for epsilon in (0.125, 0.5, 2.0):
+                values = []
+                for sign in (-1, 1):
+                    def perturb(_module, _inputs, output):
+                        changed = output.clone()
+                        changed[0, valid[0]] = (output[0, valid[0]].float() + sign * epsilon * direction).to(output.dtype)
+                        return changed
+                    with layer_hooks(model.model.layers, {11: perturb}):
+                        perturbed = model(input_ids=ids, use_cache=False, output_hidden_states=True)
+                        values.append(float((perturbed.hidden_states[31][0, valid].float() @ output_rows[0]).sum()))
+                    del perturbed
+                derivative_checks.append({"epsilon": epsilon, "finite_difference": (values[1]-values[0])/(2*epsilon),
+                                          "autograd": float(probe_gradient.norm())})
+        logger.info("future lens corpus {}/16", index + 1)
+    stacked = torch.stack(samples)
+    assert torch.isfinite(stacked).all()
+    means = stacked.mean(0)
+    vectors = {layer: means[:, i].T for i, layer in enumerate(layers)}
+    provenance = {"estimator": "mean_source_sum_current_future_raw_penultimate_vjp",
+                  "official_reference_commit": "581d398613e5602a5af361e1c34d3a92ea82ba8e",
+                  "corpus_sampling": "16 eligible records without replacement, Python random seed0",
+                  "corpus_path": str(corpus_path), "corpus_sha256": hashlib.sha256(corpus_path.read_bytes()).hexdigest(),
+                  "words": words, "target_residual_layer": 31, "source_residual_layers": layers,
+                  "per_prompt_vector_norms": stacked.norm(dim=-1).tolist(),
+                  "finite_difference_checks": derivative_checks, "corpus": corpus}
+    (output_dir / "future_lens.json").write_text(json.dumps(provenance, ensure_ascii=False, indent=2))
+    torch.save(vectors, output_dir / "future_lens_vectors.pt")
+    return vectors, {key: value for key, value in provenance.items() if key != "corpus"}
 
 
 CONCEPT_TEMPLATES = (
@@ -718,6 +796,7 @@ def run(
     source_prompt: str = SOURCE_PROMPT,
     condition_index: int | None = None,
     max_new_tokens: int = 32,
+    lens_corpus_arrow: Path | None = None,
 ) -> None:
     started = time.monotonic()
     git_state = subprocess.run(
@@ -768,6 +847,9 @@ def run(
     special_ids = set(tokenizer.all_special_ids)
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
+    future_vectors, future_provenance = {}, {}
+    if sweep == "future-coordinate":
+        future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope"):
@@ -799,6 +881,7 @@ def run(
         "template-projection": template_projection_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
+        "future-coordinate": future_coordinate_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -851,11 +934,15 @@ def run(
             coordinate_directions = ((unembedding[ids].float() - unembedding.float().mean(0)) * norm_gain.float()).T
             raw_norms = coordinate_directions.norm(dim=0)
             persistence = {"concept_tokens": [" spider", target_word], "direction_estimator": "centered_unembedding"}
+            if cfg.future_coordinate:
+                coordinate_directions = future_vectors[intervention_layers[0]][:, [0, {"4": 1, "6": 2}[target_output]]]
+                raw_norms = coordinate_directions.norm(dim=0)
+                persistence = {"concept_tokens": [" spider", target_word], "direction_estimator": "future_vjp", **future_provenance}
             if cfg.persistent_rank:
                 shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
                 coordinate_directions = shared @ (shared.T @ coordinate_directions)
                 persistence.update(diagnostics)
-                persistence["direction_estimator"] = "persistent_projected_centered_unembedding"
+                persistence["direction_estimator"] = "persistent_projected_future_vjp" if cfg.future_coordinate else "persistent_projected_centered_unembedding"
             persistence["retained_norm_fraction"] = (coordinate_directions.norm(dim=0) / raw_norms).tolist()
             coordinate_directions = coordinate_directions / coordinate_directions.norm(dim=0)
             assert torch.linalg.matrix_rank(coordinate_directions) == 2
@@ -1064,6 +1151,7 @@ if __name__ == "__main__":
             "template-projection",
             "template-clamp",
             "template-scope",
+            "future-coordinate",
             "svd",
             "svd-refine",
             "svd-detector",
@@ -1089,6 +1177,7 @@ if __name__ == "__main__":
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
+    parser.add_argument("--lens-corpus-arrow", type=Path)
     parser.add_argument("--source-output", default="8")
     parser.add_argument("--target-output", default="4")
     parser.add_argument("--target", choices=TARGET_PRESETS)
@@ -1105,4 +1194,5 @@ if __name__ == "__main__":
         args.source_prompt,
         args.condition_index,
         args.max_new_tokens,
+        args.lens_corpus_arrow,
     )
