@@ -1014,6 +1014,9 @@ def run(
             ])
         template_deltas = dict(enumerate(torch.stack(differences).mean(0)))
         template_targets = dict(enumerate(torch.stack(target_means).mean(0)))
+        torch.save({"deltas": torch.stack(differences).mean(0).cpu(),
+                    "targets": torch.stack(target_means).mean(0).cpu()},
+                   output_dir / "template_vectors.pt")
     rows = []
     for index, (axis, value, cfg) in indexed_configs:
         _, base_ids, base_scores = subspace(source, cfg, unembedding, norm_gain)
