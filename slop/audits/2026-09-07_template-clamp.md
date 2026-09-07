@@ -313,6 +313,24 @@ All four complete naturally with the target count and three relevant target-desc
 Dog validation1 describes understanding commands, domestication, and wagging tails. No correction loop or unrelated task substitution appears. Their clean bases give8 and describe spider. This is substantially stronger evidence than neutral one-token completion: multiple target properties survive without changing the extraction instruction. It remains a selected descriptive task on two reused phrasings, not general reasoning or successful suppressed-only steering.
 
 Comparability warning for forthcoming projected runs626/627: the template delta is held to default extraction, but persistent basis selection still uses evaluation source/donor residuals. Changing evaluation wrapper therefore changes the selected basis even with fixed extraction. The rank4/8/16/32 sweeps are source/donor-selected suppression spans; detector depths23/25/32 stay fixed when editingL20 versusL24. Such a comparison tests a fixed detector with different intervention depth, not a layer-local detector. Twelve random controls atL24C1 only calibrate that layer/dose's full-delta norm; they do not directly control L20 or other doses. Equal-norm projection removes one magnitude confound but not selection dependence or semantic specificity. Keep these limitations explicit when comparing projected and unrestricted results.
+
+### Descriptive persistent projection627 independent review
+
+Written by Codex/GPT-6. Read all44 dog outputs in `out/2026-09-08_describe-persistent-dog/result.json`; independently checked C0/last3/decode coverage across both dog627 and ant626 artifacts. Dog L20 C2 at every tested rank4/8/16/32 gives4 and completes a relevant dog description. Rank8's full output is:
+
+```text
+4.
+
+The dog is a loyal and intelligent canine that typically barks to alert its owners. They are known for their strong sense of smell and their ability to work closely with humans. Dogs are versatile companions that can serve as service animals, hunting partners, or simply loving friends.<|im_end|>
+```
+
+Its recomputed prefill suppression list is `[' Dog', ' dog', 'dog', ' dogs', ' Dogs', '狗', 'Dog', '狗的']`. This supplies joint count, identity, additional properties and an appropriate prefill readout on this source. The count is not repeated later, but nothing contradicts it. Final-decode readout is unrelated; no claim of persistent target readout through EOS is established.
+
+Dog L24 C1 likewise completes target descriptions at all tested ranks, while L24 C2 corrupts text into dog repetitions and sometimes changes the count to2. Low doses retain spider/eight. One random control (seed4, L24C1) gives4 but still describes spider; none of the12 random controls gives dog identity. Therefore digit-only success would misclassify that control. These controls do not directly calibrate candidate L20C2.
+
+Ant comparison remains weaker: its only projected leading6 (L20rank4C2) explicitly says “a spider ... possesses eight legs, not six.” That is count corruption, not ant replacement. This review did not reread every ant continuation; mechanics and that decisive matched setting were independently checked.
+
+Conclusion: the dog projected descriptive demo has credible complete local semantic transfer and an informative prefill readout. This does not establish ant transfer, heldout reliability, or that rank8 is uniquely optimal. The evaluation-dependent basis and fixed detector-depth limitations above still apply. Cheapest next discriminator is frozen dogL20rank8C2 on fresh phrasing plus matched controls at that exact layer/dose, while keeping extraction and descriptive instruction fixed.
 # Attention-mask correction — 2026-09-08
 
 Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.

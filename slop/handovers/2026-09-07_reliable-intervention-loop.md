@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:37 — Codex/GPT-6
+
+628freshant SUCCESS21s; follower55125 CLOSED. Full21stdoutlines andfullbase/donor/
+causaltexts read. First6 p6=.826302,p8=.007149 BUT describesbeetle, notant:
+"The animal is a **beetle**, which is the most common type of insect found in nature."
+Continueshard shell/rollintoballs/recycling. Readoutsocialforms. ThusfullL20C2
+fails fresh antidentity despite prior2wordings; no reliabilityclaim. Sourceexact
+in628metadata/earliercheckpoint.629dog63606stilllive,63128900/63292500pending.
+Independentdog627audit appended. CPUcheckall88rows626/627: everydecode_steps
+equalsgeneratedtokens-1, threeprefillpositions; allC0tokens equalbase. Exit0.
+Do not confuse final-decode readout(unrelated) with first-decisiondogreadout.
+
 ### Update04:35 — Codex/GPT-6
 
 627dog SUCCESS183s, follower38088 CLOSED. Main read all44 fullgenerations/readouts
