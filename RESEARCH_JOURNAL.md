@@ -102,3 +102,32 @@ rather than animal identity.
 The public notebook now contains the complete result needed to inspect this example.
 
 <!-- Written by Codex/gpt-5.6-sol. -->
+
+## 2026-09-07 -- Fixed spider-to-ant transfer fails
+
+This entry tests whether the selected spider-to-dog configuration transfers to an ant donor.
+
+| condition | first token | p(6) | p(8) | swap log-odds change |
+|---|---:|---:|---:|---:|
+| Base | 8 | 0.015245 | 0.943160 | 0.000 |
+| C=2 | 8 | 0.008095 | 0.935690 | -0.625 |
+| C=2.5 | 8 | 0.007667 | 0.886223 | -0.625 |
+| C=3 | 8 | 0.006092 | 0.797945 | -0.750 |
+| C=4 | 2 | 0.004487 | 0.403940 | -0.375 |
+
+The swap log-odds change is the intervention-induced change in `log p(6) - log p(8)`.
+The fixed held-out condition is C=2.5; the other rows are a diagnostic strength sweep. The
+unmodified donor readout was `['Social', 'social', ' vor', 'V', ' vaya', 'ocial', ' sociales',
+' división']`. Evidence: [job 485 run table](out/2026-09-07_182300_chat-ant-strength/run.md)
+and [fixed C=2.5 condition](out/2026-09-07_102128_chat-ant-heldout/conditions/000_default_default/run.md).
+
+My read: the current spider-to-dog demo is probably pair-specific. The ant result is more
+consistent with a detector that selected an unrelated subspace than with an intervention that was
+only too weak, because every tested strength reduced the target answer probability and the donor
+readout was not ant-related. A different ant prompt could distinguish prompt-specific detector
+failure from a broader lack of transfer, but it would be a new development test rather than part
+of this held-out result.
+
+The fixed configuration does not produce a working ant demonstration.
+
+<!-- Written by Codex/gpt-5.6-sol. -->
