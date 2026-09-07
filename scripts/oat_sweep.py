@@ -595,6 +595,26 @@ def subspace(sample, cfg: Config, unembedding, norm_gain):
     return basis[0], token_ids[0], scores
 
 
+def named_suppression_diagnostics(sample, cfg, scores, token_ids, centered_rows, *, post_edit=False):
+    """Separate absent, already-written, and unsuppressed concepts. -- Codex/GPT-6"""
+    start = sample["content_end"] - cfg.readout_positions
+    h = sample["residuals"][list(cfg.detector_layers), start:sample["content_end"]].float()
+    h = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6)
+    logits = h @ centered_rows.T
+    named_scores = scores[:, token_ids]
+    ranks = (scores[:, :, None] > named_scores[:, None, :]).sum(1) + 1
+    patch_start = (sample["content_start"] if cfg.intervention_positions == "all"
+                   else sample["content_end"] - cfg.intervention_positions)
+    return [{"position": start + position, "patched": post_edit and start + position >= patch_start, "concepts": {
+        word: {"token_id": token_ids[i], "centered_logits_early_peak_output": logits[:, position, i].tolist(),
+               "rise": float(logits[1, position, i] - logits[0, position, i]),
+               "fall": float(logits[1, position, i] - logits[2, position, i]),
+               "suppression_score": float(named_scores[position, i]),
+               "suppression_rank_min_ties": int(ranks[position, i])}
+        for i, word in enumerate((" spider", " dog", " ant"))
+    }} for position in range(cfg.readout_positions)]
+
+
 def lexical_subspaces(tokenizer, unembedding, norm_gain, lexical_forms: str):
     pairs = (
         LEXICAL_PAIRS
@@ -672,6 +692,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         if key not in {
             "top_tokens", "generation", "donor_generation", "readout", "base_readout", "target_readout", "config",
             "intervention_record", "persistence", "base_generation", "base_top_tokens", "readout_by_position", "clamped_donor",
+            "named_suppression_diagnostics",
         }
     )
     return f"""---
@@ -738,6 +759,15 @@ Per-position readout (the union above can include an unpatched earlier token):
 
 ```json
 {json.dumps(row['readout_by_position'], ensure_ascii=False, indent=2)}
+```
+
+Fixed-concept diagnostic (same normalized scoring geometry; vocabulary-centered logits).
+Columns follow detector early/peak/output layers. Rank is one plus the number of strictly
+greater scores, so tied zero scores can share a rank. No ant suppression is implied by an
+ant continuation: a missing rise or fall also gives a zero suppression score.
+
+```json
+{json.dumps(row['named_suppression_diagnostics'], ensure_ascii=False, indent=2)}
 ```
 
 Readout at the last decode step (the state predicting the final generated token):
@@ -821,6 +851,11 @@ def run(
     final_norm = model.model.norm
     unembedding = model.lm_head.weight
     norm_gain = 1.0 + final_norm.weight
+    named_ids = [one_token(tokenizer, word) for word in (" spider", " dog", " ant")]
+    normalized_rows = unembedding.float() * norm_gain.float()
+    normalized_rows = normalized_rows / normalized_rows.norm(dim=-1, keepdim=True)
+    named_centered_rows = normalized_rows[named_ids] - normalized_rows.mean(0)
+    del normalized_rows
 
     def sample(content, generate=True):
         if prompt_mode == "raw":
@@ -914,7 +949,7 @@ def run(
         indexed_configs = [indexed_configs[condition_index]]
     rows = []
     for index, (axis, value, cfg) in indexed_configs:
-        _, base_ids, _ = subspace(source, cfg, unembedding, norm_gain)
+        _, base_ids, base_scores = subspace(source, cfg, unembedding, norm_gain)
         _, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
         if cfg.lexical_forms == "detector":
             source_basis, _, _ = subspace(source, cfg, unembedding, norm_gain)
@@ -1100,6 +1135,14 @@ def run(
             "config": asdict(cfg),
             "readout": readout,
             "readout_by_position": readout_by_position,
+            "named_suppression_diagnostics": {
+                "detector_layers": cfg.detector_layers,
+                "base": named_suppression_diagnostics(source, cfg, base_scores, named_ids, named_centered_rows),
+                "post_edit": named_suppression_diagnostics(
+                    {**source, "residuals": changed_residuals}, cfg, changed_scores, named_ids, named_centered_rows,
+                    post_edit=True,
+                ),
+            },
             "clamped_donor": clamped_donor,
             "base_readout": [tokenizer.decode([int(token)]) for token in base_ids],
             "last_decode_readout": [tokenizer.decode([int(token)]) for token in last_ids[0]],

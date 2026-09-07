@@ -117,6 +117,13 @@ ant/spider normalized centered logits at23/25/32 per patched position, rise/fall
 suppression score and vocabulary rank. Keep current readout unchanged while diagnosing;
 do not silently remove source features by changing aggregation.
 
+Implemented this diagnostic in oat_sweep.py (logging only): base/post-edit fixed
+spider/dog/ant centered logits, rise/fall, exact existing score and rank with ties.
+Main independently checked synthetic geometry/ranks/patch mask to1e-6; passed.
+Initial test assertion inferred integer dtype for zero; corrected test, not production.
+CLI --help and diff check pass. Queued runs will include it if started after this edit;
+inspect code hashes rather than assume coverage. No new GPU run queued for logging.
+
 Audits: template-transfer.md, template-independent.md, template-clamp.md in slop/audits.
 swap_review appended scope audit to template-clamp.md (may need commit).
 Scientist panel already ran two rounds via external-review-v2; /moa-scientist absent.
