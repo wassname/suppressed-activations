@@ -245,6 +245,7 @@ def generate(
     with layer_hooks(blocks, hooks), torch.no_grad():
         output = model.generate(
             input_ids=input_ids,
+            attention_mask=torch.ones_like(input_ids),
             do_sample=False,
             max_new_tokens=max_new_tokens,
             eos_token_id=[tokenizer.eos_token_id, tokenizer.pad_token_id],
