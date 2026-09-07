@@ -911,7 +911,7 @@ def run(
         future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
 
     template_deltas, template_provenance, template_targets = {}, [], {}
-    if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope"):
+    if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope", "template-band-strength"):
         target_animal = target_concept
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
