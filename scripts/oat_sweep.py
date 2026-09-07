@@ -84,6 +84,14 @@ def coordinate_layer_configs():
         for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0)]
 
 
+def coordinate_layer_strong_configs():
+    return [("coordinate_strong", f"L{layer}_C{strength}", replace(
+        DEFAULT, coordinate_swap=True, intervention_layer=(layer,), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (4, 8, 12, 16, 20, 24)
+        for strength in (6.0, 8.0, 12.0, 16.0, 24.0, 32.0)]
+
+
 def coordinate_band_configs():
     layers = [(8,), (12,), (16,), (20,), (24,), tuple(range(8, 13)),
               tuple(range(12, 17)), tuple(range(16, 21)), tuple(range(20, 25))]
@@ -663,6 +671,10 @@ def run(
     condition_index: int | None = None,
 ) -> None:
     started = time.monotonic()
+    git_state = subprocess.run(
+        ["git", "describe", "--always", "--dirty"], cwd=ROOT, check=True,
+        text=True, capture_output=True,
+    ).stdout.strip()
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -730,6 +742,7 @@ def run(
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
         "coordinate-layer": coordinate_layer_configs,
+        "coordinate-layer-strong": coordinate_layer_strong_configs,
         "coordinate-band": coordinate_band_configs,
         "template-contrast": template_contrast_configs,
         "svd": svd_configs,
@@ -913,10 +926,7 @@ def run(
         "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated(),
         "argv": sys.argv,
         "revision": REVISION,
-        "git": subprocess.run(
-            ["git", "describe", "--always", "--dirty"], cwd=ROOT, check=True,
-            text=True, capture_output=True,
-        ).stdout.strip(),
+        "git": git_state,
         "default": asdict(DEFAULT),
         "prompt_mode": prompt_mode,
         "source_prompt": source_prompt,
@@ -952,6 +962,7 @@ if __name__ == "__main__":
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "coordinate-swap",
             "coordinate-layer",
+            "coordinate-layer-strong",
             "coordinate-band",
             "template-contrast",
             "svd",
