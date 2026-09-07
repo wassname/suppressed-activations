@@ -69,6 +69,14 @@ Long128 L12C2 ant confirmation queued566, follower11835,
 out/2026-09-08_future-ant-L12-C2-long. swap_review auditing553 independently.
 Cell735 still follows remaining554–562;563/564 followers38979/44997 still live.
 
+554 also SUCCESS103s; main read all40 dog outputs and115 stdout lines.
+L12rawC2 gives4 but clue distortion; L16rawC2 gives4/dog with qualification;
+L24projectedC2 gives4/domestic dog/Canis explanation at32tokens (p4=.616533).
+Several other conditions give6 (wrong dog target) or invent dog-spiders.
+Long128 confirmations567 L16rawC2 follower8840,568 L24projectedC2 follower20868.
+Paths out/2026-09-08_future-dog-L16-raw-C2-long and ...-L24-projected-C2-long.
+Only555–562 remain in735;563/564 and566–568 use their separate followers.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 
