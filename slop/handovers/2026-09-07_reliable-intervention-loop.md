@@ -158,6 +158,25 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+02:06 update, Codex/GPT-6: IMPORTANT correction: old pad=tokenizerEOS248046 while
+modelEOS248044 caused HF auto attention mask to hide user-turn im_end position13.
+CPU exact mask test old=[13] masked, new=[]; read installed generation/utils.py
+798–805.57a3898 fixed BOTH attention and stopping;4a9c8c0 now passes explicit ones.
+Earlier termination-only interpretation was wrong. Pre57a3898 cross-run comparisons
+are attention-confounded. Raw future rows barely changed (cos>.9999997), but
+suppressed basis IDs/eigenvalues changed enough to alter projected dog result.
+Preserve old results, do not blame max_new_tokens for first-logit changes.
+
+583 ant gatedL12C2 completes126tokens6/ant;584 dog projectedL24C2 completes137tokens
+8/spider, not4. Main read both full outputs and37-line logs.586/587 full future
+template grids complete, main read all48 outputs and83-line logs each. Projection
+does not improve identity/coherence: matched ant can give6 but explain spider8;
+dog projections yield6/2 or loops. Full unprojected dogL20C2 gives4/dog and naturally
+finishes, p4=.841981; ant same condition drifts to bees. Independent audit requested.
+All their follower handles CLOSED. New template-band-clamp comparison uses existing
+clamp vs additive, L16–20, C0/.25/.5/.625/.75/1, no normrestore, continuous.
+Smoke588 index6(clampC0), max8 queued, follower20137. Full grid NOT queued yet.
+
 2026-09-08 01:58 update, Codex/GPT-6:578–582 completed successfully. Main read
 all28 band-strength outputs and complete33-line stdout per job. Ant C.625 switches
 original and validation3 to6/ant, both terminate; taxonomy/silk rationalizations
@@ -180,7 +199,7 @@ Stopping audit, Codex/GPT-6: local pinned config text_config.eos_token_id248044 
 paths previously passed only pad=eos and inherited model endoftext stopping.
 Scope-ant condition27 ends `[39585,13,248046,198,248044]`, proving post-message
 newline/endoftext generation. Both paths now stop on either marker and use actual
-pad id. This changes termination only, not pre-message-ending correction loops.
+pad id. The initial termination-only interpretation is withdrawn; see mask correction above.
 Independent actual Transformers5.16.1 tiny-GPT2 CPU check by continuous_review passed:
 forced old output `[3,4,im_end,7,endoftext]` becomes `[3,4,im_end]`, identical prefix.
 Preserve old logs. All seven followers remain live, no restarted jobs this turn.
