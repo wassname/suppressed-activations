@@ -1299,6 +1299,11 @@ def run(
                                  for layer, delta in fixed_deltas.items()}
                     for layer, delta in fixed_deltas.items():
                         torch.testing.assert_close(projected[layer].norm(), delta.norm())
+                persistence["per_token_component_norms_after_strength"] = {
+                    layer: {"selected": float(cfg.strength * component(delta, shared).norm()),
+                            "discarded": float(cfg.strength * (delta-component(delta, shared)).norm())}
+                    for layer, delta in projected.items()
+                }
                 fixed_deltas = projected
                 persistence.update(diagnostics)
             if cfg.random_delta_seed >= 0:
