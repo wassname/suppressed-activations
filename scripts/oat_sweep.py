@@ -236,8 +236,9 @@ def persistent_direction_configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
-def first_answer(text: str) -> str | None:
-    match = re.search(r"(?<!\d)([48])(?!\d)", text)
+def first_answer(text: str, answers: tuple[str, ...]) -> str | None:
+    alternatives = "|".join(re.escape(answer) for answer in answers)
+    match = re.search(rf"(?<!\d)({alternatives})(?!\d)", text)
     return None if match is None else match.group(1)
 
 
@@ -509,7 +510,7 @@ def run(
             "source_output": source_output,
             "target_output": target_output,
             "donor_p_target": float(donor_logp[target_id].exp()),
-            "donor_first_answer": first_answer(donor_generation["text"]),
+            "donor_first_answer": first_answer(donor_generation["text"], (target_output,)),
             "donor_generation_tokens": len(donor_generation["token_ids"]),
             "p_target": float(logp[target_id].exp()),
             "p_source": float(logp[source_id].exp()),
@@ -518,7 +519,7 @@ def run(
             ),
             "generation_tokens": len(generation["token_ids"]),
             "first_token": tokenizer.decode(generation["token_ids"][:1]),
-            "first_answer": first_answer(generation["text"]),
+            "first_answer": first_answer(generation["text"], (source_output, target_output)),
             "source_fact_preserved": "spins webs" in generation["text"],
             "readout_overlap": len(set(readout) & set(target_readout)) / cfg.rank,
             "intervention_record": intervention_record,
