@@ -6,6 +6,26 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:22 — Codex/GPT-6
+
+Jobs612–619 all SUCCESS and all full generations read. Full21line stdout614–619
+read. Old followers can be discarded. Independent swap_review audited union and
+wrapper outputs in the existing template-clamp audit.
+Dog equal-norm union starts6 and invents a Buster joke; ant union switches among
+insects. Neutral original outputs only4./6.EOS. Neutral validation ant repeats
+the fact, as its BASE also does; dog enumerates colored collars. No sustained
+joint success. Default validation dog invents ownership riddle; ant capped128.
+
+New620ant/621dog original-description jobs running/followed, sessions73594/26994.
+Instruction: `Complete the following fact. Then describe the animal in three sentences.`
+Same full-template L20C2, continuous,128max. Outputs
+`out/2026-09-08_wrapper-{ant,dog}-original-describe`.
+Important review correction: wrapper changes ALSO refit template directions.
+These are combined-setup comparisons, not isolated instruction effects. Next
+discriminator should fix extraction instruction while varying evaluation
+instruction (small explicit parameter in sample/template extraction). Do not
+claim existing comparison isolates explanation conflict. No code changes yet.
+
 ### Latest checkpoint — 2026-09-08, Codex/GPT-6
 
 This checkpoint supersedes the historical results and pending-job notes below.
