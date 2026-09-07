@@ -81,6 +81,7 @@ observer times out; inspect same handle/state first.
 
 ## Corrections/tests/provenance
 
+- Latest continuation reran `uv run --no-project /home/code/.cache/uv/environments-v2/oat-sweep-da08b15948b5bc08/bin/python -m scripts.test`: exit0, all16 checks passed (Codex/GPT-6). These are algebra/hook regressions, not evidence of coherent animal transfer.
 - Normalized detector scoring and basis geometry previously differed; corrected
   normalization BEFORE vocabulary centering; regression passes.
 - HF hidden-state capture could precede the edit at the exact patched layer.
