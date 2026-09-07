@@ -411,6 +411,8 @@ objections. Historical checkpoints are preserved in git, not repeated here.
 — Codex/GPT-6
 # Current checkpoint: jobs 665–671 (Codex/GPT-6)
 
+Latest: commit4d9d790 adds clean bee distractor only (8 explicit bee template trajectories, prompts+scores in clean_identity_separation); steering unchanged. Syntax checked. Job672 repeats attenuation-rank condition12 on commonarticle ant naming, output out/2026-09-08_clean-bee-distractor-ant, follower52933 LIVE. Compare exact generation with667row12 and inspect bee versus ant scores before concluding specificity. Job671 follower57533 remainsLIVE; last50s timeout notfailure. Authoritative pq: OTHERREPO670Running, ours671/672Queued, OTHERREPO673Queued. Do not touch otherjobs. No completednewresultthisturn; progress=diagnosticcode+queuedtest+verifiedwait. UserREADME/.gitignore untouched.
+
 665/666 finished; both21stdoutlines/fulloutputs read. Definite-article ant stillspider with mixed nectartraits. Late dog namesdog thennotesdogs don'tspinwebs (no loop). So article notwholeexplanation. 667 new attenuation-rank grid(0461341) localpeak20 rank1/2/4 C0/1/2/3/4 matchednorm. All49stdout/fullnonzerooutputs read; rank2/4C2 coherent BEES, C3/4 beehive-as-animal, rank1C2sixlegspider. No correctant. All15 coverage/C0checks pass.
 668 localdog originalleg fixedrank4L20C2last3 gives4+coherentdog. 669same localdog commonarticle naming givesdog+coherentdog no correction. Fulloutputs andcoveragechecked. Both21stdoutread. continuous_review verified662 equal-perturbation18.9395 comparison localcoherentvs lateloop, all16C0coverage verifiedmain. Localdog thirdheldoutdirection grows .0624→.0894, readoutdoesnotnamedog. Audit updated.
 
