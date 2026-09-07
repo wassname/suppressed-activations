@@ -1042,6 +1042,10 @@ def run(
             discarded_fraction=1.0 if part == "full" else 0.0,
             match_component_norm=False, strength=strength,
         )) for part in ("selected", "discarded", "full") for strength in (0.0, 2.0)],
+        "attenuation-rank-expanded": lambda: [("attenuation_rank_expanded", f"rank{rank}_matched{matched}_C{strength}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            persistent_rank=rank, match_component_norm=matched, strength=strength,
+        )) for rank in (4, 6, 8, 12) for matched in (False, True) for strength in (0.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1522,6 +1526,7 @@ if __name__ == "__main__":
             "attenuation-rank",
             "attenuation-complement",
             "attenuation-isolation",
+            "attenuation-rank-expanded",
             "template-transport",
             "template-clamp",
             "template-scope",
