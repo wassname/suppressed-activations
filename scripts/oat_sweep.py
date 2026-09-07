@@ -137,6 +137,21 @@ def template_clamp_configs():
     )) for layer in (12, 16, 20, 24) for strength in (0.0, 0.25, 0.5, 1.0)]
 
 
+def template_scope_configs():
+    rows = [("template_scope", f"L{layer}_positions{positions}_C{strength}", replace(
+        DEFAULT, template_contrast=True, intervention_layer=(layer,),
+        intervention_positions=positions, strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (16, 20, 24) for positions in (3, "all")
+        for strength in (0.0, 0.5, 1.0, 2.0)]
+    rows.extend(("template_scope_band", f"positions{positions}_C{strength}", replace(
+        DEFAULT, template_contrast=True, intervention_layer=tuple(range(16, 21)),
+        intervention_positions=positions, strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for positions in (3, "all") for strength in (0.0, 0.125, 0.25, 0.5))
+    return rows
+
+
 CONCEPT_TEMPLATES = (
     "A photograph is labeled '{animal}'. The animal is ",
     "I noticed something labeled '{animal}' nearby. That animal is ",
@@ -755,7 +770,7 @@ def run(
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
     template_deltas, template_provenance, template_targets = {}, [], {}
-    if sweep in ("template-contrast", "template-projection", "template-clamp"):
+    if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope"):
         target_animal = {"4": "dog", "6": "ant"}[target_output]
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
@@ -783,6 +798,7 @@ def run(
         "template-contrast": template_contrast_configs,
         "template-projection": template_projection_configs,
         "template-clamp": template_clamp_configs,
+        "template-scope": template_scope_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -1047,6 +1063,7 @@ if __name__ == "__main__":
             "template-contrast",
             "template-projection",
             "template-clamp",
+            "template-scope",
             "svd",
             "svd-refine",
             "svd-detector",
