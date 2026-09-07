@@ -6,6 +6,24 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:23 — Codex/GPT-6
+
+Progress:620/621 completed natural three-sentence ant6/dog4 descriptions. Full
+generations and stdout read. Wording errors (ant loads smaller, dog called breed)
+but no identity collapse. Independent reviewer agrees. Ant readout stillsocial.
+ed4f5fd separates extraction_instruction from evaluation prefill_instruction;
+default None explicitly inherits evaluation wrapper, preserving prior behavior.
+CPU16checks completed exit0. Reviewer verified propagation and row provenance.
+39585dd additionally saves template_vectors.pt for direct cross-wrapper checks.
+622 fixed-default-extraction/describe-eval ant SUCCESS21s: p6=.904764,p8=.001059,
+natural ant6 description with pheromones/soil/seed dispersal. ReadoutSocial etc.
+623 dog same comparison follower76937 still live. 622follower69492 CLOSED.
+624ant/625dog validation1 same fixed extraction now queued, followers99564/68686.
+Paths out/2026-09-08_wrapper-{ant,dog}-{original,validation1}-fixed-extraction.
+Next: read623–625 full outputs; verify saved vectors, then fresh phrasing and
+suppressed-only projection under descriptive wrapper. Do not call full template
+success evidence of suppressed-only causal replacement. User README untouched.
+
 ### Update04:22 — Codex/GPT-6
 
 Jobs612–619 all SUCCESS and all full generations read. Full21line stdout614–619

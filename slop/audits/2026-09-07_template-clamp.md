@@ -264,6 +264,20 @@ Dog natural pair/union both retain8/spider. Both equal-norm variants generate6, 
 Neither setting supplies a coherent dog4 demo.
 
 Controls establish identity atC0 and matched norms across pair/union, not specificity against random directions or performance at other doses. No algebra/coverage bug found. The union changes behavior at fixed norm, but the tested L20C1 union does not solve coherent count/identity transfer. Missing high-information evidence is a fixed-dose broader prompt/animal test or calibrated coordinate assignment; do not infer that all union constructions fail from this selected span.
+
+### Wrapper audit — eight default/neutral outputs
+
+Written by Codex/GPT-6. Read all eight `out/2026-09-08_wrapper-{ant,dog}-{original,validation1}-{default,neutral}/result.json` generations and clean bases, plus instruction plumbing in `scripts/oat_sweep.py` and `scripts/prompt.py`.
+
+All steered first digits match target6/4; all bases give8. Neutral original outputs simply `6.<|im_end|>` or `4.<|im_end|>`, just as clean neutral original gives `8.<|im_end|>`. This removes explanation evidence rather than demonstrating improved sustained semantic computation. Neutral ant validation repeats the completed fact twice, but its clean base repeats the same fact twice too. Dog neutral validation instead repeatedly substitutes colored collars for the web clue:
+
+> Fact: The creature wearing a red collar has this many legs: 4.
+
+Default dog original sustains canine content; default dog validation substitutes ownership/food reasoning. Default ant explanations retain target identity but invent contextual details or truncate.
+
+Main interpretation issue: changing `prefill_instruction` changes both evaluation rendering and matched-template extraction through shared `sample()`. Therefore identical L20/C2 does not mean identical intervention vector. The comparison cannot isolate explanation demand. Cheapest discriminator: save one delta, vary only evaluation instruction; ideally cross extraction-default/neutral with evaluation-default/neutral. A third descriptive instruction is useful behaviorally, but if it also refits the delta, the same attribution limitation remains.
+
+ML-debug form: eight resolved runs/all source and base outputs read; no training schedule/loss; no new C0 hook test claimed in this review. Null is the same-wrapper base, not the explanatory base reused for neutral. Dummy repetition control shows ant's repeated fact is already present without steering. No heldout generality: both prompts are development prompts. Full decisive outputs are in the named artifacts; no refusal or hidden post-EOS continuation observed. Surprise explained: neutral repetition exists at baseline; wrong to label all repetition steering-induced. Missing evidence: frozen-vector wrapper comparison, explicit identity probe for short neutral responses, completed descriptive answers. Hypotheses (nonexclusive): wrapper/direction confounding95% from sample() plumbing; explanation demand contributes to rationalization60%, opposed by dog neutral clue corruption; output-length-based coherence overstatement80%, because one-token answers provide little computation evidence; unknown10%. Independent reviewer verdict: answer transfer survives wrappers, sustained semantic success does not follow. Runtime/stage timing not inspected for this bounded wrapper review. Next action is the frozen-delta comparison, not choosing the shortest answer as winner.
 # Attention-mask correction — 2026-09-08
 
 Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.
