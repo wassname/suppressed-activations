@@ -162,6 +162,12 @@ Queued583 ant future-gated index3 (L12 raw C2 gateTrue) and584 dog index11
 (L24 rank4 C2 gateTrue) for256 tokens, to test whether selected coherent passages
 finish or reverse after the128 cap. These are configuration-selected development
 checks, not shared-setting or heldout validation. -- Codex/GPT-6
+Followers583=61408,584=28332. All seven pending followers verified live this turn.
+348aba0 adds all-layer fixed ant/dog/spider curves to the existing named diagnostic,
+without changing the detector triple or steering. Independent CPU check by svd_review
+passes triple equivalence, rise/fall, ranks and patch flags. Future-template QR
+projection also independently matches pseudoinverse geometry; matched norm passes.
+Real projected-C0 smoke582 remains pending behind other repo job577 and band jobs.
 
 Update 01:43 — Codex/GPT-6: 759e6e3 adds future-template projection comparison.
 Predeclared: L16/20 × full/projected/norm-matched × C0/.5/1/2, both animals,
