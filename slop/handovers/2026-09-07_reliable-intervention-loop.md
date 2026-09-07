@@ -158,6 +158,14 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+Stopping audit, Codex/GPT-6: local pinned config text_config.eos_token_id248044 is
+`<|endoftext|>`, but tokenizer eos248046 is `<|im_end|>` (pad248044). Both generate
+paths previously passed only pad=eos and inherited model endoftext stopping.
+Scope-ant condition27 ends `[39585,13,248046,198,248044]`, proving post-message
+newline/endoftext generation. Both paths now stop on either marker and use actual
+pad id. This changes termination only, not pre-message-ending correction loops.
+Independent tiny-model check requested from continuous_review. Preserve old logs.
+
 Queued583 ant future-gated index3 (L12 raw C2 gateTrue) and584 dog index11
 (L24 rank4 C2 gateTrue) for256 tokens, to test whether selected coherent passages
 finish or reverse after the128 cap. These are configuration-selected development

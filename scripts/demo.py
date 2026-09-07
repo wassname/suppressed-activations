@@ -247,7 +247,8 @@ def generate(
             input_ids=input_ids,
             do_sample=False,
             max_new_tokens=max_new_tokens,
-            pad_token_id=tokenizer.eos_token_id,
+            eos_token_id=[tokenizer.eos_token_id, tokenizer.pad_token_id],
+            pad_token_id=tokenizer.pad_token_id,
             use_cache=True,
         )
     ids = output[0, input_ids.shape[1]:].tolist()
