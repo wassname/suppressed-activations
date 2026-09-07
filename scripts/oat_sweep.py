@@ -72,6 +72,7 @@ class Config:
     template_contrast: bool = False
     contrastive_suppression: bool = False
     template_state_span: str = "none"
+    discarded_fraction: float = 0.0
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
@@ -1056,6 +1057,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             persistent_rank=rank, strength=strength,
         )) for rank in (1, 2, 4) for strength in (0.0, 1.0, 2.0, 3.0, 4.0)],
+        "attenuation-complement": lambda: [("attenuation_complement", f"discarded{fraction}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            discarded_fraction=fraction,
+        )) for fraction in (0.0, 0.25, 0.5, 0.75, 1.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1284,6 +1289,11 @@ def run(
                     layer: float(projected[layer].norm() / delta.norm())
                     for layer, delta in fixed_deltas.items()
                 }
+                if cfg.discarded_fraction:
+                    assert cfg.template_state_span != "none"
+                    projected = {layer: projected[layer] + cfg.discarded_fraction * (delta-projected[layer])
+                                 for layer, delta in fixed_deltas.items()}
+                persistence["discarded_fraction_before_norm_matching"] = cfg.discarded_fraction
                 if cfg.match_component_norm:
                     projected = {layer: projected[layer] * delta.norm() / projected[layer].norm()
                                  for layer, delta in fixed_deltas.items()}
@@ -1521,6 +1531,7 @@ if __name__ == "__main__":
             "attenuation-coverage",
             "attenuation-local",
             "attenuation-rank",
+            "attenuation-complement",
             "template-transport",
             "template-clamp",
             "template-scope",
