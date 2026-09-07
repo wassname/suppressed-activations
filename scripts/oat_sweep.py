@@ -85,6 +85,18 @@ def svd_refine_configs():
     return rows
 
 
+def svd_detector_configs():
+    rows = [("default", "default", DEFAULT)]
+    for detector in ((8, 16, 32), (12, 20, 32), (16, 24, 32), (20, 28, 32)):
+        for rank in (1, 2, 4):
+            for strength in (2.0, 4.0, 8.0, 16.0):
+                rows.append(("svd_detector", f"detector={detector},rank={rank},C={strength:g}", replace(
+                    DEFAULT, detector_layers=detector, persistent_rank=rank, strength=strength,
+                    restore_residual_norm=False, match_component_norm=False,
+                )))
+    return rows
+
+
 def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     bases, diagnostics = [], {}
     for name, sample in (("source", source), ("target", target)):
@@ -339,7 +351,12 @@ def repetition_bigram_fraction(token_ids: list[int], special_ids: set[int]) -> f
     return 0.0 if not bigrams else 1 - len(set(bigrams)) / len(bigrams)
 
 
-def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks) -> tuple[dict, torch.Tensor]:
+def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, residual_capture=None) -> tuple[dict, torch.Tensor]:
+    raw_final = []
+    def capture_final(_module, inputs):
+        if not raw_final:
+            raw_final.append(inputs[0].detach())
+    handle = model.model.norm.register_forward_pre_hook(capture_final)
     with layer_hooks(blocks, hooks), torch.no_grad():
         output = model.generate(
             input_ids=input_ids,
@@ -349,7 +366,13 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks) -> tu
             use_cache=True,
             return_dict_in_generate=True,
             output_scores=True,
+            output_hidden_states=residual_capture is not None,
         )
+    handle.remove()
+    if residual_capture is not None:
+        residual_capture.append(torch.stack(
+            [hidden[0] for hidden in output.hidden_states[0][:-1]] + [raw_final[0][0]]
+        ))
     token_ids = output.sequences[0, input_ids.shape[1]:].tolist()
     first_logits = output.scores[0][0].float()
     if token_ids[0] != int(first_logits.argmax()):
@@ -438,8 +461,8 @@ SVD persistence diagnostics (eigenvalues of average token projectors):
 ```
 
 SHOULD: C=0 gives identical generation and logits because its displacement is zero.
-SHOULD: readout prefill logits equal generation prefill logits; both use cached prefill.
-These invariants are asserted in the runner. Maximum logit difference: {row['cache_logit_max_error']}.
+The readout uses hidden states captured during this exact generation prefill.
+C=0 generation/logit identity is asserted in the runner.
 
 Generation ({row['generation_tokens']} tokens, verbatim):
 
@@ -490,19 +513,16 @@ def run(
             chat = assistant_prefill_input_ids(tokenizer, content)
         else:
             raise ValueError(prompt_mode)
-        residuals, logits = trajectory(model, chat["input_ids"], final_norm, use_cache=True, logits_to_keep=1)
-        return {**chat, "residuals": residuals, "logits": logits}
+        captured = []
+        generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured)
+        return {**chat, "residuals": captured[0], "logits": logits, "generation": generation}
 
     source = sample(SOURCE_PROMPT)
     target = sample(target_prompt)
     source_id = one_token(tokenizer, source_output)
     target_id = one_token(tokenizer, target_output)
-    base_generation, base_generation_logits = generate_with_first_logits(
-        model, tokenizer, source["input_ids"], blocks, {}
-    )
-    donor_generation, donor_generation_logits = generate_with_first_logits(
-        model, tokenizer, target["input_ids"], blocks, {}
-    )
+    base_generation, base_generation_logits = source["generation"], source["logits"]
+    donor_generation, donor_generation_logits = target["generation"], target["logits"]
     base_logp = base_generation_logits.log_softmax(-1)
     donor_logp = donor_generation_logits.log_softmax(-1)
     base_log_odds = float(base_logp[target_id] - base_logp[source_id])
@@ -514,6 +534,7 @@ def run(
         "demo": demo_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
+        "svd-detector": svd_detector_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -570,19 +591,17 @@ def run(
             prefill_only=not cfg.continue_generation,
             record=intervention_record,
         )
-        with layer_hooks(blocks, hooks):
-            changed_residuals, logits = trajectory(model, source["input_ids"], final_norm, use_cache=True, logits_to_keep=1)
+        captured = []
+        generation, generation_logits = generate_with_first_logits(
+            model, tokenizer, source["input_ids"], blocks, hooks, captured
+        )
+        changed_residuals = captured[0]
         _, changed_ids, _ = subspace(
             {**source, "residuals": changed_residuals}, cfg, unembedding, norm_gain
         )
         readout = [tokenizer.decode([int(token_id)]) for token_id in changed_ids]
         target_readout = [tokenizer.decode([int(token_id)]) for token_id in target_ids]
-        generation, generation_logits = generate_with_first_logits(
-            model, tokenizer, source["input_ids"], blocks, hooks
-        )
         logp = generation_logits.log_softmax(-1)
-        cache_logit_max_error = float((generation_logits - logits).abs().max())
-        torch.testing.assert_close(generation_logits, logits, rtol=0, atol=0)
         if cfg.strength == 0:
             torch.testing.assert_close(generation_logits, base_generation_logits, rtol=0, atol=0)
             assert generation["token_ids"] == base_generation["token_ids"]
@@ -594,7 +613,7 @@ def run(
             "axis": axis,
             "value": value,
             "is_default": axis == "default",
-            "cache_logit_max_error": cache_logit_max_error,
+            "readout_from_generation": True,
             "persistence": persistence,
             "swap_log_odds_shift": float(logp[target_id] - logp[source_id] - base_log_odds),
             "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
@@ -675,6 +694,7 @@ if __name__ == "__main__":
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "svd",
             "svd-refine",
+            "svd-detector",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",

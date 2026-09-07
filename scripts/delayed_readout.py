@@ -246,7 +246,7 @@ def condition(
         "readouts": [readout(x, tokenizer, unembedding, norm_gain) for x in trajectories],
         "source_projection_shares": [projection_shares(x, source["basis"]) for x in trajectories],
         "target_projection_shares": [projection_shares(x, target["basis"]) for x in trajectories],
-        "top_tokens": [top_tokens(tokenizer, x[-1, -1].float() @ unembedding.float().T, k=5) for x in trajectories],
+        "top_tokens": [top_tokens(tokenizer, final_norm(x[-1, -1]).float() @ unembedding.float().T, k=5) for x in trajectories],
         "patch_record": record,
     }
 
@@ -348,7 +348,8 @@ def aggregation_score_table(
     rows = []
     for index, token in enumerate(tokens):
         scores = [position[index] for position in scores_by_position]
-        aggregate = {"persistent": min, "union": max}[aggregation](scores)
+        aggregate = {"persistent": lambda xs: sum(xs) * sum(x > 0 for x in xs) / len(xs)**2,
+                     "union": max}[aggregation](scores)
         rows.append([repr(token), f"{aggregate:.3f}", *(f"{score:.3f}" for score in scores)])
     return tabulate(
         rows,
@@ -387,7 +388,7 @@ def persistence_diagnostics(source, target) -> list[dict]:
 def sweep_report(result: dict) -> str:
     aggregation = result["config"]["aggregation"]
     aggregation_description = {
-        "persistent": "highest minimum suppressed score across four user-content positions",
+        "persistent": "mean suppressed score times positive-position fraction across four user-content positions",
         "union": "highest suppressed score at any of four user-content positions",
     }[aggregation]
     sweep_rows = []
