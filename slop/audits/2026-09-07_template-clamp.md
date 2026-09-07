@@ -3,8 +3,8 @@
 ## Descriptive persistent projection, ant job626 — Codex/GPT-6
 
 Main read all44 complete generations and readouts from result.json. Job SUCCESS177s.
-The follower stdout was truncated by the tool budget; complete107line stdout still
-needs reading before claiming whole-log audit. C0 rows reproduce the base spider8.
+The follower stdout was truncated by the tool budget; main subsequently read all
+107 clean stdout lines via pqlog6261000. C0 rows reproduce the base spider8.
 No row gives a coherent ant6 description. L20rank4C2 p6=.532769,p8=.366166 starts6
 then says: "The animal is a spider, a type of arachid that possesses eight legs, not six."
 L24rank4C2 instead describes "a social and highly intelligent mammal" after8.

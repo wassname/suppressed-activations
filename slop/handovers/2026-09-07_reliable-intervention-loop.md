@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:30 — Codex/GPT-6
+
+626ant SUCCESS177s; follower68132 CLOSED. All44 full generations/readouts plus
+all107 stdout lines read. No coherent ant6 output: L20rank4C2 starts6 then
+corrects tospider8; L24C2 ranks4/8/16 inventsocialmammals,rank32starts2.
+Auditc110ba0 includes exactquotes. Template deltas/targets626 versus624 are
+bitwiseidentical all layers (torch.testing rtol=atol=0,CPUexit0).
+627dog38088,628freshant55125,629freshdog63606 revalidatedlive, notterminal.
+svd_review reviewing current detector/scoring and proposing one minimal earlier
+window discriminator. No new implementation yet. Current projection windows
+remain23/25/32; contrast against coherentfullL20C2 is primary evidence.
+
 ### Update04:28 — Codex/GPT-6
 
 626/627 followers68132/38088 revalidated live; no result yet, do not restart.
