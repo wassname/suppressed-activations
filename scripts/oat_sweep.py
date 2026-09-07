@@ -72,6 +72,7 @@ class Config:
     template_contrast: bool = False
     contrastive_suppression: bool = False
     template_state_span: str = "none"
+    transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
     future_lexical_union: bool = False
@@ -253,6 +254,42 @@ def future_union_configs():
         intervention_layer=(20,), strength=strength,
         match_component_norm=matched, restore_residual_norm=False,
     )) for union in (False, True) for matched in (False, True) for strength in (0.0, 1.0)]
+
+
+def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction, output_dir):
+    """Central differences for the restricted source-mean/future-sum Jacobian. -- Codex/GPT-6"""
+    texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
+    texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
+    estimates, corpus = [], []
+    for text in texts:
+        content = tokenizer.decode(tokenizer.encode(text, add_special_tokens=False)[:128])
+        chat = assistant_prefill_input_ids(tokenizer, content, instruction=instruction)
+        ids = chat["input_ids"]
+        valid = torch.arange(max(16, chat["content_start"]), chat["content_end"]-1, device=ids.device)
+        assert len(valid) > 0
+        corpus.append({"rendered": chat["rendered"], "valid_positions": valid.tolist()})
+        scales = []
+        for epsilon in (0.5, 1.0):
+            columns = []
+            for direction in basis.T:
+                endpoints = []
+                for sign in (-1, 1):
+                    def patch(_module, _inputs, output):
+                        changed = output.clone()
+                        changed[:, valid] = (changed[:, valid].float() + sign*epsilon*direction).to(output.dtype)
+                        return changed
+                    with torch.no_grad(), layer_hooks(model.model.layers, {layer-1: patch}):
+                        result = model(input_ids=ids, attention_mask=torch.ones_like(ids),
+                                       use_cache=False, output_hidden_states=True)
+                    endpoints.append(result.hidden_states[31][0, valid].float().mean(0))
+                columns.append((endpoints[1]-endpoints[0]) / (2*epsilon))
+            scales.append(torch.stack(columns, dim=1))
+        estimates.append(torch.stack(scales))
+    transports = torch.stack(estimates).mean(0)
+    torch.save({"basis": basis.cpu(), "transports": transports.cpu()}, output_dir / "span_transport.pt")
+    return transports[1], {"epsilons": [0.5, 1.0], "corpus": corpus,
+                           "relative_scale_difference": float((transports[0]-transports[1]).norm()/transports[1].norm()),
+                           "column_cosines": torch.nn.functional.cosine_similarity(transports[0], transports[1], dim=0).tolist()}
 
 
 def fit_future_rows(
@@ -1004,6 +1041,8 @@ def run(
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
+        "template-transport": lambda: [("template_transport", "attenuation", replace(
+            template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
@@ -1254,15 +1293,22 @@ def run(
         if cfg.template_state_span != "none":
             span_readouts = {}
             layer = intervention_layers[0]
+            if cfg.transport_readout:
+                transport, transport_diagnostics = fit_span_transport(
+                    model, tokenizer, shared, layer, lens_corpus_arrow, extraction_instruction, output_dir,
+                )
+                persistence["transport_diagnostics"] = transport_diagnostics
             for name, states in (("base", source["residuals"]), ("donor", target["residuals"]),
                                  ("intervened", changed_residuals), ("last_decode", captured[-1])):
                 h = states[layer, -1].float()
                 h = h * torch.rsqrt(h.square().mean() + 1e-6)
-                scores = (component(h, shared) * norm_gain.float()) @ unembedding.float().T
+                decoded = transport @ (h @ shared) if cfg.transport_readout else component(h, shared)
+                scores = (decoded * norm_gain.float()) @ unembedding.float().T
                 values, ids = scores.topk(cfg.rank)
                 span_readouts[name] = {"tokens": [tokenizer.decode([i]) for i in ids.tolist()],
                                        "scores": values.tolist()}
             persistence["span_readout"] = {"method": "RMS-scaled residual projected into fitted span, then gain-weighted unembedding; not probabilities",
+                                           "transported_to_layer31": cfg.transport_readout,
                                            "layer": layer, **span_readouts}
         _, last_ids = suppressed_activation_subspace(
             captured[-1][:, -1][None], unembedding, norm_gain,
@@ -1430,6 +1476,7 @@ if __name__ == "__main__":
             "template-selector",
             "template-state",
             "template-attenuation",
+            "template-transport",
             "template-clamp",
             "template-scope",
             "template-band-strength",
