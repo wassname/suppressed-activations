@@ -1020,6 +1020,8 @@ def run(
 
     source = sample(source_prompt)
     target = sample(target_prompt)
+    extraction_source = sample(source_prompt, generate=False, instruction=extraction_instruction)
+    extraction_target = sample(target_prompt, generate=False, instruction=extraction_instruction)
     source_id = one_token(tokenizer, source_output)
     target_id = one_token(tokenizer, target_output)
     base_generation, base_generation_logits = source["generation"], source["logits"]
@@ -1252,6 +1254,10 @@ def run(
                         "implicit_scores": {
                             name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
                             for name, sample in (("source", source), ("donor", target))
+                        },
+                        "implicit_extraction_instruction_scores": {
+                            name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
+                            for name, sample in (("source", extraction_source), ("donor", extraction_target))
                         },
                     }
                 projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
