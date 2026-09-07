@@ -31,7 +31,11 @@ Latest jobs, updated04:12 — Codex/GPT-6:
 -603 smoke SUCCESS62s; all37 stdout lines read. Six singular values .2479–.9275,
  retained template norm .2542, C0 exact logits/tokens, positions33–35 and7decode.
  Its follower89485 is CLOSED. Full union grids612ant/613dog now queued/followed:
- sessions44021/37894, out/2026-09-08_future-union-{ant,dog}.
+ 612 finished105s; follower44021 CLOSED. All8 generations and51 stdout lines read:
+ natural pair/union stay8/spider; equal-norm pair starts6 but explains spider8;
+ equal-norm union p6=.9674 startsant6 then bee/wasp and repeated alternatives.
+ Not sustained identity. swap_review independently agrees and will append paired audit.
+ 613 dog follower37894 still live, out/2026-09-08_future-union-{ant,dog}.
 -604ant/608dog original default SUCCESS24/27s, reproduce earlier L20C2 outputs.
 -605–607/609–611 FAILED argparse before model load: pueue lost quotes around
  multiword arguments. All six full13line logs read; no model results from these.
