@@ -109,6 +109,14 @@ Ant readout and sustained reliability remain unresolved. If future swap is weak,
 consider projecting the useful template difference into named future-J span, rather
 than raw-vocabulary suppression span. Do not rename an alternative as suppressed-only.
 
+Readout audit by svd_review (Codex/GPT-6): detector requires a rise23→25 AND fall25→32,
+but band edits16–20 precede23. Missing ant may mean early-written or unsuppressed,
+not absent. Condition27's top ` spinning` comes from unpatched position32 (score2.6699);
+only33–35 patched, union takes maximum across all4. Next cheap diagnostic: fixed
+ant/spider normalized centered logits at23/25/32 per patched position, rise/fall,
+suppression score and vocabulary rank. Keep current readout unchanged while diagnosing;
+do not silently remove source features by changing aggregation.
+
 Audits: template-transfer.md, template-independent.md, template-clamp.md in slop/audits.
 swap_review appended scope audit to template-clamp.md (may need commit).
 Scientist panel already ran two rounds via external-review-v2; /moa-scientist absent.
