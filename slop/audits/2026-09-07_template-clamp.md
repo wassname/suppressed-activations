@@ -312,3 +312,27 @@ No production detector change was made. Independent review requested.
 Current CPU suite `uv run --no-sync python -m scripts.test` passed all16 checks,
 including coordinate exchange, complement preservation and cached-decode edits.
 This is algebra/coverage evidence, not semantic-coherence evidence.
+# Queue argument failure — Codex/GPT-6, 2026-09-08 04:12
+
+Jobs605–607 and609–611 each failed with exit2 before model loading. All13 clean
+stdout lines per job were read. Example605: `error: unrecognized arguments: the text.`
+Example606: `error: unrecognized arguments: The creature weaving a web in the corner has this many legs:`.
+The stored pueue commands lacked quotes around multiword argument values. Shell
+quoting at the outer invocation was consumed before pueue reconstructed its command.
+This is an orchestration error, not a model/intervention failure. No training,
+generation, SHOULD check, probability or GPU-stage result exists for these jobs.
+The same error reproduced for both animals and both types of multiword argument.
+Command-construction cause is directly observed; model/evaluation hypotheses do
+not explain an argparse failure. Seed changes are irrelevant to argument splitting.
+
+Replacement jobs614–619 pass the entire command as one quoted argument. Stored
+commands now visibly retain inner single quotes around each multiword value,
+including the source trailing space. Real execution remains the verification gate.
+Successful original/default jobs604/608 are retained, not rerun or overwritten.
+
+603 lexical-union smoke passed in62s; all37 stdout lines read. C0 generation equals
+Base byte-for-byte, zero perturbation, positions33–35 and7decode calls. Six span
+singular values range .247873–.927469; projected norm fraction .254189. Finite
+difference8.260834 at epsilon.125 versus gradient8.275805. These checks permit the
+paired full sweep612/613, not a semantic success claim. Source:
+out/2026-09-08_future-union-smoke/conditions/004_future_union_unionTrue_matchedFalse_C0.0/run.md.
