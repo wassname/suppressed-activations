@@ -167,6 +167,14 @@ def svd_continuous_configs():
     return rows
 
 
+def svd_continuous_refine_configs():
+    return [("svd_continuous_refine", f"rank={rank},C={strength:g}", replace(
+        DEFAULT, persistent_rank=rank, strength=strength, intervention_positions=3,
+        continue_generation=True, restore_residual_norm=False, match_component_norm=False,
+    )) for rank, strengths in ((1, (9.0, 10.0, 11.0)), (2, (9.0, 10.0, 11.0)),
+                              (4, (5.0, 6.0, 7.0))) for strength in strengths]
+
+
 def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     bases, diagnostics = [], {}
     for name, sample in (("source", source), ("target", target)):
@@ -641,6 +649,7 @@ def run(
         "svd-candidates": svd_candidates_configs,
         "svd-parts": svd_parts_configs,
         "svd-continuous": svd_continuous_configs,
+        "svd-continuous-refine": svd_continuous_refine_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -821,6 +830,7 @@ if __name__ == "__main__":
             "svd-candidates",
             "svd-parts",
             "svd-continuous",
+            "svd-continuous-refine",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",

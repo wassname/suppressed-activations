@@ -129,6 +129,15 @@ changes the distribution being measured.
 
 ## Intervention sweep design
 
+Steering starts at prompt slice `-3:` (the final three prompt tokens) and continues
+through every generated token by default. For a 32-token continuation this means one
+prefill and 31 cached decode calls. Log and assert coverage. Label any deliberate
+prompt-only control explicitly. Report the expected answer beside the observed answer:
+spider Base is `8`, dog target is `4`, ant target is `6`. A matching digit alone is not
+coherent concept replacement. Label prefill and final-decode readouts separately.
+
+<!-- Written by Codex/GPT-6 from wassname's continuous-steering correction. -->
+
 Use one-at-a-time sweeps. State one default for every axis from prior evidence. Vary one
 axis while all other axes remain at those defaults. Include the default row once and identify
 it in the results table. Do not select a different default separately for each axis.
