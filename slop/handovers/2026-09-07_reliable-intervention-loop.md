@@ -6,6 +6,47 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Latest checkpoint — 2026-09-08, Codex/GPT-6
+
+This checkpoint supersedes the historical results and pending-job notes below.
+Code51d9520 adds `--prefill-instruction`, default unchanged. Independent CPU
+review confirms exact content/trailing space and propagation through source,
+donor, matched templates and future corpus fitting. Generation uses the same IDs.
+The option applies only to explicit `chat-assistant-prefill` mode.
+
+Critical correction: pre-57a3898 generations auto-masked the user-turn
+`<|im_end|>` because pad was incorrectly set to tokenizer EOS. Current code uses
+explicit all-ones masks and correct stop IDs. Old/new comparisons are attention
+confounded, not just different stopping. Do not reuse old numbers as current controls.
+
+Current-mask results: full template L20 C2 gives a naturally completed dog4
+explanation on original and validation2; other wordings still drift. Ant band
+L16–20 C.625 switches all four reused validation wordings, but several invent
+web-related biology. Band clamp C1 gives original ant6 with natural completion;
+dog clamps still reconcile/restart. These are full-residual edits, not a solved
+suppressed-only intervention. Two-column future projection did not improve identity.
+Complete evidence is in template-clamp audit and `out/2026-09-08_*` logs.
+
+Pending GPU jobs, all followed, no status polling needed:
+-603 lexical-union C0 smoke, session89485. Full union grid NOT queued yet.
+-604/605 ant original default/neutral wrapper, sessions80740/83284.
+-606/607 ant validation1 default/neutral, sessions26825/58967.
+-608/609 dog original default/neutral, sessions59461/54997.
+-610/611 dog validation1 default/neutral, sessions76701/57054.
+
+Wrapper jobs use future-template index15 (FULL template L20 C2), last3 plus
+every decode token, max128, official assistant-prefill. Neutral user instruction
+is `Continue the text.`; default is `Complete the following fact, then explain your answer.`
+Each owns `out/2026-09-08_wrapper-{animal}-{original|validation1}-{default|neutral}`.
+Hypothesis: explanation instruction contributes to reconciliation loops; competing
+cause is indiscriminate repeated steering. A bare digit then EOS is not success.
+Compare full text, donor controls, post-edit readout and coverage, not only log odds.
+GPU default lane remains1; other-repo600–602 precede these jobs. Do not modify them.
+
+After603 passes, queue future-union eight-condition grids for both animals128tokens:
+pair/6-form span × natural/equal norm × C0/1, L20. Follow each job. Preserve failures.
+Current user README.md and .gitignore edits remain untouched.
+
 Code commit d23803b (plus later documentation commits). Preserve user README.md
 and .gitignore edits; do not publish/push. Main runner scripts/oat_sweep.py, hooks
 scripts/demo.py, tests scripts/test.py. Use pueue default GPU lane1; other repos
