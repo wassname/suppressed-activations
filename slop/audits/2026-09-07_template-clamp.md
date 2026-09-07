@@ -197,6 +197,33 @@ ML-debug completeness: no training schedule/loss/optimizer; complete raw samples
 3. H3 [harness; Remote;5%]: stopping or patch coverage still invalidates these outputs. Evidence against: all28 masks/decode counts pass and no im_end has following text. Supporting concern: dirty provenance and earlier stopping bug warrant reproduction, not a present bug claim. Test/action: one clean-commit replay, expect identical sequence. Interpretability: yes, residual provenance caveat.
 
 Resolve verdict: strength comparison completed; a shared sustained-coherence solution is not established. Invalid means data not generated under reported method; P(invalid)≈5%, credible dose-response but inconclusive general semantic success. Highest-information clues: both antC.625 runs finish coherently; dog same dose repeats; high doses corrupt despite positive shift. No localized code fix required. Next sequence: freeze the best candidate per explicit scientific question, test fresh wording and longer completion, then matched random controls. Do not call reused validation3 heldout or combine estimator changes with this dose test.
+
+### Future-template586/587 and long583/584
+
+Written by Codex/GPT-6. Read all48 full future-template generations and complete stdout586/587 (83/83 lines each), plus both gated256-cap followups. Future-template code recorded1766ee3-dirty/ c9cfd85-dirty, so exact source provenance remains incomplete. Fit logs reach16/16, condition logs24/24; runtime151.86/155.86s. Independently checked all C0 generation identities, last3/decode-count coverage, and equal prefill perturbation norm between full and matched variants (tolerance1e-4).
+
+These compare full template displacement, projection into the selected future-direction span, and projection rescaled to the full norm. They are not three interchangeable versions of the suppressed detector, and no matched-random control is included here.
+
+Ant: natural projections retain8/spider. Rescaled projections can produce6 but keep spider/eight in their explanations or replace it with a beetle. L20 matchedC1 says:
+
+> The animal that spins webs is a **spider**. ... possessing **eight legs**.
+
+Its leading6 is therefore not ant transfer. FullL20C2 gives6/ant and insect anatomy, then rationalizes the clue with false bee/wasp web-spinning claims. This is more semantic movement, but still not a clean completed explanation at128.
+
+Dog fullL20C2 completes a consistent dog/four-leg explanation at im_end:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is a **dog** (a common breed of dog). Dogs are domesticated canines that have been bred over thousands of years to be loyal companions, protectors, and working partners. They are known for their intelligence, versatility, and ability to respond to commands. The number of legs on a dog is 4, which allows them to run, play, and interact with their owners in various ways.<|im_end|>
+```
+
+“A common breed of dog” is an incidental imprecision, not a reason to reject otherwise sustained concept/count transfer. FullL20C1 instead loops. Natural projections do not give the desired4; matched projections give invented-joke loops or wrong counts. Equal norm makes simple weakening insufficient to explain this particular comparison, but does not prove the selected span contains no usable concept information.
+
+Long followups: ant583 completes126 tokens with6/ant/insect anatomy and a final6, while retaining rationalizations about nesting. Dog584 completes137 tokens with8 and ultimately spider, explicitly contrasting dogs' four legs. The old padding-mask bug documented by the other reviewer changes this comparison's interpretation: the first-token difference cannot be attributed to a larger generation cap. These are outputs of differing effective attention-mask behavior, not evidence that planning a longer response changes the first answer.
+
+Conclusion: full-template dogL20C2 is a completed candidate; selected future-span projections do not improve this tested pair. Prioritize a frozen corrected-mask replay/heldout before claiming reproducibility. The control checks establish execution consistency within these artifacts, not cross-version equivalence or general causal specificity.
 # Attention-mask correction — 2026-09-08
 
 Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.
