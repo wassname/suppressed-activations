@@ -566,7 +566,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         for key, value in row.items()
         if key not in {
             "top_tokens", "generation", "donor_generation", "readout", "base_readout", "target_readout", "config",
-            "intervention_record", "persistence", "base_generation", "base_top_tokens",
+            "intervention_record", "persistence", "base_generation", "base_top_tokens", "readout_by_position",
         }
     )
     return f"""---
@@ -627,6 +627,12 @@ Suppression-score readout at prompt prefill ({row['config']['aggregation']} dete
 
 ```python
 {row['readout']!r}
+```
+
+Per-position readout (the union above can include an unpatched earlier token):
+
+```json
+{json.dumps(row['readout_by_position'], ensure_ascii=False, indent=2)}
 ```
 
 Readout at the last decode step (the state predicting the final generated token):
@@ -881,10 +887,17 @@ def run(
             early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
             output_layer=cfg.detector_layers[2], rank=cfg.rank, normalize_unembedding_rows=True,
         )
-        _, changed_ids, _ = subspace(
+        _, changed_ids, changed_scores = subspace(
             {**source, "residuals": changed_residuals}, cfg, unembedding, norm_gain
         )
         readout = [tokenizer.decode([int(token_id)]) for token_id in changed_ids]
+        position_scores, position_ids = changed_scores.topk(cfg.rank, dim=-1)
+        readout_by_position = [{
+            "position": source["content_end"] - cfg.readout_positions + i,
+            "patched": i >= cfg.readout_positions - positions,
+            "tokens": [tokenizer.decode([token]) for token in ids],
+            "scores": scores,
+        } for i, (ids, scores) in enumerate(zip(position_ids.tolist(), position_scores.tolist()))]
         target_readout = [tokenizer.decode([int(token_id)]) for token_id in target_ids]
         logp = generation_logits.log_softmax(-1)
         if cfg.continue_generation:
@@ -929,6 +942,7 @@ def run(
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
             "readout": readout,
+            "readout_by_position": readout_by_position,
             "base_readout": [tokenizer.decode([int(token)]) for token in base_ids],
             "last_decode_readout": [tokenizer.decode([int(token)]) for token in last_ids[0]],
             "target_readout": target_readout,
