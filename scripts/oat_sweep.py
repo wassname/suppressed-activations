@@ -173,6 +173,15 @@ def template_state_configs():
         for strength in (0.0, 2.0)]
 
 
+def template_attenuation_configs():
+    return [("template_attenuation", f"{span}_matched{matched}_C{strength}", replace(
+        DEFAULT, template_contrast=True, template_state_span=span,
+        persistent_rank=4, intervention_layer=(20,), strength=strength,
+        match_component_norm=matched, restore_residual_norm=False,
+    )) for span in ("peak_split", "attenuation") for matched in (False, True)
+        for strength in (0.0, 2.0)]
+
+
 def template_clamp_configs():
     return [("template_clamp", f"L{layer}_C{strength}", replace(
         DEFAULT, template_contrast=True, template_clamp=True,
@@ -994,6 +1003,7 @@ def run(
         "template-detector": template_detector_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
+        "template-attenuation": template_attenuation_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
@@ -1136,14 +1146,34 @@ def run(
                     contrasts = suffixes[:, 1] - suffixes[:, 0]
                     peak = contrasts[:, cfg.detector_layers[1]].flatten(0, 1)
                     output = contrasts[:, cfg.detector_layers[2]].flatten(0, 1)
-                    columns = {"peak": peak, "update": peak-output, "output": output}[cfg.template_state_span].T
-                    vectors, values, _ = torch.linalg.svd(columns, full_matrices=False)
-                    assert torch.linalg.matrix_rank(columns) >= cfg.persistent_rank
-                    shared = vectors[:, :cfg.persistent_rank]
+                    split = cfg.template_state_span in ("peak_split", "attenuation")
+                    fit_count = peak.shape[0] // 2 if split else peak.shape[0]
+                    if cfg.template_state_span == "attenuation":
+                        columns = torch.cat([peak[:fit_count].T, output[:fit_count].T], dim=1)
+                        vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
+                        joint = vectors[:, :torch.linalg.matrix_rank(columns)]
+                        peakJ, outputJ = peak[:fit_count] @ joint, output[:fit_count] @ joint
+                        energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / fit_count
+                        values, eigenvectors = torch.linalg.eigh(energy_difference)
+                        assert (values > 0).sum() >= cfg.persistent_rank
+                        shared = joint @ eigenvectors[:, -cfg.persistent_rank:].flip(1)
+                    else:
+                        columns = {"peak": peak, "peak_split": peak[:fit_count],
+                                   "update": peak-output, "output": output}[cfg.template_state_span].T
+                        vectors, values, _ = torch.linalg.svd(columns, full_matrices=False)
+                        assert torch.linalg.matrix_rank(columns) >= cfg.persistent_rank
+                        shared = vectors[:, :cfg.persistent_rank]
                     diagnostics = {"selector": "raw_template_contrast_" + cfg.template_state_span,
-                                   "singular_values": values.tolist(),
+                                   "spectrum": values.tolist(),
+                                   "fit_template_indices": list(range(fit_count // 3)),
                                    "peak_projected_contrast_norm": float((peak @ shared).norm(dim=-1).mean()),
                                    "output_projected_contrast_norm": float((output @ shared).norm(dim=-1).mean())}
+                    if split:
+                        for name, section in (("fit", slice(None, fit_count)), ("heldout", slice(fit_count, None))):
+                            for endpoint, states in (("peak", peak), ("output", output)):
+                                coordinates = states[section] @ shared
+                                diagnostics[f"{name}_{endpoint}_mean_square"] = coordinates.square().mean(0).tolist()
+                                diagnostics[f"{name}_{endpoint}_signed_mean"] = coordinates.mean(0).tolist()
                 elif cfg.contrastive_suppression:
                     suffixes = torch.stack(template_suffixes).permute(1, 0, 3, 2, 4)
                     scores = suppressed_activation_scores(
@@ -1386,6 +1416,7 @@ if __name__ == "__main__":
             "template-detector",
             "template-selector",
             "template-state",
+            "template-attenuation",
             "template-clamp",
             "template-scope",
             "template-band-strength",
