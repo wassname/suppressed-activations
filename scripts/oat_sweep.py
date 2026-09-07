@@ -164,6 +164,14 @@ def template_band_strength_configs():
             for strength in (0.0, 0.5, 0.625, 0.75, 1.0, 1.5, 2.0)]
 
 
+def template_band_clamp_configs():
+    return [("template_band_clamp", f"clamp{clamp}_C{strength}", replace(
+        DEFAULT, template_contrast=True, template_clamp=clamp,
+        intervention_layer=tuple(range(16, 21)), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for clamp in (False, True) for strength in (0.0, 0.25, 0.5, 0.625, 0.75, 1.0)]
+
+
 def future_coordinate_configs():
     return [("future_coordinate", f"L{layer}_rank{rank}_C{strength}", replace(
         DEFAULT, coordinate_swap=True, future_coordinate=True, persistent_rank=rank,
@@ -931,6 +939,7 @@ def run(
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
         "template-band-strength": template_band_strength_configs,
+        "template-band-clamp": template_band_clamp_configs,
         "future-coordinate": future_coordinate_configs,
         "future-gated": future_gated_configs,
         "future-template": future_template_configs,
@@ -1259,6 +1268,7 @@ if __name__ == "__main__":
             "template-clamp",
             "template-scope",
             "template-band-strength",
+            "template-band-clamp",
             "future-coordinate",
             "future-gated",
             "future-template",
