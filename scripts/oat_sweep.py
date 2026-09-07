@@ -33,7 +33,7 @@ from scripts.delayed_readout import (
     token_distribution,
 )
 from scripts.prompt import assistant_prefill_input_ids
-from scripts.demo import intervention_hooks, layer_hooks, one_token
+from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
     suppressed_activation_subspace,
@@ -63,6 +63,7 @@ class Config:
     delta_component: str = "difference"
     coordinate_swap: bool = False
     source_dominant_only: bool = False
+    template_contrast: bool = False
 
 
 DEFAULT = Config()
@@ -91,6 +92,32 @@ def coordinate_band_configs():
         intervention_layer=band, strength=strength,
         match_component_norm=False, restore_residual_norm=False,
     )) for band in layers for strength in (0.0, 0.25, 0.5, 1.0, 2.0)]
+
+
+def template_contrast_configs():
+    rows = [("template_contrast", f"L{layer}_rank{rank}_C{strength}", replace(
+        DEFAULT, template_contrast=True, persistent_rank=rank,
+        intervention_layer=(layer,), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (4, 8, 12, 16, 20, 24) for rank in (0, 4)
+        for strength in (0.0, 0.5, 1.0, 2.0, 4.0)]
+    rows.extend(("template_random", str(seed), replace(
+        DEFAULT, template_contrast=True, intervention_layer=(16,), strength=2.0,
+        random_delta_seed=seed, match_component_norm=False, restore_residual_norm=False,
+    )) for seed in range(8))
+    return rows
+
+
+CONCEPT_TEMPLATES = (
+    "A photograph shows a {animal}. The animal is ",
+    "I noticed a {animal} nearby. That animal is ",
+    "Someone described a {animal} to me. The animal is ",
+    "The story mentions a {animal}. That animal is ",
+    "Imagine a {animal} in a garden. This animal is ",
+    "We are discussing a {animal}. The creature is ",
+    "A drawing depicts a {animal}. This creature is ",
+    "I read about a {animal} yesterday. That creature is ",
+)
 
 
 def svd_configs():
@@ -645,7 +672,7 @@ def run(
     unembedding = model.lm_head.weight
     norm_gain = 1.0 + final_norm.weight
 
-    def sample(content):
+    def sample(content, generate=True):
         if prompt_mode == "raw":
             input_ids = tokenizer(
                 content, add_special_tokens=False, return_tensors="pt"
@@ -659,6 +686,9 @@ def run(
             chat = assistant_prefill_input_ids(tokenizer, content)
         else:
             raise ValueError(prompt_mode)
+        if not generate:
+            residuals, logits = trajectory(model, chat["input_ids"], final_norm)
+            return {**chat, "residuals": residuals, "logits": logits}
         captured = []
         generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured)
         return {**chat, "residuals": captured[0], "logits": logits, "generation": generation}
@@ -676,11 +706,28 @@ def run(
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
+    template_deltas, template_provenance = {}, []
+    if sweep == "template-contrast":
+        target_animal = {"4": "dog", "6": "ant"}[target_output]
+        differences = []
+        for template in CONCEPT_TEMPLATES:
+            pair = [sample(template.format(animal=animal), generate=False)
+                    for animal in ("spider", target_animal)]
+            torch.testing.assert_close(pair[0]["input_ids"][0, -3:], pair[1]["input_ids"][0, -3:])
+            differences.append((pair[1]["residuals"][:, -3:].float()
+                                - pair[0]["residuals"][:, -3:].float()).mean(1))
+            template_provenance.append([
+                tokenizer.decode(item["input_ids"][0], skip_special_tokens=False) for item in pair
+            ])
+        mean_difference = torch.stack(differences).mean(0)
+        template_deltas = dict(enumerate(mean_difference))
+
     sweep_configs = {
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
         "coordinate-layer": coordinate_layer_configs,
         "coordinate-band": coordinate_band_configs,
+        "template-contrast": template_contrast_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -740,6 +787,19 @@ def run(
             assert torch.linalg.matrix_rank(coordinate_directions) == 2
             persistence["pair_singular_values"] = torch.linalg.svdvals(coordinate_directions).tolist()
             persistence["direction_cosine"] = float(coordinate_directions[:, 0] @ coordinate_directions[:, 1])
+        elif cfg.template_contrast:
+            fixed_deltas = {layer: template_deltas[layer] for layer in intervention_layers}
+            persistence = {"direction_estimator": "matched_template_mean_difference",
+                           "rendered_template_pairs": template_provenance}
+            if cfg.persistent_rank:
+                shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+                fixed_deltas = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
+                persistence.update(diagnostics)
+            if cfg.random_delta_seed >= 0:
+                for layer, delta in fixed_deltas.items():
+                    generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
+                    random_delta = torch.randn(delta.shape, device=delta.device, generator=generator)
+                    fixed_deltas[layer] = random_delta * delta.norm() / random_delta.norm()
         elif cfg.persistent_rank:
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
@@ -753,7 +813,7 @@ def run(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank else "replace"),
+            operation="coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"),
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
             fixed_deltas=fixed_deltas,
@@ -886,6 +946,7 @@ if __name__ == "__main__":
             "coordinate-swap",
             "coordinate-layer",
             "coordinate-band",
+            "template-contrast",
             "svd",
             "svd-refine",
             "svd-detector",
