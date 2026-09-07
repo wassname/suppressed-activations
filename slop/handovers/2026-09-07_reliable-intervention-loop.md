@@ -77,6 +77,15 @@ Long128 confirmations567 L16rawC2 follower8840,568 L24projectedC2 follower20868.
 Paths out/2026-09-08_future-dog-L16-raw-C2-long and ...-L24-projected-C2-long.
 Only555–562 remain in735;563/564 and566–568 use their separate followers.
 
+555–558 ant band validations finished; all4 full outputs read by main.
+val0 p6=.964258 gives ant6 then drifts to silkworm/tarantula (128cap).
+val1 p6=.688673 gives sustained ant6 (128cap; calls Formicidae an order).
+val2 p6=.942440 gives coherent ant6,109tokens natural EOS.
+val3 p6=.304752 vs p8=.391309 stays spider8,117tokens EOS.
+Thus3/4 first-answer switches, not reliable4/4. Remaining735 followers559–562.
+Scope band grid only tested C up to.5 (not1); modest stronger band doses remain
+untested and could address val3, but may worsen val0 drift. Await dog/long results.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 

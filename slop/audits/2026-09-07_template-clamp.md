@@ -75,3 +75,36 @@ L16 C2 already introduces “the term "ant" is often used colloquially”; its e
 Estimator code sums raw penultimate vocabulary projections over valid positions, differentiates with respect to earlier residual states, then averages source-position gradients and 16 corpus records. Causal attention makes each source gradient include its current/future selected targets. It is not an average of per-source future means, and omits final normalization by design. Split-half cosines measure estimator agreement, not concept selectivity or causal validity. The finite-difference probe is one corpus/word/layer/direction, not comprehensive gradient validation.
 
 Named suppression diagnostics are still the normalized unembedding detector at layers23/25/32, not a future-J readout. In L12 C2, final prompt-position ant centered values are `[2.0258,1.9520,2.2040]`: rise −0.07379, fall −0.25197, score0. The rank reported for zero is a tied-rank lower bound. This does not mean ant is absent; it means that named token does not satisfy this detector's rise-then-fall rule. Candidate L12 C2's visible top suppression list is not ant-like. Successful short causal steering therefore does not yet establish the requested suppressed ant readout.
+
+## Paired future-coordinate audit and ML-debug form
+
+Written by Codex/GPT-6. Also read all40 dog generations in `out/2026-09-07_future-coordinate-dog/result.json`. Dog L24 rank4 C2 is the clearest short projected candidate: p4=0.61653, p8=0.29123, shift=4.25 nats, answer mass=0.90776. Exact full32-token sample:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is the **dog** (specifically, the domestic dog, *Canis lupus familiaris
+```
+
+Its independently computed suppression readout is `[' Dog', 'Dog', 'dog', ' dog', '狗粮', ' dogs', '犬', '狗狗']`. This is a useful dog readout, not a three-row J ranking. Full-space L16 C2 also gives4/dog but starts a qualification. Other digit successes distort the task: L20 C4 says “Spiders are mammals”; L12 C4 says “The animal that spins a dog is a **spider**.” Several conditions instead produce6, wrong for dog. No sustained-coherence conclusion follows from32 tokens.
+
+### Full ML-debug form (paired553/554)
+
+- Log length/config: two result artifacts,40 conditions each; Qwen/Qwen3.5-4B, assistant-prefill, layers12/16/20/24, ranks0/4, C0/.5/1/2/4, last3 plus generation. All80 model continuations inspected.
+- SHOULD lines: none found in root dog `run.md`; executable identity/coverage checks independently repeated and passed. Unknown whether stdout contains additional SHOULD assertions; no such claim made here.
+- Nulls/scales: clean source p6=0.015245, p4=0.028481; zero intervention shift=0 by definition and observed identity. Clean donors p6=0.899812, p4=0.966590. These scale answer movement, not coherence. No arbitrary coherence threshold imposed.
+- Init demo: all C0 source generations start8 and identify spider; these match the same input's base, not chance.
+- Dummy comparison: C0 controls establish ordinary source behavior; no matched-random future-direction controls in these two runs. Thus specificity beyond a generic perturbation remains unmeasured here.
+- Baseline/heldout: development examples show count/identity movement; these artifacts contain no heldout future-coordinate test. Do not transfer template-method heldout evidence to this estimator.
+- Schedule: no optimization schedule; inference interventions and corpus-gradient averaging only.
+- Full sample: quoted above verbatim; exact rendered input is logged in its condition run.md, source content is `'Fact: The number of legs on the animal that spins webs is '`.
+- Worst step/loss/grad norms: no training loss or optimizer. Severe generation distortions quoted above. Per-prompt estimator vector norms are logged; module gradient-norm diagnostics are absent and unnecessary for a training-loss diagnosis here.
+- Surprise: dog conditions produce6 instead of target4; this permits a nonspecific count-change explanation. Chasing through matched controls and longer fixed-condition validation, not explained by current evidence. Ant projected ranks remain weak despite unprojected successes; projector geometry is a possible explanation, not established causal localization.
+- Missing evidence: longer continuation, frozen paraphrases, other consequences, norm-matched random controls specific to these directions, multiple corpus seeds, and broader derivative checks.
+- Alternative diagnoses (subjective priorities, not posterior estimates from a statistical model): context-dependent causal-direction mismatch45%; overstrong dynamic swapping/lexical confound25%; estimator implementation bug10%; short-generation evaluation overstatement10%; unknown10%. For mismatch: clue distortion and mixed dog-spider support it, successful short count/identity opposes a universally wrong direction. For oversteering: C4 corruption supports it, some C2 successes oppose an all-dose failure. For implementation bug: finite-difference agreement and swap algebra oppose it, only one finite-difference probe leaves it incompletely tested. For evaluation overstatement: all outputs cap32, with some qualifications already beginning; exact raw outputs prevent hidden cherry-picking but do not rule out later collapse. Unknown remains untested.
+- Fresh review: this section is the independent reviewer report requested by the main agent; no further nested reviewer was launched. Verdict: short count/identity candidates exist, but neither specificity nor sustained coherence is established by these artifacts.
+- Cheapest discriminator: freeze dog projectedL24C2 and ant unprojectedL12C2, extend generation and compare matched-norm random directions. Semantic transfer predicts relevant sustained content; digit/lexical forcing predicts task distortion, repetition, or similarly strong controls.
+- Runtime/memory: ant100.70s and13,668,947,456 allocated bytes; dog99.41s and13,668,778,496 bytes. These are whole-run values, not isolated estimator costs. Caching the saved future vectors across evaluations would shorten repeated estimator work.
+
+The estimator fits three vocabulary-contracted future directions. It does not compute a whole-vocabulary J-lens. Suppression diagnostics remain a separate rise/fall detector, and their success or failure must not be relabeled as the fitted future lens's readout.
