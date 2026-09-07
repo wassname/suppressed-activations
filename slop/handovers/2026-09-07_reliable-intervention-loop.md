@@ -409,3 +409,14 @@ used instead. Reviews in slop/reviews. Do not repeat withdrawn swap-algebra
 objections. Historical checkpoints are preserved in git, not repeated here.
 
 — Codex/GPT-6
+# Checkpoint: jobs 651–654 (Codex/GPT-6)
+
+All four finished successfully; all followers closed and all 21 stdout lines per job read.
+651/652 add clean identity diagnostics to original ant/dog attenuation runs. Generation token IDs/text and p_target exactly equal prior attenuation rows 7 (644/645), checked with jq. Four held-out explicit-name template pairs separate at every suffix position for both animals. These are four correlated pairs, not 24 independent examples.
+
+Ant implicit source scores [-.335,.326,.502], donor [.974,.446,1.009]: paired ordering transfers but midpoint classification fails two source positions. Dog source [-1.051,-.278,-.680], donor [1.261,.917,.915]: separates. svd_review independently confirmed dimensions/split, and warned explicit names permit lexical decoding. Commit f283d0f fixes misleading heldout labels for other spans fitted on all eight templates; attenuation results unaffected.
+
+653 fixed attenuation fresh dog: p4=.7067, p8=.0310; full three-sentence dog continuation (fetch/bark/trainable), natural EOS. Clean source identity scores all negative.
+654 fixed attenuation validation ant: p6=.8184, p8=.0863; full three-sentence ant continuation (colonies/pheromone trails/exoskeleton), natural EOS. Clean spider source identity scores [.276,.150,.474] all wrongly ant-positive; donor scores remain higher. Thus coherent steering survives these two rephrasings, but absolute ant readout calibration does not.
+
+Artifacts: out/2026-09-08_clean-identity-{ant,dog}/result.json; out/2026-09-08_attenuation-fresh-dog/result.json; out/2026-09-08_attenuation-validation-ant/result.json. Each has run.md and full condition log. No jobs running from this checkpoint. Next: improve implicit readout calibration without using intervention-direction score movement as independent validation; consolidate journal/audit, broaden fixed-method concept consequences. Goal remains active; no validated vocabulary readout yet.
