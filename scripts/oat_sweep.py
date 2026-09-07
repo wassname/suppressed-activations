@@ -36,6 +36,7 @@ from scripts.prompt import assistant_prefill_input_ids
 from scripts.demo import intervention_hooks, layer_hooks, one_token
 from suppressed_activation_subspace import (
     component,
+    suppressed_activation_subspace,
     token_persistent_subspace,
     persistent_suppressed_activation_subspace,
     union_suppressed_activation_subspace,
@@ -49,14 +50,14 @@ class Config:
     readout_positions: int = 4
     rank: int = 8
     intervention_layer: int | tuple[int, ...] = (24,)
-    intervention_positions: int | str = 4
+    intervention_positions: int | str = 3
     strength: float = 2.5
     match_component_norm: bool = True
     restore_residual_norm: bool = True
     donor_position_offset: int = 0
     lexical_forms: str = "detector"
     lexical_divisor: int = 1
-    continue_generation: bool = False
+    continue_generation: bool = True
     persistent_rank: int = 0
     random_delta_seed: int = -1
     delta_component: str = "difference"
@@ -151,6 +152,19 @@ def svd_parts_configs():
         DEFAULT, persistent_rank=1, strength=12.0, delta_component=part,
         restore_residual_norm=False, match_component_norm=False,
     )) for part in ("difference", "source_remove", "target_add")]
+
+
+def svd_continuous_configs():
+    rows = []
+    for rank in (1, 2, 4):
+        for part in ("difference", "source_remove", "target_add"):
+            for strength in (0.0, 2.0, 4.0, 8.0, 12.0):
+                rows.append(("svd_continuous", f"rank={rank},part={part},C={strength:g}", replace(
+                    DEFAULT, persistent_rank=rank, strength=strength, delta_component=part,
+                    intervention_positions=3, continue_generation=True,
+                    restore_residual_norm=False, match_component_norm=False,
+                )))
+    return rows
 
 
 def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
@@ -421,6 +435,10 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
     def capture_final(_module, inputs):
         if not raw_final:
             raw_final.append(inputs[0].detach())
+        elif len(raw_final) == 1:
+            raw_final.append(inputs[0].detach())
+        else:
+            raw_final[1] = inputs[0].detach()
     handle = model.model.norm.register_forward_pre_hook(capture_final)
     with layer_hooks(blocks, hooks), torch.no_grad():
         output = model.generate(
@@ -437,6 +455,9 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
     if residual_capture is not None:
         residual_capture.append(torch.stack(
             [hidden[0] for hidden in output.hidden_states[0][:-1]] + [raw_final[0][0]]
+        ))
+        residual_capture.append(torch.stack(
+            [hidden[0] for hidden in output.hidden_states[-1][:-1]] + [raw_final[-1][0]]
         ))
     token_ids = output.sequences[0, input_ids.shape[1]:].tolist()
     first_logits = output.scores[0][0].float()
@@ -466,6 +487,14 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
 ---
 
 # {row['condition_id']}
+
+Expected Base answer: `{row['source_output']}`. Expected donor-directed answer:
+`{row['target_output']}`. A digit match alone does not establish concept replacement;
+inspect the readout and full continuation below.
+
+Steering continues during generation: `{row['config']['continue_generation']}`.
+For 32 generated tokens, prefill predicts token 1 and 31 cached decode steps predict
+tokens 2 through 32. The intervention record counts those decode steps.
 
 Resolved config:
 
@@ -501,10 +530,16 @@ Base next-token distribution:
 
 {distribution_table(row['base_top_tokens'])}
 
-Suppression-score readout after intervention ({row['config']['aggregation']} detector, not SVD basis labels):
+Suppression-score readout at prompt prefill ({row['config']['aggregation']} detector, not SVD basis labels):
 
 ```python
 {row['readout']!r}
+```
+
+Readout at the last decode step (the state predicting the final generated token):
+
+```python
+{row['last_decode_readout']!r}
 ```
 
 Unmodified donor readout:
@@ -605,6 +640,7 @@ def run(
         "svd-tokens": svd_tokens_configs,
         "svd-candidates": svd_candidates_configs,
         "svd-parts": svd_parts_configs,
+        "svd-continuous": svd_continuous_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -666,12 +702,23 @@ def run(
             model, tokenizer, source["input_ids"], blocks, hooks, captured
         )
         changed_residuals = captured[0]
+        _, last_ids = suppressed_activation_subspace(
+            captured[-1][:, -1][None], unembedding, norm_gain,
+            early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+            output_layer=cfg.detector_layers[2], rank=cfg.rank, normalize_unembedding_rows=True,
+        )
         _, changed_ids, _ = subspace(
             {**source, "residuals": changed_residuals}, cfg, unembedding, norm_gain
         )
         readout = [tokenizer.decode([int(token_id)]) for token_id in changed_ids]
         target_readout = [tokenizer.decode([int(token_id)]) for token_id in target_ids]
         logp = generation_logits.log_softmax(-1)
+        if cfg.continue_generation:
+            for patch in intervention_record.values():
+                assert patch["decode_steps"] == len(generation["token_ids"]) - 1
+                assert patch["prefill_positions"] == list(range(
+                    source["content_end"] - positions, source["content_end"]
+                ))
         if cfg.strength == 0:
             torch.testing.assert_close(generation_logits, base_generation_logits, rtol=0, atol=0)
             assert generation["token_ids"] == base_generation["token_ids"]
@@ -684,6 +731,8 @@ def run(
             "value": value,
             "is_default": axis == "default",
             "readout_from_generation": True,
+            "expected_base_answer": source_output,
+            "expected_steered_answer": target_output,
             "persistence": persistence,
             "swap_log_odds_shift": float(logp[target_id] - logp[source_id] - base_log_odds),
             "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
@@ -706,6 +755,7 @@ def run(
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
             "readout": readout,
+            "last_decode_readout": [tokenizer.decode([int(token)]) for token in last_ids[0]],
             "target_readout": target_readout,
             "generation": generation,
             "base_generation": base_generation,
@@ -770,6 +820,7 @@ if __name__ == "__main__":
             "svd-tokens",
             "svd-candidates",
             "svd-parts",
+            "svd-continuous",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",
