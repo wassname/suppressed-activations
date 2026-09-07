@@ -74,6 +74,7 @@ class Config:
     template_state_span: str = "none"
     discarded_fraction: float = 0.0
     normalize_selector_residuals: bool = False
+    bee_correction: float = 0.0
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
@@ -1051,6 +1052,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             normalize_selector_residuals=normalized, match_component_norm=matched, strength=strength,
         )) for normalized in (False, True) for matched in (False, True) for strength in (0.0, 2.0)],
+        "attenuation-bee-correction": lambda: [("attenuation_bee_correction", f"correction{correction}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            bee_correction=correction,
+        )) for correction in (0.0, 0.25, 0.5, 1.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1302,6 +1307,19 @@ def run(
                 }
                 fixed_deltas = projected
                 persistence.update(diagnostics)
+            if cfg.bee_correction:
+                assert target_concept == "ant" and cfg.template_state_span != "none"
+                correction = (torch.stack(template_suffixes)[:, 1].float() - torch.stack(bee_suffixes).float()).mean(dim=(0, 2))
+                persistence["bee_correction"] = {
+                    "method": "unrestricted ant-minus-bee template mean; not suppressed-only",
+                    "coefficient_after_strength": cfg.strength * cfg.bee_correction,
+                    "per_token_norm_after_strength": {
+                        layer: float((cfg.strength * cfg.bee_correction * correction[layer]).norm())
+                        for layer in intervention_layers
+                    },
+                }
+                fixed_deltas = {layer: delta + cfg.bee_correction * correction[layer]
+                                for layer, delta in fixed_deltas.items()}
             if cfg.random_delta_seed >= 0:
                 for layer, delta in fixed_deltas.items():
                     generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
@@ -1536,6 +1554,7 @@ if __name__ == "__main__":
             "attenuation-isolation",
             "attenuation-rank-expanded",
             "attenuation-scale",
+            "attenuation-bee-correction",
             "template-transport",
             "template-clamp",
             "template-scope",
