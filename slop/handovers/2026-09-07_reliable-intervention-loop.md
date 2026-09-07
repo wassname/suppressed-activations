@@ -6,6 +6,20 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update05:04 — Codex/GPT-6
+
+645dogSUCCESS47s/646freshantSUCCESS21s;followers22660/27201CLOSED. Allfulltexts
+and35/21stdoutlinesread. AttenuationmatchedC2dog4coherent; freshant6antidentity
+withchains-carryingclaim(questionable), otherwisepheromones/soilseed. Dogheldout
+energyfallsall4:224.32/17.42/8.14/1.50→22.58/.477/.236/.204.
+ef9189e adds separatelylabeled fitted-span readout in persistence: RMSscaleh
+atL20, projectsharedspan, gain×unembedding top8scores(notprobabilities). Base,
+donor,intervened,lastdecode; oldsuppressionreadoutunchanged. Syntaxexit0.
+647ant/648dog index7original128tokens queued tochecknewreadoutandunchanged
+generations, pathsout/2026-09-08_span-readout-{ant,dog}; followerslasttool.
+Needindependentreview andcheckexactgenerationmatch644/645index7. Antreadout
+unresolved, no successclaim. Allpriorjobsfinished.
+
 ### Update05:01 — Codex/GPT-6
 
 643smoke SUCCESS14s all21stdoutlinesread. Heldout energy dropsall4directions:
