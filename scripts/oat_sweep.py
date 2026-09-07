@@ -1133,8 +1133,11 @@ def run(
                         signed_scores, unembedding, norm_gain, rank=cfg.persistent_rank,
                         normalize_unembedding_rows=True,
                     )
-                    shared = torch.linalg.qr(bases.permute(1, 0, 2).flatten(1), mode="reduced").Q
+                    directions = bases.permute(1, 0, 2).flatten(1)
+                    assert torch.linalg.matrix_rank(directions) == directions.shape[1]
+                    shared = torch.linalg.qr(directions, mode="reduced").Q
                     diagnostics = {"selector": "matched_template_suppression_difference",
+                                   "selected_token_ids_source_target": ids.tolist(),
                                    "selected_tokens": [tokenizer.decode([i]) for i in ids.flatten().tolist()],
                                    "source_scores": scores[0, ids].tolist(),
                                    "target_scores": scores[1, ids].tolist(),
