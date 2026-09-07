@@ -63,7 +63,7 @@ Each log contains exact prompts, readouts, top-token distribution, and continuat
 
 {table}
 
--- Codex/gpt-5.6-sol
+-- Codex/GPT-6; renderer originally Codex/gpt-5.6-sol
 """
     (root / "run.md").write_text(report)
     print(report)
@@ -74,8 +74,12 @@ if __name__ == "__main__":
     parser.add_argument("root", nargs="?", type=Path)
     args = parser.parse_args()
     if args.root is None:
-        candidates = sorted(Path("out").glob("*_oat-sweep"))
+        candidates = sorted(
+            [path.parent for path in Path("out").glob("*/conditions")
+             if (path.parent / "result.json").exists()],
+            key=lambda path: (path / "result.json").stat().st_mtime,
+        )
         if not candidates:
-            raise FileNotFoundError("no out/*_oat-sweep directory")
+            raise FileNotFoundError("no completed condition sweep in out/")
         args.root = candidates[-1]
     main(args.root)
