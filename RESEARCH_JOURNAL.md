@@ -438,3 +438,60 @@ is a competing explanation. Exact clamp geometry and cached-decode tests pass.
 No public result or notebook was promoted. Goal remains active.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 - Earlier distributed edits produce a complete ant explanation
+
+Job549 condition27 applies half a matched-template difference at each layer
+L16–20, last three prompt tokens and every generated token. It answers6 with
+p6=.963228 and p8=.015569, names ant, describes colonies and Hymenoptera, and
+ends naturally after110tokens. Each of the five layers records109 decode calls.
+The recomputed suppressed readout remains mostly `spinning`, `división`, `SOC`
+and other non-ant words. This remains a full-residual intervention, not proof
+of suppressed-only causal transfer.
+
+```text
+6.
+
+**Explanation:**
+The animal that spins webs is the **ant**. Ants are social insects that live in colonies and are known for their ability to carry heavy loads, build complex structures, and communicate through chemical signals. They are part of the Hymenoptera order, which also includes bees and wasps. Ants are characterized by their distinct body structure, consisting of a head, thorax, and abdomen, and they have six legs, which are adapted for their active lifestyle and role in the colony.<|im_end|>
+<|endoftext|>
+```
+
+Same condition in dog job550 gives4, p4=.927658, dog-like readout and a consistent
+dog/four-leg explanation, followed by a conditional aside; it is truncated at128.
+All64 scope-grid generations were read. Editing all prompt-content positions
+did not consistently improve text; dog band/all/C.5 repeats whereas last3/C.5
+does not. Candidate selection is not a reliability result. Jobs555–562 freeze
+condition27 on the same four validation phrasings per animal for up to128tokens.
+These phrasings have already been used on the earlier template method.
+
+Clamps547/548 do not solve both demos. Dog L24 C1 reduces repeated bigrams from
+.488 (additive) to .055 and coherently states `dogs do not spin webs`; ant still
+circles around the incompatible clue. Clean dog receives nonzero clamp edits at
+every position, despite readable text. Thus the threshold is not an established
+semantic detector. The clean ant donor itself includes false12-leg insect claims;
+ordinary base-model factual errors must not be conflated with induced loops.
+[Independent clamp audit](slop/audits/2026-09-07_template-clamp.md).
+
+Job551 implements actual corpus-averaged future-effect VJPs from the reference,
+not template differences. Sixteen seeded random WikiText2 records use the official
+assistant-prefill template, with content truncated before rendering. Raw penultimate
+residual31 is differentiated against L12/16/20/24 for three vocabulary rows.
+Finite differences at epsilon.125/.5 are8.219/8.200 versus autograd8.279; epsilon2
+is less linear at6.199. Split-half direction cosines are.881–.980. These checks
+support implementation plausibility, not semantic usefulness. Full sweeps553/554
+are queued. Corpus, masks, vectors and diagnostics are saved in the job directory.
+
+Reference review also caught a hook-order problem: built-in hidden-state capture
+could precede edits at the exact patched layer. Production edit hooks now prepend;
+a regression test verifies post-edit capture. For fitting, the earliest source
+becomes a grad leaf in place so captured tensors remain connected. Selected L24
+readouts use peakL25, so this issue does not explain their poor ant readout.
+
+Sources: [ant scope](out/2026-09-07_template-scope-ant/run.md),
+[dog scope](out/2026-09-07_template-scope-dog/run.md),
+[future-estimator smoke](out/2026-09-07_future-vjp-smoke/future_lens.json).
+Scope runs took200/199seconds; clamps188/187seconds; future smoke33seconds.
+Goal remains active: long validation and meaningful ant readout remain unresolved.
+
+<!-- Written by Codex/GPT-6. -->
