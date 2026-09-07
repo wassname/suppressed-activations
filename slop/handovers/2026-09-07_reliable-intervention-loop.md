@@ -6,6 +6,27 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:25 — Codex/GPT-6
+
+622–625 all SUCCESS, followers CLOSED. Full generations/base/donor/coverage
+and21line stdout read for all. Original and validation1 BOTH ant6/dog4 natural
+three-sentence descriptions atFULLL20C2 with default extraction/describe eval.
+Antoriginal p6=.904764, validation .677601; dogoriginal .835725, validation .5042.
+No loops/identity collapse in these4; antreadout stillsocial. Basevalidation
+has eye-count factualerror, so distinguish model factuality from steeringerrors.
+Independent swap_review reviewing all4 and next sweep comparability.
+
+947a7c2 extends existing template-projection grid toL20and24, ranks4/8/16/32,
+C0/.5/1/2, explicit normmatching andnoresidualrenorm;12 existing randomcontrols
+remainL24C1 fullnorm. 44conditions peranimal,128max,continuouslast3+decode.
+626ant follower68132;627dog follower38088. Outputs
+out/2026-09-08_describe-persistent-{ant,dog}. Whole commands correctly quoted.
+These use describe eval/default template extraction. Shared suppression basis
+still source/donor-eval dependent; cannot claim identical projecteddelta across
+wrappers. Detector23/25/32 unchanged. Read all outputs before semanticjudgment.
+Saved template vectors available624/625;622/623 started before save patch so
+do not assume those files exist. Need cross-wrapper tensoridentity control still.
+
 ### Update04:23 — Codex/GPT-6
 
 Progress:620/621 completed natural three-sentence ant6/dog4 descriptions. Full
