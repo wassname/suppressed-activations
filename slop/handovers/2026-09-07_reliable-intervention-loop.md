@@ -6,6 +6,17 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update05:07 — Codex/GPT-6
+
+647antSUCCESS23s/648dogSUCCESS21sfollowers50252/37212CLOSED. All21stdoutlines
+eachread. Antdirectspanreadoutfailscleandonor(隶属/oe/urale...), intervention
+оеди/同步/oca etc. CPUassertantgenerationandp_target EXACTmatch644row7 passes.
+Thusdiagnosticdoesnotchangebehavior; notusefulsemanticreadout. Dogreadoutlasttool.
+svd_review reviewing restrictedmean-J future-effect readout via centralfinite
+differences4spanvectors×2signs×16WikiText prompts, sameaggregationasfit_future_rows.
+Noimplementationyet. Mustcalibratecleandonor/source andlabelresponsevsabsolute
+thoughtreadout. Allourjobsfinished. Needavoidstaticprojectionbeingpresentedasfix.
+
 ### Update05:04 — Codex/GPT-6
 
 645dogSUCCESS47s/646freshantSUCCESS21s;followers22660/27201CLOSED. Allfulltexts
