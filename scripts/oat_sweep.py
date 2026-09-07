@@ -1048,6 +1048,10 @@ def run(
             template_attenuation_configs()[7][2], intervention_layer=(layer,),
             intervention_positions=positions, strength=strength,
         )) for layer in (12, 16, 20) for positions in (3, "all") for strength in (0.0, 1.0, 2.0)],
+        "attenuation-local": lambda: [("attenuation_local", f"peak{peak}_positions{positions}_matched{matched}_C{strength}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, peak, 32),
+            intervention_positions=positions, match_component_norm=matched, strength=strength,
+        )) for peak in (20, 25) for positions in (3, "all") for matched in (False, True) for strength in (0.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1504,6 +1508,7 @@ if __name__ == "__main__":
             "template-state",
             "template-attenuation",
             "attenuation-coverage",
+            "attenuation-local",
             "template-transport",
             "template-clamp",
             "template-scope",
