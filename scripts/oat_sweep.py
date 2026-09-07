@@ -1239,6 +1239,21 @@ def run(
                                    "score_difference": contrast[ids].tolist()}
                 else:
                     shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+                if cfg.template_state_span != "none":
+                    template_coordinates = torch.stack(template_suffixes).float()[:, :, intervention_layers[0]] @ shared
+                    centroids = template_coordinates[:4].mean(dim=(0, 2))
+                    identity_axis = centroids[1] - centroids[0]
+                    identity_axis = identity_axis / identity_axis.norm()
+                    midpoint = centroids.mean(0)
+                    diagnostics["clean_identity_separation"] = {
+                        "method": "signed distance from midpoint of first-four-template centroids; positive is target; not independent steering evidence",
+                        "template_scores_source_target_position": ((template_coordinates-midpoint) @ identity_axis).tolist(),
+                        "heldout_template_indices": [4, 5, 6, 7],
+                        "implicit_scores": {
+                            name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
+                            for name, sample in (("source", source), ("donor", target))
+                        },
+                    }
                 projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
                 persistence["projected_norm_fraction"] = {
                     layer: float(projected[layer].norm() / delta.norm())
