@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:42 — Codex/GPT-6
+
+632dogdetector SUCCESS40s, follower92500 CLOSED. All31stdoutlines/6fulltextsread.
+Onlylatematched transfersdog4; both earlierwindows stayspider8. Allpriorjobsclosed.
+a4c3175 implements template-selector: score difference averaged8matchedexplicit
+animaltemplates×3suffixpositions, top4positive eachsign, normalized vocab basis,
+project existingfulltemplate delta. Score/source/target/wordslogged. C0/C2×natural/
+matched×old/contrastive selector =8rows. FixedL20. No newtraining/readoutclaim.
+svd_review reviewing code. Syntaxcompileexit0. RealGPU8tokenC0smoke634queued
+pathout/2026-09-08_contrastive-selector-smoke, followerjuststarted; retrievehandle
+fromtoolhistory. Do notqueuefulluntilsmoke/reviewchecked. NeedrankassertbeforeQR
+ifreviewconfirms possibility of dependence. Different vocabIDs do notproverank.
+
 ### Update04:39 — Codex/GPT-6
 
 629freshdog SUCCESS20s, follower63606 CLOSED. All21stdoutlines/fulltexts read:
