@@ -27,6 +27,8 @@ def frontmatter(path: Path) -> dict:
 
 def main(root: Path) -> None:
     rows = [frontmatter(path) for path in sorted((root / "conditions").glob("*/run.md"))]
+    source_output = rows[0]["source_output"]
+    target_output = rows[0]["target_output"]
     table = tabulate(
         [[
             row["axis"], row["value"], "yes" if row["is_default"] else "",
@@ -35,7 +37,8 @@ def main(root: Path) -> None:
             f'{row["readout_overlap"]:.3f}', f'[{row["condition_id"]}]({row["log"]})',
         ] for row in rows],
         headers=[
-            "axis", "value", "default", "swap log-odds ↑", "p(4)+p(8) ↑",
+            "axis", "value", "default", "swap log-odds ↑",
+            f"p({target_output})+p({source_output}) ↑",
             "repeat bigrams ↓", "first token", "donor readout overlap ↑", "log",
         ],
         tablefmt="pipe",

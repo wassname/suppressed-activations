@@ -47,7 +47,7 @@ class Config:
     rank: int = 8
     intervention_layer: int | tuple[int, ...] = (24,)
     intervention_positions: int | str = 4
-    strength: float = 2.0
+    strength: float = 2.5
     match_component_norm: bool = True
     restore_residual_norm: bool = True
     donor_position_offset: int = 0
@@ -372,7 +372,14 @@ selective transfer beyond this development prompt.
 """
 
 
-def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
+def run(
+    output_dir: Path,
+    sweep: str,
+    prompt_mode: str,
+    target_prompt: str,
+    source_output: str,
+    target_output: str,
+) -> None:
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -402,9 +409,9 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
         return {**chat, "residuals": residuals, "logits": logits}
 
     source = sample(SOURCE_PROMPT)
-    target = sample(TARGET_PROMPT)
-    source_id = one_token(tokenizer, "8")
-    target_id = one_token(tokenizer, "4")
+    target = sample(target_prompt)
+    source_id = one_token(tokenizer, source_output)
+    target_id = one_token(tokenizer, target_output)
     base_generation, base_generation_logits = generate_with_first_logits(
         model, tokenizer, source["input_ids"], blocks, {}
     )
@@ -482,8 +489,10 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
             "is_default": axis == "default",
             "swap_log_odds_shift": float(logp[target_id] - logp[source_id] - base_log_odds),
             "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
-            "p4": float(logp[target_id].exp()),
-            "p8": float(logp[source_id].exp()),
+            "source_output": source_output,
+            "target_output": target_output,
+            "p_target": float(logp[target_id].exp()),
+            "p_source": float(logp[source_id].exp()),
             "repeated_bigram_fraction": repetition_bigram_fraction(
                 generation["token_ids"], special_ids
             ),
@@ -515,10 +524,14 @@ def run(output_dir: Path, sweep: str, prompt_mode: str) -> None:
         ).stdout.strip(),
         "default": asdict(DEFAULT),
         "prompt_mode": prompt_mode,
+        "source_prompt": SOURCE_PROMPT,
+        "target_prompt": target_prompt,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "base": {
-            "p4": float(base_logp[target_id].exp()),
-            "p8": float(base_logp[source_id].exp()),
+            "source_output": source_output,
+            "target_output": target_output,
+            "p_target": float(base_logp[target_id].exp()),
+            "p_source": float(base_logp[source_id].exp()),
             "generation": base_generation,
         },
         "rows": rows,
@@ -548,5 +561,15 @@ if __name__ == "__main__":
         choices=("raw", "chat-fact", "chat-instructed", "chat-assistant-prefill"),
         default="raw",
     )
+    parser.add_argument("--target-prompt", default=TARGET_PROMPT)
+    parser.add_argument("--source-output", default="8")
+    parser.add_argument("--target-output", default="4")
     args = parser.parse_args()
-    run(args.output_dir, args.sweep, args.prompt_mode)
+    run(
+        args.output_dir,
+        args.sweep,
+        args.prompt_mode,
+        args.target_prompt,
+        args.source_output,
+        args.target_output,
+    )
