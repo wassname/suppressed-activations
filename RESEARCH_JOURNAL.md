@@ -573,3 +573,48 @@ Current validation uses the corrected mask consistently for both animal tasks.
 The attention correction needs to remain part of every future result's provenance.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Describing the animal gives coherent full-template continuations
+
+Asking for an animal description avoids the reconciliation seen in these explanation runs.
+
+Jobs622 to625 use full template differences at L20, C=2, on the original and
+previously tested alternate spider wording. Steering covers the last three prompt
+tokens and every decode step until natural completion. Extraction retains
+`Complete the following fact, then explain your answer.` Evaluation uses
+`Complete the following fact. Then describe the animal in three sentences.`
+Both use the official assistant-prefill template and corrected attention mask.
+
+The original ant continuation begins:
+
+> 6.
+>
+> The ant is a tiny, hardworking insect known for its incredible ability to carry objects many times its own size.
+
+The original dog continuation begins:
+
+> 4.
+>
+> The animal is a domestic dog, a loyal companion known for its ability to run, fetch, and sit.
+
+Sources: [ant full demo](out/2026-09-08_wrapper-ant-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md),
+[dog full demo](out/2026-09-08_wrapper-dog-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md).
+All four full outputs, controls, coverage and instruction provenance were inspected
+by the main agent and independent reviewer; [audit](slop/audits/2026-09-07_template-clamp.md).
+The alternate wording also completes target descriptions without identity reversals.
+The ant suppressed readout remains social vocabulary, while dog has dog vocabulary.
+These are full-residual edits, not evidence that the suppressed subspace is sufficient.
+`hack_s` (reward-hacking count) and `gt_s` (ground-truth pass count) are not defined
+or logged for this inference experiment; no such scores are inferred from fluency.
+
+Interpretation, Codex/GPT-6: explanation demand probably contributed to the earlier
+reconciliation, because keeping template extraction fixed and changing evaluation
+instruction gives relevant target descriptions. This is a reused development pair,
+not held-out reliability. Tensor equality across extraction runs is not yet checked.
+The next projection sweep tests whether this continuation improvement survives
+restriction to the detected persistent subspace; its selected basis still depends
+on the evaluation prompts.
+
+The coherent baseline makes the unresolved subspace and readout tests easier to interpret.
+
+<!-- Written by Codex/GPT-6. -->
