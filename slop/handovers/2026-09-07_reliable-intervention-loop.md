@@ -58,6 +58,17 @@ Reference: slop/research/2026-09-07_future-vjp-reference.md.
 
 ## Pending jobs and live followers
 
+Update 2026-09-08 01:14, Codex/GPT-6: shared552 finished;553 SUCCESS105s.
+Main read all40 ant future-coordinate outputs and all115 stdout lines.
+Raw future L12C2 gives6,p6=.925624,p8=.031673 and ant/Insecta explanation32tokens;
+L16C2 gives6,p6=.952399 but starts colloquial qualification. C4 early damages wording.
+Rank4 projected variants never give6. L24C2/4 gives ant-like readout but remains8,
+and C4 loops ant-spider. Diagnostic L12C2 lastpos35 ant logits23/25/32=
+2.0258/1.9520/2.2040: no rise/fall, score0, despite ant6 behavior.
+Long128 L12C2 ant confirmation queued566, follower11835,
+out/2026-09-08_future-ant-L12-C2-long. swap_review auditing553 independently.
+Cell735 still follows remaining554–562;563/564 followers38979/44997 still live.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 
