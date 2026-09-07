@@ -409,6 +409,14 @@ used instead. Reviews in slop/reviews. Do not repeat withdrawn swap-algebra
 objections. Historical checkpoints are preserved in git, not repeated here.
 
 — Codex/GPT-6
+# Current checkpoint: jobs 655–659 (Codex/GPT-6)
+
+Previous turn is progress. Commit b89b0d9 adds attenuation-coverage grid and journals 651–657. User README/.gitignore remain dirty and untouched.
+655 instruction control finished: matching extraction instruction leaves implicit spider ant-axis scores [-.242,.320,.381], so mismatch does not explain midpoint failure. Added extraction_source/target clean trajectories and diagnostic field implicit_extraction_instruction_scores (70b5dea). All 16 CPU tests passed via uv run --no-sync python -m scripts.test, process70038 closed.
+656 naming ant fails: '**spider**', eight legs. 657 naming dog says '**dog**' but loops through attempted corrections, r2=.386. Full outputs inspected by main and continuous_review. Followers63923/67073 closed. All21stdoutlines read. Naming next-token probabilities omit bold-format alternatives, so use full output to judge identity, not digit-specific first_answer.
+
+RUNNING/QUEUED:658 ant and659 dog, attenuation-coverage, 18 conditions each: L12/16/20 x positions3/all-content x C0/1/2. Fixed attenuation rank4, matched displacement norm, no residual renorm, steering all decode steps. Names task inputs and three-sentence wrapper same as656/657. Outputs out/2026-09-08_attenuation-coverage-{ant,dog}. Exact argv in pueue. Follower sessions:21840 for658,68185 for659. Continue SAME handles; observation timeout is not failure. Last21840poll still live. Do not requeue. Read results and coverage/C0 controls, then choose next change from evidence. This tests whether unedited source prompt context causes contradictions; full content coverage edits semantics tokens too.
+
 # Checkpoint: jobs 651–654 (Codex/GPT-6)
 
 All four finished successfully; all followers closed and all 21 stdout lines per job read.
