@@ -155,7 +155,7 @@ difference:    p6=0.6720733046531677, swap_log_odds_shift=5.375
 target_add:    p6=0.01483974326401949, swap_log_odds_shift=0.0
 ```
 
-The score is the change in log probability ratio of six versus eight, in nats. [Job 500](out/2026-09-07_svd-ant-parts/run.md). Removal and combined edits both generate six then explain that the animal is a spider. Continued edits often generate social-related content instead of ants. A matched-size random edit and some dog-directed settings also generate six. Dog rank 4 at C=8 does give a dog-related readout and p4=0.862182. These are selected development results, not generalization estimates.
+The score is the change in log probability ratio of six versus eight, in nats. [Job 500](out/2026-09-07_190240_svd-ant-parts/run.md). Removal and combined edits both generate six then explain that the animal is a spider. Continued edits often generate social-related content instead of ants. A matched-size random edit and some dog-directed settings also generate six. Dog rank 4 at C=8 does give a dog-related readout and p4=0.862182. These are selected development results, not generalization estimates.
 
 My interpretation: source removal probably explains the apparent ant transfer at the selected setting, because removal alone is stronger and donor addition alone has no log-odds effect. The SVD construction itself passes the tested projector and hook invariants. The next useful change should improve donor concept extraction; increasing strength has already exposed the wrong social feature. Reward-hacking and ground-truth pass counts are not defined for this inference experiment, so digit matches are not relabelled as semantic passes.
 
@@ -185,7 +185,7 @@ Rank-one combined C=12 produces:
 The animal that spins social or hunting social networks is the **social network** (a type of social network). However, the
 ```
 
-Source: [continuous ant sweep](out/2026-09-07_svd-ant-continuous-last3/run.md).
+Source: [continuous ant sweep](out/2026-09-07_191511_svd-ant-continuous-last3/run.md).
 
 For spider-to-dog, the expected answer is four with coherent dog content. Two conditions
 start with four but repeat the bark token. Rank-four combined C=8 produces:
@@ -197,7 +197,7 @@ start with four but repeat the bark token. Rank-four combined C=8 produces:
 The animal that is most famously known for spinning dog吠吠吠吠吠吠吠吠吠吠吠吠吠吠吠
 ```
 
-Source: [continuous dog sweep](out/2026-09-07_svd-dog-continuous-last3/run.md).
+Source: [continuous dog sweep](out/2026-09-07_191640_svd-dog-continuous-last3/run.md).
 Rank-two combined C=8 instead names dog but answers eight. Independent Codex/GPT-6 review
 read all continuations and confirmed coverage; no condition established both correct
 donor-directed answer and coherent donor explanation. Each job took about eighty seconds.
@@ -228,7 +228,7 @@ Job 507, dog rank four C=5, logs `p_target=0.5034767985343933` and
 The animal that spins webs is the **dog** (or more accurately, the **dog** in the context of the id
 ```
 
-Source: [dog refinement](out/2026-09-07_svd-dog-continuous-refine/result.json).
+Source: [dog refinement](out/2026-09-07_192255_svd-dog-continuous-refine/result.json).
 Job 508, ant rank one C=10, logs `p_target=0.5622626543045044` and produces:
 
 ```text
@@ -238,7 +238,7 @@ Job 508, ant rank one C=10, logs `p_target=0.5622626543045044` and produces:
 The animal that spins social or hunting webs is the **social spider** (specifically the genus *Araneus*, such
 ```
 
-Source: [ant refinement](out/2026-09-07_svd-ant-continuous-refine/result.json).
+Source: [ant refinement](out/2026-09-07_192327_svd-ant-continuous-refine/result.json).
 All eighteen continuations were inspected. These are selected development conditions,
 not held-out results. Both retain the previous last-three-prompt plus continuous-decode
 coverage. Reward-hacking count `hack_s` and ground-truth count `gt_s` are not defined
@@ -292,8 +292,8 @@ This row has p4=0.4633 versus base0.0285 and log-odds movement+3.625 nats.
 All twenty-four generations were inspected; samples above are selected to show
 the mismatch between numerical and semantic effects, not held-out successes.
 
-Sources: [ant grid](out/2026-09-07_coordinate-swap-ant/run.md),
-[dog grid](out/2026-09-07_coordinate-swap-dog/run.md),
+Sources: [ant grid](out/2026-09-07_210840_coordinate-swap-ant/run.md),
+[dog grid](out/2026-09-07_210919_coordinate-swap-dog/run.md),
 [complete audit](slop/audits/2026-09-07_named-coordinate-swap.md).
 Independent review confirmed C0 identity, three prefill positions and thirty-one
 decode calls, and float32 coordinate algebra. Post-cast coordinates were not
@@ -390,8 +390,8 @@ forms. This does NOT establish the suppressed-subspace hypothesis: the successfu
 condition uses the full activation difference, without suppression projection.
 The rank-four projected ant conditions did not change the first answer to six.
 
-Sources: [ant grid](out/2026-09-07_template-contrast-ant/run.md),
-[dog grid](out/2026-09-07_template-contrast-dog/run.md).
+Sources: [ant grid](out/2026-09-07_223632_template-contrast-ant/run.md),
+[dog grid](out/2026-09-07_223845_template-contrast-dog/run.md).
 Jobs 526–535 freeze condition 52 for each animal: a 128-token continuation on the
 selection prompt plus the four predeclared held-out prompts at 32 tokens.
 Steering stays on throughout. No separate condition selection per held-out prompt.
@@ -488,9 +488,9 @@ a regression test verifies post-edit capture. For fitting, the earliest source
 becomes a grad leaf in place so captured tensors remain connected. Selected L24
 readouts use peakL25, so this issue does not explain their poor ant readout.
 
-Sources: [ant scope](out/2026-09-07_template-scope-ant/run.md),
-[dog scope](out/2026-09-07_template-scope-dog/run.md),
-[future-estimator smoke](out/2026-09-07_future-vjp-smoke/future_lens.json).
+Sources: [ant scope](out/2026-09-07_231638_template-scope-ant/run.md),
+[dog scope](out/2026-09-07_231958_template-scope-dog/run.md),
+[future-estimator smoke](out/2026-09-07_232317_future-vjp-smoke/future_lens.json).
 Scope runs took200/199seconds; clamps188/187seconds; future smoke33seconds.
 Goal remains active: long validation and meaningful ant readout remain unresolved.
 
@@ -504,7 +504,7 @@ The ant future-effect swap at L12, C2 starts with the intended answer but later 
 
 > only ants (and some spiders, though spiders are arachnids with four legs) are known for constructing and spinning webs.
 
-Source: [long ant result](out/2026-09-08_future-ant-L12-C2-long/result.json), job566.
+Source: [long ant result](out/2026-09-08_012648_future-ant-L12-C2-long/result.json), job566.
 This is not a clean ant explanation. The dog L16 C2 continuation likewise enters
 a repeated correction loop. These runs used the same official assistant-prefill
 template and continuous steering through the generated continuation.
@@ -515,7 +515,7 @@ model instead says:
 
 > it is important to clarify a common misconception: **dogs do not spin webs.**
 
-Source: [gated dog result](out/2026-09-08_future-gated-dog/result.json), job576,
+Source: [gated dog result](out/2026-09-08_013202_future-gated-dog/result.json), job576,
 condition011. It sustains dog/four-leg discussion with a qualification, unlike the
 lower-layer correction loops. The explanation still reaches the token cap.
 All paired ant and dog outputs were read by the main agent and an independent
@@ -597,8 +597,8 @@ The original dog continuation begins:
 >
 > The animal is a domestic dog, a loyal companion known for its ability to run, fetch, and sit.
 
-Sources: [ant full demo](out/2026-09-08_wrapper-ant-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md),
-[dog full demo](out/2026-09-08_wrapper-dog-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md).
+Sources: [ant full demo](out/2026-09-08_042138_wrapper-ant-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md),
+[dog full demo](out/2026-09-08_042159_wrapper-dog-original-fixed-extraction/conditions/015_future_template_L20_full_C2.0/run.md).
 All four full outputs, controls, coverage and instruction provenance were inspected
 by the main agent and independent reviewer; [audit](slop/audits/2026-09-07_template-clamp.md).
 The alternate wording also completes target descriptions without identity reversals.
@@ -636,21 +636,21 @@ Its full output begins:
 >
 > The ant is a tiny insect known for its remarkable ability to carry objects many times its own weight.
 
-The next sentences describe colonies, pheromones, soil aeration and seed dispersal. [Full ant evidence](out/2026-09-08_clean-identity-ant/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md).
+The next sentences describe colonies, pheromones, soil aeration and seed dispersal. [Full ant evidence](out/2026-09-08_045830_clean-identity-ant/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md).
 
 Job 652, original dog, reports:
 
 > p_target: 0.7863069176673889
 
-Its output begins `4.` and describes a dog, smell, play and commands. [Full dog evidence](out/2026-09-08_clean-identity-dog/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md). Jobs 653 and 654 keep the configuration fixed on rephrased sources and produce coherent dog and ant descriptions respectively: [dog](out/2026-09-08_attenuation-fresh-dog/run.md), [ant](out/2026-09-08_attenuation-validation-ant/run.md). Adding the clean identity diagnostic leaves original generation tokens and target probabilities exactly unchanged from the prior attenuation runs, checked by JSON equality.
+Its output begins `4.` and describes a dog, smell, play and commands. [Full dog evidence](out/2026-09-08_045852_clean-identity-dog/conditions/007_template_attenuation_attenuation_matchedTrue_C2.0/run.md). Jobs 653 and 654 keep the configuration fixed on rephrased sources and produce coherent dog and ant descriptions respectively: [dog](out/2026-09-08_050217_attenuation-fresh-dog/run.md), [ant](out/2026-09-08_050237_attenuation-validation-ant/run.md). Adding the clean identity diagnostic leaves original generation tokens and target probabilities exactly unchanged from the prior attenuation runs, checked by JSON equality.
 
-The clean identity diagnostic measures signed distance from the midpoint of explicit-name template centroids, with positive meaning target. All four held-out named-template pairs separate for both animals. These are correlated template pairs, not independent token examples. For the implicit ant task, clean spider scores are `[-0.3352128267288208, 0.3261594772338867, 0.5017805099487305]`: two positions are wrongly target-positive. Matching the extraction instruction still gives `[-0.2423253059387207, 0.31994643807411194, 0.38094115257263184]`. [Instruction-control evidence](out/2026-09-08_identity-instruction-ant/result.json). The instruction difference does not suffice to explain the failure. The independent subspace reviewer found no dimension or ordering bug and confirmed the split, while noting explicit lexical identity is an alternative explanation for named-template separation.
+The clean identity diagnostic measures signed distance from the midpoint of explicit-name template centroids, with positive meaning target. All four held-out named-template pairs separate for both animals. These are correlated template pairs, not independent token examples. For the implicit ant task, clean spider scores are `[-0.3352128267288208, 0.3261594772338867, 0.5017805099487305]`: two positions are wrongly target-positive. Matching the extraction instruction still gives `[-0.2423253059387207, 0.31994643807411194, 0.38094115257263184]`. [Instruction-control evidence](out/2026-09-08_050412_identity-instruction-ant/result.json). The instruction difference does not suffice to explain the failure. The independent subspace reviewer found no dimension or ordering bug and confirmed the split, while noting explicit lexical identity is an alternative explanation for named-template separation.
 
 `hack_s` (reward-hacking count) and `gt_s` (ground-truth pass count) are not defined for these inference runs. Coherent descriptions do not establish a valid suppressed readout. The static and transported vocabulary-component decoders also fail clean ant identity; no intervened classifier movement is counted as independent evidence because steering uses the same contrast.
 
 Interpretation, Codex/GPT-6: a reusable animal contrast is probable, given the coherent continuations across rephrasings. Absolute ant identity calibration across explicit names and implicit descriptions is not established. Testing direct animal naming without a leg-count question is the next behavioral discriminator.
 
-Jobs 656 and 657 test direct naming with the same fixed intervention. Ant produces ` **spider**.` and describes eight legs. Dog produces ` **dog**.` but repeats attempted corrections, including `*(Okay, I am stuck in a loop. Let me think clearly.` [Ant naming](out/2026-09-08_attenuation-name-ant/result.json), [dog naming](out/2026-09-08_attenuation-name-dog/result.json). The independent continuation reviewer confirmed both failures. Next we vary intervention depth and prompt coverage while retaining continuous decode steering; this tests whether unedited source context reintroduces the contradiction.
+Jobs 656 and 657 test direct naming with the same fixed intervention. Ant produces ` **spider**.` and describes eight legs. Dog produces ` **dog**.` but repeats attempted corrections, including `*(Okay, I am stuck in a loop. Let me think clearly.` [Ant naming](out/2026-09-08_050520_attenuation-name-ant/result.json), [dog naming](out/2026-09-08_050543_attenuation-name-dog/result.json). The independent continuation reviewer confirmed both failures. Next we vary intervention depth and prompt coverage while retaining continuous decode steering; this tests whether unedited source context reintroduces the contradiction.
 
 Generation transfer and readout validity remain separate claims.
 

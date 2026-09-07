@@ -72,50 +72,7 @@ Unmodified donor readout:
 
 Measured intervention norms:
 
-```json
-{
-  "23": {
-    "residual_norm": 47.84559631347656,
-    "perturbation_norm": 4.420228481292725,
-    "relative_perturbation_by_position": [
-      0.12641239166259766,
-      0.09157072007656097,
-      0.04990703612565994,
-      0.07629377394914627
-    ]
-  },
-  "24": {
-    "residual_norm": 50.884456634521484,
-    "perturbation_norm": 2.792349338531494,
-    "relative_perturbation_by_position": [
-      0.051585569977760315,
-      0.05160406231880188,
-      0.05873917415738106,
-      0.057781293988227844
-    ]
-  },
-  "25": {
-    "residual_norm": 54.27627182006836,
-    "perturbation_norm": 3.2229325771331787,
-    "relative_perturbation_by_position": [
-      0.07748448103666306,
-      0.055528171360492706,
-      0.04637177661061287,
-      0.052338868379592896
-    ]
-  },
-  "26": {
-    "residual_norm": 56.89807891845703,
-    "perturbation_norm": 1.1773109436035156,
-    "relative_perturbation_by_position": [
-      0.013557194732129574,
-      0.019668349996209145,
-      0.028049200773239136,
-      0.018224500119686127
-    ]
-  }
-}
-```
+[Full diagnostic data](../../result.json) (`rows` → `028_layer_combo_L=23_24_25_26_positions=4_C=1`).
 
 Generation (32 tokens, verbatim):
 

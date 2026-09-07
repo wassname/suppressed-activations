@@ -22,7 +22,7 @@ Written by Codex/GPT-6. These naming failures include an article confound: sourc
 
 The local-span smoke fits L20-to-L32 attenuation. One held-out direction increases mean square from .2153 to .3918 despite decreasing on fit templates. Positive training eigenvalues do not guarantee held-out attenuation. svd_review recommended comparing local versus L25 spans at fixed L20, including natural and matched magnitudes; jobs661/662 implement that comparison.
 
-Sources: [ant coverage](../../out/2026-09-08_attenuation-coverage-ant/result.json), [dog coverage](../../out/2026-09-08_attenuation-coverage-dog/result.json), [local smoke](../../out/2026-09-08_attenuation-local-ant-smoke/result.json).
+Sources: [ant coverage](../../out/2026-09-08_050808_attenuation-coverage-ant/result.json), [dog coverage](../../out/2026-09-08_050931_attenuation-coverage-dog/result.json), [local smoke](../../out/2026-09-08_051055_attenuation-local-ant-smoke/result.json).
 
 ## Local-span comparison, jobs 661/662
 
@@ -35,7 +35,7 @@ Dog local L20-selected span produces coherent dog descriptions through EOS in al
 > Description:
 > The dog is a domesticated canine that has been raised by humans for thousands of years to serve as companions, working partners, and family members.
 
-Full sources: [ant local](../../out/2026-09-08_attenuation-local-ant/result.json), [dog local](../../out/2026-09-08_attenuation-local-dog/result.json). Ant all16 C0/coverage checks independently pass. Dog checks and fresh independent review remain to do. Do not interpret this one development naming task as broad reliability.
+Full sources: [ant local](../../out/2026-09-08_051141_attenuation-local-ant/result.json), [dog local](../../out/2026-09-08_051304_attenuation-local-dog/result.json). Ant all16 C0/coverage checks independently pass. Dog checks and fresh independent review remain to do. Do not interpret this one development naming task as broad reliability.
 
 ## Follow-up, jobs 665-669
 
@@ -43,21 +43,21 @@ Dog local all16 coverage/C0 checks now pass; continuous_review confirms the cohe
 
 The `known as the` suffix control does not fix ant: job665 remains spider and mixes in nectar-gathering traits. Job666 late-span dog names dog but explicitly says dogs do not spin webs, then gives a coherent dog description. This is no loop, but not unqualified replacement. The wording also changes from `called a`, so it is not an isolated article effect.
 
-Job667 local ant rank1/2/4 and C0/1/2/3/4 gives spider, bees, or beehive. All49 stdout lines and every nonzero full generation read. Rank2 and rank4 at C2 produce the same coherent bee description; C3/4 produce hive-as-animal errors. All15 coverage/C0 checks pass. This does not support more strength or lower rank as sufficient here. [Rank sweep](../../out/2026-09-08_attenuation-rank-ant/result.json).
+Job667 local ant rank1/2/4 and C0/1/2/3/4 gives spider, bees, or beehive. All49 stdout lines and every nonzero full generation read. Rank2 and rank4 at C2 produce the same coherent bee description; C3/4 produce hive-as-animal errors. All15 coverage/C0 checks pass. This does not support more strength or lower rank as sufficient here. [Rank sweep](../../out/2026-09-08_051707_attenuation-rank-ant/result.json).
 
-Fixed local dog (rank4,L20,C2,last3) transfers to original leg count in668 and common-article naming in669, both through EOS without correction. Full outputs read and coverage checked. Leg output starts `4.` then `The animal is a domestic dog, a popular companion known for its loyalty and ability to understand basic commands.` Naming starts ` **dog**.` and gives a domesticated-canine description. [Legs](../../out/2026-09-08_attenuation-local-legs-dog/result.json), [naming](../../out/2026-09-08_attenuation-local-name-the-dog/result.json).
+Fixed local dog (rank4,L20,C2,last3) transfers to original leg count in668 and common-article naming in669, both through EOS without correction. Full outputs read and coverage checked. Leg output starts `4.` then `The animal is a domestic dog, a popular companion known for its loyalty and ability to understand basic commands.` Naming starts ` **dog**.` and gives a domesticated-canine description. [Legs](../../out/2026-09-08_051819_attenuation-local-legs-dog/result.json), [naming](../../out/2026-09-08_051842_attenuation-local-name-the-dog/result.json).
 
 Next discriminator671 uses unrestricted template difference for ant naming. svd_review found no ant/bee label or sign error. If unrestricted also gives bee, reviewer recommends comparing final-template-token extraction with three-token averaging, keeping continuous intervention coverage unchanged, and adding bee as a clean distractor. Spider/ant separation alone cannot prove ant specificity.
 
 ## Full-difference discriminator, jobs 671/672
 
-Both completed successfully; all21 stdout lines and full generation strings read. The unrestricted L20/C2 template difference gives ` **ant**.` followed by a coherent colony/division-of-labor description. Thus changing extraction averaging is not the next priority: projection introduces the naming failure in this paired example. [Full difference](../../out/2026-09-08_full-template-name-the-ant/result.json).
+Both completed successfully; all21 stdout lines and full generation strings read. The unrestricted L20/C2 template difference gives ` **ant**.` followed by a coherent colony/division-of-labor description. Thus changing extraction averaging is not the next priority: projection introduces the naming failure in this paired example. [Full difference](../../out/2026-09-08_052922_full-template-name-the-ant/result.json).
 
-The added clean bee diagnostic leaves generation exactly equal to667row12. Bee scores are mostly positive on the spider-ant centroid axis. Ant remains higher than bee within matched templates, so the span is not proven devoid of ant information; the zero threshold is not ant-specific. [Bee diagnostic](../../out/2026-09-08_clean-bee-distractor-ant/result.json).
+The added clean bee diagnostic leaves generation exactly equal to667row12. Bee scores are mostly positive on the spider-ant centroid axis. Ant remains higher than bee within matched templates, so the span is not proven devoid of ant information; the zero threshold is not ant-specific. [Bee diagnostic](../../out/2026-09-08_052945_clean-bee-distractor-ant/result.json).
 
 Job674 compares P d + alpha (I-P)d at alpha0/.25/.5/.75/1, each rescaled to the full difference norm. All edits stay L20/C2/last3 plus every decode token. Mixed-space edits are not suppressed-only. CPU checks verify endpoint recovery and constant total norm; the runner logs selected and discarded per-token perturbation norms. Reviewer svd_review cautions that rescaling also decreases the selected component, so if an intermediate mixture improves, compare against a pure selected edit at the same selected magnitude before crediting discarded content alone.
 
-Job674 completed in36s. All29 stdout lines and all five full outputs read. Alpha0/.25/.5/.75 produce bees; alpha1 produces the same ant generation as unrestricted671. Alpha0 exactly reproduces667row12. All five decode coverage checks pass. Aggregate prefill perturbation norms are14.322684 to14.322686, within float rounding. Actual per-token selected/discarded norms are (8.269206,.0000034), (8.199720,1.069755), (8.001320,2.087742), (7.700422,3.013846), (7.331022,3.825689). [Restoration evidence](../../out/2026-09-08_attenuation-complement-ant/result.json).
+Job674 completed in36s. All29 stdout lines and all five full outputs read. Alpha0/.25/.5/.75 produce bees; alpha1 produces the same ant generation as unrestricted671. Alpha0 exactly reproduces667row12. All five decode coverage checks pass. Aggregate prefill perturbation norms are14.322684 to14.322686, within float rounding. Actual per-token selected/discarded norms are (8.269206,.0000034), (8.199720,1.069755), (8.001320,2.087742), (7.700422,3.013846), (7.331022,3.825689). [Restoration evidence](../../out/2026-09-08_053550_attenuation-complement-ant/result.json).
 
 Only the full endpoint succeeded among these tested fractions; this does not establish that every fraction below one fails. Next676 isolates selected P d, discarded (I-P)d, and their sum at natural sizes with C0/C2. This includes the reduced-selected-magnitude control and tests whether discarded content alone suffices. No claim of suppressed-only ant replacement follows from full restoration.
 

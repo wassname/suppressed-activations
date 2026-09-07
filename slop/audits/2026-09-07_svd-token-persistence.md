@@ -6,7 +6,7 @@ Written by Codex/GPT-6. User request: test a suppressed space shared across toke
 
 The SVD implementation changes answers, but the tested ant result is explained largely by source removal. At rank 1, L24, last four tokens, C=12, no norm restoration:
 
-| [condition](../../out/2026-09-07_svd-ant-parts/run.md) | swap log-odds↑ | p(6)↑ | p(8)↓ |
+| [condition](../../out/2026-09-07_190240_svd-ant-parts/run.md) | swap log-odds↑ | p(6)↑ | p(8)↓ |
 |---|---:|---:|---:|
 | source removal only | **6.125** | **0.793350** | **0.107368** |
 | combined difference | 5.375 | 0.672073 | 0.192552 |
@@ -39,17 +39,17 @@ Also corrected older delayed token tables to apply final RMSNorm, corrected thei
 
 All commands use `uv run scripts/oat_sweep.py --prompt-mode chat-assistant-prefill --sweep NAME --target TARGET --output-dir DIR`. All use the pinned Qwen3.5-4B revision recorded in each result.json. Every condition generates up to 32 tokens, including failures. The root report links every condition's exact inputs, readouts, probabilities, configuration, and continuation.
 
-- Jobs 488/489: initial `svd` rank/strength scans, ant/dog, 41 conditions each. [Ant v1](../../out/2026-09-07_svd-ant-v1/run.md), [dog v1](../../out/2026-09-07_svd-dog-v1/run.md). Separate readout pass; superseded for provenance, retained as historical evidence.
+- Jobs 488/489: initial `svd` rank/strength scans, ant/dog, 41 conditions each. [Ant v1](../../out/2026-09-07_185005_svd-ant-v1/run.md), [dog v1](../../out/2026-09-07_185135_svd-dog-v1/run.md). Separate readout pass; superseded for provenance, retained as historical evidence.
 - Jobs 490/491: failed separate-pass equality checks. No completed result table. Raw pueue logs retain both failures.
-- Job 492: `svd-refine`, ant, 25 conditions. [Ant refinement](../../out/2026-09-07_svd-ant-v3/run.md).
-- Job 493: `svd-detector`, ant, 49 conditions. [Detector windows](../../out/2026-09-07_svd-ant-detector-v2/run.md). Every condition starts with 8.
-- Job 494: `svd-band`, ant, 25 conditions. [Layer bands and continued generation](../../out/2026-09-07_svd-ant-band/run.md). Continued edits produce social spiders, social networks, and repetition.
-- Job 495: `svd-refine`, ant-anthill, 25 conditions. [Anthill wording](../../out/2026-09-07_svd-anthill/run.md). Development wording comparison, not held-out validation.
-- Job 496: `svd-refine`, dog, 25 conditions. [Dog comparison](../../out/2026-09-07_svd-dog-v3/run.md). Rank4 C8 gives p4=.862182 and dog readout; several rank1/2 conditions give 6 instead.
-- Job 497: `svd-control`, ant, 18 conditions including selected edit, zero, and 16 random directions with matched displacement norm. [Controls](../../out/2026-09-07_svd-ant-controls/run.md). One random edit exceeds selected log-odds movement and outputs 6. No formal significance or held-out claim.
-- Job 498: `svd-tokens`, ant, 19 conditions. [Past-token windows](../../out/2026-09-07_svd-ant-tokens/run.md).
-- Job 499: `svd-candidates`, ant, 19 conditions. [Per-token candidate ranks](../../out/2026-09-07_svd-ant-candidates/run.md).
-- Job 500: `svd-parts`, ant, 3 conditions. [Source versus donor separation](../../out/2026-09-07_svd-ant-parts/run.md).
+- Job 492: `svd-refine`, ant, 25 conditions. [Ant refinement](../../out/2026-09-07_185424_svd-ant-v3/run.md).
+- Job 493: `svd-detector`, ant, 49 conditions. [Detector windows](../../out/2026-09-07_185520_svd-ant-detector-v2/run.md). Every condition starts with 8.
+- Job 494: `svd-band`, ant, 25 conditions. [Layer bands and continued generation](../../out/2026-09-07_185700_svd-ant-band/run.md). Continued edits produce social spiders, social networks, and repetition.
+- Job 495: `svd-refine`, ant-anthill, 25 conditions. [Anthill wording](../../out/2026-09-07_185758_svd-anthill/run.md). Development wording comparison, not held-out validation.
+- Job 496: `svd-refine`, dog, 25 conditions. [Dog comparison](../../out/2026-09-07_185857_svd-dog-v3/run.md). Rank4 C8 gives p4=.862182 and dog readout; several rank1/2 conditions give 6 instead.
+- Job 497: `svd-control`, ant, 18 conditions including selected edit, zero, and 16 random directions with matched displacement norm. [Controls](../../out/2026-09-07_185953_svd-ant-controls/run.md). One random edit exceeds selected log-odds movement and outputs 6. No formal significance or held-out claim.
+- Job 498: `svd-tokens`, ant, 19 conditions. [Past-token windows](../../out/2026-09-07_190036_svd-ant-tokens/run.md).
+- Job 499: `svd-candidates`, ant, 19 conditions. [Per-token candidate ranks](../../out/2026-09-07_190122_svd-ant-candidates/run.md).
+- Job 500: `svd-parts`, ant, 3 conditions. [Source versus donor separation](../../out/2026-09-07_190240_svd-ant-parts/run.md).
 
 There are 208 completed conditions on the corrected generation-capture path, including repeated controls and settings. This is a development search, not 208 independent validation samples. Runs of 18–49 conditions took about 39–95 seconds including loading, with peak allocated GPU memory about 13.8 GB. Exact timings are in result.json. Condition cost is about two seconds including generation, not the old 0.15-second forward-only estimate.
 

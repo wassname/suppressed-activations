@@ -12,7 +12,7 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 Transportepsrelativeerror.033522, columncosines.999287/.999419/.999443/.999554.
 Stillcleandonor **/gender/indeed; intervenedtiny/piccolo/shortfragments, notant.
 Lastdecode8tokensonlytiny/seed etc. Thusstablederivativebutfailedidentityreadout.
-Outputout/2026-09-08_transport-smoke-ant/result.json. Notanumericalfailureclaim.
+Outputout/2026-09-08_045549_transport-smoke-ant/result.json. Notanumericalfailureclaim.
 svd_review reviewing interpretation ofcomponent-onlyreadout vs affine/complement
 andpossiblenontautologicalcalibration. No newexperimentyet, allourjobsfinished.
 715b3bfclarifiedtransportlabel, assertassistantprefill, delresultmemoryrelease;
@@ -27,7 +27,7 @@ No extra denominator. Savesbasis/transports.pt andcorpus+epscosine/relativeerror
 Scoresfromtransport@(h@U),gainunembedding, excludesoffset/complement; notprobs.
 Modelmaskexplicitones,nocache. Fitsaftergeneration, soexpectnochangedcontinuation.
 svd_reviewreviewing. Syntaxcompileexit0. GPU8tokensmoke650antqueued, path
-out/2026-09-08_transport-smoke-ant; followerlasttool. UseactualID650not649
+out/2026-09-08_045549_transport-smoke-ant; followerlasttool. UseactualID650not649
 (otherrepoconcurrency). Needcheckruntimeandbothscales/cleandonor beforefullrun.
 
 ### Update05:07 — Codex/GPT-6
@@ -63,9 +63,9 @@ peak[133.698,11.892,17.190,2.272]→output[15.495,1.331,2.876,.663].
 Matchedattenuationindex7 gives6 coherentantpheromones/colonies/soilseed;
 p6=.9718,p8=.0108. Naturalattenuationstays8spider. Peakcontrolsant6.
 Antreadoutnotantlike (.Sp/Sp/etc).645dog follower22660stilllive,path
-out/2026-09-08_attenuation-dog.646freshantindex7queued,path
-out/2026-09-08_attenuation-fresh-ant,followerfromlasttool. Currentantpath
-out/2026-09-08_attenuation-ant. Reviewa5a250dpassed, holdoutonlyspanfit.
+out/2026-09-08_044914_attenuation-dog.646freshantindex7queued,path
+out/2026-09-08_045001_attenuation-fresh-ant,followerfromlasttool. Currentantpath
+out/2026-09-08_044827_attenuation-ant. Reviewa5a250dpassed, holdoutonlyspanfit.
 Independent638–641auditappendedtoexistingaudit, needcommitwithnextchanges.
 
 ### Update04:58 — Codex/GPT-6
@@ -76,7 +76,7 @@ positiveeigenspace ofuncenteredsecondmomentdifference P25^TP25-O32^TO32 in
 jointspan. Requires4positiveeigenvalues. Logsfit/heldoutperdirectionmeansquares
 andsignedmeans. Template delta stillall8, soholdoutclaimONLYspangeometry.
 svd_reviewreviewing, syntaxcompileexit0. GPUC0smoke643antqueued,path
-out/2026-09-08_attenuation-smoke-ant; followerfromlasttool. Checkheldoutfall
+out/2026-09-08_044745_attenuation-smoke-ant; followerfromlasttool. Checkheldoutfall
 before fullsteering. Existingpeaktemplate_state configsunchanged, spectrumkey
 nowgeneric notsingular_values becauseeigenvaluespossible. No fullrunyet.
 
@@ -114,10 +114,10 @@ contrastnorm rises1.810→22.960 L25→32; thisspanis notattenuatedsuppression.
 638antfull SUCCESS62s follower62116 CLOSED; all43stdoutlines/12fulltextsread.
 Peaknatural+matched,updatematched,outputmatched give6 coherentantdescriptions.
 Outputnatural6butspider8;updatenatural8spider. ReadoutsstillSOC/spinning etc.
-639dog follower14650stilllive,pathout/2026-09-08_template-state-dog.
-Freshantfullsame12grid640queued,pathout/2026-09-08_template-state-fresh-ant,
+639dog follower14650stilllive,pathout/2026-09-08_044234_template-state-dog.
+Freshantfullsame12grid640queued,pathout/2026-09-08_044335_template-state-fresh-ant,
 followerfromlasttool. Do notpickwinneruntilfreshcomparison. Originalantpath
-out/2026-09-08_template-state-ant. No suppression-onlyclaim fromrawstate spans.
+out/2026-09-08_044132_template-state-ant. No suppression-onlyclaim fromrawstate spans.
 
 ### Update04:46 — Codex/GPT-6
 
@@ -130,7 +130,7 @@ Dpeak-Doutput; 24columns=8templates×3positions, rank4SVD. FixedL20,C0/2,
 natural/matched =12conditions. Logspeak/outputprojectedcontrastnorms andSVDs.
 Theseare downstream-update spans,notestablishedsuppression. svd_review reviewing.
 Syntaxcompileexit0. GPU8tokenC0updatesmoke637queued,path
-out/2026-09-08_template-state-smoke; followerhandlefromlasttool. Fullnotqueued.
+out/2026-09-08_044052_template-state-smoke; followerhandlefromlasttool. Fullnotqueued.
 
 ### Update04:44 — Codex/GPT-6
 
@@ -154,7 +154,7 @@ animaltemplates×3suffixpositions, top4positive eachsign, normalized vocab basis
 project existingfulltemplate delta. Score/source/target/wordslogged. C0/C2×natural/
 matched×old/contrastive selector =8rows. FixedL20. No newtraining/readoutclaim.
 svd_review reviewing code. Syntaxcompileexit0. RealGPU8tokenC0smoke634queued
-pathout/2026-09-08_contrastive-selector-smoke, followerjuststarted; retrievehandle
+pathout/2026-09-08_043714_contrastive-selector-smoke, followerjuststarted; retrievehandle
 fromtoolhistory. Do notqueuefulluntilsmoke/reviewchecked. NeedrankassertbeforeQR
 ifreviewconfirms possibility of dependence. Different vocabIDs do notproverank.
 
@@ -374,7 +374,7 @@ QR projection logs singular values and retained norm; norm restoration is explic
 
 603 corpus argument:
 `/home/code/.cache/huggingface/datasets/Salesforce___wikitext/wikitext-2-raw-v1/0.0.0/b08601e04326c79dfdd32d625aee71d232d685c3/wikitext-train.arrow`.
-Smoke path out/2026-09-08_future-union-smoke. Full stdout/rank/C0 coverage read;
+Smoke path out/2026-09-08_040925_future-union-smoke. Full stdout/rank/C0 coverage read;
 full8condition union sweeps are now queued. See latest follower list above.
 
 ## Additional evidence and pitfalls
@@ -414,14 +414,14 @@ objections. Historical checkpoints are preserved in git, not repeated here.
 NEWEST+1:674 completed36s all29stdout/all5fulloutputsread. Alpha0,.25,.5,.75 BEES;1 ANT. Alpha0 exactgeneration667row12;alpha1exact671. Allcoveragepass,totalprefillnorm14.322684..14.322686. Per-token selected/discarded endpoints8.269206/0 versus7.331022/3.825689. No intermediate success tested. 6235cf0 adds attenuation-isolation configs selected/discarded/full x C0/2 atnaturalnorm matchFalse, fixedL20rank4local. Reusesdelta_component='discarded' forQprojection only; fraction=1forfull. Assertdiscardedfrac0whenQselected. LIVE job676 out/2026-09-08_attenuation-isolation-ant, follower50681. Samecommonarticle naming. This is reducedP-magnitude control plusQalone andsum. 7840closed. Auditupdated. Nextread676 comparecontrols andcomponentnorms; maintain suppression-only distinction. Otherrepo675interleaved, don'ttouch.
 
 NEWEST:671 fulltemplate ant namesANT coherently.672 bee diagnostic exactgeneration==667row12 (BEES); cleanbeeaxis mostlypositive, ant>bee paired. Both21stdout/fulloutputsread; followers57533/52933closed. Projection introduces failure in pairednaming; do NOT prioritize lasttokenextraction untilanotherreason. c6a0055+ec3cda2 add discarded_fraction Config and attenuation-complement grid alpha0/.25/.5/.75/1 atlocalL20rank4C2matchednorm. Formula Pd+alpha(I-P)d, rescaleto||d||. Logsactualselected/discarded pertoken normsafterstrength. CPUendpoint/normchecks passed process7155closed. Alpha notenergyfraction; mixesNOTsuppressed-only. svd_review endorsesdiagnostic, notes selectedmagnitudesdecreasewithalpha; ifmixedimprovesaddpurePcontrolatsameselectedmagnitude.
-LIVE:674 output out/2026-09-08_attenuation-complement-ant, follower7840 (lasttimeoutstilllive). pq confirmedqueuedbehindOTHERREPO673Running. Codeec3cda2 committedbefore674start. No otheroursjobsopen. Auditupdated. Nextread674alloutputs, comparealpha1to671full andalpha0to667row12, fixednorm/coverage; thenchoosecontrol/nextmethod. Goalactive.
+LIVE:674 output out/2026-09-08_053550_attenuation-complement-ant, follower7840 (lasttimeoutstilllive). pq confirmedqueuedbehindOTHERREPO673Running. Codeec3cda2 committedbefore674start. No otheroursjobsopen. Auditupdated. Nextread674alloutputs, comparealpha1to671full andalpha0to667row12, fixednorm/coverage; thenchoosecontrol/nextmethod. Goalactive.
 
-Latest: commit4d9d790 adds clean bee distractor only (8 explicit bee template trajectories, prompts+scores in clean_identity_separation); steering unchanged. Syntax checked. Job672 repeats attenuation-rank condition12 on commonarticle ant naming, output out/2026-09-08_clean-bee-distractor-ant, follower52933 LIVE. Compare exact generation with667row12 and inspect bee versus ant scores before concluding specificity. Job671 follower57533 remainsLIVE; last50s timeout notfailure. Authoritative pq: OTHERREPO670Running, ours671/672Queued, OTHERREPO673Queued. Do not touch otherjobs. No completednewresultthisturn; progress=diagnosticcode+queuedtest+verifiedwait. UserREADME/.gitignore untouched.
+Latest: commit4d9d790 adds clean bee distractor only (8 explicit bee template trajectories, prompts+scores in clean_identity_separation); steering unchanged. Syntax checked. Job672 repeats attenuation-rank condition12 on commonarticle ant naming, output out/2026-09-08_052945_clean-bee-distractor-ant, follower52933 LIVE. Compare exact generation with667row12 and inspect bee versus ant scores before concluding specificity. Job671 follower57533 remainsLIVE; last50s timeout notfailure. Authoritative pq: OTHERREPO670Running, ours671/672Queued, OTHERREPO673Queued. Do not touch otherjobs. No completednewresultthisturn; progress=diagnosticcode+queuedtest+verifiedwait. UserREADME/.gitignore untouched.
 
 665/666 finished; both21stdoutlines/fulloutputs read. Definite-article ant stillspider with mixed nectartraits. Late dog namesdog thennotesdogs don'tspinwebs (no loop). So article notwholeexplanation. 667 new attenuation-rank grid(0461341) localpeak20 rank1/2/4 C0/1/2/3/4 matchednorm. All49stdout/fullnonzerooutputs read; rank2/4C2 coherent BEES, C3/4 beehive-as-animal, rank1C2sixlegspider. No correctant. All15 coverage/C0checks pass.
 668 localdog originalleg fixedrank4L20C2last3 gives4+coherentdog. 669same localdog commonarticle naming givesdog+coherentdog no correction. Fulloutputs andcoveragechecked. Both21stdoutread. continuous_review verified662 equal-perturbation18.9395 comparison localcoherentvs lateloop, all16C0coverage verifiedmain. Localdog thirdheldoutdirection grows .0624→.0894, readoutdoesnotnamedog. Audit updated.
 
-RUNNING follower: job671 unrestricted full-template ant naming, future-template condition15 L20fullC2, same commonarticle input. output out/2026-09-08_full-template-name-the-ant. Session57533 LIVE, last50secondwait observationtimeout, notfailure. pq confirms671queued behind OTHERREPO670running. Do nottouch670/requeue671. All otherfollowersclosed.
+RUNNING follower: job671 unrestricted full-template ant naming, future-template condition15 L20fullC2, same commonarticle input. output out/2026-09-08_052922_full-template-name-the-ant. Session57533 LIVE, last50secondwait observationtimeout, notfailure. pq confirms671queued behind OTHERREPO670running. Do nottouch670/requeue671. All otherfollowersclosed.
 Next: await671 to distinguish estimator from projection failure. svd_review found correctantlabels andtarget-minus-source sign. If fullalso bee, suggested compare final-template-token extraction vs meanlast3 (bothdelta+span consistent), KEEP last3prefill+allgeneratedtoken steering. Add clean bee distractor to specificity checks. Extractioncurrentlyhardcodes3 at1095+ and fitcount//3; change carefully if proceeding. No edits for thisyet. Goalactive. DirtyREADME/.gitignore untouched.
 
 # Previous checkpoint: jobs 658–666 (Codex/GPT-6)
@@ -450,4 +450,4 @@ Ant implicit source scores [-.335,.326,.502], donor [.974,.446,1.009]: paired or
 653 fixed attenuation fresh dog: p4=.7067, p8=.0310; full three-sentence dog continuation (fetch/bark/trainable), natural EOS. Clean source identity scores all negative.
 654 fixed attenuation validation ant: p6=.8184, p8=.0863; full three-sentence ant continuation (colonies/pheromone trails/exoskeleton), natural EOS. Clean spider source identity scores [.276,.150,.474] all wrongly ant-positive; donor scores remain higher. Thus coherent steering survives these two rephrasings, but absolute ant readout calibration does not.
 
-Artifacts: out/2026-09-08_clean-identity-{ant,dog}/result.json; out/2026-09-08_attenuation-fresh-dog/result.json; out/2026-09-08_attenuation-validation-ant/result.json. Each has run.md and full condition log. No jobs running from this checkpoint. Next: improve implicit readout calibration without using intervention-direction score movement as independent validation; consolidate journal/audit, broaden fixed-method concept consequences. Goal remains active; no validated vocabulary readout yet.
+Artifacts: out/2026-09-08_clean-identity-{ant,dog}/result.json; out/2026-09-08_050217_attenuation-fresh-dog/result.json; out/2026-09-08_050237_attenuation-validation-ant/result.json. Each has run.md and full condition log. No jobs running from this checkpoint. Next: improve implicit readout calibration without using intervention-direction score movement as independent validation; consolidate journal/audit, broaden fixed-method concept consequences. Goal remains active; no validated vocabulary readout yet.

@@ -11,7 +11,7 @@ L24rank4C2 instead describes "a social and highly intelligent mammal" after8.
 L24rank8/16C2 fabricate colored social mammals; rank32C2 starts2 and describes
 "the well-known social butterfly". Random4 starts4 but describes spider; remaining
 random controls start8. These random controls are L24C1, not matched to every row.
-Source: out/2026-09-08_describe-persistent-ant/result.json.
+Source: out/2026-09-08_042406_describe-persistent-ant/result.json.
 
 CPU tensor identity check passed with rtol=atol=0 for all-layer `deltas` and
 `targets` in626 versus624 template_vectors.pt. Extraction is unchanged across
@@ -82,7 +82,7 @@ Code review of `target_concept`: template animal selection and coordinate vector
 
 ## Future-coordinate ant audit — 2026-09-08
 
-Written by Codex/GPT-6. Independently read all 40 continuations in `out/2026-09-07_future-coordinate-ant/result.json` and the estimator/patch code. C0 generation and target probabilities match base. Every row covers [33,34,35] and 31 decode calls. Maximum float32 coordinate-swap algebra error is 4.58e-6.
+Written by Codex/GPT-6. Independently read all 40 continuations in `out/2026-09-08_011126_future-coordinate-ant/result.json` and the estimator/patch code. C0 generation and target probabilities match base. Every row covers [33,34,35] and 31 decode calls. Maximum float32 coordinate-swap algebra error is 4.58e-6.
 
 Three unprojected settings produce `6` and name ant without immediate task corruption: L12 C2 (p6 0.9256), L16 C2 (0.9524), L20 C4 (0.9324). All are only 32-token continuations. L12 C2 is exactly:
 
@@ -101,7 +101,7 @@ Named suppression diagnostics are still the normalized unembedding detector at l
 
 ## Paired future-coordinate audit and ML-debug form
 
-Written by Codex/GPT-6. Also read all40 dog generations in `out/2026-09-07_future-coordinate-dog/result.json`. Dog L24 rank4 C2 is the clearest short projected candidate: p4=0.61653, p8=0.29123, shift=4.25 nats, answer mass=0.90776. Exact full32-token sample:
+Written by Codex/GPT-6. Also read all40 dog generations in `out/2026-09-08_011311_future-coordinate-dog/result.json`. Dog L24 rank4 C2 is the clearest short projected candidate: p4=0.61653, p8=0.29123, shift=4.25 nats, answer mass=0.90776. Exact full32-token sample:
 
 ```text
 4.
@@ -168,7 +168,7 @@ Separate orchestration note, supplied by the main agent rather than independentl
 
 ### Full-log audit supplement for jobs575/576
 
-Codex/GPT-6 read complete stdout: `pqlog 575 100000` and `pqlog 576 100000` each reported “last 59 of 59 clean lines”. Both succeeded in `/workspace/2026/suppressed-activations`; local execution times were575 01:30:20–01:32:02 and576 01:32:02–01:33:49 on2026-09-08. Commands are the result.json argv: `uv run scripts/oat_sweep.py --sweep future-gated --target ant|dog --prompt-mode chat-assistant-prefill --max-new-tokens 128 --lens-corpus-arrow ...wikitext-train.arrow --output-dir out/2026-09-08_future-gated-ant|dog`. Executed revision is reported as `v0.1.1-165-g9240522-dirty`; exact dirty source/dependency snapshot is not preserved by that identifier alone.
+Codex/GPT-6 read complete stdout: `pqlog 575 100000` and `pqlog 576 100000` each reported “last 59 of 59 clean lines”. Both succeeded in `/workspace/2026/suppressed-activations`; local execution times were575 01:30:20–01:32:02 and576 01:32:02–01:33:49 on2026-09-08. Commands are the result.json argv: `uv run scripts/oat_sweep.py --sweep future-gated --target ant|dog --prompt-mode chat-assistant-prefill --max-new-tokens 128 --lens-corpus-arrow ...wikitext-train.arrow --output-dir out/2026-09-08_013020_future-gated-ant|dog`. Executed revision is reported as `v0.1.1-165-g9240522-dirty`; exact dirty source/dependency snapshot is not preserved by that identifier alone.
 
 | stage | expected | observed | expected? | clues | missing metric | consequence |
 |---|---|---|---|---|---|---|
@@ -176,7 +176,7 @@ Codex/GPT-6 read complete stdout: `pqlog 575 100000` and `pqlog 576 100000` each
 | generation | paired gate comparison |12/12 each, full outputs inspected|yes|stdout “12/12 011_future_gated_L24_rank4_C2.0_gateTrue”|completion beyond128 cap|selected coherence provisional|
 | quantitative | separate movement/coherence |same pair first-token odds, differing repetition|yes|antL16C2 repeats .181→.055|semantic score beyond human read|gate affects continuation|
 | control/gate | suppress target-side updates |trace algebra and activation checked|yes|dogL24C2 active72.3%|new C0/random controls|mechanism comparison only|
-| persistence | complete logs/artifacts |both write run.md/result.json|yes|stdout “wrote out/2026-09-08_future-gated-dog/run.md”|exact dirty diff|reproducibility incomplete|
+| persistence | complete logs/artifacts |both write run.md/result.json|yes|stdout “wrote out/2026-09-08_013202_future-gated-dog/run.md”|exact dirty diff|reproducibility incomplete|
 | resolve | compare gated/ordinary continuous128 |paired results available|yes|labels quote comparison, not success threshold|heldout generality|comparison achieved|
 
 Chronology: both jobs load pinned weights, fit16 corpus records, then evaluate12 conditions. There is no hidden training/calibration frontier in stdout. First-token movement remains equal within gate pairs; antL16C2 has shift7.875 in both, while repetition changes .181→.055. DogL12C2 remains badly repetitive despite a reduction .614→.480. Dog projectedL24C2 has low repetition in both (.031/.055), so its improved qualification must be judged from text, not claimed from that metric. It correctly says dogs do not spin webs; such a coherent qualification is acceptable evidence of controlled counterfactual behavior and should not be rejected merely because the imposed premise is false. Invented Dalmatian explanations and correction loops are different failures.
@@ -316,7 +316,7 @@ Comparability warning for forthcoming projected runs626/627: the template delta 
 
 ### Descriptive persistent projection627 independent review
 
-Written by Codex/GPT-6. Read all44 dog outputs in `out/2026-09-08_describe-persistent-dog/result.json`; independently checked C0/last3/decode coverage across both dog627 and ant626 artifacts. Dog L20 C2 at every tested rank4/8/16/32 gives4 and completes a relevant dog description. Rank8's full output is:
+Written by Codex/GPT-6. Read all44 dog outputs in `out/2026-09-08_042855_describe-persistent-dog/result.json`; independently checked C0/last3/decode coverage across both dog627 and ant626 artifacts. Dog L20 C2 at every tested rank4/8/16/32 gives4 and completes a relevant dog description. Rank8's full output is:
 
 ```text
 4.
@@ -352,7 +352,7 @@ import json, torch
 from pathlib import Path
 from types import SimpleNamespace
 from transformers.generation.utils import GenerationMixin
-p = Path('out/2026-09-08_future-gated-dog/future_lens.json')
+p = Path('out/2026-09-08_013202_future-gated-dog/future_lens.json')
 ids = torch.tensor([json.loads(p.read_text())['corpus'][0]['input_ids']])
 for label, pad, eos in [('old', 248046, [248044]), ('new', 248044, [248046, 248044])]:
     cfg = SimpleNamespace(_pad_token_tensor=torch.tensor(pad), _eos_token_tensor=torch.tensor(eos))
@@ -368,7 +368,7 @@ old masked_positions [13]
 new masked_positions []
 ```
 
-The saved old/new dog comparison is `out/2026-09-08_future-gated-dog/result.json`, row11, versus `out/2026-09-08_future-gated-dog-256/result.json`, row0. Resolved intervention configs match. Package versions match (torch2.13.0, transformers5.16.1). Observations:
+The saved old/new dog comparison is `out/2026-09-08_013202_future-gated-dog/result.json`, row11, versus `out/2026-09-08_015730_future-gated-dog-256/result.json`, row0. Resolved intervention configs match. Package versions match (torch2.13.0, transformers5.16.1). Observations:
 
 - Target p4 changes .615758→.361794; source p8 .290863→.526407.
 - Clean source p8 also changes .943160→.945299, before any intervention.
@@ -403,7 +403,7 @@ including coordinate exchange, complement preservation and cached-decode edits.
 This is algebra/coverage evidence, not semantic-coherence evidence.
 # Independent direct-state-span audit: 638–641 — Codex/GPT-6
 
-Read all36 source outputs from `out/2026-09-08_template-state-{ant,dog,fresh-ant}/result.json`, the single fresh-dog output from `out/2026-09-08_peak-fixed-fresh-dog/result.json`, and complete stdout (43/43 lines each for638–640;21/21 for641). Recorded code is7efb3d8-dirty for638/639 and15f16d0-dirty for640/641; artifacts include source hashes. Current runner has subsequent split/attenuation branches, which were not these runs.
+Read all36 source outputs from `out/2026-09-08_template-state-{ant,dog,fresh-ant}/result.json`, the single fresh-dog output from `out/2026-09-08_044453_peak-fixed-fresh-dog/result.json`, and complete stdout (43/43 lines each for638–640;21/21 for641). Recorded code is7efb3d8-dirty for638/639 and15f16d0-dirty for640/641; artifacts include source hashes. Current runner has subsequent split/attenuation branches, which were not these runs.
 
 | stage | expected | observed | missing / consequence |
 |---|---|---|---|
@@ -467,4 +467,4 @@ Base byte-for-byte, zero perturbation, positions33–35 and7decode calls. Six sp
 singular values range .247873–.927469; projected norm fraction .254189. Finite
 difference8.260834 at epsilon.125 versus gradient8.275805. These checks permit the
 paired full sweep612/613, not a semantic success claim. Source:
-out/2026-09-08_future-union-smoke/conditions/004_future_union_unionTrue_matchedFalse_C0.0/run.md.
+out/2026-09-08_040925_future-union-smoke/conditions/004_future_union_unionTrue_matchedFalse_C0.0/run.md.

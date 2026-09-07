@@ -21,8 +21,8 @@ grouping that retained every condition ID. No result promoted to README.
   answer6 and name ant; all4 dog interventions answer4 and name dog. Ant p6 ranges
   .733537–.961645; dog p4 .707797–.919234. All are32-token truncations.
 - Schedule: no training, LR, losses or gradients; inference edits only.
-- Full sample: [ant128](../../out/2026-09-07_template-fixed-ant-long/run.md),
-  [dog128](../../out/2026-09-07_template-fixed-dog-long/run.md).
+- Full sample: [ant128](../../out/2026-09-07_224653_template-fixed-ant-long/run.md),
+  [dog128](../../out/2026-09-07_224739_template-fixed-dog-long/run.md).
 - Worst sample: dog128 repeats `The animal that spins webs is the **dog**? No.`;
   repeated bigram fraction .488. Ant128 says `six legs`/`Formicidae` but also
   falsely claims ants do not build nests like bees or termites, then introduces
