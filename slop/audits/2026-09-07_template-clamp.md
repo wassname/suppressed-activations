@@ -1,5 +1,28 @@
 # Template clamp audit — 2026-09-07
 
+## Descriptive persistent projection, ant job626 — Codex/GPT-6
+
+Main read all44 complete generations and readouts from result.json. Job SUCCESS177s.
+The follower stdout was truncated by the tool budget; complete107line stdout still
+needs reading before claiming whole-log audit. C0 rows reproduce the base spider8.
+No row gives a coherent ant6 description. L20rank4C2 p6=.532769,p8=.366166 starts6
+then says: "The animal is a spider, a type of arachid that possesses eight legs, not six."
+L24rank4C2 instead describes "a social and highly intelligent mammal" after8.
+L24rank8/16C2 fabricate colored social mammals; rank32C2 starts2 and describes
+"the well-known social butterfly". Random4 starts4 but describes spider; remaining
+random controls start8. These random controls are L24C1, not matched to every row.
+Source: out/2026-09-08_describe-persistent-ant/result.json.
+
+CPU tensor identity check passed with rtol=atol=0 for all-layer `deltas` and
+`targets` in626 versus624 template_vectors.pt. Extraction is unchanged across
+these two source wordings. This does not freeze the selected suppression basis.
+
+Interpretation: selected social vocabulary may explain the social-animal outputs,
+but this is not a causal isolation of that feature. Full-template ant6 works under
+the same description instruction; restricting to this basis loses that behavior.
+This tests the fixed23/25/32 detector and source/donor basis union, not all possible
+suppressed concept spaces. Dog627 is still pending.
+
 Written by Codex/GPT-6. Independently read all 32 source continuations and 32 clamped clean-donor continuations in `out/2026-09-07_template-clamp-{ant,dog}/result.json`. Generation is capped at 128 tokens, not always 128: some runs terminate earlier.
 
 ## Mechanical checks
