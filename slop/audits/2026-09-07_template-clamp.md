@@ -197,3 +197,53 @@ ML-debug completeness: no training schedule/loss/optimizer; complete raw samples
 3. H3 [harness; Remote;5%]: stopping or patch coverage still invalidates these outputs. Evidence against: all28 masks/decode counts pass and no im_end has following text. Supporting concern: dirty provenance and earlier stopping bug warrant reproduction, not a present bug claim. Test/action: one clean-commit replay, expect identical sequence. Interpretability: yes, residual provenance caveat.
 
 Resolve verdict: strength comparison completed; a shared sustained-coherence solution is not established. Invalid means data not generated under reported method; P(invalid)≈5%, credible dose-response but inconclusive general semantic success. Highest-information clues: both antC.625 runs finish coherently; dog same dose repeats; high doses corrupt despite positive shift. No localized code fix required. Next sequence: freeze the best candidate per explicit scientific question, test fresh wording and longer completion, then matched random controls. Do not call reused validation3 heldout or combine estimator changes with this dose test.
+# Attention-mask correction — 2026-09-08
+
+Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.
+
+Pinned Qwen config `text_config.eos_token_id` is248044 (`<|endoftext|>`), while tokenizer EOS is248046 (`<|im_end|>`). Old generation supplied `pad_token_id=tokenizer.eos_token_id` but inherited model EOS248044. Thus a genuine user-turn terminator in the input was treated as padding. Commit57a3898 changed padding to248044 and explicitly set both EOS IDs; this also restored the terminator's attention. Commit4a9c8c0 makes the intended all-ones mask explicit for these unpadded inputs.
+
+Source: installed `transformers/generation/utils.py`, `_prepare_attention_mask_for_generation`, lines798–805, under `/home/code/.cache/uv/environments-v2/oat-sweep-da08b15948b5bc08/lib/python3.13/site-packages/`. The code tests:
+
+```python
+can_infer_attention_mask = is_pad_token_in_inputs * is_pad_token_not_equal_to_eos_token_id
+attention_mask_from_padding = inputs_tensor.ne(pad_token_id).long()
+```
+
+Exact CPU discriminator, run in the existing sweep environment:
+
+```bash
+uv run --no-project --python /home/code/.cache/uv/environments-v2/oat-sweep-da08b15948b5bc08/bin/python python - <<'PY'
+import json, torch
+from pathlib import Path
+from types import SimpleNamespace
+from transformers.generation.utils import GenerationMixin
+p = Path('out/2026-09-08_future-gated-dog/future_lens.json')
+ids = torch.tensor([json.loads(p.read_text())['corpus'][0]['input_ids']])
+for label, pad, eos in [('old', 248046, [248044]), ('new', 248044, [248046, 248044])]:
+    cfg = SimpleNamespace(_pad_token_tensor=torch.tensor(pad), _eos_token_tensor=torch.tensor(eos))
+    mask = GenerationMixin._prepare_attention_mask_for_generation(None, ids, cfg, {})
+    print(label, 'masked_positions', (mask[0] == 0).nonzero().flatten().tolist())
+PY
+```
+
+Observed output:
+
+```text
+old masked_positions [13]
+new masked_positions []
+```
+
+The saved old/new dog comparison is `out/2026-09-08_future-gated-dog/result.json`, row11, versus `out/2026-09-08_future-gated-dog-256/result.json`, row0. Resolved intervention configs match. Package versions match (torch2.13.0, transformers5.16.1). Observations:
+
+- Target p4 changes .615758→.361794; source p8 .290863→.526407.
+- Clean source p8 also changes .943160→.945299, before any intervention.
+- Source and donor selected suppression token IDs differ. Donor fourth persistence eigenvalue changes .427061→.501237.
+- Retained projected-direction fractions change [.197135,.704798]→[.184598,.669173].
+- CPU comparison of saved raw future vectors finds L24 maximum absolute difference1.14646e−5 and per-column cosines at least.9999997. The substantial observed change is in the suppression-derived projection basis, not the raw fitted future vectors.
+
+Inference: the padding-mask correction is a concrete upstream explanation for the changed clean forward and selected basis. A GPU experiment holding everything else fixed would isolate its quantitative contribution; this CPU audit does not establish that it explains every numerical difference. Increasing maximum continuation length alone is not an adequate explanation.
+
+Pre57a3898 outcomes remain recorded observations under their actual settings. Comparisons across that boundary are attention-confounded and must not be presented as termination-only or pure length comparisons. These earlier runs also do not establish equivalence between generation and an unmasked extraction forward merely because their rendered strings match.
+
+— Codex/GPT-6
