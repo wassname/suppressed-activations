@@ -164,3 +164,36 @@ Chronology: both jobs load pinned weights, fit16 corpus records, then evaluate12
 4. H4 [harness; Remote;10%]: unknown dirty-code/runtime changes could hinder exact reproduction. Evidence: both stdout records say `9240522-dirty`. Contrary: complete artifacts and numerical gate checks agree with inspected implementation. Test/action: replay one frozen condition from a clean recorded commit; divergence raises concern, matching output lowers it. Interpretability: partial reproducibility; no observed result invalidation.
 
 Decision: resolve conditions “ant gated vs ordinary future edits continuous128” and “dog gated vs ordinary future edits continuous128” are met as comparisons. Define invalid here as outputs/metrics not produced by the stated intervention; P(invalid)≈5% given checks but incomplete dirty provenance. Classification: credible selected positive continuation changes, inconclusive general improvement. Highest-information clues: verified nontrivial gating; preserved odds with changed continuation; selected qualification versus surviving loops. Missing evidence ranked: longer frozen completion, fixed paraphrases, estimator-seed/random controls. No localized code bug requires a fix; provenance should capture dirty diffs. Reinterpretation required: neither false imposed identity nor low repetition alone determines coherence. A stable longer qualified explanation would strengthen the verdict; renewed looping weakens it. Recommended sequence: replay selected pairs longer at fixed settings, then fixed paraphrases, then estimator-seed controls. Do not change layer, dose and estimator simultaneously during that attribution test.
+
+### Band-strength578–581 independent audit
+
+Written by Codex/GPT-6. Read all28 full generations and complete stdout for578/579/580/581, each “last33 of33 clean lines”. Artifacts are `out/2026-09-08_band-strength-{ant,dog}-{original,validation3}/result.json`; recorded code `ef0cbee-dirty`, pinned Qwen3.5-4B. Dirty provenance prevents exact reconstruction from commit alone.
+
+| stage | expected | observed | expected? | clues | missing metric | consequence |
+|---|---|---|---|---|---|---|
+| template extraction | directions available | all7 conditions execute per job | yes | stdout “7/7 006_template_band_strength_C2.0” | fit-stage timings | prior KeyError not present |
+| generation | stop at EOS or128 | all outputs inspected, no text after im_end | yes | C.625 ant outputs end im_end | longer dog completion | stopping fix holds here |
+| intervention | last3 continuous | all28 coverage checks pass | yes | records decode_steps=count−1 | dtype perturbation comparison | no coverage failure |
+| controls | C0 equals clean | all4 identical base generations | yes | first8, zero shift | random control at selected dose | dose effect, not full specificity |
+| result | locate usable strength | count/identity interval, stronger corruption | unclear | C.625 ant readable, dog repetitive | independent validation after tuning | not common coherent optimum |
+
+Chronology and full-sample evidence: clean conditions give8/spider. Ant original switches byC.5; validation3 requiresC.625. Both C.625 outputs finish at im_end. Validation3 C.625 is exactly:
+
+```text
+6.
+
+**Explanation:**
+The animal described is the **ant**. Ants are known for building intricate silk structures (such as bridges, tunnels, and mounds) to facilitate their colony's movement and construction. As ants are insects, they belong to the class *Insecta*, which is characterized by having exactly **six legs** (three pairs). This is a fundamental biological trait shared by all insects, including ants, bees, and termites.<|im_end|>
+```
+
+The silk claim rationalizes the source clue but the explanation sustains ant/insect/count content without a loop. Original C.625 has an incidental “ant genus” error. Original C.75 instead says “six legs on each side of the thorax”, a count inconsistency, not merely taxonomy. C1 introduces repetition; C1.5/2 starts1 or3 and distorts the task.
+
+Dog original C.625 gives4/dog but repeats conditional alternatives, including “If you intended to ask about a **human**, the answer is4.” Its repeat metric .504 is consistent with the actual repetitive text. Validation3 C.625 is more readable but calls the web clue an idiom and truncates. Original C.5 is less repetitive, then begins re-evaluating the premise at128. C1+ produces2 or task substitution; C1.5/2 strongly repeats. Thus C.625 is not a common coherent optimum even though all four count/identity outputs switch.
+
+ML-debug completeness: no training schedule/loss/optimizer; complete raw samples inspected; all C0 checks passed; no stdout SHOULD lines. Nulls differ by prompt: ant source p6=.0135 original/.0401 validation, dog p4=.0285/.1399; all null answers8. Highest headline shift does not select best coherence: dog original C.625 shift9.125 with repeat.504. No heldout claim is valid after tuning on validation3; no new matched-random condition here. Missing: frozen fresh wording, longer dog completion, per-layer perturbation budgets. Runtime totals51.12/51.38/56.08/54.44s in job order; stage timing unavailable. This is the independent review, not a nested second review.
+
+1. H1 [method; Highly Likely;85%]: excessive additive dose drives task distortion. Evidence: dogC1.5 says “The sentence ... is a response to a command” repeatedly, versus4/dog atC.5. Contrary: some lower doses also rationalize. Test/action: freeze low-dose candidate and vary only continuation length; persistent low-dose loops would implicate context conflict too. Interpretability: yes for dose-dependent corruption.
+2. H2 [measurement; Highly Likely;85%]: numerical optimum overstates semantic optimum. Evidence: highest dog original shift9.125 occurs with repeat.504 and four-legged-human alternatives. Contrary: antC.625 remains readable. Test/action: rank fixed candidates by complete-output identity/consistency alongside odds, not a new single combined score. Interpretability: yes for movement only.
+3. H3 [harness; Remote;5%]: stopping or patch coverage still invalidates these outputs. Evidence against: all28 masks/decode counts pass and no im_end has following text. Supporting concern: dirty provenance and earlier stopping bug warrant reproduction, not a present bug claim. Test/action: one clean-commit replay, expect identical sequence. Interpretability: yes, residual provenance caveat.
+
+Resolve verdict: strength comparison completed; a shared sustained-coherence solution is not established. Invalid means data not generated under reported method; P(invalid)≈5%, credible dose-response but inconclusive general semantic success. Highest-information clues: both antC.625 runs finish coherently; dog same dose repeats; high doses corrupt despite positive shift. No localized code fix required. Next sequence: freeze the best candidate per explicit scientific question, test fresh wording and longer completion, then matched random controls. Do not call reused validation3 heldout or combine estimator changes with this dose test.
