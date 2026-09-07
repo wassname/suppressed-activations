@@ -162,3 +162,54 @@ My interpretation: source removal probably explains the apparent ant transfer at
 The code and full continuations are ready for review, while coherent ant concept replacement remains unresolved.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 -- Continuous steering from the last three prompt tokens
+
+This rerun corrects the earlier prompt-only interpretation.
+
+Wassname specified prompt slice `-3:` and steering through all generated tokens. Jobs 504
+and 505 each completed 45 conditions with last-three prefill positions `[33,34,35]`,
+31 steered decode calls, and exactly 32 output tokens. Prefill predicts the first output;
+the decode calls predict the remaining outputs. Coverage and zero-strength identity are
+asserted. Both prefill and final-decode readouts are saved. The new default is continuous
+steering; the instruction is recorded in AGENTS.md.
+
+For spider-to-ant, the expected answer is six rather than Base's eight, with coherent
+ant content. Five conditions start with six, but none identifies an ant coherently.
+Rank-one combined C=12 produces:
+
+```text
+6.
+
+**Explanation:**
+The animal that spins social or hunting social networks is the **social network** (a type of social network). However, the
+```
+
+Source: [continuous ant sweep](out/2026-09-07_svd-ant-continuous-last3/run.md).
+
+For spider-to-dog, the expected answer is four with coherent dog content. Two conditions
+start with four but repeat the bark token. Rank-four combined C=8 produces:
+
+```text
+4.
+
+**Explanation:**
+The animal that is most famously known for spinning dog吠吠吠吠吠吠吠吠吠吠吠吠吠吠吠
+```
+
+Source: [continuous dog sweep](out/2026-09-07_svd-dog-continuous-last3/run.md).
+Rank-two combined C=8 instead names dog but answers eight. Independent Codex/GPT-6 review
+read all continuations and confirmed coverage; no condition established both correct
+donor-directed answer and coherent donor explanation. Each job took about eighty seconds.
+The synthetic SVD and hook tests passed in the experiment's cached Python environment.
+
+My interpretation: continuous steering has clear semantic effects, but the fixed displacement
+is too disruptive at strengths that change the digit in these settings. Ant donor-only
+steering still targets social content. This does not show all continuous interventions fail.
+Jobs 507 and 508 test intermediate strengths with exactly the same continuous coverage.
+Reward-hacking and ground-truth pass counts are undefined here; digit matches are not
+semantic passes.
+
+The main continuous comparison is complete, and intermediate strengths remain under test.
+
+<!-- Written by Codex/GPT-6. -->
