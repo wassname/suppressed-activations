@@ -158,6 +158,13 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+592–595 ant band-strength index2 (L16–20 C.625) and596–599 dog future-template
+index15 (full template L20 C2, no future fitting) queued for existing validation
+phrasings0–3,128tokens, explicit all-ones attention. Frozen animal-specific settings,
+not fresh heldouts or shared default. Followers byjob:
+592=92176,593=34001,594=76956,595=29739,596=64648,597=58987,598=20681,599=89293.
+590/591 followers1150/23333 still live. -- Codex/GPT-6
+
 588 smoke PASSED all5layers positions33–35,7decodecalls,zero norm, C0identity;
 full21line log read.590 ant/591 dog band-clamp sweeps queued. Follow them next.
 All prior jobs through588 completed, no live old follower handles. -- Codex/GPT-6
