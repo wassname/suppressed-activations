@@ -11,7 +11,7 @@ for dog, with target identities in32tokens. Ant readout still poor. Long128token
 on selection prompt: ant gives Formicidae/6legs but false nesting claim and beetle
 aside; dog repeats "dog? No". Do NOT call short successes sustained coherence.
 
-Current code: `c5df8ee`. User changes README.md/.gitignore are untouched.
+Current code: `00d0173`. User changes README.md/.gitignore are untouched.
 Research code in scripts/oat_sweep.py and scripts/demo.py; no public demo promoted.
 
 Completed GPU jobs (default lane):
@@ -102,3 +102,34 @@ test heldouts at128tokens. If not, consider smaller template shifts across layer
 and all content positions (source clue KV may cause correction loops), then
 future-effect VJP/different direction estimator. Keep goal active. Journal needs
 post-heldout/long/projection entry; model-generated false taxonomy must stay visible.
+
+Further queued work (all blocked behind other repo546 at last status; do not interrupt):
+-549/550 ant/dog template-scope,32conditions each,128tokens: L16/20/24 x
+  last3/all-content x C0/.5/1/2; band16–20 x last3/all x C0/.125/.25/.5.
+  Followers549=37509,550=36756. Tests compare retained source clue context and
+  smaller distributed edits. All generation remains steered.
+-551 future-coordinate condition0 smoke, ant: actual contracted mean-J estimator,
+  not a template difference. Corpus cached WikiText2 train Arrow path in argv;
+  random seed0 samples16 eligible>=600character records, truncate CONTENT to128,
+  official assistant-prefill render, content mask afterfirst16 and beforelast.
+  Penultimate raw residual31, source12/16/20/24. Three sequential VJPs of RAW
+  spider/dog/ant unembedding rows. Target positions SUM, source positions MEAN,
+  prompts MEAN (no division by remaining futurecount). Official SHA581d398.
+  Firstprompt firstword finite differences eps.125/.5/2 logged; must inspect
+  agreement before full40condition sweep. No claim of full-vocabulary J readout.
+  Follower551=82436. On success future_lens.json and future_lens_vectors.pt
+  contain fitted diagnostics and directions. No full future sweep queued yet.
+
+Reference reviewer found hook ordering bug before GPU smoke: HF persistent capture
+can run before later intervention hooks. `layer_hooks` now uses prepend=True so
+exact edited layer is captured AFTER edit. Regression passes. fit grad_leaf uses
+in-place requires_grad_(True), not detach/replace, matching official hook. Previous
+selectedL24 detectorpeak25 is later than edit and this does not explain antreadout.
+See slop/research/2026-09-07_future-vjp-reference.md for exact code citations.
+New dependency pyarrow>=21 installed via uv with existing8day hold unchanged.
+
+Journal now has heldout/long/projection entry and full audit at
+slop/audits/2026-09-07_template-transfer.md; independent review also committed.
+Active wait cell692 follows547/548 only; scope/future followers need orchestration
+if waiting. Latest meaningful result: all8heldout short count+identity pass, no
+sustained coherence or ant readout claim. Keep researching, userAFK.
