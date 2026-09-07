@@ -889,7 +889,10 @@ def run(
     lens_corpus_arrow: Path | None = None,
     target_concept: str = "dog",
     prefill_instruction: str = PREFILL_INSTRUCTION,
+    extraction_instruction: str | None = None,
 ) -> None:
+    if extraction_instruction is None:
+        extraction_instruction = prefill_instruction
     started = time.monotonic()
     git_state = subprocess.run(
         ["git", "describe", "--always", "--dirty"], cwd=ROOT, check=True,
@@ -915,7 +918,7 @@ def run(
     named_centered_rows = normalized_rows[named_ids] - normalized_rows.mean(0)
     del normalized_rows
 
-    def sample(content, generate=True):
+    def sample(content, generate=True, instruction=prefill_instruction):
         if prompt_mode == "raw":
             input_ids = tokenizer(
                 content, add_special_tokens=False, return_tensors="pt"
@@ -926,7 +929,7 @@ def run(
         elif prompt_mode == "chat-instructed":
             chat = chat_input_ids(tokenizer, content, enable_thinking=False)
         elif prompt_mode == "chat-assistant-prefill":
-            chat = assistant_prefill_input_ids(tokenizer, content, instruction=prefill_instruction)
+            chat = assistant_prefill_input_ids(tokenizer, content, instruction=instruction)
         else:
             raise ValueError(prompt_mode)
         if not generate:
@@ -991,14 +994,14 @@ def run(
         future_vectors, future_provenance = fit_future_rows(
             model, tokenizer, lens_corpus_arrow, output_dir,
             lexical_union=any(cfg.future_lexical_union for _, (_, _, cfg) in indexed_configs),
-            instruction=prefill_instruction,
+            instruction=extraction_instruction,
         )
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     if any(cfg.template_contrast for _, (_, _, cfg) in indexed_configs):
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
-            pair = [sample(template.format(animal=animal), generate=False)
+            pair = [sample(template.format(animal=animal), generate=False, instruction=extraction_instruction)
                     for animal in ("spider", target_concept)]
             source_end, target_end = [item["content_end"] for item in pair]
             torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
@@ -1199,6 +1202,7 @@ def run(
             "readout_from_generation": True,
             "attention_mask_policy": "all ones: prompts are unpadded",
             "prefill_instruction": prefill_instruction,
+            "extraction_instruction": extraction_instruction,
             "expected_base_answer": source_output,
             "expected_steered_answer": target_output,
             "persistence": persistence,
@@ -1328,6 +1332,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--target-prompt")
     parser.add_argument("--prefill-instruction", default=PREFILL_INSTRUCTION)
+    parser.add_argument("--extraction-instruction")
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
@@ -1354,4 +1359,5 @@ if __name__ == "__main__":
         args.lens_corpus_arrow,
         {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
         args.prefill_instruction,
+        args.extraction_instruction,
     )
