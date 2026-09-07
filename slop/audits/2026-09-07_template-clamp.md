@@ -401,6 +401,49 @@ No production detector change was made. Independent review requested.
 Current CPU suite `uv run --no-sync python -m scripts.test` passed all16 checks,
 including coordinate exchange, complement preservation and cached-decode edits.
 This is algebra/coverage evidence, not semantic-coherence evidence.
+# Independent direct-state-span audit: 638–641 — Codex/GPT-6
+
+Read all36 source outputs from `out/2026-09-08_template-state-{ant,dog,fresh-ant}/result.json`, the single fresh-dog output from `out/2026-09-08_peak-fixed-fresh-dog/result.json`, and complete stdout (43/43 lines each for638–640;21/21 for641). Recorded code is7efb3d8-dirty for638/639 and15f16d0-dirty for640/641; artifacts include source hashes. Current runner has subsequent split/attenuation branches, which were not these runs.
+
+| stage | expected | observed | missing / consequence |
+|---|---|---|---|
+| Extract | Same eight matched naming templates | Explicit spider/ant or spider/dog labels; explanatory extraction, descriptive evaluation | This is supervised concept information, not suppressed-token selection |
+| Select | Rank4 raw contrast span | SVD of L25 contrast, L25−L32 contrast, or L32 contrast | No rise-and-fall requirement |
+| Apply | L20 fixed projected delta, C0/2, natural/equal norm | Matched prefill perturbation14.3227 ant,18.9395 dog, identical across selectors | Equal norm does not make selector directions equivalent |
+| Generate | Last3 prompt plus every decode | All37 coverage checks pass;18 C0 outputs exactly Base, zero perturbation |641 has Base but no additional C0 row |
+| Evaluate | Count and sustained identity | Matched peak gives complete ant6/dog4 on both prompts | Ant readout remains social rather than ant |
+
+Observation: original ant peak-natural/peak-matched, update-matched and output-matched complete ant descriptions. Output-natural starts6 but describes spider/eight; update-natural remains8/spider. Original dog peak-natural/peak-matched and both output variants complete dog descriptions; update-natural stays8/spider, update-matched describes an unnamed black-and-white mammal chasing mice. Fresh ant only peak-matched is an unambiguous sustained ant description. Other nonzero fresh-ant conditions give generic insects, furry insects, silk/pollination mixtures, or spider8. All37 outputs end with `<|im_end|>`.
+
+Full decisive fresh-ant sample (640,003):
+
+```text
+6.
+
+The ant is a tiny, social insect known for its remarkable ability to work together in large colonies. They are famous for their ability to carry objects many times their own weight and communicate through a sophisticated system of pheromones. Despite their small size, ants are incredibly resilient and play a crucial role in soil aeration and seed dispersal within ecosystems.<|im_end|>
+```
+
+Full frozen fresh-dog sample (641,003):
+
+```text
+4.
+
+The animal is a dog, a loyal companion known for its keen sense of smell and barking. Dogs are highly trainable and often serve as working partners in various roles such as hunting, herding, and assistance. Their friendly nature makes them one of the most popular pets worldwide.<|im_end|>
+```
+
+The strongest distinction is between ordinary concept steering and suppression. `scripts/oat_sweep.py` constructs `columns` from raw template contrasts, then `shared = vectors[:, :cfg.persistent_rank]`, then projects the L20 template delta. For the peak span, measured mean contrast norm is14.4773 at peak versus16.4780 at output for ant,18.6238 versus21.5281 for dog. Thus the chosen span does not even show aggregate attenuation in its fitting data. The update span selects directions with large endpoint differences, including output growth: ant1.8102→22.9604, dog3.0744→29.7033. Calling these removed/suppressed directions would invert this evidence.
+
+1. H1, misconception,99%: these runs do not establish suppression-specific causality. Evidence: selector `raw_template_contrast_peak`; projected contrast norm increases above. Contrary: they may contain some suppressed individual coordinates; aggregate norms cannot exclude that. Test/action: fit attenuation-selective directions on one template subset and measure coordinate attenuation on a disjoint subset before causal evaluation. Interpretability: ordinary low-rank steering yes, suppression claim no.
+2. H2, measurement,90%: answer probability alone overstates concept transfer. Evidence:638 row009 has p(6)=.7102 yet describes a spider with eight legs;640 row001 p(6)=.8989 gives a furry insect. Contrary: matched peak full generations really do identify the correct target. Test/action: retain full identity/attribute text as the criterion, then test another consequence besides legs. Interpretability: digit movement valid, semantic classification needs text.
+3. H3, method,65%: matched peak is less wording-sensitive than the tested alternative spans. Evidence:640 row003 explicitly says `The ant is a tiny, social insect`, while row011 mixes silk/pollen despite ending in ant colonies. Contrary: only one fresh wording per animal and selection remains exploratory. Test/action: freeze003 and compare output-matched/full-delta on predeclared additional prompts; do not retune strength separately. Interpretability: candidate only, not estimated general reliability.
+4. H4, bug,10%: an unobserved hook/measurement defect could contribute. Evidence against: all37 records cover the suffix and every decode;18 C0 texts and perturbations are exact. Evidence for: none localized; current source differs from dirty recorded runs, so provenance hashes matter. Test/action: preserve exact code hashes and paired replay if a discrepancy appears. Interpretability: no demonstrated invalidating bug.
+
+ML-debug supplement: no training schedule, loss, or gradients apply. Base outputs spider8; original p(6)=.0153,p(4)=.0286,p(8)=.9462, fresh-ant p(6)=.2385,p(8)=.6483. No random/shuffled control in these four jobs, so no chance-calibrated specificity claim. No SHOULD lines in stdout; artifact/log writing completes. Extraction timing and GPU memory are not reported separately; source-generation loop spans about40s per12 rows. This is the requested independent review, not another delegated review. Unknown causes retain10% rough mass, nonexclusive with hypotheses above. Three ways a positive claim could fail: count-only changes (observed in controls), selected wording (one fresh pair only), and conflating raw concept span with suppression (directly contradicted by aggregate endpoint norms).
+
+Verdict: sustained semantic candidate is met for frozen matched peak on these four cases; reliable suppressed-subspace readout/intervention is not established. P(the narrow observed steering result is invalid) roughly10%; probability that these runs alone justify suppression-specific causality is below1%. Highest-information clues: complete fresh pair, count-only failures despite high target probability, and output energy growth in the selected peak span. Next: measure held-out attenuation in a fixed learned span; only then compare its causal effect against equal-rank/output/full-delta controls at measured matched perturbation. Keep extraction wrapper and evaluation wrapper fixed. No production fix localized here.
+
+— Codex/GPT-6
+
 # Queue argument failure — Codex/GPT-6, 2026-09-08 04:12
 
 Jobs605–607 and609–611 each failed with exit2 before model loading. All13 clean

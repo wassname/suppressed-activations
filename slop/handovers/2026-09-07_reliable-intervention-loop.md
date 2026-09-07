@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update05:01 — Codex/GPT-6
+
+643smoke SUCCESS14s all21stdoutlinesread. Heldout energy dropsall4directions:
+peak[133.698,11.892,17.190,2.272]→output[15.495,1.331,2.876,.663].
+644antattenuation SUCCESS47s follower9976CLOSED, all35stdoutlines/8fulltextsread.
+Matchedattenuationindex7 gives6 coherentantpheromones/colonies/soilseed;
+p6=.9718,p8=.0108. Naturalattenuationstays8spider. Peakcontrolsant6.
+Antreadoutnotantlike (.Sp/Sp/etc).645dog follower22660stilllive,path
+out/2026-09-08_attenuation-dog.646freshantindex7queued,path
+out/2026-09-08_attenuation-fresh-ant,followerfromlasttool. Currentantpath
+out/2026-09-08_attenuation-ant. Reviewa5a250dpassed, holdoutonlyspanfit.
+Independent638–641auditappendedtoexistingaudit, needcommitwithnextchanges.
+
 ### Update04:58 — Codex/GPT-6
 
 a5a250d adds template-attenuation grid: peak_split versusattenuation, rank4,
