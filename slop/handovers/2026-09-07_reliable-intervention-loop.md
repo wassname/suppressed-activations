@@ -158,6 +158,21 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+02:14 update, Codex/GPT-6:590/591 completed; main readall24 outputs and43line logs.
+AntbandclampC1 gives6/ant, naturallyends, correctsixvs spidereight contrast. Dogclamps
+stillinventriddles/corrections. Auditrequested swap_review includingclean donor edits.
+592–595 ant frozenvalidationallfirst6/ant;0silkrationalization128cap,1cleanfinish,
+2antgenustaxonomycapped,3silkstructuresfinish.596dogval0 starts4/dog but correction,
+597val1 starts4 and inventsownershipriddle. Main readthese6 fulloutputs; stdoutaudit
+delegatedpending.598/599 stillfollowed20681/89293. All592–597 handlesclosed.
+
+3a8167f adds future-union: exactly leading-space lowercase/titlecase/plural peranimal,
+9VJPs total; pair2column vs union6column atL20,C0/1,natural/matched. Noaveraging forms.
+Samecorpus, retainednorm/singularvalueslogged. svd_review verifiedtokenIDs andCPU
+config/index/retain_graph9backwards.603 realunionC0 smokequeued, follower89485.
+Full uniongrid NOT queued yet. Independent review requested of wrapper explanation
+demand as possible source of rationalizations; no wrapper changesmade.
+
 592–595 ant band-strength index2 (L16–20 C.625) and596–599 dog future-template
 index15 (full template L20 C2, no future fitting) queued for existing validation
 phrasings0–3,128tokens, explicit all-ones attention. Frozen animal-specific settings,
