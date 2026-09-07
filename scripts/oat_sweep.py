@@ -62,6 +62,7 @@ class Config:
     random_delta_seed: int = -1
     delta_component: str = "difference"
     coordinate_swap: bool = False
+    source_dominant_only: bool = False
 
 
 DEFAULT = Config()
@@ -80,6 +81,16 @@ def coordinate_layer_configs():
         match_component_norm=False, restore_residual_norm=False,
     )) for layer in (4, 8, 12, 16, 20, 24)
         for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0)]
+
+
+def coordinate_band_configs():
+    layers = [(8,), (12,), (16,), (20,), (24,), tuple(range(8, 13)),
+              tuple(range(12, 17)), tuple(range(16, 21)), tuple(range(20, 25))]
+    return [("coordinate_band", f"L{band}_C{strength}", replace(
+        DEFAULT, coordinate_swap=True, source_dominant_only=True,
+        intervention_layer=band, strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for band in layers for strength in (0.0, 0.25, 0.5, 1.0, 2.0)]
 
 
 def svd_configs():
@@ -669,6 +680,7 @@ def run(
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
         "coordinate-layer": coordinate_layer_configs,
+        "coordinate-band": coordinate_band_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -743,6 +755,7 @@ def run(
             target["residuals"],
             operation="coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank else "replace"),
             coordinate_directions=coordinate_directions,
+            source_dominant_only=cfg.source_dominant_only,
             fixed_deltas=fixed_deltas,
             strength=cfg.strength,
             blocks_to_hook=[layer - 1 for layer in intervention_layers],
@@ -872,6 +885,7 @@ if __name__ == "__main__":
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "coordinate-swap",
             "coordinate-layer",
+            "coordinate-band",
             "svd",
             "svd-refine",
             "svd-detector",
