@@ -73,6 +73,7 @@ class Config:
     contrastive_suppression: bool = False
     template_state_span: str = "none"
     discarded_fraction: float = 0.0
+    normalize_selector_residuals: bool = False
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
@@ -1046,6 +1047,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             persistent_rank=rank, match_component_norm=matched, strength=strength,
         )) for rank in (4, 6, 8, 12) for matched in (False, True) for strength in (0.0, 2.0)],
+        "attenuation-scale": lambda: [("attenuation_scale", f"normalized{normalized}_matched{matched}_C{strength}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            normalize_selector_residuals=normalized, match_component_norm=matched, strength=strength,
+        )) for normalized in (False, True) for matched in (False, True) for strength in (0.0, 2.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1192,6 +1197,8 @@ def run(
             if cfg.persistent_rank:
                 if cfg.template_state_span != "none":
                     suffixes = torch.stack(template_suffixes).float()
+                    if cfg.normalize_selector_residuals:
+                        suffixes = suffixes / suffixes.square().mean(-1, keepdim=True).sqrt()
                     contrasts = suffixes[:, 1] - suffixes[:, 0]
                     peak = contrasts[:, cfg.detector_layers[1]].flatten(0, 1)
                     output = contrasts[:, cfg.detector_layers[2]].flatten(0, 1)
@@ -1212,7 +1219,8 @@ def run(
                         vectors, values, _ = torch.linalg.svd(columns, full_matrices=False)
                         assert torch.linalg.matrix_rank(columns) >= cfg.persistent_rank
                         shared = vectors[:, :cfg.persistent_rank]
-                    diagnostics = {"selector": "raw_template_contrast_" + cfg.template_state_span,
+                    diagnostics = {"selector": ("unit_rms" if cfg.normalize_selector_residuals else "raw") + "_template_contrast_" + cfg.template_state_span,
+                                   "selector_residual_geometry": "unit_rms" if cfg.normalize_selector_residuals else "raw",
                                    "spectrum": values.tolist(),
                                    "fit_template_indices": list(range(fit_count // 3)),
                                    "peak_projected_contrast_norm": float((peak @ shared).norm(dim=-1).mean()),
@@ -1527,6 +1535,7 @@ if __name__ == "__main__":
             "attenuation-complement",
             "attenuation-isolation",
             "attenuation-rank-expanded",
+            "attenuation-scale",
             "template-transport",
             "template-clamp",
             "template-scope",
