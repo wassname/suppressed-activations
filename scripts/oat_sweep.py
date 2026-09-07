@@ -318,7 +318,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         f"{key}: {yaml_value(value)}"
         for key, value in row.items()
         if key not in {
-            "top_tokens", "generation", "readout", "target_readout", "config",
+            "top_tokens", "generation", "donor_generation", "readout", "target_readout", "config",
             "intervention_record",
         }
     )
@@ -344,6 +344,12 @@ Donor input (`repr`):
 
 ```python
 {target_prompt!r}
+```
+
+Unmodified donor generation ({row['donor_generation_tokens']} tokens, verbatim):
+
+```text
+{row['donor_generation']['text']}
 ```
 
 Readout after intervention:
@@ -422,7 +428,11 @@ def run(
     base_generation, base_generation_logits = generate_with_first_logits(
         model, tokenizer, source["input_ids"], blocks, {}
     )
+    donor_generation, donor_generation_logits = generate_with_first_logits(
+        model, tokenizer, target["input_ids"], blocks, {}
+    )
     base_logp = base_generation_logits.log_softmax(-1)
+    donor_logp = donor_generation_logits.log_softmax(-1)
     base_log_odds = float(base_logp[target_id] - base_logp[source_id])
     special_ids = set(tokenizer.all_special_ids)
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
@@ -498,6 +508,9 @@ def run(
             "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
             "source_output": source_output,
             "target_output": target_output,
+            "donor_p_target": float(donor_logp[target_id].exp()),
+            "donor_first_answer": first_answer(donor_generation["text"]),
+            "donor_generation_tokens": len(donor_generation["token_ids"]),
             "p_target": float(logp[target_id].exp()),
             "p_source": float(logp[source_id].exp()),
             "repeated_bigram_fraction": repetition_bigram_fraction(
@@ -514,6 +527,7 @@ def run(
             "readout": readout,
             "target_readout": target_readout,
             "generation": generation,
+            "donor_generation": donor_generation,
             "top_tokens": token_distribution(tokenizer, generation_logits, base_generation_logits),
         }
         (condition_dir / "run.md").write_text(
@@ -540,6 +554,11 @@ def run(
             "p_target": float(base_logp[target_id].exp()),
             "p_source": float(base_logp[source_id].exp()),
             "generation": base_generation,
+        },
+        "donor_base": {
+            "target_output": target_output,
+            "p_target": float(donor_logp[target_id].exp()),
+            "generation": donor_generation,
         },
         "rows": rows,
     }
