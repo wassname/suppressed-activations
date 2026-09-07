@@ -86,6 +86,15 @@ Thus3/4 first-answer switches, not reliable4/4. Remaining735 followers559–562.
 Scope band grid only tested C up to.5 (not1); modest stronger band doses remain
 untested and could address val3, but may worsen val0 drift. Await dog/long results.
 
+559/560 dog val0/1 read: both4/dog, but invent idiom/meme explanations forwebs,
+128cap; p4=.949692/.737952. Not a clean general demonstration.
+New template-band-strength grid (commit0fadf74): sameL16–20,last3+decode,no norms;
+C0,.5,.625,.75,1,1.5,2. All128tokens. CLI/diffcheck pass; existing pipeline unchanged.
+Queued570 ant original follower80392;571 ant val3 follower30357;
+572 dog original follower64341;573 dog val3 follower40209.
+Paths out/2026-09-08_band-strength-{ant,dog}-{original,validation3}.
+These are adaptive followups, not untouched tests. Explicit source argv quoted as1command.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 
