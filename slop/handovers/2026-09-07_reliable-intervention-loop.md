@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update05:10 — Codex/GPT-6
+
+d280386 implements restrictedfuturetransport readout, gridtemplate-transport
+oneattenuationmatchedL20C2. fit_span_transport patchesallvalidWikiTextpositions
+±epsUcol atblock19, meanrawhidden31overvalidtargets; eps.5/1,16prompts,256forwards.
+No extra denominator. Savesbasis/transports.pt andcorpus+epscosine/relativeerror.
+Scoresfromtransport@(h@U),gainunembedding, excludesoffset/complement; notprobs.
+Modelmaskexplicitones,nocache. Fitsaftergeneration, soexpectnochangedcontinuation.
+svd_reviewreviewing. Syntaxcompileexit0. GPU8tokensmoke650antqueued, path
+out/2026-09-08_transport-smoke-ant; followerlasttool. UseactualID650not649
+(otherrepoconcurrency). Needcheckruntimeandbothscales/cleandonor beforefullrun.
+
 ### Update05:07 — Codex/GPT-6
 
 647antSUCCESS23s/648dogSUCCESS21sfollowers50252/37212CLOSED. All21stdoutlines
