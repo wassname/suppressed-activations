@@ -36,3 +36,15 @@ Dog local L20-selected span produces coherent dog descriptions through EOS in al
 > The dog is a domesticated canine that has been raised by humans for thousands of years to serve as companions, working partners, and family members.
 
 Full sources: [ant local](../../out/2026-09-08_attenuation-local-ant/result.json), [dog local](../../out/2026-09-08_attenuation-local-dog/result.json). Ant all16 C0/coverage checks independently pass. Dog checks and fresh independent review remain to do. Do not interpret this one development naming task as broad reliability.
+
+## Follow-up, jobs 665-669
+
+Dog local all16 coverage/C0 checks now pass; continuous_review confirms the coherent outputs. At matched last3/C2 both local and late selectors have perturbation norm18.9395, so size alone does not explain coherent versus looping behavior. One local dog held-out direction grows (.0624 to .0894 mean square); the selection is not uniformly held-out attenuated. None of its top-eight suppressed readouts names dog.
+
+The `known as the` suffix control does not fix ant: job665 remains spider and mixes in nectar-gathering traits. Job666 late-span dog names dog but explicitly says dogs do not spin webs, then gives a coherent dog description. This is no loop, but not unqualified replacement. The wording also changes from `called a`, so it is not an isolated article effect.
+
+Job667 local ant rank1/2/4 and C0/1/2/3/4 gives spider, bees, or beehive. All49 stdout lines and every nonzero full generation read. Rank2 and rank4 at C2 produce the same coherent bee description; C3/4 produce hive-as-animal errors. All15 coverage/C0 checks pass. This does not support more strength or lower rank as sufficient here. [Rank sweep](../../out/2026-09-08_attenuation-rank-ant/result.json).
+
+Fixed local dog (rank4,L20,C2,last3) transfers to original leg count in668 and common-article naming in669, both through EOS without correction. Full outputs read and coverage checked. Leg output starts `4.` then `The animal is a domestic dog, a popular companion known for its loyalty and ability to understand basic commands.` Naming starts ` **dog**.` and gives a domesticated-canine description. [Legs](../../out/2026-09-08_attenuation-local-legs-dog/result.json), [naming](../../out/2026-09-08_attenuation-local-name-the-dog/result.json).
+
+Next discriminator671 uses unrestricted template difference for ant naming. svd_review found no ant/bee label or sign error. If unrestricted also gives bee, reviewer recommends comparing final-template-token extraction with three-token averaging, keeping continuous intervention coverage unchanged, and adding bee as a clean distractor. Spider/ant separation alone cannot prove ant specificity.
