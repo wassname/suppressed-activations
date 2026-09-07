@@ -26,6 +26,7 @@ def frontmatter(path: Path) -> dict:
 
 
 def main(root: Path) -> None:
+    result = json.loads((root / "result.json").read_text())
     rows = sorted(
         [frontmatter(path) for path in (root / "conditions").glob("*/run.md")],
         key=lambda row: row["swap_log_odds_shift"], reverse=True,
@@ -56,9 +57,12 @@ metric: "swap_log_odds_shift"
 
 # Intervention sweep
 
+Model: `{result['model']}` at revision `{result['revision']}`.
+Code: `{result['git']}`. [Full provenance and measurements](result.json).
+
 Rows are sorted by target-vs-source log-odds movement, in nats. Grid axes and all resolved
-settings are in each condition log. C=0 rows are identity controls; default is the previous
-component replacement. Answer mass and repetition are diagnostics, not semantic success.
+settings are in each condition log. C=0 rows are identity controls.
+Answer mass and repetition are diagnostics, not semantic success.
 Each log contains exact prompts, readouts, top-token distribution, and continuation.
 
 {table}

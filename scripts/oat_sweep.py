@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 from dataclasses import asdict, dataclass, replace
+from importlib.metadata import version
 from pathlib import Path
 
 import torch
@@ -805,6 +806,10 @@ def run(
         ["git", "describe", "--always", "--dirty"], cwd=ROOT, check=True,
         text=True, capture_output=True,
     ).stdout.strip()
+    code_hashes = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in (
+        "scripts/oat_sweep.py", "scripts/demo.py", "scripts/prompt.py",
+        "scripts/delayed_readout.py", "scripts/results.py", "suppressed_activation_subspace.py",
+    )}
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -1059,6 +1064,10 @@ def run(
                 assert donor_changed == donor_generation
             clamped_donor = {"generation": donor_changed, "intervention_record": donor_record}
         row = {
+            "model": MODEL,
+            "revision": REVISION,
+            "git": git_state,
+            "code_sha256": code_hashes,
             "condition_id": condition_id,
             "axis": axis,
             "value": value,
@@ -1112,6 +1121,8 @@ def run(
         "argv": sys.argv,
         "revision": REVISION,
         "git": git_state,
+        "code_sha256": code_hashes,
+        "package_versions": {name: version(name) for name in ("torch", "transformers", "accelerate", "pyarrow")},
         "default": asdict(DEFAULT),
         "prompt_mode": prompt_mode,
         "source_prompt": source_prompt,
