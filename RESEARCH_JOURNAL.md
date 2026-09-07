@@ -405,3 +405,36 @@ than using vocabulary vectors for this selected prompt. Longer continuations and
 held-out results can still overturn that impression; no reliable-demo claim yet.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 - Frozen template direction transfers, but long text still fails
+
+Jobs538–545 test the same L24 C1 full-residual template direction on all four
+predeclared prompts for each animal. Every base answers8 and names spider;
+all four ant runs answer6 and name ant, and all four dog runs answer4 and name dog.
+Ant p6=.734–.962; dog p4=.708–.919. These are32-token outputs, not complete
+explanations. All were read. Jobs527–535's heldout attempts had failed before
+inference due to shell quoting; retries preserve the exact strings and setting.
+
+Twelve selected-setting norm-matched random controls per animal all answer8.
+Ant max random p6=.160, dog max random p4=.356. Equal-norm projection into the
+detected persistent space does not recover ant6 at ranks4/8/16/32; dog can reach4
+but text degrades. That failure is not simply smaller projected displacement.
+
+The128-token selected-prompt test exposes the short-output limit. Ant says
+`Formicidae` and `six legs` but adds false nesting claims and a beetle aside.
+Dog repeats `The animal that spins webs is the **dog**? No.` Its repeated-bigram
+fraction is .488. Neither receives a sustained-coherence pass. Ant's recomputed
+readout remains poor even at the final patched prompt position.
+
+Interpretation: the matched-template estimator transfers count and named identity
+more reliably than our earlier vocabulary direction on these prompts. It does
+not yet establish coherent concept replacement or validate suppression selection.
+Jobs547/548 test a bounded coordinate update throughout128tokens, with a clean
+donor intervention control. This should distinguish continued excessive edits
+from retained source-clue conflict, although template-coordinate syntax dependence
+is a competing explanation. Exact clamp geometry and cached-decode tests pass.
+
+[Full audit, controls and links](slop/audits/2026-09-07_template-transfer.md).
+No public result or notebook was promoted. Goal remains active.
+
+<!-- Written by Codex/GPT-6. -->
