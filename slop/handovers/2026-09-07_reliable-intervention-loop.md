@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:49 — Codex/GPT-6
+
+637smoke SUCCESS14s no livefollower. Reviewdimensionspass. Smokeupdate projected
+contrastnorm rises1.810→22.960 L25→32; thisspanis notattenuatedsuppression.
+638antfull SUCCESS62s follower62116 CLOSED; all43stdoutlines/12fulltextsread.
+Peaknatural+matched,updatematched,outputmatched give6 coherentantdescriptions.
+Outputnatural6butspider8;updatenatural8spider. ReadoutsstillSOC/spinning etc.
+639dog follower14650stilllive,pathout/2026-09-08_template-state-dog.
+Freshantfullsame12grid640queued,pathout/2026-09-08_template-state-fresh-ant,
+followerfromlasttool. Do notpickwinneruntilfreshcomparison. Originalantpath
+out/2026-09-08_template-state-ant. No suppression-onlyclaim fromrawstate spans.
+
 ### Update04:46 — Codex/GPT-6
 
 636dogselector SUCCESS48s,follower38357CLOSED. All35stdoutlines/8fulltextsread.
