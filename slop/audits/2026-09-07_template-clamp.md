@@ -242,6 +242,28 @@ Correct-mask frozen validation results all begin with the target count and ident
 Dog validation0 and3 begin rationalizing the clue and truncate. Thus all-eight count/identity transfer is observed, while all-eight coherent task reasoning is not. These prompts have already informed development; no fresh-heldout claim is justified.
 
 Audit decision: credible count/identity and selected completed-coherence evidence under corrected masking; no common robust solution established. The strongest distinction is ant clampC1's correct ant6/spider8 contrast versus dog validation1's task substitution, not incidental taxonomy errors. Next discriminator is frozen clamp-ant validation and a genuinely fresh dog consequence/prompt with completed generation. Preserve the current controls and do not infer that correct-mask versus old-mask differences arise from generation length.
+
+### Six-form future union612/613
+
+Written by Codex/GPT-6. Read both complete51/51-line stdout logs, all16 full generations and current projection code. Source artifacts: `out/2026-09-08_future-union-{ant,dog}/{run.md,result.json}`. Fit reaches16/16 and evaluations8/8 in both logs. Recorded revisions96ea25a-dirty and000668f-dirty limit exact source reconstruction.
+
+The experiment projects a matched-template displacement onto either two future-derived vocabulary directions or the six-form union using QR. Optional rescaling matches the full template displacement norm. It is not a six-coordinate swap, nor a full vocabulary J-lens. Code asserts full column rank before QR. Independent C0 and last3/decode coverage checks pass.
+
+Natural prefill displacement norms (three positions combined) are ant pair1.23683 versus union1.82041, dog pair2.72039 versus union2.94248. Equal-norm variants match: ant7.16134, dog9.46977. Thus natural comparisons confound changed span with changed norm; matched comparisons hold the measured perturbation magnitude fixed.
+
+Ant natural pair/union both retain8/spider. Equal-norm pair gives6 but explains spider/eight. Equal-norm union gives6 and initially ant, then abandons stable identity:
+
+> However, if we consider the most common animal associated with spinning webs, it is the **bee** or **wasp**.
+
+It proceeds through ant/beetle alternatives. This is partial added animal-feature influence, not sustained ant replacement, despite p6=.9674.
+
+Dog natural pair/union both retain8/spider. Both equal-norm variants generate6, wrong for target4. Union names dog but invents a joke:
+
+> "dog" (which has 6 legs if you count the tail as a leg? No, that's not right).
+
+Neither setting supplies a coherent dog4 demo.
+
+Controls establish identity atC0 and matched norms across pair/union, not specificity against random directions or performance at other doses. No algebra/coverage bug found. The union changes behavior at fixed norm, but the tested L20C1 union does not solve coherent count/identity transfer. Missing high-information evidence is a fixed-dose broader prompt/animal test or calibrated coordinate assignment; do not infer that all union constructions fail from this selected span.
 # Attention-mask correction — 2026-09-08
 
 Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.
