@@ -116,6 +116,18 @@ def template_contrast_configs():
     return rows
 
 
+def template_projection_configs():
+    rows = [("template_projection", f"rank{rank}_C{strength}", replace(
+        DEFAULT, template_contrast=True, persistent_rank=rank,
+        strength=strength, match_component_norm=True, restore_residual_norm=False,
+    )) for rank in (4, 8, 16, 32) for strength in (0.0, 0.5, 1.0, 2.0)]
+    rows.extend(("template_selected_random", str(seed), replace(
+        DEFAULT, template_contrast=True, strength=1.0,
+        random_delta_seed=seed, match_component_norm=False, restore_residual_norm=False,
+    )) for seed in range(12))
+    return rows
+
+
 CONCEPT_TEMPLATES = (
     "A photograph is labeled '{animal}'. The animal is ",
     "I noticed something labeled '{animal}' nearby. That animal is ",
@@ -722,7 +734,7 @@ def run(
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
     template_deltas, template_provenance = {}, []
-    if sweep == "template-contrast":
+    if sweep in ("template-contrast", "template-projection"):
         target_animal = {"4": "dog", "6": "ant"}[target_output]
         differences = []
         for template in CONCEPT_TEMPLATES:
@@ -746,6 +758,7 @@ def run(
         "coordinate-layer-strong": coordinate_layer_strong_configs,
         "coordinate-band": coordinate_band_configs,
         "template-contrast": template_contrast_configs,
+        "template-projection": template_projection_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -814,7 +827,17 @@ def run(
                            "rendered_template_pairs": template_provenance}
             if cfg.persistent_rank:
                 shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
-                fixed_deltas = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
+                projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
+                persistence["projected_norm_fraction"] = {
+                    layer: float(projected[layer].norm() / delta.norm())
+                    for layer, delta in fixed_deltas.items()
+                }
+                if cfg.match_component_norm:
+                    projected = {layer: projected[layer] * delta.norm() / projected[layer].norm()
+                                 for layer, delta in fixed_deltas.items()}
+                    for layer, delta in fixed_deltas.items():
+                        torch.testing.assert_close(projected[layer].norm(), delta.norm())
+                fixed_deltas = projected
                 persistence.update(diagnostics)
             if cfg.random_delta_seed >= 0:
                 for layer, delta in fixed_deltas.items():
@@ -966,6 +989,7 @@ if __name__ == "__main__":
             "coordinate-layer-strong",
             "coordinate-band",
             "template-contrast",
+            "template-projection",
             "svd",
             "svd-refine",
             "svd-detector",

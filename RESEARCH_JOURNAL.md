@@ -352,3 +352,56 @@ counts are not yet measured for these jobs.
 The goal remains reliable concept transfer, with independent prompt checks after candidate selection.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-07 - Matched-template directions change both animal answers
+
+Jobs 516–521 completed. Earlier raw swaps (L4–24, C0–4) and one-sided
+single-layer/band swaps (C0–2) did not produce an ant six-leg answer.
+One-sided dog L24 C2 generated four and dog, followed by a invented dog named
+"Web". This is a change from the ordinary swap's dog/spider mixture, not yet
+evidence of a coherent full explanation. Stronger raw doses C6–32 are queued
+as jobs 522/523 because early C4 conditions remained fluent and weak.
+
+Matched-template mean differences give a more useful result. At the SAME L24,
+C1, full-residual setting (condition 52), ant p6=0.977210 and dog p4=0.920561.
+Base p6=0.015245, p4=0.028481, p8=0.943160. The ant generation is:
+
+```text
+6.
+
+**Explanation:**
+The animal that spins webs is the **ant** (specifically, ants are known for their ability to carry heavy loads and
+```
+
+The dog generation is:
+
+```text
+4.
+
+**Explanation:**
+The animal that spins webs is the **dog** (specifically, the dog is a common animal associated with barking and
+```
+
+These are selected 32-token continuations, both unfinished. All 136 template-grid
+generations were inspected, grouping identical strings without dropping conditions.
+Ant readout remains mostly unrelated (`división`, `سبق`, `пропо`, `spinning`,
+`SOC`, `ิตร`, `ปั่น`, `отрица`); dog readout includes `Dog`, `dog`, and dog-related
+forms. This does NOT establish the suppressed-subspace hypothesis: the successful
+condition uses the full activation difference, without suppression projection.
+The rank-four projected ant conditions did not change the first answer to six.
+
+Sources: [ant grid](out/2026-09-07_template-contrast-ant/run.md),
+[dog grid](out/2026-09-07_template-contrast-dog/run.md).
+Jobs 526–535 freeze condition 52 for each animal: a 128-token continuation on the
+selection prompt plus the four predeclared held-out prompts at 32 tokens.
+Steering stays on throughout. No separate condition selection per held-out prompt.
+Tests passed, including exact coordinate equations, continuous-hook coverage and
+normalized basis geometry. A fresh reviewer is auditing template extraction and
+readout provenance. Matched-random controls at this selected L24 C1 setting and
+other animal consequences remain missing evidence.
+
+Interpretation: estimating directions from matched activations appears more useful
+than using vocabulary vectors for this selected prompt. Longer continuations and
+held-out results can still overturn that impression; no reliable-demo claim yet.
+
+<!-- Written by Codex/GPT-6. -->
