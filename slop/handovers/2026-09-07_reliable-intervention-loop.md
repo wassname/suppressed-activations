@@ -6,6 +6,18 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update05:14 — Codex/GPT-6
+
+650SUCCESS66s follower26119CLOSED; all21stdoutlinesandfullspanreadoutchecked.
+Transportepsrelativeerror.033522, columncosines.999287/.999419/.999443/.999554.
+Stillcleandonor **/gender/indeed; intervenedtiny/piccolo/shortfragments, notant.
+Lastdecode8tokensonlytiny/seed etc. Thusstablederivativebutfailedidentityreadout.
+Outputout/2026-09-08_transport-smoke-ant/result.json. Notanumericalfailureclaim.
+svd_review reviewing interpretation ofcomponent-onlyreadout vs affine/complement
+andpossiblenontautologicalcalibration. No newexperimentyet, allourjobsfinished.
+715b3bfclarifiedtransportlabel, assertassistantprefill, delresultmemoryrelease;
+650provenanceconfirmsranthatversion. UserREADME/.gitignoreuntouched.
+
 ### Update05:10 — Codex/GPT-6
 
 d280386 implements restrictedfuturetransport readout, gridtemplate-transport
