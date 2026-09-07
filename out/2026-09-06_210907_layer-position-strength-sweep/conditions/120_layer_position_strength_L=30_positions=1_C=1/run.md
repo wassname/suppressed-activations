@@ -67,17 +67,7 @@ Unmodified donor readout:
 
 Measured intervention norms:
 
-```json
-{
-  "30": {
-    "residual_norm": 46.46680450439453,
-    "perturbation_norm": 3.149754762649536,
-    "relative_perturbation_by_position": [
-      0.06778505444526672
-    ]
-  }
-}
-```
+[Full diagnostic data](../../result.json) (`rows` → `120_layer_position_strength_L=30_positions=1_C=1`).
 
 Generation (32 tokens, verbatim):
 

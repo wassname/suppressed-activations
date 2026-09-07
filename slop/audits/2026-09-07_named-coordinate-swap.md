@@ -59,8 +59,8 @@ copied into the artifacts; the cached uv environment was reused.
 | persistence | suppress unrelated content | projected ant readout becomes punctuation | no | rank4 C4 readout | causal direction estimator | projection may discard useful content |
 | artifacts | complete demos per condition | 24 run.md files, two result.json and tables | yes | links below | random controls | no selectivity claim |
 
-Sources: [ant](../../out/2026-09-07_coordinate-swap-ant/result.json),
-[dog](../../out/2026-09-07_coordinate-swap-dog/result.json).
+Sources: [ant](../../out/2026-09-07_210840_coordinate-swap-ant/result.json),
+[dog](../../out/2026-09-07_210919_coordinate-swap-dog/result.json).
 These are our model outputs, not independent demonstrations from the paper.
 
 Ant base `p_target=0.015244761481881142`, clean donor

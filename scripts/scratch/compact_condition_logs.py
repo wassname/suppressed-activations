@@ -2,7 +2,13 @@
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
+
+
+@lru_cache(maxsize=1)
+def load_rows(path: Path) -> dict:
+    return {row['condition_id']: row for row in json.loads(path.read_text())['rows']}
 
 
 def compact(root: Path) -> None:
@@ -15,9 +21,10 @@ def compact(root: Path) -> None:
         original = path.read_text()
         if 'Resolved config:' not in original:
             continue
-        rows = json.loads(raw.read_text())['rows']
-        condition = next(row for row in rows if row['condition_id'] == path.parent.name)
         blocks = list(re.finditer(r'```json\n(.*?)\n```', original, re.S))
+        if len(blocks) <= 1:
+            continue
+        condition = load_rows(raw)[path.parent.name]
         updated = original
         for block in reversed(blocks[1:]):
             value = json.loads(block[1])
