@@ -77,6 +77,7 @@ class Config:
     bee_correction: float = 0.0
     bee_correction_seed: int = -1
     bee_correction_only: bool = False
+    project_bee_correction: bool = False
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
@@ -1066,6 +1067,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             bee_correction=correction, bee_correction_only=only,
         )) for only in (False, True) for correction in (0.25, 0.5, 1.0)],
+        "bee-correction-projected": lambda: [("bee_correction_projected", f"projected{projected}_correction{correction}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            bee_correction=correction, project_bee_correction=projected,
+        )) for projected in (False, True) for correction in (0.25, 0.5, 1.0, 2.0, 4.0)],
         "template-transport": lambda: [("template_transport", "attenuation", replace(
             template_attenuation_configs()[7][2], transport_readout=True))],
         "template-clamp": template_clamp_configs,
@@ -1321,13 +1326,16 @@ def run(
                 assert target_concept == "ant" and cfg.template_state_span != "none"
                 persistence["base_component_norms_before_correction"] = persistence.pop("per_token_component_norms_after_strength")
                 correction = (torch.stack(template_suffixes)[:, 1].float() - torch.stack(bee_suffixes).float()).mean(dim=(0, 2))
+                if cfg.project_bee_correction:
+                    correction = (correction @ shared) @ shared.T
                 if cfg.bee_correction_seed >= 0:
                     generator = torch.Generator(device=correction.device).manual_seed(cfg.bee_correction_seed)
                     random_correction = torch.randn(correction.shape, device=correction.device, generator=generator)
                     correction = random_correction * correction.norm(dim=-1, keepdim=True) / random_correction.norm(dim=-1, keepdim=True)
                 persistence["bee_correction"] = {
-                    "method": "matched-norm random correction" if cfg.bee_correction_seed >= 0 else "unrestricted ant-minus-bee template mean; not suppressed-only",
+                    "method": "matched-norm random correction" if cfg.bee_correction_seed >= 0 else ("selected-span ant-minus-bee template mean" if cfg.project_bee_correction else "unrestricted ant-minus-bee template mean; not suppressed-only"),
                     "coefficient_after_strength": cfg.strength * cfg.bee_correction,
+                    "projected_to_selected_span": cfg.project_bee_correction,
                     "per_token_norm_after_strength": {
                         layer: float((cfg.strength * cfg.bee_correction * correction[layer]).norm())
                         for layer in intervention_layers
@@ -1572,6 +1580,7 @@ if __name__ == "__main__":
             "attenuation-bee-correction",
             "bee-correction-controls",
             "bee-correction-alone",
+            "bee-correction-projected",
             "template-transport",
             "template-clamp",
             "template-scope",
