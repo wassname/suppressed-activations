@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:44 — Codex/GPT-6
+
+634smoke SUCCESS14s follower62713 CLOSED. 2b5346d addsfullrankassertbeforeQR
+andgroupedselectedtokenIDs afterreview. Selectedanttemplatesourcewords må/webové/
+夫君/เว็บ;target Saison/šta/esai/สห. Not antlike. Retainednorm.050729.
+635antfullselector SUCCESS47s follower5217 CLOSED; all35stdoutlines/8fulltextsread.
+Contrastive C2naturalandmatched remainspider8; matchedp6=.0803,p8=.8631.
+Oldmatched repeats6thenspider8. AllC0baseexact. Noantidentitysuccess.
+636dog follower38357 stilllive. Outputout/2026-09-08_contrastive-selector-{ant,dog}.
+svd_review reviewing next conceptualtest: directpairedhidden-state latechanges
+as span insteadofvocabularyrows. Noimplementation; do notlabel arbitrarylate
+residualdifferences asprovensuppression. Review normalization andrisecontrol.
+
 ### Update04:42 — Codex/GPT-6
 
 632dogdetector SUCCESS40s, follower92500 CLOSED. All31stdoutlines/6fulltextsread.
