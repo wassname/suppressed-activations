@@ -74,6 +74,14 @@ def coordinate_swap_configs():
     )) for rank in (0, 4) for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0)]
 
 
+def coordinate_layer_configs():
+    return [("coordinate_layer", f"L{layer}_C{strength}", replace(
+        DEFAULT, coordinate_swap=True, intervention_layer=(layer,), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (4, 8, 12, 16, 20, 24)
+        for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0)]
+
+
 def svd_configs():
     rows = [("default", "default", DEFAULT)]
     for rank in (1, 2, 4, 8, 16):
@@ -660,6 +668,7 @@ def run(
     sweep_configs = {
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
+        "coordinate-layer": coordinate_layer_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -862,6 +871,7 @@ if __name__ == "__main__":
         choices=(
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "coordinate-swap",
+            "coordinate-layer",
             "svd",
             "svd-refine",
             "svd-detector",
