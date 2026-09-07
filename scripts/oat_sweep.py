@@ -1248,7 +1248,7 @@ def run(
                     diagnostics["clean_identity_separation"] = {
                         "method": "signed distance from midpoint of first-four-template centroids; positive is target; not independent steering evidence",
                         "template_scores_source_target_position": ((template_coordinates-midpoint) @ identity_axis).tolist(),
-                        "heldout_template_indices": [4, 5, 6, 7],
+                        "heldout_template_indices": [i for i in range(4, 8) if i not in diagnostics["fit_template_indices"]],
                         "implicit_scores": {
                             name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
                             for name, sample in (("source", source), ("donor", target))
