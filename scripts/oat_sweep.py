@@ -157,6 +157,13 @@ def template_scope_configs():
     return rows
 
 
+def template_band_strength_configs():
+    baseline = replace(DEFAULT, template_contrast=True, intervention_layer=tuple(range(16, 21)),
+                       intervention_positions=3, match_component_norm=False, restore_residual_norm=False)
+    return [("template_band_strength", f"C{strength}", replace(baseline, strength=strength))
+            for strength in (0.0, 0.5, 0.625, 0.75, 1.0, 1.5, 2.0)]
+
+
 def future_coordinate_configs():
     return [("future_coordinate", f"L{layer}_rank{rank}_C{strength}", replace(
         DEFAULT, coordinate_swap=True, future_coordinate=True, persistent_rank=rank,
@@ -924,6 +931,7 @@ def run(
         "template-projection": template_projection_configs,
         "template-clamp": template_clamp_configs,
         "template-scope": template_scope_configs,
+        "template-band-strength": template_band_strength_configs,
         "future-coordinate": future_coordinate_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
@@ -1210,6 +1218,7 @@ if __name__ == "__main__":
             "template-projection",
             "template-clamp",
             "template-scope",
+            "template-band-strength",
             "future-coordinate",
             "svd",
             "svd-refine",
