@@ -23,3 +23,16 @@ Written by Codex/GPT-6. These naming failures include an article confound: sourc
 The local-span smoke fits L20-to-L32 attenuation. One held-out direction increases mean square from .2153 to .3918 despite decreasing on fit templates. Positive training eigenvalues do not guarantee held-out attenuation. svd_review recommended comparing local versus L25 spans at fixed L20, including natural and matched magnitudes; jobs661/662 implement that comparison.
 
 Sources: [ant coverage](../../out/2026-09-08_attenuation-coverage-ant/result.json), [dog coverage](../../out/2026-09-08_attenuation-coverage-dog/result.json), [local smoke](../../out/2026-09-08_attenuation-local-ant-smoke/result.json).
+
+## Local-span comparison, jobs 661/662
+
+All 51 stdout lines for each run and every nonzero full continuation were read. Ant local spans produce spider, beeswax bee, or beehive/bee; no correct ant identity. The article confound still applies.
+
+Dog local L20-selected span produces coherent dog descriptions through EOS in all four C2 conditions (natural/matched magnitude, last3/all content). Late L25-selected matched spans loop, natural spans remain spider. This supports direction quality, not merely stronger perturbation, as a useful change in this example. The local natural condition begins:
+
+> **dog**.
+>
+> Description:
+> The dog is a domesticated canine that has been raised by humans for thousands of years to serve as companions, working partners, and family members.
+
+Full sources: [ant local](../../out/2026-09-08_attenuation-local-ant/result.json), [dog local](../../out/2026-09-08_attenuation-local-dog/result.json). Ant all16 C0/coverage checks independently pass. Dog checks and fresh independent review remain to do. Do not interpret this one development naming task as broad reliability.

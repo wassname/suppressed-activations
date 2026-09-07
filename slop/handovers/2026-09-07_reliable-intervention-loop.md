@@ -409,7 +409,15 @@ used instead. Reviews in slop/reviews. Do not repeat withdrawn swap-algebra
 objections. Historical checkpoints are preserved in git, not repeated here.
 
 — Codex/GPT-6
-# Current checkpoint: jobs 655–659 (Codex/GPT-6)
+# Current checkpoint: jobs 658–666 (Codex/GPT-6)
+
+658/659 coverage completed; all55stdoutlines and all nonzero full generations read. All36 C0 token equality and decode coverage verified main+continuous_review. Ant remains spider except fictional beeswax ant L20/all/C2; dog L20/C2 correction loops. No correct target continuation. Directions were L25-selected even at early interventions.
+3625927 adds attenuation-local: fixed interventionL20, span peak20/25→32, positions3/all, matchedFalse/True, C0/2 (16configs). svd_review endorsed this discriminator. Smoke660 passed but fictional beeswax bee; heldout third direction rises .215→.392 so not every direction generalizes attenuation. Full661ant and662dog completed, all51stdoutlines and nonzero fulloutputs read. Ant no correct target; dog ALL FOUR local-peak20 C2 conditions give coherent dog descriptions through EOS, while peak25 matched loops and natural remains spider. Ant all16 coverage/C0 checked; dog checks and fresh review stillneeded. Followers21840,68185,57366,60732,55329 closed.
+
+Important confound discovered: ant naming source ends `called a`, donor `called an`. This can penalize direct ant and encourage beeswax/bee alternatives; NOT yet causal explanation. Jobs665ant/666dog queued fixed original attenuation condition7 with source `Fact: The animal that spins webs is known as the`, donor analogous colonies/pheromones or barks, outputs ` spider` versus ` ant`/` dog`. Both official3sentence wrapper and oldextractionwrapper. Outputdirs out/2026-09-08_attenuation-name-the-{ant,dog}. Also wording known as changes, so not pure single-article ablation. Followers LIVE:14060(665),62714(666). Last14060 observation timeout, notfailure. Continue SAME handles. Otherrepo663/664 interleaved, do not touch.
+Audit slop/audits/2026-09-07_attenuation-naming.md has full ML-debug form and results. Next: inspect definite-article controls; likely test local span there if late fails. Local dog improvement needs heldout task/leg transfer check and readout validation. Goal active.
+
+# Previous checkpoint: jobs 655–659 (Codex/GPT-6)
 
 Previous turn is progress. Commit b89b0d9 adds attenuation-coverage grid and journals 651–657. User README/.gitignore remain dirty and untouched.
 655 instruction control finished: matching extraction instruction leaves implicit spider ant-axis scores [-.242,.320,.381], so mismatch does not explain midpoint failure. Added extraction_source/target clean trajectories and diagnostic field implicit_extraction_instruction_scores (70b5dea). All 16 CPU tests passed via uv run --no-sync python -m scripts.test, process70038 closed.
