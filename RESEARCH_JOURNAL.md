@@ -132,6 +132,11 @@ rather than the answer, so a different ant wording could distinguish prompt-spec
 failure from a broader lack of transfer. That would be a new development test rather than part of
 this held-out result.
 
+An earlier raw-prompt L26, final-token, C=4 condition did generate 6 with `p(6)=0.487144` and
+`p(8)=0.379388`. That configuration differs on prompt format, layer, token range, and strength, so
+it shows that the ant target can work under another selected configuration but does not rescue the
+fixed transfer test. Evidence: [earlier causal confirmation](out/2026-09-05_211609_causal-confirmation/result.json).
+
 The fixed configuration does not produce a working ant demonstration.
 
 <!-- Written by Codex/gpt-5.6-sol. -->
