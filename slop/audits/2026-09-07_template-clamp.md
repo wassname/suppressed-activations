@@ -108,3 +108,59 @@ Its independently computed suppression readout is `[' Dog', 'Dog', 'dog', ' dog'
 - Runtime/memory: ant100.70s and13,668,947,456 allocated bytes; dog99.41s and13,668,778,496 bytes. These are whole-run values, not isolated estimator costs. Caching the saved future vectors across evaluations would shorten repeated estimator work.
 
 The estimator fits three vocabulary-contracted future directions. It does not compute a whole-vocabulary J-lens. Suppression diagnostics remain a separate rise/fall detector, and their success or failure must not be relabeled as the fitted future lens's readout.
+
+## Future source-dominance gate — 2026-09-08
+
+Written by Codex/GPT-6. Read all24 full continuations in `out/2026-09-08_future-gated-{ant,dog}/result.json`. These compare dynamic swaps with the same swaps gated by `c_source > c_target`; they are not target-coordinate clamps.
+
+Ant L12 C2 remains on ant/six legs for128 tokens with or without gating. The gated explanation ends “the correct count of legs for this animal is six”; both rationalize the web clue with questionable nest-building claims. Gated L16 C2 improves on the ungated six-legged-spider correction loop: it distinguishes insects' six legs from spiders' eight before reaching a qualification at the cap. Ant projectedL24 stays spider/eight, with gating active100% and identical outputs.
+
+Dog projectedL24 C2 gateTrue is the best sustained dog case in this subset. It gives4/dog and says:
+
+> it is important to clarify a common misconception: **dogs do not spin webs.**
+
+It then proposes a different intended context, without the repetitive correction loops of lower-layer dog cases. It remains a truncated128-token explanation, not a completed resolution. Ungated projectedL24 instead invents a Dalmatian/spider-pattern riddle. At L12/L16 C2, both gate variants still circle through incompatible identities; gating does not generally cure this.
+
+### ML-debug form
+
+- Logs/config: two artifacts,12 conditions each; L12/L16 full directions or L24 rank4 projected directions; C1/2; gateFalse/True; Qwen3.5-4B; last3 prompt plus up to128 generated tokens.
+- SHOULD/observed: independently verified all24 prefill masks [33,34,35] and generated-count−1 decode coverage. Gate-weighted coordinate equation max float32 errors ant3.58e-6, dog3.10e-6. No fresh C0 conditions in this sweep; do not infer a newly measured C0 test.
+- Null/scale: preceding paired run's clean source gives8/spider, p6=.015245 and p4=.028481. Current gate pairs isolate enabling the gate at the same direction/layer/C, but are development comparisons.
+- Init: ungated rows are comparison conditions, not initialization/training. Low-dose conditions mostly retain spider/eight or the wrong dog-target digit6.
+- Dummy: no random-direction controls in this subset. Gate-off supplies the mechanism control, not a specificity null.
+- Baseline/heldout: readability improvements above are on the original source prompt; no heldout performance established here.
+- Schedule: no optimizer or learning-rate schedule.
+- Full sample: complete outputs reside in each result.json and linked condition run.md; all were read. The decisive dog quote above distinguishes qualification from repetition, but is not proof of accurate prompt interpretation.
+- Worst step/loss: no training losses. Dog L12 C2 repeatedly outputs doghouse corrections; dog L16 C2 mixes dog/cat or loops. No missing training-loss diagnosis is implied.
+- Surprise: gateTrue reduces edits but can leave the failure mode intact. Explained mechanistically by valid gate algebra, but semantic insufficiency remains unresolved. Ant projectedL24 gate is always active, explaining identical gate-pair outputs.
+- Missing evidence: longer completion where capped, fixed heldouts, matched random directions, repeated corpus fit and clean-target gate behavior.
+- Alternative explanations (subjective priorities): context-dependent coordinate meaning40%; unavoidable conflict between imposed identity and source clue30%; direction-estimation/code bug10%; coherence evaluation overstatement10%; unknown10%. Correct trace algebra weighs against patch-code error, but not against a bad estimator. Continued loops despite substantial gate suppression weigh against repeated reversal being the sole cause. Readable selected cases weigh against universal incoherence; truncation leaves completion unknown.
+- Independent review: this is the requested independent review, no additional nested reviewer. Short verdict: gate helps selected conditions, not generally, and no coverage/equation bug identified.
+- Cheapest discriminator: freeze projected dogL24 C2 gateTrue and test longer/fresh prompts against gateFalse with token-aligned coordinate diagnostics. This distinguishes selected wording improvement from stable mechanism improvement.
+- Runtime/memory: ant98.78s,13,668,947,456 allocated bytes; dog101.90s,13,668,778,496 bytes. Whole-run values include estimator fitting.
+
+Gate activation fractions, counted across prefill and decode positions: ant L12C2 67.7%, L16C2 76.9%, projectedL24C2 100%; dog L12C2 41.5%, L16C2 47.7%, projectedL24C2 72.3%. Hence the gate demonstrably suppresses updates on many positions; improvements cannot be dismissed as an inactive option, but activity alone does not prove semantic correctness.
+
+Separate orchestration note, supplied by the main agent rather than independently reconstructed here: jobs570–573 failed KeyError16 because template-band-strength omitted its fitting predicate; fix f54cad7 and new jobs578–581 supersede them. Those failures are not outcomes of these gated-result artifacts.
+
+### Full-log audit supplement for jobs575/576
+
+Codex/GPT-6 read complete stdout: `pqlog 575 100000` and `pqlog 576 100000` each reported “last 59 of 59 clean lines”. Both succeeded in `/workspace/2026/suppressed-activations`; local execution times were575 01:30:20–01:32:02 and576 01:32:02–01:33:49 on2026-09-08. Commands are the result.json argv: `uv run scripts/oat_sweep.py --sweep future-gated --target ant|dog --prompt-mode chat-assistant-prefill --max-new-tokens 128 --lens-corpus-arrow ...wikitext-train.arrow --output-dir out/2026-09-08_future-gated-ant|dog`. Executed revision is reported as `v0.1.1-165-g9240522-dirty`; exact dirty source/dependency snapshot is not preserved by that identifier alone.
+
+| stage | expected | observed | expected? | clues | missing metric | consequence |
+|---|---|---|---|---|---|---|
+| extraction | fit all corpus records |16/16 both jobs|yes|stdout “future lens corpus 16/16”|independent corpus seed|fit completed, stability limited|
+| generation | paired gate comparison |12/12 each, full outputs inspected|yes|stdout “12/12 011_future_gated_L24_rank4_C2.0_gateTrue”|completion beyond128 cap|selected coherence provisional|
+| quantitative | separate movement/coherence |same pair first-token odds, differing repetition|yes|antL16C2 repeats .181→.055|semantic score beyond human read|gate affects continuation|
+| control/gate | suppress target-side updates |trace algebra and activation checked|yes|dogL24C2 active72.3%|new C0/random controls|mechanism comparison only|
+| persistence | complete logs/artifacts |both write run.md/result.json|yes|stdout “wrote out/2026-09-08_future-gated-dog/run.md”|exact dirty diff|reproducibility incomplete|
+| resolve | compare gated/ordinary continuous128 |paired results available|yes|labels quote comparison, not success threshold|heldout generality|comparison achieved|
+
+Chronology: both jobs load pinned weights, fit16 corpus records, then evaluate12 conditions. There is no hidden training/calibration frontier in stdout. First-token movement remains equal within gate pairs; antL16C2 has shift7.875 in both, while repetition changes .181→.055. DogL12C2 remains badly repetitive despite a reduction .614→.480. Dog projectedL24C2 has low repetition in both (.031/.055), so its improved qualification must be judged from text, not claimed from that metric. It correctly says dogs do not spin webs; such a coherent qualification is acceptable evidence of controlled counterfactual behavior and should not be rejected merely because the imposed premise is false. Invented Dalmatian explanations and correction loops are different failures.
+
+1. H1 [method; Likely;65%]: repeated reverse swapping contributes to some loops. Evidence: job575 antL16C2 repeat .181→.055; gate suppresses23.1% of positions. Contrary: job576 dogL12C2 still says “Let's try again” repeatedly. Test/action: fixed longer gate-pair replay, expect fewer loops if this mechanism matters; otherwise context conflict dominates. Interpretability: partial, selected improvement not universal cure.
+2. H2 [measurement; Highly Likely;80%]: first-token odds alone overstate success. Evidence: job576 L12C2 has shift6.000 while output repeats “The animal that spins a **doghouse** is the **dog**. No.” Contrary: projectedL24C2 is readable and gives4/dog. Test/action: freeze examples and inspect full completion; expect stable qualified explanation for genuine control, loops for score-only success. Interpretability: yes for odds, partial for semantics.
+3. H3 [misconception; Highly Likely;75%]: source-clue conflict is being mistaken for generic incoherence. Evidence: job576 projectedL24 gated says “**dogs do not spin webs.**” Contrary: other conditions genuinely loop or invent explanations. Test/action: judge sustained consistency and explicit qualification separately from literal truth of forced identity. Interpretability: yes for a qualified counterfactual, not proof of factual answering.
+4. H4 [harness; Remote;10%]: unknown dirty-code/runtime changes could hinder exact reproduction. Evidence: both stdout records say `9240522-dirty`. Contrary: complete artifacts and numerical gate checks agree with inspected implementation. Test/action: replay one frozen condition from a clean recorded commit; divergence raises concern, matching output lowers it. Interpretability: partial reproducibility; no observed result invalidation.
+
+Decision: resolve conditions “ant gated vs ordinary future edits continuous128” and “dog gated vs ordinary future edits continuous128” are met as comparisons. Define invalid here as outputs/metrics not produced by the stated intervention; P(invalid)≈5% given checks but incomplete dirty provenance. Classification: credible selected positive continuation changes, inconclusive general improvement. Highest-information clues: verified nontrivial gating; preserved odds with changed continuation; selected qualification versus surviving loops. Missing evidence ranked: longer frozen completion, fixed paraphrases, estimator-seed/random controls. No localized code bug requires a fix; provenance should capture dirty diffs. Reinterpretation required: neither false imposed identity nor low repetition alone determines coherence. A stable longer qualified explanation would strengthen the verdict; renewed looping weakens it. Recommended sequence: replay selected pairs longer at fixed settings, then fixed paraphrases, then estimator-seed controls. Do not change layer, dose and estimator simultaneously during that attribution test.
