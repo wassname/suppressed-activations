@@ -70,9 +70,16 @@ class Config:
     template_contrast: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
+    future_lexical_union: bool = False
 
 
 DEFAULT = Config()
+
+FUTURE_FORMS = {
+    "spider": (" spider", " Spider", " spiders"),
+    "dog": (" dog", " Dog", " dogs"),
+    "ant": (" ant", " Ant", " ants"),
+}
 
 
 def coordinate_swap_configs():
@@ -199,13 +206,23 @@ def future_template_configs():
         for strength in (0.0, 0.5, 1.0, 2.0)]
 
 
-def fit_future_rows(model, tokenizer, corpus_path, output_dir):
-    """Contract the official mean-J estimator with three vocabulary rows. -- Codex/GPT-6"""
+def future_union_configs():
+    return [("future_union", f"union{union}_matched{matched}_C{strength}", replace(
+        DEFAULT, template_contrast=True, future_coordinate=True, future_lexical_union=union,
+        intervention_layer=(20,), strength=strength,
+        match_component_norm=matched, restore_residual_norm=False,
+    )) for union in (False, True) for matched in (False, True) for strength in (0.0, 1.0)]
+
+
+def fit_future_rows(model, tokenizer, corpus_path, output_dir, *, lexical_union=False):
+    """Contract the official mean-J estimator with named vocabulary rows. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
     texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
     assert len(texts) == 16
     layers = (12, 16, 20, 24)
     words = (" spider", " dog", " ant")
+    if lexical_union:
+        words += tuple(word for forms in FUTURE_FORMS.values() for word in forms[1:])
     output_rows = model.lm_head.weight[[one_token(tokenizer, word) for word in words]].float()
     samples, corpus, derivative_checks = [], [], []
     model.requires_grad_(False)
@@ -226,7 +243,7 @@ def fit_future_rows(model, tokenizer, corpus_path, output_dir):
             per_word = []
             for word_index, row in enumerate(output_rows):
                 scalar = (target[0, valid].float() @ row).sum()
-                gradients = torch.autograd.grad(scalar, hidden, retain_graph=word_index < 2)
+                gradients = torch.autograd.grad(scalar, hidden, retain_graph=word_index < len(output_rows) - 1)
                 per_word.append(torch.stack([g[0, valid].float().mean(0) for g in gradients]))
                 if index == 0 and word_index == 0:
                     probe_gradient = gradients[0][0, valid[0]].detach().float()
@@ -943,6 +960,7 @@ def run(
         "future-coordinate": future_coordinate_configs,
         "future-gated": future_gated_configs,
         "future-template": future_template_configs,
+        "future-union": future_union_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -967,7 +985,10 @@ def run(
         indexed_configs = [indexed_configs[condition_index]]
     future_vectors, future_provenance = {}, {}
     if any(cfg.future_coordinate for _, (_, _, cfg) in indexed_configs):
-        future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
+        future_vectors, future_provenance = fit_future_rows(
+            model, tokenizer, lens_corpus_arrow, output_dir,
+            lexical_union=any(cfg.future_lexical_union for _, (_, _, cfg) in indexed_configs),
+        )
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     if any(cfg.template_contrast for _, (_, _, cfg) in indexed_configs):
@@ -1038,9 +1059,14 @@ def run(
                 assert not cfg.persistent_rank
                 projected = {}
                 retained = {}
+                span_singular_values = {}
+                forms = (FUTURE_FORMS["spider"] + FUTURE_FORMS[target_concept]
+                         if cfg.future_lexical_union else (" spider", " " + target_concept))
+                columns = [future_provenance["words"].index(word) for word in forms]
                 for layer, delta in fixed_deltas.items():
-                    vectors = future_vectors[layer][:, [0, {"dog": 1, "ant": 2}[target_concept]]]
-                    assert torch.linalg.matrix_rank(vectors) == 2
+                    vectors = future_vectors[layer][:, columns]
+                    assert torch.linalg.matrix_rank(vectors) == len(columns)
+                    span_singular_values[layer] = torch.linalg.svdvals(vectors).tolist()
                     basis = torch.linalg.qr(vectors, mode="reduced").Q
                     projected[layer] = component(delta, basis)
                     retained[layer] = float(projected[layer].norm() / delta.norm())
@@ -1050,6 +1076,7 @@ def run(
                 fixed_deltas = projected
                 persistence.update(direction_estimator="future_projected_template_mean_difference",
                                    future_provenance=future_provenance,
+                                   future_span_words=forms, future_span_singular_values=span_singular_values,
                                    projected_norm_fraction=retained)
             if cfg.persistent_rank:
                 shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
@@ -1272,6 +1299,7 @@ if __name__ == "__main__":
             "future-coordinate",
             "future-gated",
             "future-template",
+            "future-union",
             "svd",
             "svd-refine",
             "svd-detector",
