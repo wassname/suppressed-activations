@@ -56,6 +56,22 @@ def main() -> None:
     assert torch.all(source_only_coords[..., 1] >= source_only_coords[..., 0] - 1e-6)
     torch.testing.assert_close(source_only_hook(None, None, source_only), source_only, atol=1e-6, rtol=1e-5)
     print("PASS: source-dominant swap reaches target side and a second edit leaves it there")
+    clamp_direction = directions[:, 0]
+    clamp_hook = intervention_hooks(
+        directions[None], directions[None], torch.zeros(2, 5, 11),
+        operation="coordinate_clamp", fixed_deltas={1: clamp_direction},
+        target_coordinates={1: torch.tensor(0.5)},
+        blocks_to_hook=[0], positions=3, restore_norm=False,
+    )[0]
+    clamped = clamp_hook(None, None, hidden)
+    torch.testing.assert_close(clamped[:, :2], hidden[:, :2])
+    torch.testing.assert_close((clamped @ clamp_direction)[:, -3:],
+                               (hidden @ clamp_direction)[:, -3:].clamp_min(0.5))
+    clamp_orthogonal = torch.eye(11) - torch.outer(clamp_direction, clamp_direction)
+    torch.testing.assert_close(clamped @ clamp_orthogonal, hidden @ clamp_orthogonal)
+    torch.testing.assert_close(clamp_hook(None, None, clamped), clamped)
+    torch.testing.assert_close(clamp_hook(None, None, hidden[:, -1:]), clamped[:, -1:])
+    print("PASS: template clamp reaches coordinate threshold, preserves complement and covers decode")
     residuals = torch.randn(1, 3, 11, generator=generator).expand(4, -1, -1)
     unembedding = torch.randn(30, 11, generator=generator)
     basis, persistence, _ = token_persistent_subspace(

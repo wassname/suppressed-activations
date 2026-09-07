@@ -64,6 +64,7 @@ class Config:
     coordinate_swap: bool = False
     source_dominant_only: bool = False
     template_contrast: bool = False
+    template_clamp: bool = False
 
 
 DEFAULT = Config()
@@ -126,6 +127,14 @@ def template_projection_configs():
         random_delta_seed=seed, match_component_norm=False, restore_residual_norm=False,
     )) for seed in range(12))
     return rows
+
+
+def template_clamp_configs():
+    return [("template_clamp", f"L{layer}_C{strength}", replace(
+        DEFAULT, template_contrast=True, template_clamp=True,
+        intervention_layer=(layer,), strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for layer in (12, 16, 20, 24) for strength in (0.0, 0.25, 0.5, 1.0)]
 
 
 CONCEPT_TEMPLATES = (
@@ -566,7 +575,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         for key, value in row.items()
         if key not in {
             "top_tokens", "generation", "donor_generation", "readout", "base_readout", "target_readout", "config",
-            "intervention_record", "persistence", "base_generation", "base_top_tokens", "readout_by_position",
+            "intervention_record", "persistence", "base_generation", "base_top_tokens", "readout_by_position", "clamped_donor",
         }
     )
     return f"""---
@@ -639,6 +648,12 @@ Readout at the last decode step (the state predicting the final generated token)
 
 ```python
 {row['last_decode_readout']!r}
+```
+
+Clean-donor clamp control (when applicable):
+
+```json
+{json.dumps(row['clamped_donor'], ensure_ascii=False, indent=2)}
 ```
 
 Unmodified donor readout:
@@ -739,10 +754,10 @@ def run(
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
 
-    template_deltas, template_provenance = {}, []
-    if sweep in ("template-contrast", "template-projection"):
+    template_deltas, template_provenance, template_targets = {}, [], {}
+    if sweep in ("template-contrast", "template-projection", "template-clamp"):
         target_animal = {"4": "dog", "6": "ant"}[target_output]
-        differences = []
+        differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
             pair = [sample(template.format(animal=animal), generate=False)
                     for animal in ("spider", target_animal)]
@@ -751,11 +766,13 @@ def run(
                                        pair[1]["input_ids"][0, target_end-3:target_end])
             differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
                                 - pair[0]["residuals"][:, source_end-3:source_end].float()).mean(1))
+            target_means.append(pair[1]["residuals"][:, target_end-3:target_end].float().mean(1))
             template_provenance.append([
                 tokenizer.decode(item["input_ids"][0], skip_special_tokens=False) for item in pair
             ])
         mean_difference = torch.stack(differences).mean(0)
         template_deltas = dict(enumerate(mean_difference))
+        template_targets = dict(enumerate(torch.stack(target_means).mean(0)))
 
     sweep_configs = {
         "demo": demo_configs,
@@ -765,6 +782,7 @@ def run(
         "coordinate-band": coordinate_band_configs,
         "template-contrast": template_contrast_configs,
         "template-projection": template_projection_configs,
+        "template-clamp": template_clamp_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -859,11 +877,14 @@ def run(
                     [tokenizer.decode([token]) for token in ids]
                     for ids in persistence[name]["token_ids"]
                 ]
+        target_coordinates = {layer: template_targets[layer] @ (delta / delta.norm())
+                              for layer, delta in fixed_deltas.items()} if cfg.template_clamp else None
         hooks = intervention_hooks(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"),
+            operation="coordinate_clamp" if cfg.template_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace")),
+            target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
             fixed_deltas=fixed_deltas,
@@ -912,6 +933,26 @@ def run(
         condition_id = re.sub(r"[^A-Za-z0-9_.=-]+", "_", f"{index:03d}_{axis}_{value}")
         condition_dir = output_dir / "conditions" / condition_id
         condition_dir.mkdir(parents=True)
+        clamped_donor = None
+        if cfg.template_clamp:
+            donor_record = {}
+            donor_hooks = intervention_hooks(
+                source_basis, target_basis, target["residuals"], operation="coordinate_clamp",
+                fixed_deltas=fixed_deltas, target_coordinates=target_coordinates,
+                blocks_to_hook=[layer - 1 for layer in intervention_layers],
+                positions=positions, source_position=target["content_end"] - 1,
+                target_position=target["content_end"] - 1, strength=cfg.strength,
+                restore_norm=False, record=donor_record,
+            )
+            donor_changed, _ = generate_with_first_logits(
+                model, tokenizer, target["input_ids"], blocks, donor_hooks,
+                max_new_tokens=max_new_tokens,
+            )
+            for patch in donor_record.values():
+                assert patch["decode_steps"] == len(donor_changed["token_ids"]) - 1
+            if cfg.strength == 0:
+                assert donor_changed == donor_generation
+            clamped_donor = {"generation": donor_changed, "intervention_record": donor_record}
         row = {
             "condition_id": condition_id,
             "axis": axis,
@@ -943,6 +984,7 @@ def run(
             "config": asdict(cfg),
             "readout": readout,
             "readout_by_position": readout_by_position,
+            "clamped_donor": clamped_donor,
             "base_readout": [tokenizer.decode([int(token)]) for token in base_ids],
             "last_decode_readout": [tokenizer.decode([int(token)]) for token in last_ids[0]],
             "target_readout": target_readout,
@@ -1004,6 +1046,7 @@ if __name__ == "__main__":
             "coordinate-band",
             "template-contrast",
             "template-projection",
+            "template-clamp",
             "svd",
             "svd-refine",
             "svd-detector",

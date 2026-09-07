@@ -120,6 +120,7 @@ def intervention_hooks(
     fixed_deltas: dict[int, Tensor] | None = None,
     coordinate_directions: Tensor | None = None,
     source_dominant_only: bool = False,
+    target_coordinates: dict[int, Tensor] | None = None,
 ) -> dict[int, object]:
     random_source = random_basis_like(source_basis, random_seed)
     random_target = random_basis_like(target_basis, random_seed + 1)
@@ -158,6 +159,12 @@ def intervention_hooks(
                 if source_dominant_only:
                     coordinate_delta = coordinate_delta * (coordinates[..., :1] > coordinates[..., 1:])
                 patched = h + strength * coordinate_delta @ coordinate_directions.T
+                assert not restore_norm
+            elif operation == "coordinate_clamp":
+                direction = fixed_deltas[residual_layer]
+                direction = direction / direction.norm()
+                deficit = (target_coordinates[residual_layer] - h @ direction).clamp_min(0)
+                patched = h + strength * deficit[..., None] * direction
                 assert not restore_norm
             elif operation == "fixed_delta":
                 patched = h + strength * fixed_deltas[residual_layer]
@@ -199,6 +206,14 @@ def intervention_hooks(
                     "before": coordinates[0].tolist(),
                     "after": (patched @ torch.linalg.pinv(coordinate_directions).T)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ torch.linalg.pinv(coordinate_directions).T)[0].tolist(),
+                })
+            if record is not None and operation == "coordinate_clamp":
+                record[residual_layer].setdefault("clamp_trace", []).append({
+                    "before": (h @ direction)[0].tolist(),
+                    "target": float(target_coordinates[residual_layer]),
+                    "deficit": deficit[0].tolist(),
+                    "applied_norm": (patched - h).norm(dim=-1)[0].tolist(),
+                    "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
                 })
             return replace_output(
                 output,
