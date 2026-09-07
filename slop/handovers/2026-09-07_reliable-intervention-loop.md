@@ -6,6 +6,21 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:33 — Codex/GPT-6
+
+40101f8 adds template-detector sixconditions: windows23/25/32,8/20/32,16/20/24
+timesnatural/matched norm, fixedL20C2persistent_rank4. Lastwindow tests transient
+suppression, not final suppression. svd_review recommended this discriminator,
+found no normalization inconsistency. Jobs631ant/632dog queued, followers28900/
+92500. Outputs out/2026-09-08_describe-detector-{ant,dog}. IMPORTANT630belongs
+LUCID3 otherrepo; accidental follower69862 attached by assuming consecutiveIDs.
+Do not change job630. Always use returned IDs. Otherfollowers remain62738088,
+62855125,62963606, all confirmedlive thisturn.
+CPU import gridcheck failed ModuleNotFoundError pyarrow in ROOT uv environment;
+runner has inline script dependencies. Correct `uv run scripts/oat_sweep.py --help`
+now session54903 pending; inspect completion. Not evidence runner itselfbroken.
+Next inspect all pendingresults before newmethod. No goalcompletion claim.
+
 ### Update04:30 — Codex/GPT-6
 
 626ant SUCCESS177s; follower68132 CLOSED. All44 full generations/readouts plus
