@@ -891,32 +891,15 @@ Suppression-score readout at prompt prefill ({row['config']['aggregation']} dete
 {row['readout']!r}
 ```
 
-Per-position readout (the union above can include an unpatched earlier token):
-
-```json
-{json.dumps(row['readout_by_position'], ensure_ascii=False, indent=2)}
-```
-
-Fixed-concept diagnostic (same normalized scoring geometry; vocabulary-centered logits).
-Columns follow detector early/peak/output layers. Rank is one plus the number of strictly
-greater scores, so tied zero scores can share a rank. No ant suppression is implied by an
-ant continuation: a missing rise or fall also gives a zero suppression score.
-The full layer curve starts at residual layer 0 (embedding output); layer N is block N's output.
-
-```json
-{json.dumps(row['named_suppression_diagnostics'], ensure_ascii=False, indent=2)}
-```
+The union readout can include an unpatched earlier token. Per-position readouts and
+full layer curves are in the [raw diagnostics](../../result.json), under
+`rows` → condition `{row['condition_id']}`. An ant continuation alone does not
+establish an ant suppression readout.
 
 Readout at the last decode step (the state predicting the final generated token):
 
 ```python
 {row['last_decode_readout']!r}
-```
-
-Clean-donor clamp control (when applicable):
-
-```json
-{json.dumps(row['clamped_donor'], ensure_ascii=False, indent=2)}
 ```
 
 Unmodified donor readout:
@@ -925,17 +908,9 @@ Unmodified donor readout:
 {row['target_readout']!r}
 ```
 
-Measured intervention norms:
-
-```json
-{json.dumps(row['intervention_record'], ensure_ascii=False, indent=2)}
-```
-
-Subspace and intervention diagnostics:
-
-```json
-{json.dumps(row['persistence'], ensure_ascii=False, indent=2)}
-```
+Full intervention norms, decode coverage, clamp controls, template strings, and
+subspace diagnostics: [result.json](../../result.json), condition
+`{row['condition_id']}`. These records are retained without truncation.
 
 SHOULD: C=0 gives identical generation and logits because its displacement is zero.
 The readout uses hidden states captured during this exact generation prefill.
