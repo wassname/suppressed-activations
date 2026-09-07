@@ -61,9 +61,17 @@ class Config:
     persistent_rank: int = 0
     random_delta_seed: int = -1
     delta_component: str = "difference"
+    coordinate_swap: bool = False
 
 
 DEFAULT = Config()
+
+
+def coordinate_swap_configs():
+    return [("coordinate_swap", f"rank{rank}_C{strength}", replace(
+        DEFAULT, coordinate_swap=True, persistent_rank=rank, strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for rank in (0, 4) for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0)]
 
 
 def svd_configs():
@@ -175,7 +183,7 @@ def svd_continuous_refine_configs():
                               (4, (5.0, 6.0, 7.0))) for strength in strengths]
 
 
-def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
+def persistent_shared_basis(source, target, cfg, unembedding, norm_gain):
     bases, diagnostics = [], {}
     for name, sample in (("source", source), ("target", target)):
         end = sample["content_end"]
@@ -191,6 +199,11 @@ def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
     vectors, singular_values, _ = torch.linalg.svd(torch.cat(bases, dim=1), full_matrices=False)
     shared = vectors[:, singular_values > 1e-5]
     diagnostics["shared_rank"] = shared.shape[1]
+    return shared, diagnostics
+
+
+def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
+    shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
     deltas = {}
     for layer in layers:
         means = [sample["residuals"][layer, sample["content_end"]-cfg.readout_positions:
@@ -640,6 +653,7 @@ def run(
 
     sweep_configs = {
         "demo": demo_configs,
+        "coordinate-swap": coordinate_swap_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -681,7 +695,24 @@ def run(
             else cfg.intervention_layer
         )
         fixed_deltas, persistence = (None, {})
-        if cfg.persistent_rank:
+        coordinate_directions = None
+        if cfg.coordinate_swap:
+            target_word = {"4": " dog", "6": " ant"}[target_output]
+            ids = [one_token(tokenizer, word) for word in (" spider", target_word)]
+            coordinate_directions = ((unembedding[ids].float() - unembedding.float().mean(0)) * norm_gain.float()).T
+            raw_norms = coordinate_directions.norm(dim=0)
+            persistence = {"concept_tokens": [" spider", target_word], "direction_estimator": "centered_unembedding"}
+            if cfg.persistent_rank:
+                shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+                coordinate_directions = shared @ (shared.T @ coordinate_directions)
+                persistence.update(diagnostics)
+                persistence["direction_estimator"] = "persistent_projected_centered_unembedding"
+            persistence["retained_norm_fraction"] = (coordinate_directions.norm(dim=0) / raw_norms).tolist()
+            coordinate_directions = coordinate_directions / coordinate_directions.norm(dim=0)
+            assert torch.linalg.matrix_rank(coordinate_directions) == 2
+            persistence["pair_singular_values"] = torch.linalg.svdvals(coordinate_directions).tolist()
+            persistence["direction_cosine"] = float(coordinate_directions[:, 0] @ coordinate_directions[:, 1])
+        elif cfg.persistent_rank:
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
             )
@@ -694,7 +725,8 @@ def run(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="fixed_delta" if cfg.persistent_rank else "replace",
+            operation="coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank else "replace"),
+            coordinate_directions=coordinate_directions,
             fixed_deltas=fixed_deltas,
             strength=cfg.strength,
             blocks_to_hook=[layer - 1 for layer in intervention_layers],
@@ -821,6 +853,7 @@ if __name__ == "__main__":
         "--sweep",
         choices=(
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
+            "coordinate-swap",
             "svd",
             "svd-refine",
             "svd-detector",

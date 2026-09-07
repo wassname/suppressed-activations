@@ -118,6 +118,7 @@ def intervention_hooks(
     restore_norm: bool = True,
     record: dict[int, dict] | None = None,
     fixed_deltas: dict[int, Tensor] | None = None,
+    coordinate_directions: Tensor | None = None,
 ) -> dict[int, object]:
     random_source = random_basis_like(source_basis, random_seed)
     random_target = random_basis_like(target_basis, random_seed + 1)
@@ -150,7 +151,11 @@ def intervention_hooks(
             else:
                 target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1)
                 target_h = target_h.expand(h.shape[0], h.shape[1], -1).float()
-            if operation == "fixed_delta":
+            if operation == "coordinate_swap":
+                coordinates = h @ torch.linalg.pinv(coordinate_directions).T
+                patched = h + strength * (coordinates.flip(-1) - coordinates) @ coordinate_directions.T
+                assert not restore_norm
+            elif operation == "fixed_delta":
                 patched = h + strength * fixed_deltas[residual_layer]
                 if restore_norm:
                     patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
@@ -185,6 +190,11 @@ def intervention_hooks(
                 }
             if record is not None and hidden.shape[1] == 1:
                 record[residual_layer]["decode_steps"] += 1
+            if record is not None and operation == "coordinate_swap":
+                record[residual_layer].setdefault("coordinate_trace", []).append({
+                    "before": coordinates[0].tolist(),
+                    "after": (patched @ torch.linalg.pinv(coordinate_directions).T)[0].tolist(),
+                })
             return replace_output(
                 output,
                 torch.cat(

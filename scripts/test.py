@@ -27,6 +27,24 @@ from suppressed_activation_subspace import (
 
 def main() -> None:
     generator = torch.Generator().manual_seed(1)
+    # Verify nonorthogonal coordinate exchange through the production hook. -- Codex
+    directions = torch.randn(11, 2, generator=generator)
+    directions /= directions.norm(dim=0)
+    hidden = torch.randn(1, 5, 11, generator=generator)
+    swap_hook = intervention_hooks(
+        directions[None], directions[None], torch.zeros(2, 5, 11),
+        operation="coordinate_swap", coordinate_directions=directions,
+        blocks_to_hook=[0], positions=3, restore_norm=False,
+    )[0]
+    swapped = swap_hook(None, None, hidden)
+    torch.testing.assert_close(swapped[:, :2], hidden[:, :2])
+    dual = torch.linalg.pinv(directions).T
+    torch.testing.assert_close((swapped @ dual)[:, -3:], (hidden @ dual)[:, -3:].flip(-1))
+    orthogonal = torch.eye(11) - directions @ torch.linalg.pinv(directions)
+    torch.testing.assert_close(swapped @ orthogonal, hidden @ orthogonal, atol=1e-6, rtol=1e-5)
+    torch.testing.assert_close(swap_hook(None, None, swapped), hidden, atol=1e-6, rtol=1e-5)
+    torch.testing.assert_close(swap_hook(None, None, hidden[:, -1:]) @ dual, (hidden[:, -1:] @ dual).flip(-1))
+    print("PASS: coordinate swap exchanges nonorthogonal coordinates, preserves complement, covers decode")
     residuals = torch.randn(1, 3, 11, generator=generator).expand(4, -1, -1)
     unembedding = torch.randn(30, 11, generator=generator)
     basis, persistence, _ = token_persistent_subspace(
