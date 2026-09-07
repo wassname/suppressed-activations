@@ -158,6 +158,23 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+2026-09-08 01:58 update, Codex/GPT-6:578–582 completed successfully. Main read
+all28 band-strength outputs and complete33-line stdout per job. Ant C.625 switches
+original and validation3 to6/ant, both terminate; taxonomy/silk rationalizations
+remain. C.75 original says six legs ON EACH SIDE. Dog C.625 original gives4 but
+loops conditional animal examples, including humans4. Stronger1.5/2 gives1 or2
+and severe repetition. Thus stronger band fixes one weak first answer, not joint
+coherence. Reviewer swap_review completing audit in template-clamp.md.
+Ant finalprompt C.625 fixed logits23/25/32=.572/2.002/2.344: no fall, score0;
+validation3 likewise1.015/2.055/2.499. Missing ant readout follows the criterion,
+not demonstrated absent ant. Full curves logged, do not silently retune readout.
+
+582 real projected-C0 smoke passed identity and positions33–35+7decodecalls.
+L16 ant future projection retains norm fraction.086176. Full24-condition grids
+queued586 ant and587 dog, followers40181/38992. Compare full/projected/matched
+without renaming as suppressed-only.583/584 long gated remain followed61408/28332.
+All old578–582 follower handles are CLOSED. Earlier pending notes below stale.
+
 Stopping audit, Codex/GPT-6: local pinned config text_config.eos_token_id248044 is
 `<|endoftext|>`, but tokenizer eos248046 is `<|im_end|>` (pad248044). Both generate
 paths previously passed only pad=eos and inherited model endoftext stopping.
