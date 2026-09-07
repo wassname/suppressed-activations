@@ -6,6 +6,19 @@ substitute digit-only success or full-residual transfer for suppressed-only evid
 
 ## Current state
 
+### Update04:28 — Codex/GPT-6
+
+626/627 followers68132/38088 revalidated live; no result yet, do not restart.
+622–625 independent audit appended; journal d52598f records full-template
+description result and limits. Fresh fullL20C2 checks628ant/629dog queued behind
+projection sweeps, followers55125/63606. Source predeclared:
+`Fact: An adult web-spinning animal normally has this many legs: `.
+Same describe-evaluation/default-extraction instructions,128max,continuous.
+Paths out/2026-09-08_describe-fresh-{ant,dog}. No fresh outputs inspected yet.
+Template vector file confirmed exists624; compare to626 and628 once available
+to verify extraction identity across source wording. Cross-eval-wrapper saved
+tensor check still needs matching baseline artifact. No goal completion claim.
+
 ### Update04:25 — Codex/GPT-6
 
 622–625 all SUCCESS, followers CLOSED. Full generations/base/donor/coverage
