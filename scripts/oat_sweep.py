@@ -505,7 +505,7 @@ def repetition_bigram_fraction(token_ids: list[int], special_ids: set[int]) -> f
     return 0.0 if not bigrams else 1 - len(set(bigrams)) / len(bigrams)
 
 
-def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, residual_capture=None) -> tuple[dict, torch.Tensor]:
+def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, residual_capture=None, max_new_tokens=32) -> tuple[dict, torch.Tensor]:
     raw_final = []
     def capture_final(_module, inputs):
         if not raw_final:
@@ -519,7 +519,7 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
         output = model.generate(
             input_ids=input_ids,
             do_sample=False,
-            max_new_tokens=32,
+            max_new_tokens=max_new_tokens,
             pad_token_id=tokenizer.eos_token_id,
             use_cache=True,
             return_dict_in_generate=True,
@@ -568,8 +568,8 @@ Expected Base answer: `{row['source_output']}`. Expected donor-directed answer:
 inspect the readout and full continuation below.
 
 Steering continues during generation: `{row['config']['continue_generation']}`.
-For 32 generated tokens, prefill predicts token 1 and 31 cached decode steps predict
-tokens 2 through 32. The intervention record counts those decode steps.
+Prefill predicts token 1; each cached decode step predicts the next token.
+The intervention record counts those decode steps.
 
 Resolved config:
 
@@ -601,7 +601,7 @@ Base suppression readout:
 {row['base_readout']!r}
 ```
 
-Base generation (up to 32 tokens, verbatim):
+Base generation (verbatim):
 
 ```text
 {row['base_generation']['text']}
@@ -669,6 +669,7 @@ def run(
     target_output: str,
     source_prompt: str = SOURCE_PROMPT,
     condition_index: int | None = None,
+    max_new_tokens: int = 32,
 ) -> None:
     started = time.monotonic()
     git_state = subprocess.run(
@@ -704,7 +705,7 @@ def run(
             residuals, logits = trajectory(model, chat["input_ids"], final_norm)
             return {**chat, "residuals": residuals, "logits": logits}
         captured = []
-        generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured)
+        generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured, max_new_tokens)
         return {**chat, "residuals": captured[0], "logits": logits, "generation": generation}
 
     source = sample(source_prompt)
@@ -849,7 +850,7 @@ def run(
         )
         captured = []
         generation, generation_logits = generate_with_first_logits(
-            model, tokenizer, source["input_ids"], blocks, hooks, captured
+            model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
         )
         changed_residuals = captured[0]
         _, last_ids = suppressed_activation_subspace(
@@ -989,6 +990,7 @@ if __name__ == "__main__":
     parser.add_argument("--target-prompt", default=TARGET_PROMPT)
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
+    parser.add_argument("--max-new-tokens", type=int, default=32)
     parser.add_argument("--source-output", default="8")
     parser.add_argument("--target-output", default="4")
     parser.add_argument("--target", choices=TARGET_PRESETS)
@@ -1004,4 +1006,5 @@ if __name__ == "__main__":
         args.target_output,
         args.source_prompt,
         args.condition_index,
+        args.max_new_tokens,
     )
