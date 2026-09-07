@@ -57,6 +57,13 @@ class Config:
 
 
 DEFAULT = Config()
+TARGET_PRESETS = {
+    "dog": (TARGET_PROMPT, "4"),
+    "ant": (
+        "Fact: The number of legs on the animal that lives in colonies and follows pheromone trails is ",
+        "6",
+    ),
+}
 AXES = {
     "aggregation": ["persistent", "union"],
     "detector_layers": [(8, 16, 24), (12, 20, 28), (16, 24, 32), (20, 26, 32), (23, 25, 32)],
@@ -564,7 +571,10 @@ if __name__ == "__main__":
     parser.add_argument("--target-prompt", default=TARGET_PROMPT)
     parser.add_argument("--source-output", default="8")
     parser.add_argument("--target-output", default="4")
+    parser.add_argument("--target", choices=TARGET_PRESETS)
     args = parser.parse_args()
+    if args.target is not None:
+        args.target_prompt, args.target_output = TARGET_PRESETS[args.target]
     run(
         args.output_dir,
         args.sweep,
