@@ -5,13 +5,16 @@ with recomputed suppressed readout and coherent target consequences. Do not call
 word substitution alone success. Prompt stays implicit spider; ant expects6,
 dog expects4. Steering covers last3 prompt tokens and all32 output predictions.
 
-Last completed: jobs512/513, named raw/projected swaps at L24. Ant names ant but
-still8; dog sometimes4 but dog/spider mixture. See named-coordinate-swap audit.
+Last completed: jobs538–545. Fixed template-contrast condition52 (L24 C1 full
+residual mean difference) changes all4 predeclared heldout prompts to6 for ant and4
+for dog, with target identities in32tokens. Ant readout still poor. Long128tokens
+on selection prompt: ant gives Formicidae/6legs but false nesting claim and beetle
+aside; dog repeats "dog? No". Do NOT call short successes sustained coherence.
 
-Current code: `8b95e55`. User changes README.md/.gitignore are untouched.
+Current code: `c5df8ee`. User changes README.md/.gitignore are untouched.
 Research code in scripts/oat_sweep.py and scripts/demo.py; no public demo promoted.
 
-Queued GPU jobs, all default lane with live pqf followers:
+Completed GPU jobs (default lane):
 
 - 516 `coordinate-layer`, ant, out/2026-09-07_coordinate-layer-ant
 - 517 `coordinate-layer`, dog, out/2026-09-07_coordinate-layer-dog
@@ -67,3 +70,35 @@ phrasing without selecting per-prompt settings. Four held-out prompts predeclare
 in slop/research/2026-09-07_heldout-intervention-prompts.json before new outputs seen.
 Wait orchestration cell635 follows all six job sessions until completion; it may
 remain active across assistant actions. Never restart jobs due to an expired observer.
+
+Update after jobs516–545:
+- Strong raw swaps522/523 C6–32 did reach6 for ant, but mostly spider/6 or
+  taxonomy errors. Dog strong swaps often6 (not expected4), then lexical loops.
+  All72 generations read. Mere weakness is not enough to explain these failures.
+- Template520/521: same condition52 gives ant p6=.977210, dog p4=.920561.
+  This is FULL residual, not suppressed-only. All136 generations read/reviewed.
+- Projection536/537: rescale projected delta to full-delta norm; ant remains8
+  or becomes2, dog4 but worse text. Ant retained fraction .198–.278 at ranks4–32.
+  All12 norm-matched randoms per animal remain8 (selected L24 C1 control).
+- Long526/531: full128token continuations expose ant drift and dog loops.
+- Heldout527–530/532–535 FAILED argparse before inference: pueue reparsed
+  unquoted prompt. Requeued entire command as one shell-quoted string;538–545
+  succeed. Prompts/trailing spaces exact. No model/config change for retry.
+- Per-position readouts now logged so union cannot hide an unpatched earlier
+  token. Ant heldout0 final-position readout itself is poor, not prefix leakage.
+
+RUNNING/QUEUED:547 ant,548 dog `template-clamp`, max128tokens,16conditions each.
+L12/16/20/24 x C0/.25/.5/1. v=unit matched-template mean difference;
+t=mean target activation dot v; edit h+=C*relu(t-h.dot(v))*v.
+Still last3+all decode, not stopping steering. Each condition also applies clamp
+to clean donor and saves full generation and per-token coordinate deficit/norm.
+C1 idempotence/complement/decode tests passed. Reviewer warned threshold can track
+syntax/residual scale; donor preservation is the discriminator. Do not call J-lens.
+Followers:547 session17674;548 session43993. Other repo job546 is not ours.
+Finished wait cells673/685 can be discarded; earlier cells635 may be stale.
+
+Next: audit all clamp outputs incl clean donor. If useful freeze a common setting,
+test heldouts at128tokens. If not, consider smaller template shifts across layers
+and all content positions (source clue KV may cause correction loops), then
+future-effect VJP/different direction estimator. Keep goal active. Journal needs
+post-heldout/long/projection entry; model-generated false taxonomy must stay visible.
