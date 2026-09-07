@@ -1098,6 +1098,7 @@ def run(
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     template_suffixes = []
+    bee_suffixes, bee_prompts = [], []
     if any(cfg.template_contrast for _, (_, _, cfg) in indexed_configs):
         differences, target_means = [], []
         for template in CONCEPT_TEMPLATES:
@@ -1110,6 +1111,10 @@ def run(
                     item["residuals"][:, item["content_end"]-3:item["content_end"]]
                     for item in pair
                 ]))
+            if any(cfg.template_state_span != "none" for _, (_, _, cfg) in indexed_configs):
+                bee = sample(template.format(animal="bee"), generate=False, instruction=extraction_instruction)
+                bee_suffixes.append(bee["residuals"][:, bee["content_end"]-3:bee["content_end"]])
+                bee_prompts.append(tokenizer.decode(bee["input_ids"][0], skip_special_tokens=False))
             torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
                                        pair[1]["input_ids"][0, target_end-3:target_end])
             differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
@@ -1262,6 +1267,8 @@ def run(
                     diagnostics["clean_identity_separation"] = {
                         "method": "signed distance from midpoint of first-four-template centroids; positive is target; not independent steering evidence",
                         "template_scores_source_target_position": ((template_coordinates-midpoint) @ identity_axis).tolist(),
+                        "bee_template_prompts": bee_prompts,
+                        "bee_template_scores": ((torch.stack(bee_suffixes).float()[:, intervention_layers[0]] @ shared-midpoint) @ identity_axis).tolist(),
                         "heldout_template_indices": [i for i in range(4, 8) if i not in diagnostics["fit_template_indices"]],
                         "implicit_scores": {
                             name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
