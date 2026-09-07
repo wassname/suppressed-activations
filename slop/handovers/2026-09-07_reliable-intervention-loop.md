@@ -5,13 +5,13 @@ with recomputed suppressed readout and coherent target consequences. Do not call
 word substitution alone success. Prompt stays implicit spider; ant expects6,
 dog expects4. Steering covers last3 prompt tokens and all32 output predictions.
 
-Last completed: jobs538–545. Fixed template-contrast condition52 (L24 C1 full
+Earlier completed: jobs538–545. Fixed template-contrast condition52 (L24 C1 full
 residual mean difference) changes all4 predeclared heldout prompts to6 for ant and4
 for dog, with target identities in32tokens. Ant readout still poor. Long128tokens
 on selection prompt: ant gives Formicidae/6legs but false nesting claim and beetle
 aside; dog repeats "dog? No". Do NOT call short successes sustained coherence.
 
-Current code: `00d0173`. User changes README.md/.gitignore are untouched.
+Current code: `42524d3`. User changes README.md/.gitignore are untouched.
 Research code in scripts/oat_sweep.py and scripts/demo.py; no public demo promoted.
 
 Completed GPU jobs (default lane):
@@ -133,3 +133,36 @@ slop/audits/2026-09-07_template-transfer.md; independent review also committed.
 Active wait cell692 follows547/548 only; scope/future followers need orchestration
 if waiting. Latest meaningful result: all8heldout short count+identity pass, no
 sustained coherence or ant readout claim. Keep researching, userAFK.
+
+LATEST:547–551 all SUCCESS; cells692/721 terminal. All32 clamp source and32donor
+generations plus all64scope generations read. Clamp ant stillloops; dogL24C1
+readable qualified explanation (acknowledges dogs don't spin webs), repeat.055
+vs additive.488. Clean dog edited at100% positions so threshold not semantic detector.
+
+Scope condition27 is best common candidate: bandL16–20, last3, C.5 perlayer,
+full template delta. Ant p6=.963228, coherent ant/Hymenoptera/sixlegs explanation
+ENDS NATURALLY after110tokens, all5layers109decodecalls. Dogp4=.927658, dog/fourlegs
+through128tokens with conditional aside, no loop. Ant suppression readout stillpoor.
+All-content edits do not consistently help. Journal has full110token ant quote.
+
+Future smoke551 PASSES backward; FD8.219/8.200 at eps.125/.5 vsgrad8.279 (~1%);
+eps2 nonlinear6.199. Split-halfcos.881–.980. Reviewer verifiesmask22..148 of150
+renderedtokens, rawresidual31, source-mean/target-sum. Corpus NOT animal-free:
+one seeded randomrecord discusses jumping spiders. Do not remove/cherry-pick it.
+No official WRITING helper in repo; rawWU follows paper definition, unitcolumn
+normalization is our additional choice, not independently verified official practice.
+
+NEW queued/followed jobs:
+-553/554 future-coordinate ant/dog40conditions (L12/16/20/24 x raw/rank4projected
+  x C0/.5/1/2/4),32tokens. Follow553=92560,554=71022.
+-555–558 ant,559–562 dog: template-scope condition27, same4validation phrasings,
+  max128tokens, frozen common setting. Not fresh untouched prompts: these were
+  previously used on L24 template method. Paths template-band-ANIMAL-validation0..3.
+  Followers555=16943,556=52401,557=65406,558=82486,559=34230,560=32203,
+  561=60818,562=24786. functions store future_band_followers contains all10.
+Other repo552 may precede these; don't interfere. Need attach waiter tothesehandles.
+
+Next review long validation and future grids, compare readouts. Possible next
+direction if future swap weak: project useful template delta into named future-J
+span instead of raw-vocab suppressed span; assess exact normalization choices.
+Do not narrow goal to count-only or call full-residual success suppressed-only.
