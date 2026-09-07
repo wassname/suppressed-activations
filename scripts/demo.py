@@ -175,12 +175,16 @@ def intervention_hooks(
                 residual_norms = h.norm(dim=-1)[0]
                 perturbation_norms = (patched - h).norm(dim=-1)[0]
                 record[residual_layer] = {
+                    "prefill_positions": list(range(source_start, source_end)),
+                    "decode_steps": 0,
                     "residual_norm": float(h.norm()),
                     "perturbation_norm": float((patched - h).norm()),
                     "relative_perturbation_by_position": (
                         perturbation_norms / residual_norms
                     ).tolist(),
                 }
+            if record is not None and hidden.shape[1] == 1:
+                record[residual_layer]["decode_steps"] += 1
             return replace_output(
                 output,
                 torch.cat(
