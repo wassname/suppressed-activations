@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
@@ -34,6 +35,8 @@ from scripts.delayed_readout import (
 from scripts.prompt import assistant_prefill_input_ids
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
+    component,
+    token_persistent_subspace,
     persistent_suppressed_activation_subspace,
     union_suppressed_activation_subspace,
 )
@@ -54,9 +57,56 @@ class Config:
     lexical_forms: str = "detector"
     lexical_divisor: int = 1
     continue_generation: bool = False
+    persistent_rank: int = 0
 
 
 DEFAULT = Config()
+
+
+def svd_configs():
+    rows = [("default", "default", DEFAULT)]
+    for rank in (1, 2, 4, 8, 16):
+        for strength in (0.0, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0):
+            rows.append(("svd_rank_strength", f"rank={rank},C={strength:g}", replace(
+                DEFAULT, persistent_rank=rank, strength=strength,
+                restore_residual_norm=False, match_component_norm=False,
+            )))
+    return rows
+
+
+def svd_refine_configs():
+    rows = [("default", "default", DEFAULT)]
+    for rank in (1, 2, 4):
+        for strength in (0.0, 6.0, 8.0, 9.0, 10.0, 12.0, 14.0, 16.0):
+            rows.append(("svd_refine", f"rank={rank},C={strength:g}", replace(
+                DEFAULT, persistent_rank=rank, strength=strength,
+                restore_residual_norm=False, match_component_norm=False,
+            )))
+    return rows
+
+
+def persistent_delta(source, target, cfg, unembedding, norm_gain, layers):
+    bases, diagnostics = [], {}
+    for name, sample in (("source", source), ("target", target)):
+        end = sample["content_end"]
+        basis, persistence, ids = token_persistent_subspace(
+            sample["residuals"][:, end-cfg.readout_positions:end].permute(1, 0, 2),
+            unembedding, norm_gain, persistent_rank=cfg.persistent_rank,
+            early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+            output_layer=cfg.detector_layers[2], rank=cfg.rank,
+            normalize_unembedding_rows=True,
+        )
+        bases.append(basis)
+        diagnostics[name] = {"persistence": persistence.tolist(), "token_ids": ids.tolist()}
+    vectors, singular_values, _ = torch.linalg.svd(torch.cat(bases, dim=1), full_matrices=False)
+    shared = vectors[:, singular_values > 1e-5]
+    diagnostics["shared_rank"] = shared.shape[1]
+    deltas = {}
+    for layer in layers:
+        means = [sample["residuals"][layer, sample["content_end"]-cfg.readout_positions:
+                  sample["content_end"]].float().mean(0) for sample in (source, target)]
+        deltas[layer] = component(means[1] - means[0], shared)
+    return deltas, diagnostics
 TARGET_PRESETS = {
     "dog": (TARGET_PROMPT, "4"),
     "ant": (
@@ -320,7 +370,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         for key, value in row.items()
         if key not in {
             "top_tokens", "generation", "donor_generation", "readout", "target_readout", "config",
-            "intervention_record",
+            "intervention_record", "persistence", "base_generation", "base_top_tokens",
         }
     )
     return f"""---
@@ -353,7 +403,17 @@ Unmodified donor generation ({row['donor_generation_tokens']} tokens, verbatim):
 {row['donor_generation']['text']}
 ```
 
-Readout after intervention:
+Base generation (up to 32 tokens, verbatim):
+
+```text
+{row['base_generation']['text']}
+```
+
+Base next-token distribution:
+
+{distribution_table(row['base_top_tokens'])}
+
+Suppression-score readout after intervention (union detector, not SVD basis labels):
 
 ```python
 {row['readout']!r}
@@ -370,6 +430,16 @@ Measured intervention norms:
 ```json
 {json.dumps(row['intervention_record'], ensure_ascii=False, indent=2)}
 ```
+
+SVD persistence diagnostics (eigenvalues of average token projectors):
+
+```json
+{json.dumps(row['persistence'], ensure_ascii=False, indent=2)}
+```
+
+SHOULD: C=0 gives identical generation and logits because its displacement is zero.
+SHOULD: readout prefill logits equal generation prefill logits; both use cached prefill.
+These invariants are asserted in the runner. Maximum logit difference: {row['cache_logit_max_error']}.
 
 Generation ({row['generation_tokens']} tokens, verbatim):
 
@@ -394,6 +464,7 @@ def run(
     source_output: str,
     target_output: str,
 ) -> None:
+    started = time.monotonic()
     torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
@@ -419,7 +490,7 @@ def run(
             chat = assistant_prefill_input_ids(tokenizer, content)
         else:
             raise ValueError(prompt_mode)
-        residuals, logits = trajectory(model, chat["input_ids"], final_norm)
+        residuals, logits = trajectory(model, chat["input_ids"], final_norm, use_cache=True, logits_to_keep=1)
         return {**chat, "residuals": residuals, "logits": logits}
 
     source = sample(SOURCE_PROMPT)
@@ -441,6 +512,8 @@ def run(
 
     sweep_configs = {
         "demo": demo_configs,
+        "svd": svd_configs,
+        "svd-refine": svd_refine_configs,
         "chat-strength": chat_strength_configs,
         "oat": configs,
         "normalization-strength": normalization_strength_configs,
@@ -471,11 +544,22 @@ def run(
             if isinstance(cfg.intervention_layer, int)
             else cfg.intervention_layer
         )
+        fixed_deltas, persistence = (None, {})
+        if cfg.persistent_rank:
+            fixed_deltas, persistence = persistent_delta(
+                source, target, cfg, unembedding, norm_gain, intervention_layers
+            )
+            for name in ("source", "target"):
+                persistence[name]["tokens"] = [
+                    [tokenizer.decode([token]) for token in ids]
+                    for ids in persistence[name]["token_ids"]
+                ]
         hooks = intervention_hooks(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="replace",
+            operation="fixed_delta" if cfg.persistent_rank else "replace",
+            fixed_deltas=fixed_deltas,
             strength=cfg.strength,
             blocks_to_hook=[layer - 1 for layer in intervention_layers],
             positions=positions,
@@ -487,7 +571,7 @@ def run(
             record=intervention_record,
         )
         with layer_hooks(blocks, hooks):
-            changed_residuals, logits = trajectory(model, source["input_ids"], final_norm)
+            changed_residuals, logits = trajectory(model, source["input_ids"], final_norm, use_cache=True, logits_to_keep=1)
         _, changed_ids, _ = subspace(
             {**source, "residuals": changed_residuals}, cfg, unembedding, norm_gain
         )
@@ -497,6 +581,11 @@ def run(
             model, tokenizer, source["input_ids"], blocks, hooks
         )
         logp = generation_logits.log_softmax(-1)
+        cache_logit_max_error = float((generation_logits - logits).abs().max())
+        torch.testing.assert_close(generation_logits, logits, rtol=0, atol=0)
+        if cfg.strength == 0:
+            torch.testing.assert_close(generation_logits, base_generation_logits, rtol=0, atol=0)
+            assert generation["token_ids"] == base_generation["token_ids"]
         condition_id = re.sub(r"[^A-Za-z0-9_.=-]+", "_", f"{index:03d}_{axis}_{value}")
         condition_dir = output_dir / "conditions" / condition_id
         condition_dir.mkdir(parents=True)
@@ -505,6 +594,8 @@ def run(
             "axis": axis,
             "value": value,
             "is_default": axis == "default",
+            "cache_logit_max_error": cache_logit_max_error,
+            "persistence": persistence,
             "swap_log_odds_shift": float(logp[target_id] - logp[source_id] - base_log_odds),
             "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
             "source_output": source_output,
@@ -528,6 +619,8 @@ def run(
             "readout": readout,
             "target_readout": target_readout,
             "generation": generation,
+            "base_generation": base_generation,
+            "base_top_tokens": token_distribution(tokenizer, base_generation_logits, base_generation_logits),
             "donor_generation": donor_generation,
             "top_tokens": token_distribution(tokenizer, generation_logits, base_generation_logits),
         }
@@ -539,6 +632,9 @@ def run(
 
     result = {
         "model": MODEL,
+        "elapsed_seconds": time.monotonic() - started,
+        "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated(),
+        "argv": sys.argv,
         "revision": REVISION,
         "git": subprocess.run(
             ["git", "describe", "--always", "--dirty"], cwd=ROOT, check=True,
@@ -577,6 +673,8 @@ if __name__ == "__main__":
         "--sweep",
         choices=(
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
+            "svd",
+            "svd-refine",
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",

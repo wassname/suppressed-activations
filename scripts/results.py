@@ -26,20 +26,25 @@ def frontmatter(path: Path) -> dict:
 
 
 def main(root: Path) -> None:
-    rows = [frontmatter(path) for path in sorted((root / "conditions").glob("*/run.md"))]
+    rows = sorted(
+        [frontmatter(path) for path in (root / "conditions").glob("*/run.md")],
+        key=lambda row: row["swap_log_odds_shift"], reverse=True,
+    )
     source_output = rows[0]["source_output"]
     target_output = rows[0]["target_output"]
     table = tabulate(
         [[
-            row["axis"], row["value"], "yes" if row["is_default"] else "",
-            f'{row["swap_log_odds_shift"]:+.3f}', f'{row["valid_answer_mass"]:.3f}',
+            f'[{row["condition_id"]}]({row["log"]})',
+            f'{row["swap_log_odds_shift"]:+.3f}',
+            f'{row["p_target"]:.4f}', f'{row["p_source"]:.4f}',
+            f'{row["valid_answer_mass"]:.3f}',
             f'{row["repeated_bigram_fraction"]:.3f}', repr(row["first_token"]),
-            f'{row["readout_overlap"]:.3f}', f'[{row["condition_id"]}]({row["log"]})',
+            f'{row["readout_overlap"]:.3f}',
         ] for row in rows],
         headers=[
-            "axis", "value", "default", "swap log-odds ↑",
+            "condition", "swap log-odds↑", f"p({target_output})↑", f"p({source_output})↓",
             f"p({target_output})+p({source_output}) ↑",
-            "repeat bigrams ↓", "first token", "donor readout overlap ↑", "log",
+            "repeat bigrams↓", "first token", "donor readout overlap↑",
         ],
         tablefmt="pipe",
         disable_numparse=True,
@@ -49,11 +54,12 @@ conditions: {len(rows)}
 metric: "swap_log_odds_shift"
 ---
 
-# One-at-a-time intervention sweep
+# Intervention sweep
 
-Each section varies one axis while all other values stay at the single default. Rows are in
-enumeration order, not sorted by outcome. Each log contains the exact prompt, readouts,
-top-token distribution, and generated continuation.
+Rows are sorted by target-vs-source log-odds movement, in nats. Grid axes and all resolved
+settings are in each condition log. C=0 rows are identity controls; default is the previous
+component replacement. Answer mass and repetition are diagnostics, not semantic success.
+Each log contains exact prompts, readouts, top-token distribution, and continuation.
 
 {table}
 
