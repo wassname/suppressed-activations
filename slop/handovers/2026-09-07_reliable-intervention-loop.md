@@ -95,6 +95,17 @@ Queued570 ant original follower80392;571 ant val3 follower30357;
 Paths out/2026-09-08_band-strength-{ant,dog}-{original,validation3}.
 These are adaptive followups, not untouched tests. Explicit source argv quoted as1command.
 
+561/562 dog val2/3 read: both4,dog; val2 starts correction at128cap, val3 explains
+hypothetical/riddle and dogs not spinningwebs,128cap. All4dog counts switch, notallclean.
+735 follower cell COMPLETED; never wait it again.
+563 antennae control INVALID: base8 (expected0), clean ant donor10 (expected2),
+intervened6 and leg explanation. Do not attribute failure specifically to steering.
+Future-gated grid added3e670ae: L12raw/L16raw/L24rank4 x C1/2 x gateFalse/True,
+continuous128. Existing16CPUtests andCLI pass; reviewer confirms gate algebra.
+Gate acts on signed coordinate dominance, not known conceptpresence; fewer edits is
+a competing explanation. Cachedtokens are different states, not one repeatedstate.
+Queued575 ant follower7882 and576 dog follower4586, out/2026-09-08_future-gated-{ant,dog}.
+
 Other repo552 was RUNNING at latest status; do not interfere. Our553–564 queued.
 All commands pinned by pueue argv and output dirs; all use existing runner.
 
