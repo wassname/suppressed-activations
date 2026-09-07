@@ -499,7 +499,7 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
         f"{key}: {yaml_value(value)}"
         for key, value in row.items()
         if key not in {
-            "top_tokens", "generation", "donor_generation", "readout", "target_readout", "config",
+            "top_tokens", "generation", "donor_generation", "readout", "base_readout", "target_readout", "config",
             "intervention_record", "persistence", "base_generation", "base_top_tokens",
         }
     )
@@ -539,6 +539,12 @@ Unmodified donor generation ({row['donor_generation_tokens']} tokens, verbatim):
 
 ```text
 {row['donor_generation']['text']}
+```
+
+Base suppression readout:
+
+```python
+{row['base_readout']!r}
 ```
 
 Base generation (up to 32 tokens, verbatim):
@@ -675,6 +681,7 @@ def run(
     }[sweep]()
     rows = []
     for index, (axis, value, cfg) in enumerate(sweep_configs):
+        _, base_ids, _ = subspace(source, cfg, unembedding, norm_gain)
         _, target_ids, _ = subspace(target, cfg, unembedding, norm_gain)
         if cfg.lexical_forms == "detector":
             source_basis, _, _ = subspace(source, cfg, unembedding, norm_gain)
@@ -796,6 +803,7 @@ def run(
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
             "readout": readout,
+            "base_readout": [tokenizer.decode([int(token)]) for token in base_ids],
             "last_decode_readout": [tokenizer.decode([int(token)]) for token in last_ids[0]],
             "target_readout": target_readout,
             "generation": generation,
