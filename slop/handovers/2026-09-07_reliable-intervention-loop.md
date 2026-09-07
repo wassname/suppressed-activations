@@ -158,6 +158,19 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+Update 01:43 — Codex/GPT-6: 759e6e3 adds future-template projection comparison.
+Predeclared: L16/20 × full/projected/norm-matched × C0/.5/1/2, both animals,
+last3+all generated tokens. Project the fixed template donor−source difference
+into the QR span of spider/target future-VJP columns. No dynamic swapping.
+Prediction: if future span retains useful causal content, natural projection moves
+the target; matched projection distinguishes weak magnitude from wrong direction.
+Risk: tiny retained norm makes matching extreme; fraction is logged, no hidden restore.
+Not suppressed-only evidence. Independent design review by svd_review recommends this
+small comparison, warns additive pressure can still loop and span retains common features.
+Config predicates now control fitting directly, removing duplicated sweep-name lists.
+Real C0 projected smoke queued582, follower84568; main grid NOT YET queued.
+578–581 followers still live. Review all stronger-band results before selecting defaults.
+
 Update 2026-09-08 01:34 — Codex/GPT-6: supersedes pending jobs below.
 566–568 finished. Ant L12 raw C2 starts6/ant but later says spiders have four legs;
 dog L16 raw C2 loops correcting its dog riddle; dog L24 projected C2 sustains4/dog
