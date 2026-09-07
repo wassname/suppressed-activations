@@ -224,6 +224,24 @@ The animal that spins webs is a **dog** (a common breed of dog). Dogs are domest
 Long followups: ant583 completes126 tokens with6/ant/insect anatomy and a final6, while retaining rationalizations about nesting. Dog584 completes137 tokens with8 and ultimately spider, explicitly contrasting dogs' four legs. The old padding-mask bug documented by the other reviewer changes this comparison's interpretation: the first-token difference cannot be attributed to a larger generation cap. These are outputs of differing effective attention-mask behavior, not evidence that planning a longer response changes the first answer.
 
 Conclusion: full-template dogL20C2 is a completed candidate; selected future-span projections do not improve this tested pair. Prioritize a frozen corrected-mask replay/heldout before claiming reproducibility. The control checks establish execution consistency within these artifacts, not cross-version equivalence or general causal specificity.
+
+### Band-clamp590/591 and corrected-mask validation592–599
+
+Written by Codex/GPT-6. Read full43/43-line stdout590/591, all24 source outputs and all12 available clamped-donor outputs in `out/2026-09-08_band-clamp-{ant,dog}/result.json`. Also read all eight `correct-mask-{ant,dog}-validation{0..3}/result.json` outputs. Source/donor coverage and C0 checks pass; no GPU work performed.
+
+Ant band clampC1 naturally finishes with6/ant, accurate insect anatomy, and a correct contrasting spider count:
+
+> While some might confuse ants with spiders (which are arachnids and have 8 legs), ants are strictly hexapods.
+
+This is a stronger internally consistent result than lower clampC.625/.75, which first say6 but explain spider/eight. All ant donor controls maintain6/ant with relevant explanations. Dog donor controls likewise maintain4/dog; dog source clamps do not reach comparable completed consistency: target-count settings invoke imaginary riddles or restart the answer. For example clampC1 says “The animal that actually spins webs is the **dog** in the context of this specific riddle? No, that doesn't make sense.” Stable donor text does not by itself establish successful source transfer.
+
+Correct-mask frozen validation results all begin with the target count and identify the target: ant additive bandC.625 gives6 on4/4, dog fullL20C2 gives4 on4/4. Semantic robustness is narrower. Ant validation1 and3 finish, validation2 stays relevant but truncates; validation0 invents silk-building details to reconcile the clue. Dog validation2 finishes a relevant canine explanation; validation1 substitutes an unrelated ownership-and-food problem:
+
+> Since the dog is the owner, the dog eats the dog's food.
+
+Dog validation0 and3 begin rationalizing the clue and truncate. Thus all-eight count/identity transfer is observed, while all-eight coherent task reasoning is not. These prompts have already informed development; no fresh-heldout claim is justified.
+
+Audit decision: credible count/identity and selected completed-coherence evidence under corrected masking; no common robust solution established. The strongest distinction is ant clampC1's correct ant6/spider8 contrast versus dog validation1's task substitution, not incidental taxonomy errors. Next discriminator is frozen clamp-ant validation and a genuinely fresh dog consequence/prompt with completed generation. Preserve the current controls and do not infer that correct-mask versus old-mask differences arise from generation length.
 # Attention-mask correction — 2026-09-08
 
 Written by Codex/GPT-6. This corrects the earlier claim that the EOS/pad change affected termination only. It also changed the automatically inferred input attention mask. No GPU reproduction was run for this diagnosis; the installed mask function was reproduced on CPU.

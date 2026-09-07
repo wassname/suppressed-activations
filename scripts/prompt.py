@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+PREFILL_INSTRUCTION = "Complete the following fact, then explain your answer."
+
 
 def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
     matches = [
@@ -14,12 +16,14 @@ def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
     return matches[0]
 
 
-def assistant_prefill_input_ids(tokenizer, content: str, *, device: str = "cuda") -> dict:
+def assistant_prefill_input_ids(
+    tokenizer, content: str, *, device: str = "cuda", instruction: str = PREFILL_INSTRUCTION,
+) -> dict:
     rendered = tokenizer.apply_chat_template(
         [
             {
                 "role": "user",
-                "content": "Complete the following fact, then explain your answer.",
+                "content": instruction,
             },
             {"role": "assistant", "content": content},
         ],
