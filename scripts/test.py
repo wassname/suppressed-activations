@@ -43,6 +43,7 @@ def main() -> None:
     orthogonal = torch.eye(11) - directions @ torch.linalg.pinv(directions)
     torch.testing.assert_close(swapped @ orthogonal, hidden @ orthogonal, atol=1e-6, rtol=1e-5)
     torch.testing.assert_close(swap_hook(None, None, swapped), hidden, atol=1e-6, rtol=1e-5)
+    torch.testing.assert_close(swapped.norm(dim=-1), hidden.norm(dim=-1))
     torch.testing.assert_close(swap_hook(None, None, hidden[:, -1:]) @ dual, (hidden[:, -1:] @ dual).flip(-1))
     print("PASS: coordinate swap exchanges nonorthogonal coordinates, preserves complement, covers decode")
     residuals = torch.randn(1, 3, 11, generator=generator).expand(4, -1, -1)
