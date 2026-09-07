@@ -136,6 +136,17 @@ def component(h: Tensor, basis: Tensor) -> Tensor:
     return torch.matmul(coordinates.unsqueeze(-2), basis.transpose(-2, -1)).squeeze(-2)
 
 
+def token_persistent_subspace(residuals_by_position, unembedding, rms_norm_gain, *,
+                              persistent_rank, **score_config):
+    """Average token projectors using thin SVD. Written by Codex/GPT-6."""
+    bases, token_ids = suppressed_activation_subspace(
+        residuals_by_position, unembedding, rms_norm_gain, **score_config
+    )
+    directions = bases.permute(1, 0, 2).flatten(1)
+    vectors, singular_values, _ = torch.linalg.svd(directions, full_matrices=False)
+    return vectors[:, :persistent_rank], singular_values.square() / len(bases), token_ids
+
+
 def match_norm(x: Tensor, reference: Tensor) -> Tensor:
     """Give each vector in `x` the corresponding reference norm."""
     norm = x.norm(dim=-1, keepdim=True)

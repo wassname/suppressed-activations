@@ -65,13 +65,13 @@ def layer_hooks(blocks, hook_by_layer: dict[int, object]):
             handle.remove()
 
 
-def trajectory(model, input_ids: Tensor, final_norm) -> tuple[Tensor, Tensor]:
+def trajectory(model, input_ids: Tensor, final_norm, *, use_cache=False, **forward_kwargs) -> tuple[Tensor, Tensor]:
     raw_final: dict[str, Tensor] = {}
     handle = final_norm.register_forward_pre_hook(
         lambda _module, inputs: raw_final.__setitem__("hidden", inputs[0].detach())
     )
     with torch.no_grad():
-        output = model(input_ids=input_ids, output_hidden_states=True, use_cache=False)
+        output = model(input_ids=input_ids, output_hidden_states=True, use_cache=use_cache, **forward_kwargs)
     handle.remove()
     residuals = torch.stack(
         [hidden[0] for hidden in output.hidden_states[:-1]] + [raw_final["hidden"][0]]
@@ -117,6 +117,7 @@ def intervention_hooks(
     match_component_norm: bool = True,
     restore_norm: bool = True,
     record: dict[int, dict] | None = None,
+    fixed_deltas: dict[int, Tensor] | None = None,
 ) -> dict[int, object]:
     random_source = random_basis_like(source_basis, random_seed)
     random_target = random_basis_like(target_basis, random_seed + 1)
@@ -149,7 +150,11 @@ def intervention_hooks(
             else:
                 target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1)
                 target_h = target_h.expand(h.shape[0], h.shape[1], -1).float()
-            if operation == "replace":
+            if operation == "fixed_delta":
+                patched = h + strength * fixed_deltas[residual_layer]
+                if restore_norm:
+                    patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
+            elif operation == "replace":
                 patched = replace(
                     h, source_basis, target_h, target_basis,
                     strength=strength,

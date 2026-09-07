@@ -21,11 +21,21 @@ from suppressed_activation_subspace import (
     steer,
     subspace_from_scores,
     persistent_suppressed_activation_subspace,
+    token_persistent_subspace,
 )
 
 
 def main() -> None:
     generator = torch.Generator().manual_seed(1)
+    residuals = torch.randn(1, 3, 11, generator=generator).expand(4, -1, -1)
+    unembedding = torch.randn(30, 11, generator=generator)
+    basis, persistence, _ = token_persistent_subspace(
+        residuals, unembedding, torch.ones(11), persistent_rank=3,
+        early_layer=0, peak_layer=1, output_layer=2, rank=3,
+    )
+    torch.testing.assert_close(persistence[:3], torch.ones(3))
+    torch.testing.assert_close(basis.T @ basis, torch.eye(3), atol=1e-6, rtol=1e-6)
+    print("PASS: identical token spaces have unit SVD persistence")
     source_basis = torch.linalg.qr(torch.randn(3, 11, 4, generator=generator), mode="reduced").Q
     target_basis = torch.linalg.qr(torch.randn(3, 11, 4, generator=generator), mode="reduced").Q
     source_rotation = torch.linalg.qr(torch.randn(3, 4, 4, generator=generator), mode="reduced").Q
