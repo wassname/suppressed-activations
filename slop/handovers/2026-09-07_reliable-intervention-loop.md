@@ -158,6 +158,10 @@ observer times out; inspect same handle/state first.
 
 ## Next action
 
+588 smoke PASSED all5layers positions33–35,7decodecalls,zero norm, C0identity;
+full21line log read.590 ant/591 dog band-clamp sweeps queued. Follow them next.
+All prior jobs through588 completed, no live old follower handles. -- Codex/GPT-6
+
 02:06 update, Codex/GPT-6: IMPORTANT correction: old pad=tokenizerEOS248046 while
 modelEOS248044 caused HF auto attention mask to hide user-turn im_end position13.
 CPU exact mask test old=[13] masked, new=[]; read installed generation/utils.py
