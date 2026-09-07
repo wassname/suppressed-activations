@@ -1,0 +1,15 @@
+With thanks for the corrections—my prior claim about `pinv`/reflection being an error was wrong: the Householder reflection indeed preserves norm under C=1, and the QR-projected B[t] basis makes the projector SVD correct. C0 controls exist. I stand by the concern that large C inflates norm (no renormalization) and that unembedding-row directions may sit outside the hidden-state manifold, but these are cautionary, not fatal.
+
+Between the two next candidates, **the matched‑template activation contrast is the cheapest and most immediately compelling**. It uses a handful of explicit prompts (e.g., “The animal is a spider. It has 8 legs.” vs. “…ant. It has 6 legs.”) that share all tokens after the animal name. For each layer, average the hidden state over the same suffix positions (e.g., last 3 tokens) across several such templates, subtract, normalize, and use that difference as the donor direction. This sidesteps web/colony confounds because the contrast is driven purely by the animal label, not narrative. Applying it continuously through generation is straightforward.
+
+**Exact edit and calibration:**
+- Build a small set of 3–5 template pairs per animal (spider→ant, spider→dog). For each pair, extract layer‑wise hidden states at the suffix tokens from a clean forward pass with the spider prompt; repeat for the ant prompt.
+- Compute the mean difference vector at each layer, **orthonormalize** it to the source direction (the spider prompt’s mean suffix state) to prevent reinforcement of spider features, and scale to unit length.
+- Apply the patch with a moderate coefficient *c* (start at *c* = 0.5, 1.0) **additively to hidden states at the last prompt tokens, and keep applying it to every generated token** (as required). Since the vector is derived from a label contrast, it is more likely to alter the concept globally.
+- For readout, measure leg‑count probability and generate full continuations. Control with a random orthogonal direction (same norm) and with an unrelated animal pair (e.g., fish→lizard) to ensure specificity.
+
+This is cheaper than corpus‑averaged VJPs, requires no extra forward/backward hooks, and directly leverages the “explicit‑prompt difference” idea you already found promising. If it works, it also clarifies whether projecting into the suppression space helps or harms; we can compare residual‑space application vs. projection into the suppression subspace in the same run.
+
+**Disagreement retained:** While ReLU is continuous, its kink could still produce omission artifacts in the `suppressed_vocab_scores` if the thresholds are poorly tuned. However, that is a distinct concern for the current suppression space, not for this cleaner contrast experiment.
+
+I recommend running the matched‑template contrast next, with the above calibration, before attempting the more expensive VJP estimation.
