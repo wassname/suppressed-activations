@@ -182,6 +182,15 @@ def future_gated_configs():
         for strength in (1.0, 2.0) for gate in (False, True)]
 
 
+def future_template_configs():
+    return [("future_template", f"L{layer}_{projection}_C{strength}", replace(
+        DEFAULT, template_contrast=True, future_coordinate=projection != "full",
+        intervention_layer=(layer,), strength=strength,
+        match_component_norm=projection == "matched", restore_residual_norm=False,
+    )) for layer in (16, 20) for projection in ("full", "projected", "matched")
+        for strength in (0.0, 0.5, 1.0, 2.0)]
+
+
 def fit_future_rows(model, tokenizer, corpus_path, output_dir):
     """Contract the official mean-J estimator with three vocabulary rows. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
@@ -906,30 +915,6 @@ def run(
     special_ids = set(tokenizer.all_special_ids)
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
-    future_vectors, future_provenance = {}, {}
-    if sweep in ("future-coordinate", "future-gated"):
-        future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
-
-    template_deltas, template_provenance, template_targets = {}, [], {}
-    if sweep in ("template-contrast", "template-projection", "template-clamp", "template-scope", "template-band-strength"):
-        target_animal = target_concept
-        differences, target_means = [], []
-        for template in CONCEPT_TEMPLATES:
-            pair = [sample(template.format(animal=animal), generate=False)
-                    for animal in ("spider", target_animal)]
-            source_end, target_end = [item["content_end"] for item in pair]
-            torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
-                                       pair[1]["input_ids"][0, target_end-3:target_end])
-            differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
-                                - pair[0]["residuals"][:, source_end-3:source_end].float()).mean(1))
-            target_means.append(pair[1]["residuals"][:, target_end-3:target_end].float().mean(1))
-            template_provenance.append([
-                tokenizer.decode(item["input_ids"][0], skip_special_tokens=False) for item in pair
-            ])
-        mean_difference = torch.stack(differences).mean(0)
-        template_deltas = dict(enumerate(mean_difference))
-        template_targets = dict(enumerate(torch.stack(target_means).mean(0)))
-
     sweep_configs = {
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
@@ -943,6 +928,7 @@ def run(
         "template-band-strength": template_band_strength_configs,
         "future-coordinate": future_coordinate_configs,
         "future-gated": future_gated_configs,
+        "future-template": future_template_configs,
         "svd": svd_configs,
         "svd-refine": svd_refine_configs,
         "svd-detector": svd_detector_configs,
@@ -965,6 +951,27 @@ def run(
     indexed_configs = list(enumerate(sweep_configs))
     if condition_index is not None:
         indexed_configs = [indexed_configs[condition_index]]
+    future_vectors, future_provenance = {}, {}
+    if any(cfg.future_coordinate for _, (_, _, cfg) in indexed_configs):
+        future_vectors, future_provenance = fit_future_rows(model, tokenizer, lens_corpus_arrow, output_dir)
+
+    template_deltas, template_provenance, template_targets = {}, [], {}
+    if any(cfg.template_contrast for _, (_, _, cfg) in indexed_configs):
+        differences, target_means = [], []
+        for template in CONCEPT_TEMPLATES:
+            pair = [sample(template.format(animal=animal), generate=False)
+                    for animal in ("spider", target_concept)]
+            source_end, target_end = [item["content_end"] for item in pair]
+            torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
+                                       pair[1]["input_ids"][0, target_end-3:target_end])
+            differences.append((pair[1]["residuals"][:, target_end-3:target_end].float()
+                                - pair[0]["residuals"][:, source_end-3:source_end].float()).mean(1))
+            target_means.append(pair[1]["residuals"][:, target_end-3:target_end].float().mean(1))
+            template_provenance.append([
+                tokenizer.decode(item["input_ids"][0], skip_special_tokens=False) for item in pair
+            ])
+        template_deltas = dict(enumerate(torch.stack(differences).mean(0)))
+        template_targets = dict(enumerate(torch.stack(target_means).mean(0)))
     rows = []
     for index, (axis, value, cfg) in indexed_configs:
         _, base_ids, base_scores = subspace(source, cfg, unembedding, norm_gain)
@@ -1013,6 +1020,23 @@ def run(
             fixed_deltas = {layer: template_deltas[layer] for layer in intervention_layers}
             persistence = {"direction_estimator": "matched_template_mean_difference",
                            "rendered_template_pairs": template_provenance}
+            if cfg.future_coordinate:
+                assert not cfg.persistent_rank
+                projected = {}
+                retained = {}
+                for layer, delta in fixed_deltas.items():
+                    vectors = future_vectors[layer][:, [0, {"dog": 1, "ant": 2}[target_concept]]]
+                    assert torch.linalg.matrix_rank(vectors) == 2
+                    basis = torch.linalg.qr(vectors, mode="reduced").Q
+                    projected[layer] = component(delta, basis)
+                    retained[layer] = float(projected[layer].norm() / delta.norm())
+                    if cfg.match_component_norm:
+                        projected[layer] = projected[layer] * delta.norm() / projected[layer].norm()
+                        torch.testing.assert_close(projected[layer].norm(), delta.norm())
+                fixed_deltas = projected
+                persistence.update(direction_estimator="future_projected_template_mean_difference",
+                                   future_provenance=future_provenance,
+                                   projected_norm_fraction=retained)
             if cfg.persistent_rank:
                 shared, diagnostics = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
                 projected = {layer: component(delta, shared) for layer, delta in fixed_deltas.items()}
@@ -1231,6 +1255,7 @@ if __name__ == "__main__":
             "template-band-strength",
             "future-coordinate",
             "future-gated",
+            "future-template",
             "svd",
             "svd-refine",
             "svd-detector",
