@@ -1487,6 +1487,9 @@ def run(
                                 coordinates = states[section] @ shared
                                 diagnostics[f"{name}_{endpoint}_mean_square"] = coordinates.square().mean(0).tolist()
                                 diagnostics[f"{name}_{endpoint}_signed_mean"] = coordinates.mean(0).tolist()
+                                if cfg.template_state_span == "temporal_attenuation":
+                                    temporal = cross_position_covariance(coordinates.reshape(-1, contrasts.shape[2], cfg.persistent_rank))
+                                    diagnostics[f"{name}_{endpoint}_cross_position_agreement"] = temporal.diagonal().tolist()
                 elif cfg.contrastive_suppression:
                     suffixes = torch.stack(template_suffixes).permute(1, 0, 3, 2, 4)
                     scores = suppressed_activation_scores(
