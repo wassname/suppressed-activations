@@ -940,7 +940,7 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
             hooks.update(intervention_hooks(
                 edit_basis, edit_basis, donor_states,
                 operation="shared_random_replace" if random_delta_seed >= 0 else "shared_replace",
-                random_seed=random_delta_seed + edit_layer, strength=strength,
+                random_seed=random_delta_seed * len(model.model.layers) + edit_layer, strength=strength,
                 blocks_to_hook=[edit_layer - 1], positions=positions,
                 source_position=source["content_end"] - 1,
                 target_position=target["content_end"] - 1 if step == 0 else 0,
