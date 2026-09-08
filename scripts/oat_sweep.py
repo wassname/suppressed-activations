@@ -492,6 +492,60 @@ def svd_continuous_refine_configs():
                               (4, (5.0, 6.0, 7.0))) for strength in strengths]
 
 
+def clean_selector_audit(samples, tokenizer, unembedding, norm_gain):
+    """Compare clean detector windows without fitting an intervention. — Codex/GPT-6."""
+    forms = [form for animal in ("spider", "dog", "ant")
+             for form in (animal, " " + animal, " " + animal.capitalize())]
+    named_ids = [one_token(tokenizer, form) for form in forms]
+    rows, prompts, curves = [], {}, []
+    for side, sample in samples.items():
+        end = sample["content_end"]
+        start = max(sample["content_start"], end - 8)
+        states = sample["residuals"][:, start:end].permute(1, 0, 2)
+        prompts[side] = {
+            "rendered": tokenizer.decode(sample["input_ids"][0], skip_special_tokens=False),
+            "generation": sample["generation"],
+        }
+        for normalized in (False, True):
+            directions = unembedding.float() * norm_gain.float()
+            if normalized:
+                directions = directions / directions.norm(dim=-1, keepdim=True)
+            named_directions = directions[named_ids] - directions.mean(0)
+            scaled_states = states.float() * torch.rsqrt(states.float().square().mean(-1, keepdim=True) + 1e-6)
+            named_logits = scaled_states @ named_directions.T
+            for offset in range(end - start):
+                curves.append({"side": side, "normalize_unembedding_rows": normalized,
+                               "position": start + offset,
+                               "centered_logits_by_layer": {form: named_logits[offset, :, i].tolist()
+                                                            for i, form in enumerate(forms)}})
+            del directions
+            for peak in (4, 8, 12, 16, 20, 24, 28, 31):
+                window = (max(0, peak - 2), peak, 32)
+                scores = suppressed_activation_scores(
+                    states, unembedding, norm_gain, early_layer=window[0],
+                    peak_layer=peak, output_layer=32,
+                    normalize_unembedding_rows=normalized,
+                )
+                values, ids = scores.topk(8, dim=-1)
+                named_scores = scores[:, named_ids]
+                ranks = (scores[:, :, None] > named_scores[:, None, :]).sum(1) + 1
+                for offset in range(end - start):
+                    position = start + offset
+                    rows.append({
+                        "side": side, "normalize_unembedding_rows": normalized,
+                        "detector_layers": window, "position": position,
+                        "content_offset": position - sample["content_start"],
+                        "token": tokenizer.decode([int(sample["input_ids"][0, position])]),
+                        "top": [{"token_id": i, "token": tokenizer.decode([i]), "score": value}
+                                for i, value in zip(ids[offset].tolist(), values[offset].tolist())],
+                        "named": {form: {"token_id": token_id, "score": score, "rank_min_ties": rank}
+                                  for form, token_id, score, rank in zip(
+                                      forms, named_ids, named_scores[offset].tolist(), ranks[offset].tolist())},
+                    })
+    return {"prompts": prompts, "rows": rows, "named_layer_curves": curves,
+            "interpretation": "Named animal scores are diagnostics, not evidence of causal replacement; zero scores have tied ranks."}
+
+
 def persistent_shared_basis(source, target, cfg, unembedding, norm_gain):
     bases, diagnostics = [], {"basis_geometry": "centered_unit_gain_weighted_unembedding"}
     for name, sample in (("source", source), ("target", target)):
@@ -945,6 +999,7 @@ def run(
     target_concept: str = "dog",
     prefill_instruction: str = PREFILL_INSTRUCTION,
     extraction_instruction: str | None = None,
+    selector_audit: bool = False,
 ) -> None:
     if extraction_instruction is None:
         extraction_instruction = prefill_instruction
@@ -1008,7 +1063,29 @@ def run(
     special_ids = set(tokenizer.all_special_ids)
     source_rendered = tokenizer.decode(source["input_ids"][0], skip_special_tokens=False)
     target_rendered = tokenizer.decode(target["input_ids"][0], skip_special_tokens=False)
+    if selector_audit:
+        audit_started = time.monotonic()
+        audit = clean_selector_audit({"source": source, "target": target}, tokenizer, unembedding, norm_gain)
+        audit.update(model=MODEL, revision=REVISION, git=git_state, code_sha256=code_hashes,
+                     argv=sys.argv, prefill_instruction=prefill_instruction,
+                     elapsed_seconds=time.monotonic() - audit_started)
+        (output_dir / "selector_audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2) + "\n")
+        summary = ["# Clean selector diagnostic", "",
+                   "TODO validate: find a common animal-related window before intervening; animal presence alone is not causal evidence.", "",
+                   "[Full position/window scores and exact clean demos](selector_audit.json). [Run provenance](result.json).", ""]
+        for side in ("source", "target"):
+            for normalized in (False, True):
+                group = [row for row in audit["rows"] if row["side"] == side and row["normalize_unembedding_rows"] == normalized]
+                expected = "spider" if side == "source" else target_concept
+                hits = {animal: sum(any(item["score"] > 0 and item["rank_min_ties"] <= 8
+                                       for form, item in row["named"].items() if form.strip().lower() == animal)
+                                    for row in group) for animal in ("spider", "dog", "ant")}
+                summary.append(f"- {side}, unit rows={normalized}, expected={expected}: top-eight position/window counts {hits}, denominator={len(group)}.")
+        summary.extend(["", "— Codex/GPT-6", ""])
+        (output_dir / "selector_audit.md").write_text("\n".join(summary))
+        logger.info("clean selector diagnostic: {} ({} rows)", output_dir / "selector_audit.md", len(audit["rows"]))
     sweep_configs = {
+        "selector-clean": lambda: [("strength", "C0", replace(DEFAULT, strength=0.0))],
         "demo": demo_configs,
         "coordinate-swap": coordinate_swap_configs,
         "coordinate-layer": coordinate_layer_configs,
@@ -1562,6 +1639,7 @@ def run(
         "target_prompt": target_prompt,
         "target_concept": target_concept,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
+        "selector_audit": "selector_audit.md" if selector_audit else None,
         "base": {
             "source_output": source_output,
             "target_output": target_output,
@@ -1580,6 +1658,9 @@ def run(
     subprocess.run(
         [sys.executable, str(ROOT / "scripts/results.py"), str(output_dir)], check=True
     )
+    if selector_audit:
+        with (output_dir / "run.md").open("a") as report:
+            report.write("\n[Clean selector diagnostic](selector_audit.md).\n")
     logger.info("wrote {}", output_dir / "run.md")
 
 
@@ -1589,6 +1670,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--sweep",
         choices=(
+            "selector-clean",
             "demo", "chat-strength", "oat", "normalization-strength", "lexical-surface",
             "coordinate-swap",
             "coordinate-layer",
@@ -1646,6 +1728,7 @@ if __name__ == "__main__":
     parser.add_argument("--target-prompt")
     parser.add_argument("--prefill-instruction", default=PREFILL_INSTRUCTION)
     parser.add_argument("--extraction-instruction")
+    parser.add_argument("--selector-audit", action="store_true")
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
@@ -1673,4 +1756,5 @@ if __name__ == "__main__":
         {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
         args.prefill_instruction,
         args.extraction_instruction,
+        args.selector_audit,
     )
