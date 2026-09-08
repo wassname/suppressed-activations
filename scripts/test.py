@@ -14,6 +14,7 @@ from scripts.demo import intervention_hooks, layer_hooks
 from scripts.prompt import first_answer
 from suppressed_activation_subspace import (
     component,
+    cross_position_covariance,
     match_norm,
     matched_random_rotation,
     random_basis_like,
@@ -28,6 +29,18 @@ from suppressed_activation_subspace import (
 
 
 def main() -> None:
+    # Equal diagonal energy can hide alternating token signs. -- Codex/GPT-6
+    persistent = torch.tensor([[[1., 0.], [1., 0.], [1., 0.]]])
+    alternating = persistent * torch.tensor([1., -1., 1.])[None, :, None]
+    final = torch.zeros_like(persistent)
+    steady_energy = cross_position_covariance(persistent) - cross_position_covariance(final)
+    alternating_energy = cross_position_covariance(alternating) - cross_position_covariance(final)
+    torch.testing.assert_close(steady_energy, torch.diag(torch.tensor([1., 0.])))
+    torch.testing.assert_close(alternating_energy, torch.diag(torch.tensor([-1./3., 0.])))
+    explicit = torch.stack([torch.outer(alternating[0, t], alternating[0, u])
+                            for t in range(3) for u in range(3) if t != u]).mean(0)
+    torch.testing.assert_close(alternating_energy, explicit)
+    print("PASS: temporal attenuation retains same-sign contrast and rejects alternating signs at equal diagonal energy")
     # Repeating identical token projectors must not create extra directions. -- Codex/GPT-6
     rng = torch.Generator().manual_seed(72)
     repeated_states = torch.randn(1, 3, 12, generator=rng).expand(4, -1, -1)

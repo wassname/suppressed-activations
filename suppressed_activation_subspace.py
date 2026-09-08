@@ -6,6 +6,16 @@ import torch
 from torch import Tensor
 
 
+def cross_position_covariance(contrasts: Tensor) -> Tensor:
+    """Mean distinct-position outer products for [template, token, dim]. -- Codex/GPT-6"""
+    assert contrasts.ndim == 3 and contrasts.shape[1] > 1
+    tokens = contrasts.shape[1]
+    summed = contrasts.sum(dim=1)
+    cross = torch.einsum("bi,bj->bij", summed, summed)
+    diagonal = torch.einsum("bsi,bsj->bij", contrasts, contrasts)
+    return (cross - diagonal).mean(dim=0) / (tokens * (tokens - 1))
+
+
 def suppressed_activation_scores(
     residuals: Tensor,
     unembedding: Tensor,
