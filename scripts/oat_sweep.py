@@ -40,6 +40,7 @@ from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids, fir
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
+    cross_position_covariance,
     suppressed_activation_scores,
     subspace_from_scores,
     suppressed_activation_subspace,
@@ -1380,7 +1381,7 @@ def run(
         if cfg.shared_replacement != "none":
             assert not (cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
             if cfg.template_contrast:
-                assert cfg.template_state_span == "attenuation" and cfg.shared_replacement in ("frozen", "synchronized")
+                assert cfg.template_state_span in ("attenuation", "temporal_attenuation") and cfg.shared_replacement in ("frozen", "synchronized")
                 assert len(intervention_layers) == 1 and cfg.detector_layers[1] == intervention_layers[0]
                 assert not (cfg.match_component_norm or cfg.restore_residual_norm or cfg.normalize_selector_residuals)
                 assert cfg.random_delta_seed == -1 and cfg.discarded_fraction == 0 and cfg.delta_component == "difference"
@@ -1451,14 +1452,19 @@ def run(
                         contrasts = suffixes[:, 1] - bee_states
                     peak = contrasts[:, cfg.detector_layers[1]].flatten(0, 1)
                     output = contrasts[:, cfg.detector_layers[2]].flatten(0, 1)
-                    split = cfg.template_state_span in ("peak_split", "attenuation", "attenuation_bee")
+                    split = cfg.template_state_span in ("peak_split", "attenuation", "attenuation_bee", "temporal_attenuation")
                     fit_count = peak.shape[0] // 2 if split else peak.shape[0]
-                    if cfg.template_state_span in ("attenuation", "attenuation_bee"):
+                    if cfg.template_state_span in ("attenuation", "attenuation_bee", "temporal_attenuation"):
                         columns = torch.cat([peak[:fit_count].T, output[:fit_count].T], dim=1)
                         vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
                         joint = vectors[:, :torch.linalg.matrix_rank(columns)]
                         peakJ, outputJ = peak[:fit_count] @ joint, output[:fit_count] @ joint
-                        energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / fit_count
+                        if cfg.template_state_span == "temporal_attenuation":
+                            tokens = contrasts.shape[2]
+                            energy_difference = (cross_position_covariance(peakJ.reshape(-1, tokens, joint.shape[1]))
+                                                 - cross_position_covariance(outputJ.reshape(-1, tokens, joint.shape[1])))
+                        else:
+                            energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / fit_count
                         values, eigenvectors = torch.linalg.eigh(energy_difference)
                         assert (values > 0).sum() >= cfg.persistent_rank
                         shared = joint @ eigenvectors[:, -cfg.persistent_rank:].flip(1)
