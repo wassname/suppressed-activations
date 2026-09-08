@@ -13,12 +13,15 @@
   - [x] Frozen versus synchronized rank8 replacement both remain spider at L12/L20 (736/737).
   - [x] Full selected vocabulary support, ranks51–56, also remains spider at C1/C2 (738/739).
   - [ ] Test stronger doses without normalization (740/741), then the previously useful layer-local attenuation selector with coordinate replacement (742/743).
+  - [x] One selected band works on both original demos: L22–24, C2 per layer, raw rank4 local attenuation (756/757).
+  - [ ] Keep that band fixed on plain leg, naming and property questions (768–773); require valid clean controls before counting transfer.
   - Failure mode: an unrestricted direction or a hand-tuned species correction changes the answer while the claimed suppressed replacement does not.
   - Deliverable: exact construction, resolved settings, and paired logs for both animals, with in-subspace and out-of-subspace edit norms.
 
 - [ ] Goal: the readout measures the changed source computation.
   - [ ] Validate clean spider, dog and ant readouts before interpreting steered ones.
   - [ ] Capture after the edit and subsequent computation, using the same chat-template path as generation.
+  - [ ] Compare full-state and selected-component future transport (766/767); readable edited dog tokens alone do not validate clean donor readouts.
   - [ ] Check C=0 identity, hook ordering, aligned positions and agreement with generation's first-token logits.
   - [x] Synchronized decoder C=0 matches generation exactly in job 731; retain these assertions in subsequent runs.
   - Failure mode: the readout shows the donor, a pre-edit state, or a classifier that must move because it shares the steering direction.
