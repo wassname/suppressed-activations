@@ -68,7 +68,7 @@ class Config:
     random_delta_seed: int = -1
     delta_component: str = "difference"
     coordinate_swap: bool = False
-    shared_replacement: bool = False
+    shared_replacement: str = "none"
     source_dominant_only: bool = False
     template_contrast: bool = False
     contrastive_suppression: bool = False
@@ -877,6 +877,61 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
     }, first_logits
 
 
+def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, strength,
+                                positions, record, residual_capture, max_new_tokens):
+    """Teacher-force the donor on source-selected tokens with separate caches. — Codex/GPT-6."""
+    def forward(ids, mask_length, cache, hooks):
+        raw_final = []
+        handle = model.model.norm.register_forward_pre_hook(
+            lambda _module, inputs: raw_final.append(inputs[0].detach()))
+        try:
+            with layer_hooks(model.model.layers, hooks), torch.no_grad():
+                output = model(
+                    input_ids=ids, attention_mask=ids.new_ones((1, mask_length)),
+                    past_key_values=cache, use_cache=True, output_hidden_states=True,
+                )
+        finally:
+            handle.remove()
+        states = torch.stack([h[0] for h in output.hidden_states[:-1]] + [raw_final[0][0]])
+        return output.logits[0, -1].float(), output.past_key_values, states
+
+    source_ids, donor_ids = source["input_ids"], target["input_ids"]
+    source_length, donor_length = source_ids.shape[1], donor_ids.shape[1]
+    source_cache = donor_cache = None
+    token_ids, donor_history, source_history = [], [], []
+    for step in range(max_new_tokens):
+        donor_logits, donor_cache, donor_states = forward(donor_ids, donor_length + step, donor_cache, {})
+        hooks = intervention_hooks(
+            basis, basis, donor_states, operation="shared_replace", strength=strength,
+            blocks_to_hook=[layer - 1], positions=positions,
+            source_position=source["content_end"] - 1,
+            target_position=target["content_end"] - 1 if step == 0 else 0,
+            match_component_norm=False, restore_norm=False, record=record,
+        )
+        logits, source_cache, states = forward(source_ids, source_length + step, source_cache, hooks)
+        if step == 0:
+            first_logits = logits
+            residual_capture.append(states)
+        last_states = states
+        token = int(logits.argmax())
+        if layer == len(model.model.layers) and basis.shape[1] == basis.shape[0] and strength == 1:
+            assert token == int(donor_logits.argmax()), "full final-layer replacement differs from synchronized donor"
+        token_ids.append(token)
+        if token in (tokenizer.eos_token_id, tokenizer.pad_token_id):
+            break
+        source_ids = source_ids.new_tensor([[token]])
+        donor_ids = donor_ids.new_tensor([[token]])
+        source_history.append(token)
+        donor_history.append(int(donor_ids[0, 0]))
+        assert source_history == donor_history
+    residual_capture.append(last_states)
+    record[layer]["synchronized_history"] = {
+        "source_tokens": source_history, "donor_tokens": donor_history,
+        "donor_conditioning": "unchanged donor prompt followed by source-selected tokens",
+    }
+    return {"token_ids": token_ids, "text": tokenizer.decode(token_ids, skip_special_tokens=False)}, first_logits
+
+
 def yaml_value(value) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -1135,9 +1190,16 @@ def run(
         )) for normalized in (False, True) for matched in (False, True) for strength in (0.0, 2.0)],
         "shared-replacement": lambda: [("shared_replacement", f"C{strength}", Config(
             detector_layers=(18, 20, 32), intervention_layer=(20,),
-            persistent_rank=4, shared_replacement=True, strength=strength,
+            persistent_rank=4, shared_replacement="frozen", strength=strength,
             match_component_norm=False, restore_residual_norm=False,
         )) for strength in (0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0)],
+        "synchronized-replacement": lambda: [("synchronized_replacement", f"{mode}_L{layer}_C{strength}", Config(
+            detector_layers=(max(0, layer-2), layer, 32), intervention_layer=(layer,),
+            persistent_rank=0 if mode == "full_synchronized" else 4,
+            shared_replacement=mode, strength=strength,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for mode in ("frozen", "synchronized", "full_synchronized")
+            for layer in ((12, 20, 32) if mode == "full_synchronized" else (12, 20)) for strength in (0.0, 1.0)],
         "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             template_state_span="attenuation_bee", strength=strength,
@@ -1287,8 +1349,10 @@ def run(
             else cfg.intervention_layer
         )
         fixed_deltas, persistence = (None, {})
-        if cfg.shared_replacement:
-            assert not (cfg.template_contrast or cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction)
+        assert cfg.shared_replacement in ("none", "frozen", "synchronized", "full_synchronized")
+        if cfg.shared_replacement != "none":
+            assert not (cfg.template_contrast or cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
+            assert cfg.continue_generation and cfg.donor_position_offset == 0
             torch.testing.assert_close(
                 source["input_ids"][0, source["content_end"]-positions:source["content_end"]],
                 target["input_ids"][0, target["content_end"]-positions:target["content_end"]],
@@ -1482,12 +1546,19 @@ def run(
                     generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
                     random_delta = torch.randn(delta.shape, device=delta.device, generator=generator)
                     fixed_deltas[layer] = random_delta * delta.norm() / random_delta.norm()
-        elif cfg.shared_replacement:
-            assert cfg.persistent_rank and len(intervention_layers) == 1
-            shared, persistence = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+        elif cfg.shared_replacement != "none":
+            assert len(intervention_layers) == 1
+            if cfg.shared_replacement == "full_synchronized":
+                shared = torch.eye(unembedding.shape[1], device=unembedding.device, dtype=torch.float32)
+                persistence = {"direction_estimator": "full_residual_positive_control",
+                               "interpretation": "donor-context transfer control, not suppressed-subspace replacement"}
+            else:
+                assert cfg.persistent_rank
+                shared, persistence = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+                persistence["direction_estimator"] = "shared_persistent_donor_coordinate_replacement"
             source_basis = target_basis = shared
-            persistence["direction_estimator"] = "shared_persistent_donor_coordinate_replacement"
-            persistence["decode_target"] = "frozen final donor prompt coordinates"
+            persistence["decode_target"] = ("frozen final donor prompt coordinates" if cfg.shared_replacement == "frozen"
+                                            else "donor conditioned on same source-generated token history")
         elif cfg.persistent_rank:
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
@@ -1511,7 +1582,7 @@ def run(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="shared_replace" if cfg.shared_replacement else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
+            operation="shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
@@ -1527,10 +1598,18 @@ def run(
             record=intervention_record,
         )
         captured = []
-        generation, generation_logits = generate_with_first_logits(
-            model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
-        )
+        if cfg.shared_replacement in ("synchronized", "full_synchronized"):
+            generation, generation_logits = generate_synchronized_donor(
+                model, tokenizer, source, target, shared, intervention_layers[0], cfg.strength,
+                positions, intervention_record, captured, max_new_tokens,
+            )
+        else:
+            generation, generation_logits = generate_with_first_logits(
+                model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
+            )
         changed_residuals = captured[0]
+        if cfg.shared_replacement == "full_synchronized" and intervention_layers == (32,) and cfg.strength == 1:
+            assert generation["token_ids"] == donor_generation["token_ids"], "full final-layer control differs from clean donor generation"
         if cfg.template_state_span != "none":
             span_readouts = {}
             layer = intervention_layers[0]
@@ -1733,6 +1812,7 @@ if __name__ == "__main__":
             "attenuation-bee-correction",
             "attenuation-bee-selector",
             "shared-replacement",
+            "synchronized-replacement",
             "bee-correction-controls",
             "bee-correction-alone",
             "bee-correction-projected",
