@@ -1054,7 +1054,7 @@ def run(
             detector_layers=(18, 20, 32), intervention_layer=(20,),
             persistent_rank=4, shared_replacement=True, strength=strength,
             match_component_norm=False, restore_residual_norm=False,
-        )) for strength in (0.0, 0.5, 1.0, 2.0)],
+        )) for strength in (0.0, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0)],
         "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             template_state_span="attenuation_bee", strength=strength,
