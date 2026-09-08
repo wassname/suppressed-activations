@@ -82,6 +82,7 @@ class Config:
     transport_readout: bool = False
     template_clamp: bool = False
     future_coordinate: bool = False
+    future_clamp: bool = False
     future_lexical_union: bool = False
 
 
@@ -1169,6 +1170,12 @@ def run(
         "template-band-clamp": template_band_clamp_configs,
         "future-coordinate": future_coordinate_configs,
         "future-gated": future_gated_configs,
+        "future-clamp": lambda: [("future_clamp", f"L{layer}_C{strength}", replace(
+            DEFAULT, coordinate_swap=True, future_coordinate=True, future_clamp=True,
+            persistent_rank=0, intervention_layer=(layer,), intervention_positions=3,
+            continue_generation=True, strength=strength, restore_residual_norm=False,
+            match_component_norm=False,
+        )) for layer in (12, 16, 20, 24) for strength in (0.0, 0.5, 1.0)],
         "future-template": future_template_configs,
         "future-union": future_union_configs,
         "svd": svd_configs,
@@ -1200,6 +1207,28 @@ def run(
             lexical_union=any(cfg.future_lexical_union for _, (_, _, cfg) in indexed_configs),
             instruction=extraction_instruction,
         )
+    future_clamp_axes, future_clamp_calibration = {}, {}
+    if any(cfg.future_clamp for _, (_, _, cfg) in indexed_configs):
+        for layer, vectors in future_vectors.items():
+            pair = vectors[:, [0, {"dog": 1, "ant": 2}[target_concept]]]
+            pair = pair / pair.norm(dim=0)
+            axis = pair[:, 1] - pair[:, 0]
+            axis_norm = axis.norm()
+            axis = axis / axis_norm
+            source_score = source["residuals"][layer, source["content_end"]-1].float() @ axis
+            donor_score = target["residuals"][layer, target["content_end"]-1].float() @ axis
+            future_clamp_axes[layer] = axis
+            future_clamp_calibration[layer] = {
+                "source": float(source_score), "donor": float(donor_score),
+                "threshold": float(donor_score), "axis_norm_before_normalization": float(axis_norm),
+                "donor_minus_source": float(donor_score-source_score),
+                "donor_above_source": bool(donor_score > source_score),
+            }
+        future_provenance["clamp_calibration"] = future_clamp_calibration
+        lens_path = output_dir / "future_lens.json"
+        lens_document = json.loads(lens_path.read_text())
+        lens_document["clamp_calibration"] = future_clamp_calibration
+        lens_path.write_text(json.dumps(lens_document, ensure_ascii=False, indent=2))
 
     template_deltas, template_provenance, template_targets = {}, [], {}
     template_suffixes = []
@@ -1471,11 +1500,18 @@ def run(
                 ]
         target_coordinates = {layer: template_targets[layer] @ (delta / delta.norm())
                               for layer, delta in fixed_deltas.items()} if cfg.template_clamp else None
+        if cfg.future_clamp:
+            for layer in intervention_layers:
+                calibration = future_clamp_calibration[layer]
+                assert calibration["donor_above_source"], f"future clamp L{layer}: donor={calibration['donor']} <= source={calibration['source']}"
+            fixed_deltas = {layer: future_clamp_axes[layer] for layer in intervention_layers}
+            target_coordinates = {layer: future_clamp_calibration[layer]["threshold"] for layer in intervention_layers}
+            persistence["clamp_calibration"] = future_clamp_calibration
         hooks = intervention_hooks(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="shared_replace" if cfg.shared_replacement else ("coordinate_clamp" if cfg.template_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
+            operation="shared_replace" if cfg.shared_replacement else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
@@ -1547,7 +1583,7 @@ def run(
         condition_dir = output_dir / "conditions" / condition_id
         condition_dir.mkdir(parents=True)
         clamped_donor = None
-        if cfg.template_clamp:
+        if cfg.template_clamp or cfg.future_clamp:
             donor_record = {}
             donor_hooks = intervention_hooks(
                 source_basis, target_basis, target["residuals"], operation="coordinate_clamp",
@@ -1707,6 +1743,7 @@ if __name__ == "__main__":
             "template-band-clamp",
             "future-coordinate",
             "future-gated",
+            "future-clamp",
             "future-template",
             "future-union",
             "svd",
