@@ -494,8 +494,7 @@ def svd_continuous_refine_configs():
 
 def clean_selector_audit(samples, tokenizer, unembedding, norm_gain):
     """Compare clean detector windows without fitting an intervention. — Codex/GPT-6."""
-    forms = [form for animal in ("spider", "dog", "ant")
-             for form in (animal, " " + animal, " " + animal.capitalize())]
+    forms = [form for animal in ("spider", "dog", "ant") for form in FUTURE_FORMS[animal]]
     named_ids = [one_token(tokenizer, form) for form in forms]
     rows, prompts, curves = [], {}, []
     for side, sample in samples.items():
@@ -1078,7 +1077,7 @@ def run(
                 group = [row for row in audit["rows"] if row["side"] == side and row["normalize_unembedding_rows"] == normalized]
                 expected = "spider" if side == "source" else target_concept
                 hits = {animal: sum(any(item["score"] > 0 and item["rank_min_ties"] <= 8
-                                       for form, item in row["named"].items() if form.strip().lower() == animal)
+                                       for form, item in row["named"].items() if form in FUTURE_FORMS[animal])
                                     for row in group) for animal in ("spider", "dog", "ant")}
                 summary.append(f"- {side}, unit rows={normalized}, expected={expected}: top-eight position/window counts {hits}, denominator={len(group)}.")
         summary.extend(["", "— Codex/GPT-6", ""])
