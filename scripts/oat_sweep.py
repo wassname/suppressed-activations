@@ -889,6 +889,7 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
                 output = model(
                     input_ids=ids, attention_mask=ids.new_ones((1, mask_length)),
                     past_key_values=cache, use_cache=True, output_hidden_states=True,
+                    logits_to_keep=1,
                 )
         finally:
             handle.remove()
