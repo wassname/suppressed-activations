@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+import re
+
+
+def first_answer(text: str, answers: tuple[str, ...]) -> str | None:
+    labels = {answer.strip(): answer for answer in answers}
+    alternatives = "|".join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
+    match = re.match(rf"^[\s*`_]*({alternatives})(?!\w)", text)
+    return None if match is None else labels[match.group(1)]
+
 PREFILL_INSTRUCTION = "Complete the following fact, then explain your answer."
 
 

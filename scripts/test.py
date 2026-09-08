@@ -11,7 +11,7 @@ from scripts.spider_ant_demo import (
     sample_component_hook,
 )
 from scripts.demo import intervention_hooks, layer_hooks
-from scripts.oat_sweep import first_answer
+from scripts.prompt import first_answer
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -34,6 +34,30 @@ def main() -> None:
     assert first_answer(" **ant**.", (" spider", " ant")) == " ant"
     assert first_answer("8. Correction: 6", ("6", "8")) == "8"
     generator = torch.Generator().manual_seed(1)
+    shared = torch.linalg.qr(torch.randn(11, 4, generator=generator)).Q
+    donor = torch.randn(2, 5, 11, generator=generator)
+    source = torch.randn(1, 5, 11, generator=generator)
+    for strength in (0.0, 0.5, 1.0, 2.0):
+        hook = intervention_hooks(
+            shared, shared, donor, operation="shared_replace", strength=strength,
+            blocks_to_hook=[0], positions=3, source_position=4, target_position=4,
+            match_component_norm=False, restore_norm=False,
+        )[0]
+        edited = hook(None, None, source)
+        torch.testing.assert_close(edited[:, -3:] @ shared,
+                                   (1-strength)*(source[:, -3:] @ shared)
+                                   + strength*(donor[1, -3:].unsqueeze(0) @ shared))
+        if strength == 0:
+            torch.testing.assert_close(edited, source, rtol=0, atol=0)
+        elif strength == 1:
+            torch.testing.assert_close(edited[:, -3:] @ shared, donor[1, -3:].unsqueeze(0) @ shared)
+            torch.testing.assert_close(edited[:, :2], source[:, :2])
+            delta = edited - source
+            torch.testing.assert_close(delta, (delta @ shared) @ shared.T, atol=1e-6, rtol=1e-5)
+            torch.testing.assert_close(hook(None, None, edited), edited)
+            decoded = hook(None, None, source[:, -1:])
+            torch.testing.assert_close(decoded @ shared, donor[1, -1:].unsqueeze(0) @ shared)
+    print("PASS: shared replacement aligns donor tokens, reaches coordinates, preserves complement and covers decode")
     block = torch.nn.Identity()
     captured = []
     capture_handle = block.register_forward_hook(lambda _m, _i, output: captured.append(output))

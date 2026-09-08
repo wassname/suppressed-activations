@@ -36,7 +36,7 @@ from scripts.delayed_readout import (
     distribution_table,
     token_distribution,
 )
-from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids
+from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids, first_answer
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
@@ -68,6 +68,7 @@ class Config:
     random_delta_seed: int = -1
     delta_component: str = "difference"
     coordinate_swap: bool = False
+    shared_replacement: bool = False
     source_dominant_only: bool = False
     template_contrast: bool = False
     contrastive_suppression: bool = False
@@ -706,13 +707,6 @@ def persistent_direction_configs() -> list[tuple[str, str, Config]]:
     return rows
 
 
-def first_answer(text: str, answers: tuple[str, ...]) -> str | None:
-    labels = {answer.strip(): answer for answer in answers}
-    alternatives = "|".join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
-    match = re.match(rf"^[\s*`_]*({alternatives})(?!\w)", text)
-    return None if match is None else labels[match.group(1)]
-
-
 def subspace(sample, cfg: Config, unembedding, norm_gain):
     end = sample["content_end"]
     residuals = sample["residuals"][:, end - cfg.readout_positions:end].permute(1, 0, 2)
@@ -1056,6 +1050,11 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             normalize_selector_residuals=normalized, match_component_norm=matched, strength=strength,
         )) for normalized in (False, True) for matched in (False, True) for strength in (0.0, 2.0)],
+        "shared-replacement": lambda: [("shared_replacement", f"C{strength}", Config(
+            detector_layers=(18, 20, 32), intervention_layer=(20,),
+            persistent_rank=4, shared_replacement=True, strength=strength,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for strength in (0.0, 0.5, 1.0, 2.0)],
         "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             template_state_span="attenuation_bee", strength=strength,
@@ -1177,6 +1176,12 @@ def run(
             else cfg.intervention_layer
         )
         fixed_deltas, persistence = (None, {})
+        if cfg.shared_replacement:
+            assert not (cfg.template_contrast or cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction)
+            torch.testing.assert_close(
+                source["input_ids"][0, source["content_end"]-positions:source["content_end"]],
+                target["input_ids"][0, target["content_end"]-positions:target["content_end"]],
+            )
         coordinate_directions = None
         if cfg.coordinate_swap:
             target_word = " " + target_concept
@@ -1366,6 +1371,12 @@ def run(
                     generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
                     random_delta = torch.randn(delta.shape, device=delta.device, generator=generator)
                     fixed_deltas[layer] = random_delta * delta.norm() / random_delta.norm()
+        elif cfg.shared_replacement:
+            assert cfg.persistent_rank and len(intervention_layers) == 1
+            shared, persistence = persistent_shared_basis(source, target, cfg, unembedding, norm_gain)
+            source_basis = target_basis = shared
+            persistence["direction_estimator"] = "shared_persistent_donor_coordinate_replacement"
+            persistence["decode_target"] = "frozen final donor prompt coordinates"
         elif cfg.persistent_rank:
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
@@ -1381,7 +1392,7 @@ def run(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="coordinate_clamp" if cfg.template_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace")),
+            operation="shared_replace" if cfg.shared_replacement else ("coordinate_clamp" if cfg.template_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
@@ -1597,6 +1608,7 @@ if __name__ == "__main__":
             "attenuation-scale",
             "attenuation-bee-correction",
             "attenuation-bee-selector",
+            "shared-replacement",
             "bee-correction-controls",
             "bee-correction-alone",
             "bee-correction-projected",
