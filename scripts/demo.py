@@ -122,8 +122,9 @@ def intervention_hooks(
     source_dominant_only: bool = False,
     target_coordinates: dict[int, Tensor] | None = None,
 ) -> dict[int, object]:
-    random_source = random_basis_like(source_basis, random_seed)
-    random_target = random_basis_like(target_basis, random_seed + 1)
+    if operation == "random":
+        random_source = random_basis_like(source_basis, random_seed)
+        random_target = random_basis_like(target_basis, random_seed + 1)
 
     def hook_for(block: int):
         residual_layer = block + 1
