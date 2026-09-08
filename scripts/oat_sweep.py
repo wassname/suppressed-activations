@@ -1381,6 +1381,7 @@ def run(
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
             )
+        if cfg.persistent_rank and not cfg.template_contrast and not cfg.coordinate_swap:
             for name in ("source", "target"):
                 persistence[name]["tokens"] = [
                     [tokenizer.decode([token]) for token in ids]
