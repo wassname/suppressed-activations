@@ -1171,6 +1171,10 @@ def run(
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
         "synchronized-attenuation": synchronized_attenuation_configs,
+        "synchronized-attenuation-refine": lambda: [("synchronized_attenuation_refine", f"L{layer}_C{strength}", replace(
+            synchronized_attenuation_configs()[9][2],
+            detector_layers=(layer-2, layer, 32), intervention_layer=(layer,), strength=strength,
+        )) for layer in (22, 23, 24, 25) for strength in (0.0, 1.5, 2.0, 2.5, 3.0)],
         "attenuation-coverage": lambda: [("attenuation_coverage", f"L{layer}_positions{positions}_C{strength}", replace(
             template_attenuation_configs()[7][2], intervention_layer=(layer,),
             intervention_positions=positions, strength=strength,
@@ -1845,6 +1849,7 @@ if __name__ == "__main__":
             "template-state",
             "template-attenuation",
             "synchronized-attenuation",
+            "synchronized-attenuation-refine",
             "attenuation-coverage",
             "attenuation-local",
             "attenuation-rank",
