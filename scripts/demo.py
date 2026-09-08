@@ -224,7 +224,10 @@ def intervention_hooks(
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
                 })
             if record is not None and operation == "shared_replace":
+                patch_norm = float((patched.to(hidden.dtype).float() - h).norm())
+                record[residual_layer]["total_applied_norm"] = record[residual_layer].get("total_applied_norm", 0.0) + patch_norm
                 record[residual_layer].setdefault("replacement_trace", []).append({
+                    "applied_norm_after_dtype": patch_norm,
                     "before": (h @ source_basis)[0].tolist(),
                     "target": (target_h @ source_basis)[0].tolist(),
                     "after": (patched @ source_basis)[0].tolist(),

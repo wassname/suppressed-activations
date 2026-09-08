@@ -192,6 +192,22 @@ def template_attenuation_configs():
         for strength in (0.0, 2.0)]
 
 
+def attenuation_basis(peak, output, rank, tokens=None):
+    """Fit positive contrast-energy attenuation directions. — Codex/GPT-6."""
+    columns = torch.cat([peak.T, output.T], dim=1)
+    vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
+    joint = vectors[:, :torch.linalg.matrix_rank(columns)]
+    peakJ, outputJ = peak @ joint, output @ joint
+    if tokens is None:
+        energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / len(peak)
+    else:
+        energy_difference = (cross_position_covariance(peakJ.reshape(-1, tokens, joint.shape[1]))
+                             - cross_position_covariance(outputJ.reshape(-1, tokens, joint.shape[1])))
+    values, eigenvectors = torch.linalg.eigh(energy_difference)
+    assert (values > 0).sum() >= rank
+    return joint @ eigenvectors[:, -rank:].flip(1), values
+
+
 def synchronized_attenuation_configs():
     return [("synchronized_attenuation", f"{mode}_L{layer}_C{strength}", Config(
         template_contrast=True, template_state_span="attenuation", persistent_rank=4,
@@ -895,6 +911,7 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
 def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, strength,
                                 positions, record, residual_capture, max_new_tokens):
     """Teacher-force the donor on source-selected tokens with separate caches. — Codex/GPT-6."""
+    bases = {layer: basis} if isinstance(basis, torch.Tensor) else basis
     def forward(ids, mask_length, cache, hooks):
         raw_final = []
         handle = model.model.norm.register_forward_pre_hook(
@@ -917,20 +934,22 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
     token_ids, donor_history, source_history = [], [], []
     for step in range(max_new_tokens):
         donor_logits, donor_cache, donor_states = forward(donor_ids, donor_length + step, donor_cache, {})
-        hooks = intervention_hooks(
-            basis, basis, donor_states, operation="shared_replace", strength=strength,
-            blocks_to_hook=[layer - 1], positions=positions,
-            source_position=source["content_end"] - 1,
-            target_position=target["content_end"] - 1 if step == 0 else 0,
-            match_component_norm=False, restore_norm=False, record=record,
-        )
+        hooks = {}
+        for edit_layer, edit_basis in bases.items():
+            hooks.update(intervention_hooks(
+                edit_basis, edit_basis, donor_states, operation="shared_replace", strength=strength,
+                blocks_to_hook=[edit_layer - 1], positions=positions,
+                source_position=source["content_end"] - 1,
+                target_position=target["content_end"] - 1 if step == 0 else 0,
+                match_component_norm=False, restore_norm=False, record=record,
+            ))
         logits, source_cache, states = forward(source_ids, source_length + step, source_cache, hooks)
         if step == 0:
             first_logits = logits
             residual_capture.append(states)
         last_states = states
         token = int(logits.argmax())
-        if layer == len(model.model.layers) and basis.shape[1] == basis.shape[0] and strength == 1:
+        if len(model.model.layers) in bases and bases[len(model.model.layers)].shape[1] == bases[len(model.model.layers)].shape[0] and strength == 1:
             assert token == int(donor_logits.argmax()), "full final-layer replacement differs from synchronized donor"
         token_ids.append(token)
         if token in (tokenizer.eos_token_id, tokenizer.pad_token_id):
@@ -941,7 +960,7 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
         donor_history.append(int(donor_ids[0, 0]))
         assert source_history == donor_history
     residual_capture.append(last_states)
-    record[layer]["synchronized_history"] = {
+    record[next(iter(bases))]["synchronized_history"] = {
         "source_tokens": source_history, "donor_tokens": donor_history,
         "donor_conditioning": "unchanged donor prompt followed by source-selected tokens",
     }
@@ -1177,6 +1196,12 @@ def run(
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
         "synchronized-attenuation": synchronized_attenuation_configs,
+        "synchronized-attenuation-band": lambda: [("synchronized_attenuation_band", f"layers{layers}_C{strength}", Config(
+            template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+            detector_layers=(layers[0]-2, layers[0], 32), intervention_layer=layers,
+            shared_replacement="synchronized", strength=strength,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for layers in ((23, 24), (22, 23, 24)) for strength in (0.0, 0.5, 1.0, 1.5, 2.0)],
         "synchronized-transport": lambda: [("synchronized_transport", f"L{layer}_C2", replace(
             synchronized_attenuation_configs()[9][2], transport_readout=True,
             detector_layers=(layer-2, layer, 32), intervention_layer=(layer,), strength=2.0,
@@ -1395,7 +1420,8 @@ def run(
             assert not (cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
             if cfg.template_contrast:
                 assert cfg.template_state_span in ("attenuation", "temporal_attenuation") and cfg.shared_replacement in ("frozen", "synchronized")
-                assert len(intervention_layers) == 1 and cfg.detector_layers[1] == intervention_layers[0]
+                assert cfg.detector_layers[1] == intervention_layers[0]
+                assert len(intervention_layers) == 1 or cfg.shared_replacement == "synchronized"
                 assert not (cfg.match_component_norm or cfg.restore_residual_norm or cfg.normalize_selector_residuals)
                 assert cfg.random_delta_seed == -1 and cfg.discarded_fraction == 0 and cfg.delta_component == "difference"
             assert cfg.continue_generation and cfg.donor_position_offset == 0
@@ -1468,19 +1494,10 @@ def run(
                     split = cfg.template_state_span in ("peak_split", "attenuation", "attenuation_bee", "temporal_attenuation")
                     fit_count = peak.shape[0] // 2 if split else peak.shape[0]
                     if cfg.template_state_span in ("attenuation", "attenuation_bee", "temporal_attenuation"):
-                        columns = torch.cat([peak[:fit_count].T, output[:fit_count].T], dim=1)
-                        vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
-                        joint = vectors[:, :torch.linalg.matrix_rank(columns)]
-                        peakJ, outputJ = peak[:fit_count] @ joint, output[:fit_count] @ joint
-                        if cfg.template_state_span == "temporal_attenuation":
-                            tokens = contrasts.shape[2]
-                            energy_difference = (cross_position_covariance(peakJ.reshape(-1, tokens, joint.shape[1]))
-                                                 - cross_position_covariance(outputJ.reshape(-1, tokens, joint.shape[1])))
-                        else:
-                            energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / fit_count
-                        values, eigenvectors = torch.linalg.eigh(energy_difference)
-                        assert (values > 0).sum() >= cfg.persistent_rank
-                        shared = joint @ eigenvectors[:, -cfg.persistent_rank:].flip(1)
+                        shared, values = attenuation_basis(
+                            peak[:fit_count], output[:fit_count], cfg.persistent_rank,
+                            contrasts.shape[2] if cfg.template_state_span == "temporal_attenuation" else None,
+                        )
                     else:
                         columns = {"peak": peak, "peak_split": peak[:fit_count],
                                    "update": peak-output, "output": output}[cfg.template_state_span].T
@@ -1618,6 +1635,20 @@ def run(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
             )
         if cfg.template_contrast and cfg.shared_replacement != "none":
+            synchronized_bases = {intervention_layers[0]: shared}
+            persistence["coordinate_readout_layer"] = intervention_layers[0]
+            if len(intervention_layers) > 1:
+                persistence["layer_local_selectors"] = {}
+                for edit_layer in intervention_layers:
+                    local_peak = contrasts[:, edit_layer].flatten(0, 1)
+                    local_basis, local_values = attenuation_basis(local_peak[:fit_count], output[:fit_count], cfg.persistent_rank)
+                    synchronized_bases[edit_layer] = local_basis
+                    persistence["layer_local_selectors"][edit_layer] = {
+                        "peak_layer": edit_layer, "output_layer": 32,
+                        "spectrum": local_values.tolist(), "fit_template_indices": list(range(fit_count // 3)),
+                        "heldout_peak_mean_square": (local_peak[fit_count:] @ local_basis).square().mean(0).tolist(),
+                        "heldout_output_mean_square": (output[fit_count:] @ local_basis).square().mean(0).tolist(),
+                    }
             source_basis = target_basis = shared
             fixed_deltas = None
             persistence["direction_estimator"] = "template_attenuation_donor_coordinate_replacement"
@@ -1662,7 +1693,7 @@ def run(
         captured = []
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
             generation, generation_logits = generate_synchronized_donor(
-                model, tokenizer, source, target, shared, intervention_layers[0], cfg.strength,
+                model, tokenizer, source, target, synchronized_bases if cfg.template_contrast else shared, intervention_layers[0], cfg.strength,
                 positions, intervention_record, captured, max_new_tokens,
             )
         else:
@@ -1670,6 +1701,10 @@ def run(
                 model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
             )
         changed_residuals = captured[0]
+        if cfg.shared_replacement != "none":
+            persistence["sum_applied_norm_over_layers_and_calls"] = sum(
+                patch["total_applied_norm"] for patch in intervention_record.values())
+            persistence["total_norm_definition"] = "sum of per-call Frobenius edit norms after model dtype conversion; not a net residual norm"
         if cfg.shared_replacement == "full_synchronized" and intervention_layers == (32,) and cfg.strength == 1:
             assert generation["token_ids"] == donor_generation["token_ids"], "full final-layer control differs from clean donor generation"
         if cfg.template_state_span != "none":
@@ -1871,6 +1906,7 @@ if __name__ == "__main__":
             "template-state",
             "template-attenuation",
             "synchronized-attenuation",
+            "synchronized-attenuation-band",
             "synchronized-transport",
             "synchronized-temporal",
             "synchronized-attenuation-refine",
