@@ -9,8 +9,10 @@
   - [ ] Return to source/donor replacement in a shared, layer-local suppressed subspace; do not add another animal-specific correction.
   - [ ] Separate vocabulary rise-and-fall suppression from contrast-energy attenuation. The latter is a candidate selector, not an equivalent definition.
   - [ ] Select persistent directions across aligned prompt tokens; fit at the layer where the edit is applied.
-  - [ ] Test full-state donor replacement at the final layer as a decoder control, not as evidence for suppressed-subspace replacement.
-  - [ ] Compare frozen donor coordinates with donor coordinates recomputed on the same generated history, using the same subspace and edit strengths.
+  - [x] Full-state final-layer replacement exactly reproduces both donors (734/735); this is a decoder control, not subspace evidence.
+  - [x] Frozen versus synchronized rank8 replacement both remain spider at L12/L20 (736/737).
+  - [x] Full selected vocabulary support, ranks51–56, also remains spider at C1/C2 (738/739).
+  - [ ] Test stronger doses without normalization (740/741), then the previously useful layer-local attenuation selector with coordinate replacement (742/743).
   - Failure mode: an unrestricted direction or a hand-tuned species correction changes the answer while the claimed suppressed replacement does not.
   - Deliverable: exact construction, resolved settings, and paired logs for both animals, with in-subspace and out-of-subspace edit norms.
 
