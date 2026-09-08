@@ -37,6 +37,20 @@ Jobs 778 (dog) and 779 (ant) were subsequently queued without resuming the group
 
 The condition renderer was separately tested against the stored ant band condition 009 in `out/2026-09-08_133000_synchronized-band-ant/result.json`. Exact token-ID previews show 32 tokens from each of the 70-token steered, 61-token Base and 60-token donor continuations. The report labels each total and links the full raw data. It does not truncate generation or change historical files. -- Codex
 
+## Project checks after commit 33b74cb
+
+`just notebook-smoke` exited 0 and wrote [the executed CPU notebook](../../../.local/demo-smoke.ipynb). All four code cells have consecutive execution counts and no error outputs. This runs the existing public demo with the configured tiny random model, not the new user-message behavioral comparison.
+
+`just check` exited 0. Its output included:
+
+```text
+PASS: shared replacement aligns donor tokens, reaches coordinates, preserves complement and covers decode
+PASS: intervention runs before an existing hidden-state capture hook
+PASS: README shows comparable base/intervention inputs, readouts, and generations
+```
+
+All 22 CPU checks passed; figure generation and Python compilation completed. These checks establish runtime and presentation properties only. The paused GPU queue still prevents the new behavioral comparison and the required full notebook execution. No release push or claim of reliable transfer was made. -- Codex
+
 ## Independent source review
 
 Codex/GPT-6 subagent reviewed the actual diff and its position consumers. No blocking position error was found for the planned final-three-token continuous intervention. The CPU test results above were supplied by the root agent; this review did not rerun them.
