@@ -11,6 +11,7 @@ from scripts.spider_ant_demo import (
     sample_component_hook,
 )
 from scripts.demo import intervention_hooks, layer_hooks
+from scripts.oat_sweep import first_answer
 from suppressed_activation_subspace import (
     component,
     match_norm,
@@ -26,6 +27,12 @@ from suppressed_activation_subspace import (
 
 
 def main() -> None:
+    assert first_answer(" **No**. Later: Yes", ("Yes", "No")) == "No"
+    assert first_answer("1. Later: Yes", ("Yes", "No")) is None
+    assert first_answer("Nobody", ("No", "Yes")) is None
+    assert first_answer("16.", ("6", "8")) is None
+    assert first_answer(" **ant**.", (" spider", " ant")) == " ant"
+    assert first_answer("8. Correction: 6", ("6", "8")) == "8"
     generator = torch.Generator().manual_seed(1)
     block = torch.nn.Identity()
     captured = []

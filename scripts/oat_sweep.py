@@ -707,9 +707,10 @@ def persistent_direction_configs() -> list[tuple[str, str, Config]]:
 
 
 def first_answer(text: str, answers: tuple[str, ...]) -> str | None:
-    alternatives = "|".join(re.escape(answer) for answer in answers)
-    match = re.search(rf"(?<!\d)({alternatives})(?!\d)", text)
-    return None if match is None else match.group(1)
+    labels = {answer.strip(): answer for answer in answers}
+    alternatives = "|".join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
+    match = re.match(rf"^[\s*`_]*({alternatives})(?!\w)", text)
+    return None if match is None else labels[match.group(1)]
 
 
 def subspace(sample, cfg: Config, unembedding, norm_gain):
