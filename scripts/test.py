@@ -38,10 +38,12 @@ def main() -> None:
     donor = torch.randn(2, 5, 11, generator=generator)
     source = torch.randn(1, 5, 11, generator=generator)
     for strength in (0.0, 0.5, 1.0, 2.0):
+        replacement_record = {}
         hook = intervention_hooks(
             shared, shared, donor, operation="shared_replace", strength=strength,
             blocks_to_hook=[0], positions=3, source_position=4, target_position=4,
             match_component_norm=False, restore_norm=False,
+            record=replacement_record,
         )[0]
         edited = hook(None, None, source)
         torch.testing.assert_close(edited[:, -3:] @ shared,
@@ -57,6 +59,13 @@ def main() -> None:
             torch.testing.assert_close(hook(None, None, edited), edited)
             decoded = hook(None, None, source[:, -1:])
             torch.testing.assert_close(decoded @ shared, donor[1, -1:].unsqueeze(0) @ shared)
+        low_precision = source.to(torch.bfloat16)
+        low_edited = hook(None, None, low_precision)
+        expected = low_precision[:, -3:].float()
+        expected = expected + strength * ((donor[1, -3:].unsqueeze(0) - expected) @ shared) @ shared.T
+        torch.testing.assert_close(low_edited[:, -3:], expected.to(torch.bfloat16), rtol=0, atol=0)
+        saved_coordinates = torch.tensor(replacement_record[1]["replacement_trace"][-1]["after_model_dtype"])
+        torch.testing.assert_close(saved_coordinates, (low_edited[:, -3:].float() @ shared)[0])
     print("PASS: shared replacement aligns donor tokens, reaches coordinates, preserves complement and covers decode")
     block = torch.nn.Identity()
     captured = []
