@@ -191,6 +191,15 @@ def template_attenuation_configs():
         for strength in (0.0, 2.0)]
 
 
+def synchronized_attenuation_configs():
+    return [("synchronized_attenuation", f"{mode}_L{layer}_C{strength}", Config(
+        template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(layer-2, layer, 32), intervention_layer=(layer,),
+        shared_replacement=mode, strength=strength,
+        match_component_norm=False, restore_residual_norm=False,
+    )) for mode in ("frozen", "synchronized") for layer in (20, 24) for strength in (0.0, 1.0, 2.0)]
+
+
 def template_clamp_configs():
     return [("template_clamp", f"L{layer}_C{strength}", replace(
         DEFAULT, template_contrast=True, template_clamp=True,
@@ -1161,6 +1170,7 @@ def run(
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
+        "synchronized-attenuation": synchronized_attenuation_configs,
         "attenuation-coverage": lambda: [("attenuation_coverage", f"L{layer}_positions{positions}_C{strength}", replace(
             template_attenuation_configs()[7][2], intervention_layer=(layer,),
             intervention_positions=positions, strength=strength,
@@ -1364,7 +1374,12 @@ def run(
         fixed_deltas, persistence = (None, {})
         assert cfg.shared_replacement in ("none", "frozen", "synchronized", "full_synchronized")
         if cfg.shared_replacement != "none":
-            assert not (cfg.template_contrast or cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
+            assert not (cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
+            if cfg.template_contrast:
+                assert cfg.template_state_span == "attenuation" and cfg.shared_replacement in ("frozen", "synchronized")
+                assert len(intervention_layers) == 1 and cfg.detector_layers[1] == intervention_layers[0]
+                assert not (cfg.match_component_norm or cfg.restore_residual_norm or cfg.normalize_selector_residuals)
+                assert cfg.random_delta_seed == -1 and cfg.discarded_fraction == 0 and cfg.delta_component == "difference"
             assert cfg.continue_generation and cfg.donor_position_offset == 0
             torch.testing.assert_close(
                 source["input_ids"][0, source["content_end"]-positions:source["content_end"]],
@@ -1576,6 +1591,14 @@ def run(
             fixed_deltas, persistence = persistent_delta(
                 source, target, cfg, unembedding, norm_gain, intervention_layers
             )
+        if cfg.template_contrast and cfg.shared_replacement != "none":
+            source_basis = target_basis = shared
+            fixed_deltas = None
+            persistence["direction_estimator"] = "template_attenuation_donor_coordinate_replacement"
+            persistence["template_delta_projected_norm_fraction"] = persistence.pop("projected_norm_fraction")
+            persistence["edit_measurement"] = "intervention_record replacement_trace; template delta is not applied"
+            persistence["decode_target"] = ("frozen final donor prompt coordinates" if cfg.shared_replacement == "frozen"
+                                            else "donor conditioned on same source-generated token history")
         if cfg.persistent_rank and not cfg.template_contrast and not cfg.coordinate_swap:
             for name in ("source", "target"):
                 persistence[name]["tokens"] = [
@@ -1821,6 +1844,7 @@ if __name__ == "__main__":
             "template-selector",
             "template-state",
             "template-attenuation",
+            "synchronized-attenuation",
             "attenuation-coverage",
             "attenuation-local",
             "attenuation-rank",
