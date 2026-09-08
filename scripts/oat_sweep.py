@@ -303,7 +303,7 @@ def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction,
 def fit_future_rows(
     model, tokenizer, corpus_path, output_dir, *, lexical_union=False, instruction=PREFILL_INSTRUCTION,
 ):
-    """Contract the official mean-J estimator with named vocabulary rows. -- Codex/GPT-6"""
+    """Contract final-residual mean-J with gain-weighted vocabulary rows. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
     texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
     assert len(texts) == 16
@@ -312,6 +312,7 @@ def fit_future_rows(
     if lexical_union:
         words += tuple(word for forms in FUTURE_FORMS.values() for word in forms[1:])
     output_rows = model.lm_head.weight[[one_token(tokenizer, word) for word in words]].float()
+    output_rows = output_rows * (1.0 + model.model.norm.weight.float())
     samples, corpus, derivative_checks = [], [], []
     model.requires_grad_(False)
     for index, text in enumerate(texts):
@@ -324,10 +325,13 @@ def fit_future_rows(
                        "rendered": tokenizer.decode(ids[0], skip_special_tokens=False)})
         def grad_leaf(_module, _inputs, output):
             return output.requires_grad_(True)
-        with torch.enable_grad(), layer_hooks(model.model.layers, {11: grad_leaf}):
-            output = model(input_ids=ids, use_cache=False, output_hidden_states=True)
+        final_residual = []
+        def capture_final(_module, _inputs, output):
+            final_residual.append(output)
+        with torch.enable_grad(), layer_hooks(model.model.layers, {11: grad_leaf, 31: capture_final}):
+            output = model(input_ids=ids, attention_mask=torch.ones_like(ids), use_cache=False, output_hidden_states=True)
             hidden = tuple(output.hidden_states[layer] for layer in layers)
-            target = output.hidden_states[31]
+            target = final_residual.pop()
             per_word = []
             for word_index, row in enumerate(output_rows):
                 scalar = (target[0, valid].float() @ row).sum()
@@ -346,9 +350,9 @@ def fit_future_rows(
                         changed = output.clone()
                         changed[0, valid[0]] = (output[0, valid[0]].float() + sign * epsilon * direction).to(output.dtype)
                         return changed
-                    with layer_hooks(model.model.layers, {11: perturb}):
-                        perturbed = model(input_ids=ids, use_cache=False, output_hidden_states=True)
-                        values.append(float((perturbed.hidden_states[31][0, valid].float() @ output_rows[0]).sum()))
+                    with torch.no_grad(), layer_hooks(model.model.layers, {11: perturb, 31: capture_final}):
+                        perturbed = model(input_ids=ids, attention_mask=torch.ones_like(ids), use_cache=False)
+                        values.append(float((final_residual.pop()[0, valid].float() @ output_rows[0]).sum()))
                     del perturbed
                 derivative_checks.append({"epsilon": epsilon, "finite_difference": (values[1]-values[0])/(2*epsilon),
                                           "autograd": float(probe_gradient.norm())})
@@ -357,11 +361,13 @@ def fit_future_rows(
     assert torch.isfinite(stacked).all()
     means = stacked.mean(0)
     vectors = {layer: means[:, i].T for i, layer in enumerate(layers)}
-    provenance = {"estimator": "mean_source_sum_current_future_raw_penultimate_vjp",
+    provenance = {"estimator": "mean_source_sum_current_future_raw_final_gain_weighted_vjp",
                   "official_reference_commit": "581d398613e5602a5af361e1c34d3a92ea82ba8e",
                   "corpus_sampling": "16 eligible records without replacement, Python random seed0",
                   "corpus_path": str(corpus_path), "corpus_sha256": hashlib.sha256(corpus_path.read_bytes()).hexdigest(),
-                  "words": words, "target_residual_layer": 31, "source_residual_layers": layers,
+                  "words": words, "target_residual_layer": 32, "source_residual_layers": layers,
+                  "output_row_weighting": "lm_head rows times Qwen RMSNorm gain (1 + norm.weight); no RMS denominator",
+                  "attention_mask_policy": "all ones: prompts are unpadded",
                   "per_prompt_vector_norms": stacked.norm(dim=-1).tolist(),
                   "split_half_cosines": torch.nn.functional.cosine_similarity(
                       stacked[:8].mean(0), stacked[8:].mean(0), dim=-1).tolist(),
