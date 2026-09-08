@@ -1201,6 +1201,11 @@ def run(
             match_component_norm=False, restore_residual_norm=False,
         )) for mode in ("frozen", "synchronized", "full_synchronized")
             for layer in ((12, 20, 32) if mode == "full_synchronized" else (12, 20)) for strength in (0.0, 1.0)],
+        "synchronized-support": lambda: [("synchronized_support", f"L{layer}_rank{rank}_C{strength}", Config(
+            detector_layers=(layer-2, layer, 32), intervention_layer=(layer,),
+            persistent_rank=rank, shared_replacement="synchronized", strength=strength,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for layer in (12, 20) for rank in (4, 32) for strength in (0.0, 1.0, 2.0)],
         "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             template_state_span="attenuation_bee", strength=strength,
@@ -1814,6 +1819,7 @@ if __name__ == "__main__":
             "attenuation-bee-selector",
             "shared-replacement",
             "synchronized-replacement",
+            "synchronized-support",
             "bee-correction-controls",
             "bee-correction-alone",
             "bee-correction-projected",
