@@ -30,7 +30,7 @@
 - [ ] Goal: replacement survives different questions and continuous generation.
   - [ ] Use one fixed rule for both animals; keep species-specific strength tuning out of the final transfer test.
   - [ ] Test naming, leg count and another distinguishing property only where clean source/donor answers are correct.
-  - [ ] Repair the user-message path: honor supplied instructions and patch the actual generation boundary. Compare clean controls before changing strength.
+  - [ ] Test repaired user-message controls in jobs 778/779 before changing strength; CPU token alignment passes, GPU behavior is unverified.
   - [ ] Steer the last prompt positions and every generated token through EOS or the declared limit; log full continuations.
   - [ ] Compare no edit, donor, matched-random edits and the unrestricted reference. Inspect contradictions, not just target log odds.
   - [ ] Audit matched-random band controls (775/776). Vary one axis around one shared default in subsequent sweeps.
@@ -42,7 +42,7 @@
 
 - Open one notebook with complete Base and Causal intervention demos for dog and ant: exact prompt, post-edit readout, verbatim generation and token probabilities.
 - Open the linked results table and inspect every frozen follow-up, including failures. A correct number alone is not a pass.
-- Show the first 32 tokens verbatim in each condition log; link longer raw continuations separately.
+- [x] Show the first 32 tokens verbatim in new condition logs; link longer raw continuations separately. Tested against stored ant Base, donor and steered token IDs.
 - Report `swap_log_odds_shift`, `bare_answer_mass` and repetition separately. None alone proves coherent replacement.
 - Verify continuous-hook coverage and C=0 assertions in the logs. Run the notebook smoke test, queued notebook execution and project checks before handoff.
 - Terra follows each job to completion and audits with `auditlog` and `ml-debug`. A fresh reviewer checks the final evidence.

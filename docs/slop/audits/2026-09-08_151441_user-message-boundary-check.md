@@ -33,6 +33,10 @@ This verifies instruction forwarding and token positions. It does not prove clea
 
 Next: run clean source, clean donor and the fixed L22-24 C2 intervention through this path. Inspect complete generations before interpreting bare-token scores. The default GPU queue was paused at the time of this check, so no new behavioral result is claimed.
 
+Jobs 778 (dog) and 779 (ant) were subsequently queued without resuming the group. They retain the questions, extraction/evaluation instructions, L22-24 C2 and 128-token generation limit from jobs 768/771. They change the prompt mode to `chat-instructed`, including the repaired boundary. Output paths are `out/2026-09-08_151650_user-boundary-dog-legs` and `out/2026-09-08_151650_user-boundary-ant-legs`.
+
+The condition renderer was separately tested against the stored ant band condition 009 in `out/2026-09-08_133000_synchronized-band-ant/result.json`. Exact token-ID previews show 32 tokens from each of the 70-token steered, 61-token Base and 60-token donor continuations. The report labels each total and links the full raw data. It does not truncate generation or change historical files. -- Codex
+
 ## Independent source review
 
 Codex/GPT-6 subagent reviewed the actual diff and its position consumers. No blocking position error was found for the planned final-three-token continuous intervention. The CPU test results above were supplied by the root agent; this review did not rerun them.

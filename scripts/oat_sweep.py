@@ -988,7 +988,11 @@ def yaml_value(value) -> str:
     return json.dumps(value, ensure_ascii=False)
 
 
-def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
+def condition_report(row: dict, source_prompt: str, target_prompt: str, tokenizer) -> str:
+    previews = {
+        field: tokenizer.decode(row[field]["token_ids"][:32], skip_special_tokens=False)
+        for field in ("generation", "base_generation", "donor_generation")
+    }
     frontmatter = "\n".join(
         f"{key}: {yaml_value(value)}"
         for key, value in row.items()
@@ -1006,7 +1010,11 @@ def condition_report(row: dict, source_prompt: str, target_prompt: str) -> str:
 
 Expected Base answer: `{row['source_output']}`. Expected donor-directed answer:
 `{row['target_output']}`. A digit match alone does not establish concept replacement;
-inspect the readout and full continuation below.
+inspect the readout and the linked full continuation.
+
+Text blocks show at most the first 32 tokens. Full continuations and token IDs are in
+[result.json](../../result.json), condition `{row['condition_id']}`. Check those for
+later contradictions or repetition; a coherent prefix is not a complete pass.
 
 Steering continues during generation: `{row['config']['continue_generation']}`.
 Prefill predicts token 1; each cached decode step predicts the next token.
@@ -1030,10 +1038,10 @@ Donor input (`repr`):
 {target_prompt!r}
 ```
 
-Unmodified donor generation ({row['donor_generation_tokens']} tokens, verbatim):
+Unmodified donor generation (first {min(32, row['donor_generation_tokens'])} of {row['donor_generation_tokens']} tokens, verbatim):
 
 ```text
-{row['donor_generation']['text']}
+{previews['donor_generation']}
 ```
 
 Base suppression readout:
@@ -1044,10 +1052,10 @@ Readout status (applies to all readouts below): {row['readout_status']}.
 {row['base_readout']!r}
 ```
 
-Base generation (verbatim):
+Base generation (first {min(32, len(row['base_generation']['token_ids']))} of {len(row['base_generation']['token_ids'])} tokens, verbatim):
 
 ```text
-{row['base_generation']['text']}
+{previews['base_generation']}
 ```
 
 Base next-token distribution:
@@ -1085,10 +1093,10 @@ SHOULD: C=0 gives identical generation and logits because its displacement is ze
 The readout uses hidden states captured during this exact generation prefill.
 C=0 generation/logit identity is asserted in the runner.
 
-Generation ({row['generation_tokens']} tokens, verbatim):
+Generation (first {min(32, row['generation_tokens'])} of {row['generation_tokens']} tokens, verbatim):
 
 ```text
-{row['generation']['text']}
+{previews['generation']}
 ```
 
 {distribution_table(row['top_tokens'])}
@@ -1880,7 +1888,7 @@ def run(
             for field in ("base_readout", "target_readout", "readout", "last_decode_readout"):
                 row[field] = []
         (condition_dir / "run.md").write_text(
-            condition_report(row, source_rendered, target_rendered)
+            condition_report(row, source_rendered, target_rendered, tokenizer)
         )
         rows.append(row)
         logger.info("{}/{} {}", index + 1, len(sweep_configs), condition_id)
