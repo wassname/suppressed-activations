@@ -686,3 +686,33 @@ Interpretation, Codex/GPT-6: I think direction quality, rather than edit magnitu
 My working prior is to select the subspace where it will be applied, then test transfer to other prompts and concepts.
 
 <!-- Written by Codex/GPT-6 at wassname's request. -->
+
+## 2026-09-08 -- Updating donor coordinates preserves ant identity in a selected condition
+
+Updating the donor state during generation changed an inconsistent ant intervention into a consistent ant description.
+
+Job 743 uses Qwen3.5-4B with a raw rank-four contrast-attenuation subspace selected and applied at L24, C=2, the last three prompt positions and every generated token. Contrast attenuation selects directions whose donor-minus-source squared magnitude decreases toward the final layer; it is not the vocabulary rise-and-fall detector. Both conditions replace coordinates in the same selected subspace without norm matching or residual renormalization. The synchronized donor consumes the source-selected generated tokens with its own cache; the frozen donor reuses its final prompt coordinates.
+
+The frozen condition produces:
+
+```text
+6.
+
+The animal is a spider, a member of the class Insecta (though technically an arthropod, not an insect). It possesses a unique body structure divided into two main sections: the head and thorax, and the abdomen. Spiders are famous for their ability to produce silk from specialized glands to create nests, traps, or shelter.<|im_end|>
+```
+
+The synchronized condition produces:
+
+```text
+6.
+
+The animal is an ant, a small insect known for its six legs and distinct body segments. They are incredibly social creatures that live in large colonies and communicate through chemical signals called pheromones. Despite their tiny size, ants are powerful workers capable of carrying objects many times their own weight.<|im_end|>
+```
+
+Source: [complete paired ant records](out/2026-09-08_131500_synchronized-attenuation-ant/result.json), conditions 005 and 011. Both use the unchanged spider question and have identical first-token probabilities. The full logs include exact rendered chat inputs and continuous-hook coverage. With the same settings, dog condition 011 starts with `2.` before describing a dog, so the paired dog task still fails: [dog records](out/2026-09-08_131500_synchronized-attenuation-dog/result.json). The suppressed vocabulary readout is not validated. `hack_s` (reward-hacking count) and `gt_s` (ground-truth pass count) are not defined for these inference runs; neither is inferred from the target digit.
+
+Interpretation, Codex/GPT-6: updating donor coordinates probably helps preserve ant identity in this selected configuration, because the fixed-span, fixed-strength pair differs only in how donor states evolve after prefill. This does not establish transfer to other prompts or both animals. Nearby layer and strength tests are queued for both animals with the same grid; the research plan retains readout and held-out checks.
+
+The useful distinction is between changing the first answer and keeping the intended animal throughout the continuation.
+
+<!-- Written by Codex/GPT-6. -->
