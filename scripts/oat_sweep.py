@@ -1831,7 +1831,7 @@ def run(
             "expected_steered_answer": target_output,
             "persistence": persistence,
             "swap_log_odds_shift": float(logp[target_id] - logp[source_id] - base_log_odds),
-            "valid_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
+            "bare_answer_mass": float(logp[target_id].exp() + logp[source_id].exp()),
             "source_output": source_output,
             "target_output": target_output,
             "donor_p_target": float(donor_logp[target_id].exp()),
