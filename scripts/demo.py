@@ -20,6 +20,7 @@ from torch import Tensor
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from suppressed_activation_subspace import (
+    component,
     matched_random_rotation,
     random_basis_like,
     remove,
@@ -125,6 +126,8 @@ def intervention_hooks(
     if operation == "random":
         random_source = random_basis_like(source_basis, random_seed)
         random_target = random_basis_like(target_basis, random_seed + 1)
+    if operation == "shared_random_replace":
+        random_shared = random_basis_like(source_basis, random_seed)
 
     def hook_for(block: int):
         residual_layer = block + 1
@@ -151,7 +154,7 @@ def intervention_hooks(
                 target_h = target_residuals[
                     residual_layer, -active_positions:
                 ].unsqueeze(0).float()
-            elif operation == "shared_replace":
+            elif operation in ("shared_replace", "shared_random_replace"):
                 target_end = target_position + 1
                 assert target_end >= active_positions
                 target_h = target_residuals[residual_layer, target_end-active_positions:target_end].unsqueeze(0).float()
@@ -175,8 +178,8 @@ def intervention_hooks(
                 patched = h + strength * fixed_deltas[residual_layer]
                 if restore_norm:
                     patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
-            elif operation in ("replace", "shared_replace"):
-                if operation == "shared_replace":
+            elif operation in ("replace", "shared_replace", "shared_random_replace"):
+                if operation in ("shared_replace", "shared_random_replace"):
                     assert not match_component_norm and not restore_norm
                     torch.testing.assert_close(source_basis, target_basis)
                 patched = replace(
@@ -185,6 +188,15 @@ def intervention_hooks(
                     match_component_norm=match_component_norm,
                     restore_norm=restore_norm,
                 )
+                if operation == "shared_random_replace":
+                    semantic_norm = (patched - h).norm(dim=-1, keepdim=True)
+                    if strength == 0:
+                        patched = h
+                    else:
+                        random_delta = component(target_h - h, random_shared)
+                        random_norm = random_delta.norm(dim=-1, keepdim=True)
+                        assert torch.all(random_norm > 0), "random shared projection has zero norm"
+                        patched = h + random_delta * semantic_norm / random_norm
             elif operation == "random":
                 if matched_distances is None:
                     raise ValueError("random controls require semantic perturbation norms")
@@ -223,7 +235,7 @@ def intervention_hooks(
                     "applied_norm": (patched - h).norm(dim=-1)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
                 })
-            if record is not None and operation == "shared_replace":
+            if record is not None and operation in ("shared_replace", "shared_random_replace"):
                 patch_norm = float((patched.to(hidden.dtype).float() - h).norm())
                 record[residual_layer]["total_applied_norm"] = record[residual_layer].get("total_applied_norm", 0.0) + patch_norm
                 record[residual_layer].setdefault("replacement_trace", []).append({
@@ -233,6 +245,12 @@ def intervention_hooks(
                     "after": (patched @ source_basis)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ source_basis)[0].tolist(),
                 })
+                if operation == "shared_random_replace":
+                    record[residual_layer]["replacement_trace"][-1].update(
+                        semantic_norm_by_position=semantic_norm[0, :, 0].tolist(),
+                        applied_norm_by_position=(patched-h).norm(dim=-1)[0].tolist(),
+                        control="random shared projection norm-matched to semantic edit on current control state",
+                    )
             return replace_output(
                 output,
                 torch.cat(
