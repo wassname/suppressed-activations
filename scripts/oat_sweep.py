@@ -275,7 +275,7 @@ def future_union_configs():
 
 
 def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction, output_dir):
-    """Central differences for the restricted source-mean/future-sum Jacobian. -- Codex/GPT-6"""
+    """Restricted mean-J central differences to raw L32 before final norm. -- Codex/GPT-6"""
     texts = arrow_ipc.open_stream(corpus_path).read_all()["text"].to_pylist()
     texts = random.Random(0).sample([text.strip() for text in texts if len(text.strip()) >= 600], 16)
     estimates, corpus = [], []
@@ -296,17 +296,22 @@ def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction,
                         changed = output.clone()
                         changed[:, valid] = (changed[:, valid].float() + sign*epsilon*direction).to(output.dtype)
                         return changed
-                    with torch.no_grad(), layer_hooks(model.model.layers, {layer-1: patch}):
-                        result = model(input_ids=ids, attention_mask=torch.ones_like(ids),
-                                       use_cache=False, output_hidden_states=True)
-                    endpoints.append(result.hidden_states[31][0, valid].float().mean(0))
-                    del result
+                    final_residual = []
+                    def capture_final(_module, inputs):
+                        final_residual.append(inputs[0])
+                    handle = model.model.norm.register_forward_pre_hook(capture_final)
+                    try:
+                        with torch.no_grad(), layer_hooks(model.model.layers, {layer-1: patch}):
+                            model(input_ids=ids, attention_mask=torch.ones_like(ids), use_cache=False)
+                        endpoints.append(final_residual.pop()[0, valid].float().mean(0))
+                    finally:
+                        handle.remove()
                 columns.append((endpoints[1]-endpoints[0]) / (2*epsilon))
             scales.append(torch.stack(columns, dim=1))
         estimates.append(torch.stack(scales))
     transports = torch.stack(estimates).mean(0)
     torch.save({"basis": basis.cpu(), "transports": transports.cpu()}, output_dir / "span_transport.pt")
-    return transports[1], {"epsilons": [0.5, 1.0], "corpus": corpus,
+    return transports[1], {"target_endpoint": "raw_L32_before_final_norm", "epsilons": [0.5, 1.0], "corpus": corpus,
                            "relative_scale_difference": float((transports[0]-transports[1]).norm()/transports[1].norm()),
                            "column_cosines": torch.nn.functional.cosine_similarity(transports[0], transports[1], dim=0).tolist()}
 
@@ -1681,8 +1686,8 @@ def run(
                 values, ids = scores.topk(cfg.rank)
                 span_readouts[name] = {"tokens": [tokenizer.decode([i]) for i in ids.tolist()],
                                        "scores": values.tolist()}
-            persistence["span_readout"] = {"method": "RMS-scaled fitted-span coordinates, optionally transported by mean-J to L31, then gain-weighted unembedding; not probabilities",
-                                           "transported_to_layer31": cfg.transport_readout,
+            persistence["span_readout"] = {"method": "RMS-scaled fitted-span coordinates, optionally transported by mean-J to raw L32, then gain-weighted unembedding; not probabilities",
+                                           "transported_to_layer32": cfg.transport_readout,
                                            "layer": layer, **span_readouts}
         _, last_ids = suppressed_activation_subspace(
             captured[-1][:, -1][None], unembedding, norm_gain,
