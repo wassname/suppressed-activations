@@ -1055,6 +1055,10 @@ def run(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             normalize_selector_residuals=normalized, match_component_norm=matched, strength=strength,
         )) for normalized in (False, True) for matched in (False, True) for strength in (0.0, 2.0)],
+        "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
+            template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+            template_state_span="attenuation_bee", strength=strength,
+        )) for strength in (0.0, 2.0)],
         "attenuation-bee-correction": lambda: [("attenuation_bee_correction", f"correction{correction}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             bee_correction=correction,
@@ -1132,6 +1136,8 @@ def run(
                 ]))
             if any(cfg.template_state_span != "none" for _, (_, _, cfg) in indexed_configs):
                 bee = sample(template.format(animal="bee"), generate=False, instruction=extraction_instruction)
+                torch.testing.assert_close(pair[1]["input_ids"][0, target_end-3:target_end],
+                                           bee["input_ids"][0, bee["content_end"]-3:bee["content_end"]])
                 bee_suffixes.append(bee["residuals"][:, bee["content_end"]-3:bee["content_end"]])
                 bee_prompts.append(tokenizer.decode(bee["input_ids"][0], skip_special_tokens=False))
             torch.testing.assert_close(pair[0]["input_ids"][0, source_end-3:source_end],
@@ -1224,11 +1230,17 @@ def run(
                     if cfg.normalize_selector_residuals:
                         suffixes = suffixes / suffixes.square().mean(-1, keepdim=True).sqrt()
                     contrasts = suffixes[:, 1] - suffixes[:, 0]
+                    if cfg.template_state_span == "attenuation_bee":
+                        assert target_concept == "ant"
+                        bee_states = torch.stack(bee_suffixes).float()
+                        if cfg.normalize_selector_residuals:
+                            bee_states = bee_states / bee_states.square().mean(-1, keepdim=True).sqrt()
+                        contrasts = suffixes[:, 1] - bee_states
                     peak = contrasts[:, cfg.detector_layers[1]].flatten(0, 1)
                     output = contrasts[:, cfg.detector_layers[2]].flatten(0, 1)
-                    split = cfg.template_state_span in ("peak_split", "attenuation")
+                    split = cfg.template_state_span in ("peak_split", "attenuation", "attenuation_bee")
                     fit_count = peak.shape[0] // 2 if split else peak.shape[0]
-                    if cfg.template_state_span == "attenuation":
+                    if cfg.template_state_span in ("attenuation", "attenuation_bee"):
                         columns = torch.cat([peak[:fit_count].T, output[:fit_count].T], dim=1)
                         vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
                         joint = vectors[:, :torch.linalg.matrix_rank(columns)]
@@ -1244,6 +1256,7 @@ def run(
                         assert torch.linalg.matrix_rank(columns) >= cfg.persistent_rank
                         shared = vectors[:, :cfg.persistent_rank]
                     diagnostics = {"selector": ("unit_rms" if cfg.normalize_selector_residuals else "raw") + "_template_contrast_" + cfg.template_state_span,
+                                   "selector_contrast": [target_concept, "bee" if cfg.template_state_span == "attenuation_bee" else "spider"],
                                    "selector_residual_geometry": "unit_rms" if cfg.normalize_selector_residuals else "raw",
                                    "spectrum": values.tolist(),
                                    "fit_template_indices": list(range(fit_count // 3)),
@@ -1582,6 +1595,7 @@ if __name__ == "__main__":
             "attenuation-rank-expanded",
             "attenuation-scale",
             "attenuation-bee-correction",
+            "attenuation-bee-selector",
             "bee-correction-controls",
             "bee-correction-alone",
             "bee-correction-projected",
