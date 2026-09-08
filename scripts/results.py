@@ -40,7 +40,7 @@ def main(root: Path) -> None:
             f'{row["p_target"]:.4f}', f'{row["p_source"]:.4f}',
             f'{row["valid_answer_mass"]:.3f}',
             f'{row["repeated_bigram_fraction"]:.3f}', repr(row["first_token"]),
-            f'{row["readout_overlap"]:.3f}',
+            "N/A" if row["readout_overlap"] is None else f'{row["readout_overlap"]:.3f}',
         ] for row in rows],
         headers=[
             "condition", "swap log-odds↑", f"p({target_output})↑", f"p({source_output})↓",

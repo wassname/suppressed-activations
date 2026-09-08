@@ -987,6 +987,8 @@ Unmodified donor generation ({row['donor_generation_tokens']} tokens, verbatim):
 
 Base suppression readout:
 
+Readout status (applies to all readouts below): {row['readout_status']}.
+
 ```python
 {row['base_readout']!r}
 ```
@@ -1721,6 +1723,7 @@ def run(
             "first_answer": first_answer(generation["text"], (source_output, target_output)),
             "mentions_spins_webs": "spins webs" in generation["text"],
             "readout_overlap": len(set(readout) & set(target_readout)) / cfg.rank,
+            "readout_status": "computed; semantic validity not established",
             "intervention_record": intervention_record,
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
@@ -1744,6 +1747,11 @@ def run(
             "donor_generation": donor_generation,
             "top_tokens": token_distribution(tokenizer, generation_logits, base_generation_logits),
         }
+        if cfg.detector_layers[1] == cfg.detector_layers[2]:
+            row["readout_status"] = "unavailable: peak_layer equals output_layer (all fall scores are zero)"
+            row["readout_overlap"] = None
+            for field in ("base_readout", "target_readout", "readout", "last_decode_readout"):
+                row[field] = []
         (condition_dir / "run.md").write_text(
             condition_report(row, source_rendered, target_rendered)
         )
