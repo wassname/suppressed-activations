@@ -1177,6 +1177,10 @@ def run(
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
         "synchronized-attenuation": synchronized_attenuation_configs,
+        "synchronized-transport": lambda: [("synchronized_transport", f"L{layer}_C2", replace(
+            synchronized_attenuation_configs()[9][2], transport_readout=True,
+            detector_layers=(layer-2, layer, 32), intervention_layer=(layer,), strength=2.0,
+        )) for layer in (23, 24)],
         "synchronized-temporal": lambda: [("synchronized_temporal", f"L{layer}_C{strength}", replace(
             synchronized_attenuation_configs()[9][2], template_state_span="temporal_attenuation",
             detector_layers=(layer-2, layer, 32), intervention_layer=(layer,), strength=strength,
@@ -1867,6 +1871,7 @@ if __name__ == "__main__":
             "template-state",
             "template-attenuation",
             "synchronized-attenuation",
+            "synchronized-transport",
             "synchronized-temporal",
             "synchronized-attenuation-refine",
             "attenuation-coverage",
