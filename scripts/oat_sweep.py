@@ -910,7 +910,7 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
 
 
 def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, strength,
-                                positions, record, residual_capture, max_new_tokens):
+                                positions, record, residual_capture, max_new_tokens, random_delta_seed=-1):
     """Teacher-force the donor on source-selected tokens with separate caches. — Codex/GPT-6."""
     bases = {layer: basis} if isinstance(basis, torch.Tensor) else basis
     def forward(ids, mask_length, cache, hooks):
@@ -938,7 +938,9 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
         hooks = {}
         for edit_layer, edit_basis in bases.items():
             hooks.update(intervention_hooks(
-                edit_basis, edit_basis, donor_states, operation="shared_replace", strength=strength,
+                edit_basis, edit_basis, donor_states,
+                operation="shared_random_replace" if random_delta_seed >= 0 else "shared_replace",
+                random_seed=random_delta_seed + edit_layer, strength=strength,
                 blocks_to_hook=[edit_layer - 1], positions=positions,
                 source_position=source["content_end"] - 1,
                 target_position=target["content_end"] - 1 if step == 0 else 0,
@@ -950,7 +952,7 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
             residual_capture.append(states)
         last_states = states
         token = int(logits.argmax())
-        if len(model.model.layers) in bases and bases[len(model.model.layers)].shape[1] == bases[len(model.model.layers)].shape[0] and strength == 1:
+        if random_delta_seed == -1 and len(model.model.layers) in bases and bases[len(model.model.layers)].shape[1] == bases[len(model.model.layers)].shape[0] and strength == 1:
             assert token == int(donor_logits.argmax()), "full final-layer replacement differs from synchronized donor"
         token_ids.append(token)
         if token in (tokenizer.eos_token_id, tokenizer.pad_token_id):
@@ -1197,6 +1199,12 @@ def run(
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
         "synchronized-attenuation": synchronized_attenuation_configs,
+        "synchronized-band-random": lambda: [("synchronized_band_random", f"seed{seed}", Config(
+            template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+            detector_layers=(20, 22, 32), intervention_layer=(22, 23, 24),
+            shared_replacement="synchronized", strength=2.0, random_delta_seed=seed,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for seed in range(-1, 8)],
         "synchronized-attenuation-band": lambda: [("synchronized_attenuation_band", f"layers{layers}_C{strength}", Config(
             template_contrast=True, template_state_span="attenuation", persistent_rank=4,
             detector_layers=(layers[0]-2, layers[0], 32), intervention_layer=layers,
@@ -1424,7 +1432,8 @@ def run(
                 assert cfg.detector_layers[1] == intervention_layers[0]
                 assert len(intervention_layers) == 1 or cfg.shared_replacement == "synchronized"
                 assert not (cfg.match_component_norm or cfg.restore_residual_norm or cfg.normalize_selector_residuals)
-                assert cfg.random_delta_seed == -1 and cfg.discarded_fraction == 0 and cfg.delta_component == "difference"
+                assert cfg.discarded_fraction == 0 and cfg.delta_component == "difference"
+                assert cfg.random_delta_seed == -1 or cfg.shared_replacement == "synchronized"
             assert cfg.continue_generation and cfg.donor_position_offset == 0
             torch.testing.assert_close(
                 source["input_ids"][0, source["content_end"]-positions:source["content_end"]],
@@ -1613,7 +1622,7 @@ def run(
                 }
                 fixed_deltas = {layer: (torch.zeros_like(delta) if cfg.bee_correction_only else delta) + cfg.bee_correction * correction[layer]
                                 for layer, delta in fixed_deltas.items()}
-            if cfg.random_delta_seed >= 0:
+            if cfg.random_delta_seed >= 0 and cfg.shared_replacement == "none":
                 for layer, delta in fixed_deltas.items():
                     generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
                     random_delta = torch.randn(delta.shape, device=delta.device, generator=generator)
@@ -1695,7 +1704,7 @@ def run(
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
             generation, generation_logits = generate_synchronized_donor(
                 model, tokenizer, source, target, synchronized_bases if cfg.template_contrast else shared, intervention_layers[0], cfg.strength,
-                positions, intervention_record, captured, max_new_tokens,
+                positions, intervention_record, captured, max_new_tokens, cfg.random_delta_seed,
             )
         else:
             generation, generation_logits = generate_with_first_logits(
@@ -1703,6 +1712,8 @@ def run(
             )
         changed_residuals = captured[0]
         if cfg.shared_replacement != "none":
+            if cfg.random_delta_seed >= 0:
+                persistence["control"] = "fixed seeded random span per layer; per-position norm matched to semantic edit on control trajectory, before model dtype rounding"
             persistence["sum_applied_norm_over_layers_and_calls"] = sum(
                 patch["total_applied_norm"] for patch in intervention_record.values())
             persistence["total_norm_definition"] = "sum of per-call Frobenius edit norms after model dtype conversion; not a net residual norm"
@@ -1930,6 +1941,7 @@ if __name__ == "__main__":
             "template-state",
             "template-attenuation",
             "synchronized-attenuation",
+            "synchronized-band-random",
             "synchronized-attenuation-band",
             "synchronized-transport",
             "synchronized-temporal",

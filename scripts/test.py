@@ -29,6 +29,32 @@ from suppressed_activation_subspace import (
 
 
 def main() -> None:
+    # Match random edits to the semantic norm on each current state. -- Codex/GPT-6
+    rng_control = torch.Generator().manual_seed(91)
+    control_basis = torch.linalg.qr(torch.randn(12, 3, generator=rng_control)).Q
+    control_source = torch.randn(1, 5, 12, generator=rng_control)
+    control_donor = torch.randn(2, 5, 12, generator=rng_control)
+    for dose in (0.0, 2.0):
+        control_outputs = []
+        for _ in range(2):
+            control_record = {}
+            control_hook = intervention_hooks(
+                control_basis, control_basis, control_donor, operation="shared_random_replace",
+                strength=dose, random_seed=8, blocks_to_hook=[0], positions=3,
+                source_position=4, target_position=4, match_component_norm=False,
+                restore_norm=False, record=control_record,
+            )[0]
+            edited = control_hook(None, None, control_source)
+            semantic_delta = dose * component(control_donor[1, -3:] - control_source[0, -3:], control_basis)
+            torch.testing.assert_close((edited-control_source)[0, -3:].norm(dim=-1),
+                                       semantic_delta.norm(dim=-1), atol=1e-6, rtol=1e-5)
+            if dose == 0:
+                torch.testing.assert_close(edited, control_source, atol=0, rtol=0)
+            control_hook(None, None, control_source[:, -1:])
+            assert control_record[1]["decode_steps"] == 1
+            control_outputs.append(edited)
+        torch.testing.assert_close(*control_outputs, atol=0, rtol=0)
+    print("PASS: random shared replacement matches per-position norm, C0, determinism and decode coverage")
     # Unit source directions preserve linear-map vocabulary ranking. -- Codex/GPT-6
     states = torch.tensor([[2., -3.], [1., 4.], [-2., 1.]])
     linear_map = torch.tensor([[1., 2., 0.], [-1., 0., 3.], [0., 2., 1.]])
