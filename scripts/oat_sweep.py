@@ -970,6 +970,20 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
     return {"token_ids": token_ids, "text": tokenizer.decode(token_ids, skip_special_tokens=False)}, first_logits
 
 
+def render_input(tokenizer, content, prompt_mode, instruction, device="cuda"):
+    if prompt_mode == "raw":
+        input_ids = tokenizer(content, add_special_tokens=False, return_tensors="pt").input_ids.to(device)
+        return {"input_ids": input_ids, "content_start": 0, "content_end": input_ids.shape[1]}
+    if prompt_mode == "chat-assistant-prefill":
+        return assistant_prefill_input_ids(tokenizer, content, instruction=instruction, device=device)
+    instruction_prefix = {"chat-fact": "", "chat-instructed": instruction + "\n\n"}[prompt_mode]
+    chat = chat_input_ids(tokenizer, content, enable_thinking=False, instruction=instruction_prefix, device=device)
+    # Patch the generation boundary, retaining the user-text boundary for provenance. -- Codex
+    chat["user_content_end"] = chat["content_end"]
+    chat["content_end"] = chat["input_ids"].shape[1]
+    return chat
+
+
 def yaml_value(value) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -1130,19 +1144,8 @@ def run(
     del normalized_rows
 
     def sample(content, generate=True, instruction=prefill_instruction):
-        if prompt_mode == "raw":
-            input_ids = tokenizer(
-                content, add_special_tokens=False, return_tensors="pt"
-            ).input_ids.cuda()
-            chat = {"input_ids": input_ids, "content_start": 0, "content_end": input_ids.shape[1]}
-        elif prompt_mode == "chat-fact":
-            chat = chat_input_ids(tokenizer, content, enable_thinking=False, instruction="")
-        elif prompt_mode == "chat-instructed":
-            chat = chat_input_ids(tokenizer, content, enable_thinking=False)
-        elif prompt_mode == "chat-assistant-prefill":
-            chat = assistant_prefill_input_ids(tokenizer, content, instruction=instruction)
-        else:
-            raise ValueError(prompt_mode)
+        chat = render_input(tokenizer, content, prompt_mode, instruction)
+        assert chat["content_end"] == chat["input_ids"].shape[1]
         if not generate:
             residuals, logits = trajectory(model, chat["input_ids"], final_norm)
             return {**chat, "residuals": residuals, "logits": logits}
@@ -1893,6 +1896,11 @@ def run(
         "package_versions": {name: version(name) for name in ("torch", "transformers", "accelerate", "pyarrow")},
         "default": asdict(DEFAULT),
         "prompt_mode": prompt_mode,
+        "prompt_boundaries": {
+            name: {key: sample[key] for key in sample if key in ("content_start", "content_end", "user_content_end")}
+            for name, sample in (("source", source), ("donor", target),
+                                 ("extraction_source", extraction_source), ("extraction_donor", extraction_target))
+        },
         "source_prompt": source_prompt,
         "target_prompt": target_prompt,
         "target_concept": target_concept,

@@ -69,7 +69,8 @@ def find_subsequence(sequence: list[int], subsequence: list[int]) -> int:
 
 
 def chat_input_ids(
-    tokenizer, content: str, *, enable_thinking: bool, instruction: str = INSTRUCTION
+    tokenizer, content: str, *, enable_thinking: bool, instruction: str = INSTRUCTION,
+    device: str = "cuda",
 ) -> dict:
     user_content = instruction + content
     rendered = tokenizer.apply_chat_template(
@@ -89,7 +90,7 @@ def chat_input_ids(
     if tokenizer.decode(input_ids[0], skip_special_tokens=False) != rendered:
         raise ValueError("chat prompt changed during tokenization")
     return {
-        "input_ids": input_ids.cuda(),
+        "input_ids": input_ids.to(device),
         "content_start": content_start,
         "content_end": content_start + len(content_ids),
     }

@@ -716,3 +716,21 @@ Interpretation, Codex/GPT-6: updating donor coordinates probably helps preserve 
 The useful distinction is between changing the first answer and keeping the intended animal throughout the continuation.
 
 <!-- Written by Codex/GPT-6. -->
+
+## 2026-09-08 -- Repair the user-message intervention boundary
+
+The user-message path did not apply the requested instruction or select the actual generation boundary.
+
+The CPU check of the runner and pinned tokenizer printed:
+
+```text
+{'animal': 'spider', 'user_end': 20, 'generation_end': 29, 'patched_suffix': [271, 248069, 271]}
+{'animal': 'dog', 'user_end': 20, 'generation_end': 29, 'patched_suffix': [271, 248069, 271]}
+{'animal': 'ant', 'user_end': 20, 'generation_end': 29, 'patched_suffix': [271, 248069, 271]}
+```
+
+Source: [boundary check and exact rendering](docs/slop/audits/2026-09-08_151441_user-message-boundary-check.md). `user_end` is the exclusive end of user text; `generation_end` is the full prompt length. The runner now passes the supplied instruction and extracts and patches at the full prompt end. The shared helper retains its user-text boundary for other callers. The assistant-prefill path is unchanged.
+
+Interpretation, Codex: question placement is a plausible cause of some bad clean controls. The completed [wrapper audit](docs/slop/audits/2026-09-08_150650_question-wrapper-jobs759-764.md) quotes a continuation saying the question was not provided, although it appeared in the assistant prefill. The new boundary check does not establish that moving the question repairs the behavior. This comparison also changes extraction positions, so it is a role-and-boundary repair rather than a wrapper-only test.
+
+The next decision requires clean answers from the repaired path before we judge the intervention.
