@@ -1208,6 +1208,11 @@ def run(
             persistent_rank=rank, shared_replacement="synchronized", strength=strength,
             match_component_norm=False, restore_residual_norm=False,
         )) for layer in (12, 20) for rank in (4, 32) for strength in (0.0, 1.0, 2.0)],
+        "synchronized-dose": lambda: [("synchronized_dose", f"L{layer}_C{strength}", Config(
+            detector_layers=(layer-2, layer, 32), intervention_layer=(layer,),
+            persistent_rank=32, shared_replacement="synchronized", strength=strength,
+            match_component_norm=False, restore_residual_norm=False,
+        )) for layer in (20, 24) for strength in (0.0, 1.0, 2.0, 4.0, 8.0, 16.0)],
         "attenuation-bee-selector": lambda: [("attenuation_bee_selector", f"C{strength}", replace(
             template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
             template_state_span="attenuation_bee", strength=strength,
@@ -1828,6 +1833,7 @@ if __name__ == "__main__":
             "shared-replacement",
             "synchronized-replacement",
             "synchronized-support",
+            "synchronized-dose",
             "bee-correction-controls",
             "bee-correction-alone",
             "bee-correction-projected",
