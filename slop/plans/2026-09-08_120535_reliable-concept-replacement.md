@@ -30,6 +30,7 @@
 - [ ] Goal: replacement survives different questions and continuous generation.
   - [ ] Use one fixed rule for both animals; keep species-specific strength tuning out of the final transfer test.
   - [ ] Test naming, leg count and another distinguishing property only where clean source/donor answers are correct.
+  - [ ] Repair the user-message path: honor supplied instructions and patch the actual generation boundary. Compare clean controls before changing strength.
   - [ ] Steer the last prompt positions and every generated token through EOS or the declared limit; log full continuations.
   - [ ] Compare no edit, donor, matched-random edits and the unrestricted reference. Inspect contradictions, not just target log odds.
   - [ ] Audit matched-random band controls (775/776). Vary one axis around one shared default in subsequent sweeps.
