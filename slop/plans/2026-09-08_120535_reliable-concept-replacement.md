@@ -4,11 +4,13 @@
 > "you should not have stopped" -- wassname, about steering through generation
 
 - [ ] Goal: one understandable method replaces spider with dog or ant.
+  - Ant versus bee is a diagnostic comparison, not the goal; both have six legs, so leg count cannot distinguish them.
   - [ ] Keep the successful examples as references, not proof of reliability.
   - [ ] Return to source/donor replacement in a shared, layer-local suppressed subspace; do not add another animal-specific correction.
   - [ ] Separate vocabulary rise-and-fall suppression from contrast-energy attenuation. The latter is a candidate selector, not an equivalent definition.
   - [ ] Select persistent directions across aligned prompt tokens; fit at the layer where the edit is applied.
-  - [ ] Compare coordinate replacement with the existing fixed displacement, using the same subspace and measured edit norms.
+  - [ ] Test full-state donor replacement at the final layer as a decoder control, not as evidence for suppressed-subspace replacement.
+  - [ ] Compare frozen donor coordinates with donor coordinates recomputed on the same generated history, using the same subspace and edit strengths.
   - Failure mode: an unrestricted direction or a hand-tuned species correction changes the answer while the claimed suppressed replacement does not.
   - Deliverable: exact construction, resolved settings, and paired logs for both animals, with in-subspace and out-of-subspace edit norms.
 
@@ -16,6 +18,7 @@
   - [ ] Validate clean spider, dog and ant readouts before interpreting steered ones.
   - [ ] Capture after the edit and subsequent computation, using the same chat-template path as generation.
   - [ ] Check C=0 identity, hook ordering, aligned positions and agreement with generation's first-token logits.
+  - [x] Synchronized decoder C=0 matches generation exactly in job 731; retain these assertions in subsequent runs.
   - Failure mode: the readout shows the donor, a pre-edit state, or a classifier that must move because it shares the steering direction.
   - Deliverable: clean and post-edit source readouts with capture locations and controls; keep failures visible.
 
