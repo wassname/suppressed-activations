@@ -247,3 +247,13 @@ Next paired test: synchronized-support, L12/L20 × retained rank4/full selected 
 - Runtime/memory: runner77.691s/77.768s, peak13,702,940,672/13,703,278,592 bytes; queue84s/85s. Cache reuse makes the paired loop inexpensive. Seeds: deterministic greedy development runs, no seed spread.
 
 Written by Codex/GPT-6. Coherent dog at unrestricted L20 is a control, not the suppressed-subspace result sought.
+
+### 738/739 full selected support
+
+Both succeeded77s/79s; root read both43-line logs and all16 nonzero continuations. Every output remains8/spider. Actual expanded shared ranks are dog55/52 and ant56/51 at L12/L20, versus8 for the truncated union. Terra initially misread config.rank=8 as the actual shared rank; root checked `.persistence.shared_rank` and corrected that claim. C0 generation objects match base in all four conditions per run.
+
+At C2, final prompt position relative edit norm is dog.2014/.1765 and ant.1676/.1397 at L12/L20. These are not vanishing edits, but no norm restoration is enabled. Dog L20 p4=.1161 versus base.0926; ant L20 p6=.01217 versus base.0111. Full support therefore does not solve these selected layers/doses, while a stronger dose or different selector remains untested by this grid. Runner73.840s/74.448s; peak13,677,700,096/13,678,048,256 bytes.
+
+Next jobs740/741, synchronized-dose: L20/L24 × C0/1/2/4/8/16, same full selected vocabulary support, same128-token continuous path. At C16 prefill perturbation scales eightfold versus C2 before model dtype rounding; no normalization can remove that strength. Inspect full continuations for identity replacement versus language damage. Paths `out/2026-09-08_131400_synchronized-dose-{dog,ant}`; Terra follows.
+
+Independent integration review found an additional comparison that reuses a previously useful selector: existing raw rank4 layer-local contrast-energy attenuation (job668), now with frozen versus synchronized donor-coordinate replacement instead of a fixed template displacement. Agent is implementing the existing selector path, without species-specific correction. This is not the same definition as vocabulary rise-and-fall suppression. No result is claimed yet. -- Codex/GPT-6
