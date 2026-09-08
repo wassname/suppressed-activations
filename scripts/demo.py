@@ -150,6 +150,10 @@ def intervention_hooks(
                 target_h = target_residuals[
                     residual_layer, -active_positions:
                 ].unsqueeze(0).float()
+            elif operation == "shared_replace":
+                target_end = target_position + 1
+                assert target_end >= active_positions
+                target_h = target_residuals[residual_layer, target_end-active_positions:target_end].unsqueeze(0).float()
             else:
                 target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1)
                 target_h = target_h.expand(h.shape[0], h.shape[1], -1).float()
@@ -170,7 +174,10 @@ def intervention_hooks(
                 patched = h + strength * fixed_deltas[residual_layer]
                 if restore_norm:
                     patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
-            elif operation == "replace":
+            elif operation in ("replace", "shared_replace"):
+                if operation == "shared_replace":
+                    assert not match_component_norm and not restore_norm
+                    torch.testing.assert_close(source_basis, target_basis)
                 patched = replace(
                     h, source_basis, target_h, target_basis,
                     strength=strength,
@@ -214,6 +221,13 @@ def intervention_hooks(
                     "deficit": deficit[0].tolist(),
                     "applied_norm": (patched - h).norm(dim=-1)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
+                })
+            if record is not None and operation == "shared_replace":
+                record[residual_layer].setdefault("replacement_trace", []).append({
+                    "before": (h @ source_basis)[0].tolist(),
+                    "target": (target_h @ source_basis)[0].tolist(),
+                    "after": (patched @ source_basis)[0].tolist(),
+                    "after_model_dtype": (patched.to(hidden.dtype).float() @ source_basis)[0].tolist(),
                 })
             return replace_output(
                 output,
