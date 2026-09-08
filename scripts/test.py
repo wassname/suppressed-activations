@@ -29,6 +29,17 @@ from suppressed_activation_subspace import (
 
 
 def main() -> None:
+    # Unit source directions preserve linear-map vocabulary ranking. -- Codex/GPT-6
+    states = torch.tensor([[2., -3.], [1., 4.], [-2., 1.]])
+    linear_map = torch.tensor([[1., 2., 0.], [-1., 0., 3.], [0., 2., 1.]])
+    vocabulary = torch.tensor([[1., 0., 2.], [-1., 2., 1.], [3.1, 1., -1.]])
+    norms = states.norm(dim=0)
+    direction_actions = linear_map @ (states / norms)
+    direct_scores = vocabulary @ linear_map @ states
+    unit_scores = vocabulary @ direction_actions
+    torch.testing.assert_close(unit_scores * norms, direct_scores)
+    assert torch.equal(unit_scores.argsort(dim=0), direct_scores.argsort(dim=0))
+    print("PASS: normalized full-residual J actions preserve vocabulary ranks and recover scores by source norm")
     # Equal diagonal energy can hide alternating token signs. -- Codex/GPT-6
     persistent = torch.tensor([[[1., 0.], [1., 0.], [1., 0.]]])
     alternating = persistent * torch.tensor([1., -1., 1.])[None, :, None]

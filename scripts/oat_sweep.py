@@ -329,6 +329,7 @@ def fit_span_transport(model, tokenizer, basis, layer, corpus_path, instruction,
     torch.save({"basis": basis.cpu(), "transports": transports.cpu()}, output_dir / "span_transport.pt")
     return transports[1], {"target_endpoint": "raw_L32_before_final_norm", "epsilons": [0.5, 1.0], "corpus": corpus,
                            "relative_scale_difference": float((transports[0]-transports[1]).norm()/transports[1].norm()),
+                           "column_relative_scale_differences": ((transports[0]-transports[1]).norm(dim=0)/transports[1].norm(dim=0)).tolist(),
                            "column_cosines": torch.nn.functional.cosine_similarity(transports[0], transports[1], dim=0).tolist()}
 
 
@@ -1710,14 +1711,37 @@ def run(
         if cfg.template_state_span != "none":
             span_readouts = {}
             layer = intervention_layers[0]
+            readout_states = dict(base=source["residuals"], donor=target["residuals"],
+                                 intervened=changed_residuals, last_decode=captured[-1])
             if cfg.transport_readout:
                 assert prompt_mode == "chat-assistant-prefill"
+                full_states = torch.stack([states[layer, -1].float() for states in readout_states.values()], dim=1)
+                full_norms = full_states.norm(dim=0)
+                full_directions = full_states / full_norms
+                transport_columns = torch.cat([shared, full_directions], dim=1)
                 transport, transport_diagnostics = fit_span_transport(
-                    model, tokenizer, shared, layer, lens_corpus_arrow, extraction_instruction, output_dir,
+                    model, tokenizer, transport_columns, layer, lens_corpus_arrow, extraction_instruction, output_dir,
                 )
+                selected_rank = shared.shape[1]
+                transport_diagnostics["selected_columns"] = list(range(selected_rank))
+                transport_diagnostics["full_state_columns"] = {
+                    name: selected_rank+i for i, name in enumerate(readout_states)
+                }
+                transport_diagnostics["full_state_l2_norms"] = dict(zip(readout_states, full_norms.tolist()))
+                transport_diagnostics["saved_direction_columns"] = "span_transport.pt: basis contains selected U then unit-L2 full states"
                 persistence["transport_diagnostics"] = transport_diagnostics
-            for name, states in (("base", source["residuals"]), ("donor", target["residuals"]),
-                                 ("intervened", changed_residuals), ("last_decode", captured[-1])):
+                full_readouts = {}
+                for i, name in enumerate(readout_states):
+                    scores = (transport[:, selected_rank+i] * norm_gain.float()) @ unembedding.float().T
+                    values, ids = scores.topk(cfg.rank)
+                    full_readouts[name] = {"tokens": [tokenizer.decode([token]) for token in ids.tolist()],
+                                           "scores": values.tolist()}
+                persistence["full_residual_readout"] = {
+                    "method": "mean-J action on unit-L2 full residual, then gain-weighted unembedding; rankings, not probabilities",
+                    "layer": layer, "target_endpoint": "raw_L32_before_final_norm", **full_readouts,
+                }
+                transport = transport[:, :selected_rank]
+            for name, states in readout_states.items():
                 h = states[layer, -1].float()
                 h = h * torch.rsqrt(h.square().mean() + 1e-6)
                 decoded = transport @ (h @ shared) if cfg.transport_readout else component(h, shared)
