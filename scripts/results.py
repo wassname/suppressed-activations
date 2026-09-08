@@ -38,7 +38,7 @@ def main(root: Path) -> None:
             f'[{row["condition_id"]}]({row["log"]})',
             f'{row["swap_log_odds_shift"]:+.3f}',
             f'{row["p_target"]:.4f}', f'{row["p_source"]:.4f}',
-            f'{row["valid_answer_mass"]:.3f}',
+            f'{row["bare_answer_mass"]:.3f}',
             f'{row["repeated_bigram_fraction"]:.3f}', repr(row["first_token"]),
             "N/A" if row["readout_overlap"] is None else f'{row["readout_overlap"]:.3f}',
         ] for row in rows],

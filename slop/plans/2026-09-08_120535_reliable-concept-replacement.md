@@ -12,7 +12,7 @@
   - [x] Full-state final-layer replacement exactly reproduces both donors (734/735); this is a decoder control, not subspace evidence.
   - [x] Frozen versus synchronized rank8 replacement both remain spider at L12/L20 (736/737).
   - [x] Full selected vocabulary support, ranks51–56, also remains spider at C1/C2 (738/739).
-  - [ ] Test stronger doses without normalization (740/741), then the previously useful layer-local attenuation selector with coordinate replacement (742/743).
+  - [ ] Audit stronger-dose and layer-local attenuation results (740-743); inspect full continuations before choosing the next change.
   - [x] One selected band works on both original demos: L22–24, C2 per layer, raw rank4 local attenuation (756/757).
   - [ ] Keep that band fixed on plain leg, naming and property questions (768–773); require valid clean controls before counting transfer.
   - Failure mode: an unrestricted direction or a hand-tuned species correction changes the answer while the claimed suppressed replacement does not.
@@ -32,6 +32,7 @@
   - [ ] Test naming, leg count and another distinguishing property only where clean source/donor answers are correct.
   - [ ] Steer the last prompt positions and every generated token through EOS or the declared limit; log full continuations.
   - [ ] Compare no edit, donor, matched-random edits and the unrestricted reference. Inspect contradictions, not just target log odds.
+  - [ ] Audit matched-random band controls (775/776). Vary one axis around one shared default in subsequent sweeps.
   - [ ] On failure, use ml-debug and independent review to distinguish code, prompt and method errors; fix or change the construction, then repeat the paired tests.
   - Failure mode: the first answer changes but the continuation reverses it, invents facts, or repeats; test prompts select the configuration.
   - Deliverable: all conditions in unique timestamped logs, with development and frozen-setting follow-ups identified.
@@ -40,7 +41,9 @@
 
 - Open one notebook with complete Base and Causal intervention demos for dog and ant: exact prompt, post-edit readout, verbatim generation and token probabilities.
 - Open the linked results table and inspect every frozen follow-up, including failures. A correct number alone is not a pass.
+- Show the first 32 tokens verbatim in each condition log; link longer raw continuations separately.
+- Report `swap_log_odds_shift`, `bare_answer_mass` and repetition separately. None alone proves coherent replacement.
 - Verify continuous-hook coverage and C=0 assertions in the logs. Run the notebook smoke test, queued notebook execution and project checks before handoff.
-- Terra follows queued jobs to completion; report finished results or actionable failures, not repeated unchanged status.
+- Terra follows each job to completion and audits with `auditlog` and `ml-debug`. A fresh reviewer checks the final evidence.
 
 Written by Codex/GPT-6. This plan does not mark the research goal complete.
