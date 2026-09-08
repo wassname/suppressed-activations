@@ -155,7 +155,8 @@ def token_persistent_subspace(residuals_by_position, unembedding, rms_norm_gain,
     )
     directions = bases.permute(1, 0, 2).flatten(1)
     vectors, singular_values, _ = torch.linalg.svd(directions, full_matrices=False)
-    return vectors[:, :persistent_rank], singular_values.square() / len(bases), token_ids
+    supported = vectors[:, singular_values > 1e-5]
+    return supported[:, :persistent_rank], singular_values.square() / len(bases), token_ids
 
 
 def match_norm(x: Tensor, reference: Tensor) -> Tensor:

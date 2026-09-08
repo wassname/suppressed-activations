@@ -28,6 +28,24 @@ from suppressed_activation_subspace import (
 
 
 def main() -> None:
+    # Repeating identical token projectors must not create extra directions. -- Codex/GPT-6
+    rng = torch.Generator().manual_seed(72)
+    repeated_states = torch.randn(1, 3, 12, generator=rng).expand(4, -1, -1)
+    vocabulary = torch.randn(16, 12, generator=rng)
+    support, spectrum, candidates = token_persistent_subspace(
+        repeated_states, vocabulary, torch.ones(12), persistent_rank=8,
+        early_layer=0, peak_layer=1, output_layer=2, rank=2,
+    )
+    selected_basis, _ = subspace_from_scores(
+        suppressed_activation_scores(repeated_states[:1], vocabulary, torch.ones(12),
+                                     early_layer=0, peak_layer=1, output_layer=2),
+        vocabulary, torch.ones(12), rank=2,
+    )
+    assert support.shape == (12, 2) and spectrum.shape == (8,)
+    assert torch.equal(candidates, candidates[:1].expand_as(candidates))
+    torch.testing.assert_close(support @ support.T, selected_basis[0] @ selected_basis[0].T,
+                               atol=1e-6, rtol=1e-5)
+    print("PASS: full persistent support excludes numerical-null directions from repeated candidates")
     # A rising output is not suppression, even when the middle layer rises. -- Codex/GPT-6
     angles = torch.tensor([0.1, 0.4, 0.8])
     rising_states = torch.stack((angles.sin(), angles.cos()), dim=-1)[None]
