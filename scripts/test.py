@@ -23,10 +23,29 @@ from suppressed_activation_subspace import (
     subspace_from_scores,
     persistent_suppressed_activation_subspace,
     token_persistent_subspace,
+    suppressed_activation_scores,
 )
 
 
 def main() -> None:
+    # A rising output is not suppression, even when the middle layer rises. -- Codex/GPT-6
+    angles = torch.tensor([0.1, 0.4, 0.8])
+    rising_states = torch.stack((angles.sin(), angles.cos()), dim=-1)[None]
+    symmetric_rows = torch.tensor([[1., 0.], [-1., 0.]])
+    for normalize in (False, True):
+        rising_scores = suppressed_activation_scores(
+            rising_states, symmetric_rows, torch.ones(2),
+            early_layer=0, peak_layer=1, output_layer=2,
+            normalize_unembedding_rows=normalize,
+        )
+        assert rising_scores[0, 0] == 0
+        peaked_scores = suppressed_activation_scores(
+            rising_states[:, [0, 2, 1]], symmetric_rows, torch.ones(2),
+            early_layer=0, peak_layer=1, output_layer=2,
+            normalize_unembedding_rows=normalize,
+        )
+        assert peaked_scores[0, 0] > 0
+    print("PASS: suppression requires both a rise and a fall in raw and normalized scoring")
     assert first_answer(" **No**. Later: Yes", ("Yes", "No")) == "No"
     assert first_answer("1. Later: Yes", ("Yes", "No")) is None
     assert first_answer("Nobody", ("No", "Yes")) is None
