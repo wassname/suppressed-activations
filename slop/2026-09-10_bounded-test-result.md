@@ -62,4 +62,22 @@ Neither offered mechanism is complete: overshoot explains the digit C=2 degradat
 spider-binding explains the source-correct property/mirror answers, and the dog digit
 promiscuity is a distinct general-readout effect.
 
+## Hook-coverage pre-check (property answer position)
+
+The property answer token (Yes/No) is the FIRST generated token after the prefill, i.e. it
+is predicted at the prefill boundary. The hook patches prefill last-3 and decode last-1.
+Tokenizing the property prompt shows the prefill last-3 decode to `['Answer', ':', ' ']`
+(positions 41,42,43 for prop-dog; `content_end`=44). So the answer token at `content_end`
+IS inside the patched window (prefill last-3 is the `Answer: ` region the answer is
+predicted from). The C=0.0 property cell has perturbation_norm 0.0 and steer==Base; the
+C=2.0 cell has perturbation_norm 25.7 and steer!=Base, so the patch is applied. Patches
+are applied at the answer slot; the source-binding is not because the answer is unpatched.
+
+## Full legs C=1.0 / C=1.5 continuations (to EOS)
+
+legs-dog-C1.0: `4` + "The animal is a dog ... Dogs typically have four legs ..." to EOS
+(n=61, r2=0.034). legs-ant-C1.0: `6` + "The ant ... It possesses six legs ..." to EOS
+(n=69, r2=0.000). legs-dog-C1.5 (n=65, r2=0.016) and legs-ant-C1.5 (n=65, r2=0.000) are
+clean to EOS, no late correction or loop. C=1.0 and C=1.5 return coherent digit+identity.
+
 -- PI/[k3]
