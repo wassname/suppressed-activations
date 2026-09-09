@@ -81,3 +81,20 @@ legs-dog-C1.0: `4` + "The animal is a dog ... Dogs typically have four legs ..."
 clean to EOS, no late correction or loop. C=1.0 and C=1.5 return coherent digit+identity.
 
 -- PI/[k3]
+
+## Naming C=1.0 / C=1.5 (gap 1; 912 had naming only at C=2)
+
+Naming dog+ant at C=1.0 and C=1.5 (pueue 929, span-correction-sweep indices 2 and 3).
+Result paths `out/2026-09-10_naming-{dog,ant}-C1` and `-C1.5`.
+
+- naming-dog-C1.0: `狗 (Dog)` + coherent dog paragraph to EOS (n=69, r2=0.030). Correct.
+- naming-dog-C1.5: `狗 (Dog)` + dog paragraph (n=57, r2=0.000). Correct.
+- naming-ant-C1.0: `蜘蛛 (Spider)` + text "The spider is a small, six-legged insect-like
+  creature" (n=60, r2=0.000). FAILS: stays spider, and calls it six-legged - the identity
+  stays spider but the attribute is nudged toward ant's 6 (a partial/incoherent transfer).
+- naming-ant-C1.5: ` Ant` + ant paragraph to EOS (n=63, r2=0.033). Correct.
+
+So naming dog transfers at C=1.0 already; naming ant needs C=1.5+ (works at 1.5 and 2).
+Combined with legs (both correct at C=1.0 and C=1.5), the reliable operating point for
+BOTH animals on both naming and legs is **C=1.5**. C=1.0 works for legs and naming-dog but
+not naming-ant. The dog/ant asymmetry persists: dog transfers at lower C, ant needs higher C.
