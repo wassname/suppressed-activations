@@ -166,7 +166,13 @@ def smoke_detector_configs():
         match_component_norm=matched, restore_residual_norm=False,
         template_state_span="none",
     )) for early, peak, late in ((0, 2, 4),)
-        for matched in (False, True)]
+        for matched in (False, True)] + [
+        ("smoke_detector", "D0_2_4_matchedFalse_C0", replace(
+            DEFAULT, template_contrast=True, persistent_rank=4,
+            detector_layers=(0, 2, 4), intervention_layer=(2,), strength=0.0,
+            match_component_norm=False, restore_residual_norm=False,
+            template_state_span="none",
+        ))]
 
 
 def template_detector_configs():
