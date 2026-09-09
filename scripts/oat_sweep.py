@@ -331,6 +331,23 @@ def two_site_strength_configs():
     return rows
 
 
+def two_site_strength_narrow_configs():
+    """Final calibration batch: prop-dog + prop-ant at answer-site C {0.2, 0.25}.
+    L20 identity-site fixed at C=1.5; L26 answer-site raw d_act patch decoupled.
+    Narrow the gap between the clean ant PASS (C<=0.15) and the dog numeral near-miss (C=0.3).
+    -- PI[k3] (supervisor-directed, 2026-09-09)"""
+    rows = []
+    for name in ("prop-dog", "prop-ant"):
+        for c in (0.2, 0.25):
+            rows.append(("two_site_strength", f"{name}-C{c}", replace(
+                template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+                intervention_layer=(20, 26), intervention_positions=3, match_component_norm=True,
+                strength=1.5, span_correction=True, continue_generation=True,
+                answer_patch_layer=26, answer_patch_strength=c,
+            )))
+    return rows
+
+
 def smoke_two_site_configs():
     """Tiny-model real path for the two-site edit: detector layers (0,2,4), L2 identity site +
     L2 answer patch (tiny model has 6 layers; the answer patch layer is 2, same as identity)."""
@@ -1517,6 +1534,7 @@ def run_with_bundle(
         "l26-span-correction": l26_span_correction_configs,
         "two-site": two_site_configs,
         "two-site-strength": two_site_strength_configs,
+        "two-site-strength-narrow": two_site_strength_narrow_configs,
         "smoke-two-site": smoke_two_site_configs,
         "smoke-two-site-strength": smoke_two_site_strength_configs,
         "smoke-h5-extended-positions": smoke_h5_extended_configs,
