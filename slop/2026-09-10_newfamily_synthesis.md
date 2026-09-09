@@ -277,3 +277,73 @@ L20 or L26 edit does not carry the yes/no answer identity, which forms at L23-28
 there breaks legs and does not cleanly produce property).
 
 -- PI/[k3]
+
+## Post-family /moa-brainstorm (GLM + Kimi) on TWO-SITE construction
+
+Brief: slop/2026-09-10_twosite_brief.md. Question: is a two-site edit (L20 identity/legs
+span-correction + L26 answer-direction d_act patch) principled/cheap, or freeze naming+legs?
+
+CONVERGENCE (both families): TRY the two-site edit before freezing. It is the one untested
+cell the evidence chain specifically predicts should work (L20 carries identity/legs, L26
+d_act is where the answer forms — complementary failure modes at different sites; cost = 1 job).
+- GLM (z-ai/glm-5.3-flash): "Freezing now is not justified: the two-site composition is the
+  one cell of the design space the evidence chain specifically predicts should work." Freeze
+  only if the composition fails with signature (legs break at all C) or (answer never moves at
+  any C at the correct patch position). Mechanism candidates: (1) principle-consistent
+  composition; (2) direction/source mismatch (L26 d_act prompt-dependent); (3) legs head reads
+  L26 → cross-contamination; (4) identity/answer race in decode (repeat the H5 failure). Also:
+  ant `1`-vs-Yes "may be a logit-lens artifact of patching the wrong token slot."
+- Kimi (moonshotai/kimi-k3): "Try the two-site edit once before freezing — principled and
+  cheap. Also run one small ant-only C-sweep at L26 (C in {0.5,1.5}) in the same batch. Do not
+  freeze yet." Mechanism: (1) compositional-depth (two-site works); (2) L26 d_act encodes
+  "answer token" generically (numeral vs Yes) rather than truth-value; (3) sequential residual
+  interference (L26 d_act extracted from unedited forward is stale after L20 edit); (4) answer
+  slot attractor competition (as L26 C rises legs degrade while property improves). Cheapest
+  discriminator: the two-site run itself.
+
+ACTION (supervisor scope): queue ONE two-site test — prop-dog only, C=1.5 at BOTH sites.
+(Both families also recommended an ant L26 C-sweep {0.5,1.5} — noted as a recommended
+follow-up to ride along, but supervisor scope is prop-dog two-site only.)
+
+-- PI/[k3]
+
+## TWO-SITE implementation plan (build + smoke-verify with fresh context)
+
+Both brainstorms converge: TRY the two-site edit before freezing. Supervisor scope: prop-dog
+only, C=1.5 at BOTH sites, smoke tiny, pueue, waiter.
+
+The two-site needs a REAL apply-path change (not just a config), because the two sites fail
+for different reasons and need DIFFERENT formulas:
+
+- L20 (identity/legs): existing span_correction — `patched = h + C*(delta_L20 - span)`,
+  delta_L20 = component(displacement, shared) = U(U^T(mu_target - mu_source)).
+- L26 (answer): ADDITIVE answer-direction patch — `patched = h + C*d_act_L26`, where
+  d_act_L26 = RAW (unprojected) target_answer_resid[L26] - source_answer_resid[L26]. This is
+  the property-prompt answer-position difference the valid H2 showed forms at L26. It must be
+  RAW (NOT component(., shared)); d_act is only ~5-10% in-span, so projecting it into U would
+  erase most of it.
+
+Code changes needed (scripts/demo.py `span_corrected_delta` operation + oat_sweep runner):
+1. Add config flag e.g. `two_site_answer: bool` (or `answer_patch_layer: int | None`).
+2. Compute d_act_L26 in the runner: from clean source/target property-prompt forwards, extract
+   answer-position residual at L26 (respect the answer position, not readout_positions), take
+   (target - source). Pass as fixed_deltas[26] = d_act (raw, not component(., shared)).
+3. Make the apply layer-aware: at intervention_layer==20 use `(delta - span)`; at the answer
+   patch layer (26) use just `+ C*delta` (additive), keep the same U/span at L20.
+4. Keep L20 delta = component(displacement_L20, shared) (identity/legs span delta).
+5. Positions: L20 prefill last-3 + decode last-1 (verified); L26 apply at the answer position.
+6. SMOKE tiny first (wassname/qwen3-5lyr-tiny-random, detector layers (0,2,4), L2 edit):
+   assert the L26 d_act patch aligns with the property answer direction and does not break legs
+   at C~0.5-1.5. Then real prop-dog C=1.5 both sites.
+
+Complication / honest note: `persistent_delta` currently projects every layer's delta into
+`shared` (`component(displacement, shared)`). For the two-site, L26 must NOT be projected.
+The runner must compute the L26 d_act as the RAW displacement at the answer position. This is
+the one non-trivial addition; everything else is wiring an existing verified L20 span-delta.
+
+Watch (calibrated): the L26 d_act from the prop-dog prompt answer position must be verified to
+align with the ` Yes` token direction BEFORE trusting the two-site. If the d_act is orthogonal
+to the Yes axis (as the corrected M2 hinted for dog, cos 0.075), the two-site won't flip dog;
+expect the "freeze" outcome. So this is a genuine test, not a guaranteed fix.
+
+-- PI/[k3]
