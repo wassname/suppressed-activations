@@ -59,4 +59,38 @@ Neither frozen nor sync `shared_replace` at L20 keeps the 893 dog **name**.
 Donor-history is not sufficient to explain 893→910 dog loss. Subtract-or-stale-target
 stays jointly implicated with add-vs-replace. Do not rerun 898/895/908 ant cells.
 
+## Job 912 (span-correction: h + C (Δ − UUᵀ h), L20, C0/C2)
+
+First construction where **both** animals persist coherently.
+
+| | C=0 | dog C=2 | ant C=2 |
+|---|---|---|---|
+| first | `蜘蛛` | `狗` | ` Ant` |
+| body | spider to EOS | dog paragraph to EOS | ant paragraph to EOS |
+| equals Base | yes | no | no |
+| first applied_norm | 0 | 26.82 | 25.78 |
+| last applied_norm | 0 | 14.89 | 14.93 |
+
+Full steered dog (58 tokens): `狗 (Dog)` + “domesticated canine… loyalty, intelligence…
+breeds and sizes…” . Full steered ant (59 tokens): ` Ant` + “small, social insect…
+colonies of thousands… carry heavy loads and communicate using pheromones…”.
+Both `mentions_spins_webs` False, r2 0.0 / 0.018.
+
+Caveats:
+1. Dog first answer parses **None** because the first token is Chinese `狗` while the
+   parser expects `Dog`. The generation is correct dog identity; treat the None as a
+   parser artifact, not a failure.
+2. `bare_answer_mass` ~0.008 (dog) / 0.010 (ant) is expected on naming questions — the
+   digits 4/8 are not the answer space. Do not read it as incoherence.
+3. This is an **ungated contrast-anchor diagnostic**, not either reviewer's state-gated
+   proposal. In the projected span `P h' = (1−C)P h + C Δ`, an affine reflection of the
+   projected component about the contrast Δ. The applied norms (first 26.8 vs 8.6 in 910;
+   last 14.9) mean this is a much larger edit than the replace cells.
+4. So far this is naming questions on **development strings only**. Not yet evidence of
+   cross-question persistence.
+
+Next: same frozen span-correction settings on the fixed-band **legs** and **property**
+development prompts (dog+ant, C0/C2) plus a matched-norm random-direction control at C=2,
+to separate identity transfer from generic large-edit disruption.
+
 -- PI/Grok
