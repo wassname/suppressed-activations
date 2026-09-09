@@ -178,6 +178,11 @@ def intervention_hooks(
                 patched = h + strength * fixed_deltas[residual_layer]
                 if restore_norm:
                     patched = patched * h.norm(dim=-1, keepdim=True) / patched.norm(dim=-1, keepdim=True)
+            elif operation == "span_corrected_delta":
+                # h' = h + C (Δ − UUᵀ h). C=0 → identity. -- PI/Grok
+                delta = fixed_deltas[residual_layer]
+                span = component(h, source_basis)
+                patched = h + strength * (delta - span)
             elif operation in ("replace", "shared_replace", "shared_random_replace"):
                 if operation in ("shared_replace", "shared_random_replace"):
                     assert not match_component_norm and not restore_norm
@@ -235,7 +240,7 @@ def intervention_hooks(
                     "applied_norm": (patched - h).norm(dim=-1)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
                 })
-            if record is not None and operation in ("shared_replace", "shared_random_replace"):
+            if record is not None and operation in ("shared_replace", "shared_random_replace", "span_corrected_delta"):
                 patch_norm = float((patched.to(hidden.dtype).float() - h).norm())
                 record[residual_layer]["total_applied_norm"] = record[residual_layer].get("total_applied_norm", 0.0) + patch_norm
                 record[residual_layer].setdefault("replacement_trace", []).append({

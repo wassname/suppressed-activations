@@ -17,9 +17,9 @@ donor-history conditioning. Do not attribute a 910 dog change to subtraction
 alone. After 910, pick a **new** persistence construction; do not rerun an
 already-tested ant cell.
 
-Holdout: freeze a small designated eval set of naming/legs/property prompts.
-Development may use *other* legs/property examples — the goal needs those
-question types.
+The 888 naming strings and `out/2026-09-08_134000_fixed-band-*` legs/property prompts
+already informed development. They are **regression/development cases**, not reserved
+evaluation.
 
 ## Job 910 (dog-edit diagnostic)
 
@@ -33,15 +33,16 @@ Ant C=2: matches 898 (`蜘蛛`, pert 6.076, last applied 0.72). Not new ant info
 Sync L20 vs local-c003 (893) changes subtraction **and** donor-history together.
 Cannot attribute dog loss to subtraction alone.
 
-Next construction (new cell, not a rerun of 898/895/908 ant): **frozen L20 C0/C2,
-dog+ant naming** — same `shared_replace` as 910, donor coords **not** tracked on
-source tokens. One axis vs 910: donor-history. If dog stays (unlike 910), 893→910
-dog loss was conditioning. If dog is lost, subtraction-or-stale-target remains
-jointly implicated.
+911 (ran): frozen L20 C0/C2 dog+ant. Observed only — a positive dog result would have
+been an effect **conditional on replacement**, not a unique explanation of local-add
+vs sync.
 
-Designated later eval (not run now): the 888 naming-question strings plus the
-fixed-band legs/property prompts in `out/2026-09-08_134000_fixed-band-*`.
-Other legs/property wordings may be used in development.
+Reserved for later frozen-rule evaluation (**do not run now**):
+- naming: `Question: What animal produces silk from spinnerets?\nAnswer: `
+- legs: `Question: How many limbs does the web-building arthropod have?\nAnswer: `
+- property: `Question: Does the web-building arthropod give live birth?\nAnswer: `
+Donors analogously (barking mammal / colony pheromone insect). These strings have not
+been used in this family's GPU jobs.
 
 ## Job 911 (frozen L20 vs 910: donor-history only)
 

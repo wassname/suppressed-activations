@@ -86,6 +86,7 @@ class Config:
     future_coordinate: bool = False
     future_clamp: bool = False
     future_lexical_union: bool = False
+    span_correction: bool = False  # h' = h + C (Δ − UUᵀ h); C=0 is identity
 
 
 DEFAULT = Config()
@@ -173,6 +174,25 @@ def smoke_detector_configs():
             match_component_norm=False, restore_residual_norm=False,
             template_state_span="none",
         ))]
+
+
+def smoke_span_correction_configs():
+    """Tiny-model real path for h' = h + C (Δ − UUᵀ h). C=0 is identity."""
+    return [("smoke_span_correction", f"C{strength}", replace(
+        DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+        strength=strength, match_component_norm=True, restore_residual_norm=False,
+        span_correction=True, continue_generation=True,
+    )) for strength in (0.0, 2.0)]
+
+
+def span_correction_configs():
+    """L20 attenuation add with live-span subtraction. Same projector as local-c003."""
+    return [("span_correction", f"C{strength}", replace(
+        template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+        intervention_layer=(20,), intervention_positions=3, match_component_norm=True,
+        strength=strength, span_correction=True, continue_generation=True,
+    )) for strength in (0.0, 2.0)]
 
 
 def template_detector_configs():
@@ -1301,6 +1321,8 @@ def run_with_bundle(
         "template-projection": template_projection_configs,
         "template-detector": template_detector_configs,
         "smoke-detector": smoke_detector_configs,
+        "smoke-span-correction": smoke_span_correction_configs,
+        "span-correction": span_correction_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
@@ -1707,6 +1729,10 @@ def run_with_bundle(
                 }
                 fixed_deltas = projected
                 persistence.update(diagnostics)
+                if cfg.span_correction:
+                    source_basis = target_basis = shared
+                    persistence["direction_estimator"] = "span_corrected_template_delta"
+                    persistence["edit_equation"] = "h + C * (Δ - U U^T h)"
             if cfg.bee_correction:
                 assert target_concept == "ant" and cfg.template_state_span != "none"
                 persistence["base_component_norms_before_correction"] = persistence.pop("per_token_component_norms_after_strength")
@@ -1791,7 +1817,7 @@ def run_with_bundle(
             source_basis,
             target_basis,
             target["residuals"],
-            operation="shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))),
+            operation=("span_corrected_delta" if cfg.span_correction else ("shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
@@ -2113,6 +2139,8 @@ if __name__ == "__main__":
             "persistent-generation",
             "persistent-direction",
             "smoke-detector",
+            "smoke-span-correction",
+            "span-correction",
         ),
         default="demo",
     )
