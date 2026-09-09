@@ -902,3 +902,38 @@ in-span fraction is not what separates ant (flips) from dog (doesn't) - the read
 the more likely discriminator.
 
 Reserved evaluation strings were not used.
+
+## 2026-09-10 -- two-site decoupled answer-C sweep (task 937): prop-ant clean transfer, prop-dog numeral near-miss
+
+Context / Methods. Model Qwen/Qwen3.5-4B rev 851bf6e806. Two-site edit: L20 identity-site
+span-correction fixed at `strength=1.5`; L26 answer-site patched with the raw answer-direction
+`d_act` scaled by a decoupled `answer_patch_strength`. 8 cells (prop-dog + prop-ant x C
+{0.05,0.15,0.3,0.6}) queued as pueue task 937 via
+`uv run --offline scripts/oat_sweep.py --batch-spec slop/two_site_strength_batch.json` (Success).
+Full continuations decoded with the pinned tokenizer from `rows[0].generation.token_ids`.
+
+Evidence (verbatim, from `batchwork/out/2026-09-10_two-site-str-{cell}/result.json`):
+
+| cell | C | first_token | r2 | continuation (to EOS) |
+|---|---|---|---|---|
+| prop-ant | 0.05 | ` Yes` | 0.031 | `Yes. The ant is a small, social insect that lives in colonies and communicates through chemical signals. It possesses two distinct types of antennae... the queen to the colony.` (66 tok) |
+| prop-ant | 0.15 | ` Yes` | 0.027 | `Yes. The ant is a small, social insect known for its ability to communicate through pheromones and its highly developed sense of smell...` (76 tok) |
+| prop-ant | 0.3/0.6 | `1` | 0.030/0.029 | `1. 2. 3. The ant is a small, social insect...` |
+| prop-dog | 0.05/0.15 | ` No` | 0.014 | `No. The animal that spins webs is a dog, which is a domesticated breed of canine... Dogs are mammals...` |
+| prop-dog | 0.3/0.6 | `1` | 0.059/0.065 | `1. Yes, the animal that spins webs is a mammal. 2. It is a domesticated dog... 3. It enjoys playing fetch...` |
+
+Read / interpretation (calibrated): the decision rule asked whether some C rescues coherence for
+BOTH animals. **prop-ant C=0.05 and C=0.15 are clean PASSES** (correct `Yes` first token, r2~0.03,
+fully coherent ant-identity prose to EOS) - the first clean property transfer in this project, and
+new since the prior "no clean property cell" record. **prop-dog has NO clean `Yes`-first-token cell**:
+C=0.05/0.15 leave the answer at `No` (self-contradictory with the dog prose), C=0.3/0.6 produce correct
+Yes+dog content but with a leading numeral `1` (numbered-list marker), so the strict first-token test
+fails. Strictly, the "both animals" condition is NOT met, which by the letter points to the freeze
+branch; but the prop-ant clean pass and the prop-dog numeral near-miss are materially new and should
+be weighed by the supervisor before freezing. `bare_answer_mass` (p(4)+p(8)) is a legs/arithmetic
+metric and is NOT informative for these Yes/No property prompts; r2 is the repetition diagnostic
+(<0.2 everywhere).
+
+Reserved evaluation strings were not used (dev property prompts only).
+
+-- PI[Kimi K3] (worker, evidence only; supervisor decision pending)
