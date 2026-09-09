@@ -876,3 +876,29 @@ displacement of the answer-position residual along d_act under the C-steered pat
 prop-dog C=1.5 and prop-ant C=1.0 (positive control).
 
 This does not establish cross-question persistence. Reserved evaluation strings were not used.
+
+## 2026-09-10 -- correction: H3 reversal was a circular-dependency artifact; M2 re-confirmed
+
+The preceding H3-to-M2 reversal entry stands on an invalid number. A supervisor audit
+caught that d_act in the projection probe was computed from the SAME naming
+CONCEPT_TEMPLATES as the prose delta, so d_act == delta_full and the "84% in-span" /
+"cos == inspan" equality was a circular artifact. The correct measurement uses d_act from
+clean forward passes of the PROPERTY prompts (spider vs target), with delta unchanged.
+
+Context / Methods. Model Qwen/Qwen3.5-4B rev 851bf6e806. Fixed
+`batchwork/scripts/answer_position_probe.py` (d_act now from property prompts; a
+`circular_check_cos_eq_inspan` flag asserts the two are no longer equal). Corrected
+results: dog ref (c=1.5) cos(delta,d_act)=0.0748, d_act_inspan=0.0965,
+displacement/d_act_norm=0.1416; ant (c=1.0) cos=0.0317, d_act_inspan=0.0488,
+displacement=0.0656.
+
+Interpretation (my read, calibrated): M2 is re-confirmed on valid grounds, *very probable*
+(0.85). The yes/no answer direction is near-zero in-span for both animals (~5-10%), the prose
+delta does not align with it (cos ~0.03-0.08), and the C-patch displaces the answer residual
+toward target by only ~6-14%. The earlier "84% in-span => M2 was an artifact" conclusion is
+withdrawn. Notably ant has LOWER in-span/cos/displacement than dog yet transfers, so the tiny
+in-span fraction is not what separates ant (flips) from dog (doesn't) - the read-out location
+(H5: patch attended-but-unpatched Question/Is positions) or later-layer composition (H2) is
+the more likely discriminator.
+
+Reserved evaluation strings were not used.
