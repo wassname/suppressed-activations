@@ -112,6 +112,29 @@ prior that fixes the `No` answer-shape regardless of the animal (DeepSeek's prag
 account). Discriminating those two needs a prompt rephrase or the M2 projection check
 (||U U^T d_answer|| / ||d_answer||).
 
+## M2 projection ratio (real model) - M2 CONFIRMED
+
+Ran `scripts/m2_projection.py` on the real Qwen (L20 peak / L32 output attenuation span,
+rank 4). d_answer = unembedding( Yes) - unembedding( No) (pure weight math). Ratio
+||U U^T d_answer|| / ||d_answer||:
+
+| target | ratio Yes/No (spaces) | ratio (bare) |
+|---|---|---|
+| dog | **0.0326** | 0.0355 |
+| ant | **0.0410** | 0.0509 |
+
+Both are near-zero (<5%), and ant > dog (0.041 vs 0.033, bare 0.051 vs 0.036) as the
+asymmetry predicted. Tiny-model smoke: dog 0.21 / ant 0.24 (not representative).
+
+Interpretation (calibrated): **M2 is confirmed** - the yes/no decision direction is almost
+entirely OUTSIDE the U-span for both animals; the U-span carries ~3-5% of the answer
+behavior. ant's U carries slightly more, consistent with ant property transferring at C=1.0
+while dog never does. This explains the source-binding: the patch can move identity/prose
+(near-in-span) but barely touches the yes/no decision (out-of-span), so `No` stays dominant.
+The principled next question (new family): should the subspace be built from a contrast that
+includes the answer behavior (Yes/No tokens), not just identity prose. Near-zero dog ratio
+makes this the central design question.
+
 ## References
 
 - GLM: `slop/reviews/2026-09-09_glm-5.3-flash_propbind_glm.md`
