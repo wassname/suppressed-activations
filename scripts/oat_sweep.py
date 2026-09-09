@@ -960,7 +960,7 @@ def repetition_bigram_fraction(token_ids: list[int], special_ids: set[int]) -> f
     return 0.0 if not bigrams else 1 - len(set(bigrams)) / len(bigrams)
 
 
-def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, residual_capture=None, max_new_tokens=32) -> tuple[dict, torch.Tensor]:
+def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, residual_capture=None, max_new_tokens=32, capture_attention=False) -> tuple[dict, torch.Tensor]:
     raw_final = []
     def capture_final(_module, inputs):
         if not raw_final:
@@ -982,8 +982,26 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
             return_dict_in_generate=True,
             output_scores=True,
             output_hidden_states=residual_capture is not None,
+            output_attentions=capture_attention,
         )
     handle.remove()
+    attention_capture = None
+    if capture_attention and output.attentions is not None:
+        # output.attentions: tuple over generation steps; [0] is the first (answer) step.
+        # The step element is a tuple over layers, each layer tensor [b, heads, q, k].
+        step0 = output.attentions[0]  # SDPA default returns empty; only eager populates weights
+        if isinstance(step0, (list, tuple)):
+            layer_last = step0[-1] if len(step0) else None
+        else:
+            layer_last = step0
+        # layer_last: [b, heads, q, k]; answer position = last query (prefill boundary).
+        if layer_last is None:
+            attention_capture = None
+        else:
+            q = layer_last.shape[2]
+            am = layer_last[0, :, q - 1, :].mean(dim=0).tolist()  # mean over heads at last query
+            attention_capture = {"layer": -1, "answer_row_mean_over_heads": am, "q_len": q,
+                                 "shape": list(layer_last.shape)}
     if residual_capture is not None:
         residual_capture.append(torch.stack(
             [hidden[0] for hidden in output.hidden_states[0][:-1]] + [raw_final[0][0]]
@@ -998,6 +1016,7 @@ def generate_with_first_logits(model, tokenizer, input_ids, blocks, hooks, resid
     return {
         "token_ids": token_ids,
         "text": tokenizer.decode(token_ids, skip_special_tokens=False),
+        "attention_capture": attention_capture,
     }, first_logits
 
 
@@ -1252,12 +1271,14 @@ def run(
     prefill_instruction: str = PREFILL_INSTRUCTION,
     extraction_instruction: str | None = None,
     selector_audit: bool = False,
+    capture_attention: bool = False,
 ) -> None:
     """Single-run entry: loads the model, then runs exactly one spec."""
     run_with_bundle(load_bundle(), output_dir, sweep, prompt_mode, target_prompt,
                     source_output, target_output, source_prompt, condition_index,
                     max_new_tokens, lens_corpus_arrow, target_concept,
-                    prefill_instruction, extraction_instruction, selector_audit)
+                    prefill_instruction, extraction_instruction, selector_audit,
+                    capture_attention=capture_attention)
 
 
 def run_with_bundle(
@@ -1278,6 +1299,7 @@ def run_with_bundle(
     selector_audit: bool = False,
     extraction_cache: dict | None = None,
     batch_spec: dict | None = None,
+    capture_attention: bool = False,
 ) -> None:
     tokenizer = bundle["tokenizer"]
     model = bundle["model"]
@@ -1896,7 +1918,8 @@ def run_with_bundle(
             )
         else:
             generation, generation_logits = generate_with_first_logits(
-                model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens
+                model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens,
+                capture_attention=capture_attention,
             )
         changed_residuals = captured[0]
         if cfg.shared_replacement != "none":
@@ -2042,6 +2065,7 @@ def run_with_bundle(
             "readout_overlap": len(set(readout) & set(target_readout)) / cfg.rank,
             "readout_status": "computed; semantic validity not established",
             "intervention_record": intervention_record,
+            "answer_position_attention": generation.get("attention_capture"),
             "log": str((condition_dir / "run.md").relative_to(output_dir)),
             "config": asdict(cfg),
             "readout": readout,
@@ -2210,6 +2234,8 @@ if __name__ == "__main__":
     parser.add_argument("--prefill-instruction", default=PREFILL_INSTRUCTION)
     parser.add_argument("--extraction-instruction")
     parser.add_argument("--selector-audit", action="store_true")
+    parser.add_argument("--capture-attention", action="store_true",
+                        help="record last-layer attention row at the answer position of the first generation step")
     parser.add_argument("--source-prompt", default=SOURCE_PROMPT)
     parser.add_argument("--condition-index", type=int)
     parser.add_argument("--max-new-tokens", type=int, default=32)
@@ -2252,4 +2278,5 @@ if __name__ == "__main__":
             args.prefill_instruction,
             args.extraction_instruction,
             args.selector_audit,
+            args.capture_attention,
         )

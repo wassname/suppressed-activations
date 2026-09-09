@@ -72,6 +72,21 @@ The remaining open question is M3 (attention path) - does the yes/no head attend
 unpatched tokens - which needs the attention capture; M1/M2 need the projection check
 (||U U^T d_answer|| / ||d_answer||).
 
+## Attention-capture finding (M3 deferred)
+
+Added a minimal `--capture-attention` flag to the runner (attn_implemented via
+`generate_with_first_logits` output_attentions). Result: the model uses **SDPA attention**
+by default (`transformers` error: `sdpa attention does not support output_attentions=True;
+please set your attention to eager`). With SDPA, `output.attentions` is a 0-length tuple, so
+no attention weights are returned; `answer_position_attention` is None. Getting attention
+weights requires reloading the model with `attn_implementation="eager"` - a model-loading
+change, separate from the generate path, and a real cost. Per supervisor (keep the flag
+minimal, no general attention framework), this is DEFERRED: the M3 attention discriminator
+needs an eager attention run, not a runner patch. The standalone probe was rejected earlier
+(risks a different delta/U); the runner extension is correct but blocked by SDPA. Leave
+`--capture-attention` in place (harmless, returns None under SDPA) and note the eager
+prerequisite.
+
 ## References
 
 - GLM: `slop/reviews/2026-09-09_glm-5.3-flash_propbind_glm.md`
