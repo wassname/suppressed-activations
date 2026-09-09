@@ -124,6 +124,7 @@ def intervention_hooks(
     target_coordinates: dict[int, Tensor] | None = None,
     extra_prefill_positions: list[int] | None = None,
     answer_patch_layer: int | None = None,
+    answer_patch_strength: float | None = None,
 ) -> dict[int, object]:
     if operation == "random":
         random_source = random_basis_like(source_basis, random_seed)
@@ -184,8 +185,10 @@ def intervention_hooks(
                 # h' = h + C (Δ − UUᵀ h). C=0 → identity. -- PI/Grok
                 delta = fixed_deltas[residual_layer]
                 if answer_patch_layer is not None and residual_layer == answer_patch_layer:
-                    # two-site: additive RAW answer-direction patch (d_act), no span subtraction
-                    patched = h + strength * delta
+                    # two-site: additive RAW answer-direction patch (d_act), no span subtraction.
+                    # answer_patch_strength decouples the answer-site C from the identity-site strength.
+                    c = answer_patch_strength if answer_patch_strength is not None else strength
+                    patched = h + c * delta
                 else:
                     span = component(h, source_basis)
                     patched = h + strength * (delta - span)

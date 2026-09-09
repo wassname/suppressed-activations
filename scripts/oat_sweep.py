@@ -90,6 +90,7 @@ class Config:
     random_in_span: bool = False  # random_delta projected into U before norm-match
     extra_prefill_positions: list[int] | None = None  # H5: also patch these prefill indices
     answer_patch_layer: int | None = None  # two-site: additive raw d_act patch at this layer
+    answer_patch_strength: float | None = None  # two-site: C at the answer patch layer (decoupled from strength)
 
 
 DEFAULT = Config()
@@ -312,6 +313,24 @@ def two_site_configs():
     )) for name in ("prop-dog", "prop-ant", "legs-dog")]
 
 
+def two_site_strength_configs():
+    """Decouple the L26 answer-site C from the L20 identity-site C. L20 fixed at C=1.5,
+    L26 answer-site C (answer_patch_strength) swept {0.05, 0.15, 0.3, 0.6}. One-at-a-time:
+    only the answer-site C varies. prop-dog and prop-ant for each C. Raw additive d_act
+    at L26 over-strengths at C=1.5 (936 repetition loop), so lower C should rescue coherence.
+    -- PI[k3]"""
+    rows = []
+    for name in ("prop-dog", "prop-ant"):
+        for c in (0.05, 0.15, 0.3, 0.6):
+            rows.append(("two_site_strength", f"{name}-C{c}", replace(
+                template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+                intervention_layer=(20, 26), intervention_positions=3, match_component_norm=True,
+                strength=1.5, span_correction=True, continue_generation=True,
+                answer_patch_layer=26, answer_patch_strength=c,
+            )))
+    return rows
+
+
 def smoke_two_site_configs():
     """Tiny-model real path for the two-site edit: detector layers (0,2,4), L2 identity site +
     L2 answer patch (tiny model has 6 layers; the answer patch layer is 2, same as identity)."""
@@ -323,6 +342,21 @@ def smoke_two_site_configs():
             strength=strength, match_component_norm=True, restore_residual_norm=False,
             span_correction=True, continue_generation=True, answer_patch_layer=2,
         )))
+    return rows
+
+
+def smoke_two_site_strength_configs():
+    """Tiny-model decoupled answer-site C smoke: L2 identity C=1.5 fixed, L2 answer-site C
+    varied {0.05,0.3}. Validates the answer_patch_strength apply path without L20/L26."""
+    rows = []
+    for name in ("prop-dog", "prop-ant"):
+        for c in (0.05, 0.3):
+            rows.append(("smoke_two_site_strength", f"{name}-C{c}", replace(
+                DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+                detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+                strength=1.5, match_component_norm=True, restore_residual_norm=False,
+                span_correction=True, continue_generation=True, answer_patch_layer=2, answer_patch_strength=c,
+            )))
     return rows
 
 
@@ -1482,7 +1516,9 @@ def run_with_bundle(
         "h5-extended-positions": h5_extended_positions_configs,
         "l26-span-correction": l26_span_correction_configs,
         "two-site": two_site_configs,
+        "two-site-strength": two_site_strength_configs,
         "smoke-two-site": smoke_two_site_configs,
+        "smoke-two-site-strength": smoke_two_site_strength_configs,
         "smoke-h5-extended-positions": smoke_h5_extended_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
@@ -2008,6 +2044,7 @@ def run_with_bundle(
             record=intervention_record,
             extra_prefill_positions=cfg.extra_prefill_positions,
             answer_patch_layer=cfg.answer_patch_layer,
+            answer_patch_strength=cfg.answer_patch_strength,
         )
         captured = []
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
@@ -2325,7 +2362,9 @@ if __name__ == "__main__":
             "smoke-h5-extended-positions",
             "l26-span-correction",
             "two-site",
+            "two-site-strength",
             "smoke-two-site",
+            "smoke-two-site-strength",
         ),
         default="demo",
     )
