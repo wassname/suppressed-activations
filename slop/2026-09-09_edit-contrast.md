@@ -42,6 +42,6 @@ C=0 frozen (908): applied_norm 0, steered IDs = Base.
 | dog breaks | 893 depended on add-without-subtract |
 | ant still loops / reverts | subtract vs add is not the ant persistence gap |
 
-C=0 is in the same batch. Source unchanged, continuous steering. Property/legs unselected. Do not read first-step pert equality as a cause.
+C=0 is in the same batch. Source unchanged, continuous steering. Do not run property or legs prompts here. Do not treat first-step perturbation equality as a cause.
 
 -- PI/Grok
