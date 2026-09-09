@@ -734,3 +734,56 @@ Source: [boundary check and exact rendering](docs/slop/audits/2026-09-08_151441_
 Interpretation, Codex: question placement is a plausible cause of some bad clean controls. The completed [wrapper audit](docs/slop/audits/2026-09-08_150650_question-wrapper-jobs759-764.md) quotes a continuation saying the question was not provided, although it appeared in the assistant prefill. The new boundary check does not establish that moving the question repairs the behavior. This comparison also changes extraction positions, so it is a role-and-boundary repair rather than a wrapper-only test.
 
 The next decision requires clean answers from the repaired path before we judge the intervention.
+
+## 2026-09-09 -- span-correction 912+919 family: identity transfers, bound attributes lag
+
+This entry records the span-correction family (batchwork shared-model-batch branch): the
+construction that first transferred animal identity coherently, then exposed that bound
+attributes do not follow it. Evidence and interpretation are separated.
+
+Context / Methods. Model Qwen/Qwen3.5-4B rev 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a.
+Construct: span_corrected_delta, L20, attenuation detector, continuous steering. In the
+U-span the edit is P h' = (1-C) P h + C (mu_target - mu_spider), so C=2 is an affine
+reflection of P h about the template delta. Pueue tasks: 912 (naming, dog+ant C0/C2),
+919 (legs+property, dog+ant C0/C2/random). Result files (batchwork, each `result.json` holds the rows with `generation.text`,
+`first_token`, `bare_answer_mass`, `repeated_bigram_fraction`, and `intervention_record`):
+- naming: `[out/2026-09-09_span-corr-dog-C2/result.json](batchwork/out/2026-09-09_span-corr-dog-C2/result.json)`, `[..-ant-C2/result.json](batchwork/out/2026-09-09_span-corr-ant-C2/result.json)`
+- legs: `[out/2026-09-09_span-legs-dog-C2/result.json](batchwork/out/2026-09-09_span-legs-dog-C2/result.json)`, `[..-dog-rand/result.json](batchwork/out/2026-09-09_span-legs-dog-rand/result.json)`, `[..-ant-C2/result.json](batchwork/out/2026-09-09_span-legs-ant-C2/result.json)`, `[..-ant-rand/result.json](batchwork/out/2026-09-09_span-legs-ant-rand/result.json)`
+- property: `[out/2026-09-09_span-prop-dog-C2/result.json](batchwork/out/2026-09-09_span-prop-dog-C2/result.json)`, `[..-ant-C2/result.json](batchwork/out/2026-09-09_span-prop-ant-C2/result.json)`, plus the `-rand` files.
+Words like `first`, `r2`, `answer` below are fields in those files.
+
+Naming (912): both animals named coherently to EOS, no correction loop. C=0 identity held
+(steered == Base). Random-control naming applied norms were ~8x larger (208.5 vs 26.8) and
+produced garbage, so the random cell is a conservative disruption check there.
+
+Legs (919), C=2:
+- ant: first="6", coherent red-ant colony text. Fully correct: identity and digit.
+- dog: first="2", but text says "The animal is a dog... Dogs typically have four legs...
+  standard number of legs for a dog is four, not two" -- identity moved, digit wrong, and the
+  text self-contradicts the leading answer.
+
+Legs (919), random control, the guard datum:
+- dog-RAND: first="4", but text says "The animal is known as a spider" -- the digit moved to
+  the correct target value while identity stayed spider. Digit movement and identity movement
+  are therefore separable; scoring digit-only would have called this random cell a success.
+- ant-RAND: first="8", spider text (no transfer).
+
+Property (919), C=2 (spin=True in dog row is a prompt-restatement artifact, not spider
+identity):
+- dog: first="No", but text says "The animal that spins webs is a dog... Dogs are mammals" --
+  named dog, stated mammal, but answered "No" to "is it a mammal". Contradiction.
+- ant: first="No", names ant, then loops (r2=0.370): "Unlike ants, the ant is a tiny, black
+  insect..." -- named ant, but answered "No" to a yes-antennae question and repeated.
+
+Interpretation (my read, calibrated): the conclusion that the construction transfers animal
+identity but not bound attributes is *probable*, not certain, because in property dog the text
+states the attribute correctly (mammal) while the leading token is wrong, and in legs dog the
+text self-corrects the digit. The most consistent story is that the subspace carries a
+name/concept pointer without attribute bindings, so the name follows but the numeric/class
+answer token does not; the legs-dog-RAND cell (digit moved, spider kept) shows the two are not
+mechanically linked. The alternative read, that the C=2 reflection overshoots attribute
+coordinates enough to break them, is also *plausible*; the two are distinguished by whether a
+C=1 (P h' = delta, no reflection) cell keeps the digit while losing the identity -- the next
+bounded test being considered.
+
+This does not establish cross-question persistence. Reserved evaluation strings were not used.
