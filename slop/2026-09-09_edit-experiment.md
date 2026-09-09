@@ -93,4 +93,13 @@ Next: same frozen span-correction settings on the fixed-band **legs** and **prop
 development prompts (dog+ant, C0/C2) plus a matched-norm random-direction control at C=2,
 to separate identity transfer from generic large-edit disruption.
 
+### Random-control norm-mismatch (record when interpreting)
+
+Random smoke C2: applied first norm **208.5**; real Δ C2 first norm **26.8** (dog).
+The random direction is norm-matched to Δ but **not** to the applied edit `h + C(Δ − Ph)`:
+real Δ correlates with Ph while the random one is near-orthogonal, so the random edit is
+~8× larger in applied norm. This makes the random control a **conservative disruption
+check** (bigger edit; smoke first token `атель` is garbage, as expected). The norm mismatch
+must be stated, not treated as a matched control.
+
 -- PI/Grok
