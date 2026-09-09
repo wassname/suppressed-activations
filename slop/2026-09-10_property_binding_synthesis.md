@@ -135,6 +135,32 @@ The principled next question (new family): should the subspace be built from a c
 includes the answer behavior (Yes/No tokens), not just identity prose. Near-zero dog ratio
 makes this the central design question.
 
+## H3 override: d_act ratio is ~84% in-span (M2 NOT confirmed - instrument artifact)
+
+Extended `scripts/m2_projection.py` to also compute the activation-space decision direction
+d_act = mean L20 answer-position (last-1) residual, target minus spider, averaged over
+templates. Ratio ||U U^T d_act|| / ||d_act||:
+
+| target | weight d_answer ratio | d_act ratio |
+|---|---|---|
+| dog | 0.0326 | **0.8417** |
+| ant | 0.0410 | **0.8486** |
+
+Both d_act ratios are ~84% in-span. So Kimi's H3 is CONFIRMED: the near-zero weight-space
+M2 ratio was a wrong-instrument artifact. The yes/no decision direction IS largely inside the
+U-span in activation space (84%), for both animals. **This reverses the earlier M2
+confirmation**: the subspace does carry the answer direction; the source-binding is NOT because
+the answer direction is out-of-span.
+
+Interpretation (calibrated): the identity-prose U-span already contains the answer-position
+decision direction (84%). The source-binding must therefore be that (a) the identity-prose
+DELTA does not point along d_act (so the steered answer-position residual is not driven toward
+target), or (b) the answer-position residual at L20 is not what the yes/no head reads (the
+decision is read from a different position/layer, H2/H5). This is why the refit was correctly
+deferred: the cheaper instrument (d_act ratio) shows M2 was an artifact. Next discriminator:
+H5 (patch the attended-but-unpatched Question/Is positions) or a causal check that the
+steered answer-position residual actually moves toward target d_act.
+
 ## References
 
 - GLM: `slop/reviews/2026-09-09_glm-5.3-flash_propbind_glm.md`

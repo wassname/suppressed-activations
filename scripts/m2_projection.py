@@ -44,7 +44,10 @@ def main():
     print("d_answer norm (spaces):", float(d_space.norm()))
 
     def build_U(target):
+        # Returns U, spectrum, and d_act (activation-space decision direction): the mean
+        # answer-position (last-1) L20 residual, target minus spider, averaged over templates.
         peaks, outs = [], []
+        act_diffs = []
         for tmpl in CONCEPT_TEMPLATES:
             pair = []
             for animal in ("spider", target):
@@ -54,23 +57,32 @@ def main():
                     res = trajectory(model, pre["input_ids"], final_norm)[0]
                 end = pre["content_end"]
                 seg = res[:, end - 3:end].float()
-                pair.append((seg[args.peak_layer].mean(0), seg[args.output_layer].mean(0)))
-            peaks.append(pair[1][0] - pair[0][0])
-            outs.append(pair[1][1] - pair[0][1])
+                pair.append(seg)
+            peaks.append(pair[1][args.peak_layer].mean(0) - pair[0][args.peak_layer].mean(0))
+            outs.append(pair[1][args.output_layer].mean(0) - pair[0][args.output_layer].mean(0))
+            # d_act: last-position (next-token write) residual difference at peak layer
+            act_diffs.append(pair[1][args.peak_layer, -1] - pair[0][args.peak_layer, -1])
         P, O = torch.stack(peaks), torch.stack(outs)
         U, values = attenuation_basis(P, O, 4)
-        return U, values
+        d_act = torch.stack(act_diffs).mean(0)
+        return U, values, d_act
 
+    # H3 note: d_answer is a WEIGHT-space (unembedding) direction. The activation-space
+    # decision direction d_act = mean residual at answer position (target - source) is computed
+    # separately from the template contrast analysis below (per-target).
     results = {}
     for tgt in args.targets:
-        U, values = build_U(tgt)
+        U, values, d_act = build_U(tgt)
         UU = U @ U.T
         ratio = (UU @ d_space).norm() / (d_space.norm() + 1e-12)
         ratio_b = (UU @ d_bare).norm() / (d_bare.norm() + 1e-12)
-        results[tgt] = {"ratio_YesNo_spaces": float(ratio), "ratio_YesNo_bare": float(ratio_b),
-                        "d_answer_norm": float(d_space.norm()), "U_spectrum_le4": [float(v) for v in values[-4:]],
+        ratio_act = (UU @ d_act).norm() / (d_act.norm() + 1e-12)
+        results[tgt] = {"ratio_YesNo_weight": float(ratio), "ratio_YesNo_bare": float(ratio_b),
+                        "ratio_d_act": float(ratio_act),
+                        "d_answer_norm": float(d_space.norm()), "d_act_norm": float(d_act.norm()),
+                        "U_spectrum_le4": [float(v) for v in values[-4:]],
                         "U_shape": list(U.shape)}
-        print(f"{tgt}: ratio( Yes vs  No) = {float(ratio):.4f}; bare = {float(ratio_b):.4f}")
+        print(f"{tgt}: ratio weight({ 'Yes vs ' } No) = {float(ratio):.4f}; bare = {float(ratio_b):.4f}; d_act = {float(ratio_act):.4f}")
     Path(args.out).write_text(json.dumps(results, indent=1) + "\n")
     print("wrote", args.out)
 
