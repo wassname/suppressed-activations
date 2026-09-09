@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import re
 import subprocess
@@ -154,6 +155,17 @@ def template_projection_configs():
         random_delta_seed=seed, match_component_norm=False, restore_residual_norm=False,
     )) for seed in range(12))
     return rows
+
+
+def smoke_detector_configs():
+    """Worktree-only tiny-model test sweep: reduced valid layers/windows, same code path."""
+    return [("smoke_detector", f"D{early}_{peak}_{late}_matched{matched}", replace(
+        DEFAULT, template_contrast=True, persistent_rank=4,
+        detector_layers=(early, peak, late), intervention_layer=(2,), strength=2.0,
+        match_component_norm=matched, restore_residual_norm=False,
+        template_state_span="peak",
+    )) for early, peak, late in ((0, 2, 4),)
+        for matched in (False, True)]
 
 
 def template_detector_configs():
@@ -1108,6 +1120,43 @@ selective transfer beyond this development prompt.
 """
 
 
+def load_bundle() -> dict:
+    """Load tokenizer/model once for sharing across batch specs. Worktree-only.
+
+    Production default is explicit CUDA (fail-fast, as before); CPU and alternate
+    models only via explicit test env (SUPPRESSED_DEVICE / SUPPRESSED_MODEL /
+    SUPPRESSED_REVISION). Loader calls append to SUPPRESSED_LOAD_LOG when set."""
+    model_name = os.environ.get("SUPPRESSED_MODEL", MODEL)
+    revision = os.environ.get("SUPPRESSED_REVISION", REVISION)
+    device = os.environ.get("SUPPRESSED_DEVICE", "cuda")
+    started = time.monotonic()
+    torch.set_grad_enabled(False)
+    tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, revision=revision, dtype=torch.bfloat16
+    ).to(device).eval()
+    record = {
+        "model_name": model_name, "revision": revision, "device": device,
+        "tokenizer": tokenizer, "model": model,
+        "blocks": model.model.layers, "final_norm": model.model.norm,
+        "unembedding": model.lm_head.weight,
+        "norm_gain": 1.0 + model.model.norm.weight,
+        "load_seconds": time.monotonic() - started,
+    }
+    load_log = os.environ.get("SUPPRESSED_LOAD_LOG")
+    if load_log:
+        with open(load_log, "a") as handle:
+            handle.write(json.dumps({"model": model_name, "revision": revision,
+                                     "device": device, "argv": sys.argv[-3:]} ) + "\n")
+    return record
+
+
+def logits_sha256(logits: torch.Tensor) -> str:
+    """Hash a full first-step logit vector for exact cross-path comparison."""
+    import hashlib
+    return hashlib.sha256(logits.detach().float().cpu().numpy().tobytes()).hexdigest()
+
+
 def run(
     output_dir: Path,
     sweep: str,
@@ -1124,6 +1173,37 @@ def run(
     extraction_instruction: str | None = None,
     selector_audit: bool = False,
 ) -> None:
+    """Single-run entry: loads the model, then runs exactly one spec."""
+    run_with_bundle(load_bundle(), output_dir, sweep, prompt_mode, target_prompt,
+                    source_output, target_output, source_prompt, condition_index,
+                    max_new_tokens, lens_corpus_arrow, target_concept,
+                    prefill_instruction, extraction_instruction, selector_audit)
+
+
+def run_with_bundle(
+    bundle: dict,
+    output_dir: Path,
+    sweep: str,
+    prompt_mode: str,
+    target_prompt: str,
+    source_output: str,
+    target_output: str,
+    source_prompt: str = SOURCE_PROMPT,
+    condition_index: int | None = None,
+    max_new_tokens: int = 32,
+    lens_corpus_arrow: Path | None = None,
+    target_concept: str = "dog",
+    prefill_instruction: str = PREFILL_INSTRUCTION,
+    extraction_instruction: str | None = None,
+    selector_audit: bool = False,
+    extraction_cache: dict | None = None,
+    batch_spec: dict | None = None,
+) -> None:
+    tokenizer = bundle["tokenizer"]
+    model = bundle["model"]
+    device = bundle["device"]
+    model_name = bundle["model_name"]
+    bundle_revision = bundle["revision"]
     if extraction_instruction is None:
         extraction_instruction = prefill_instruction
     started = time.monotonic()
@@ -1135,16 +1215,13 @@ def run(
         "scripts/oat_sweep.py", "scripts/demo.py", "scripts/prompt.py",
         "scripts/delayed_readout.py", "scripts/results.py", "suppressed_activation_subspace.py",
     )}
-    torch.set_grad_enabled(False)
     output_dir.mkdir(parents=True, exist_ok=True)
-    tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL, revision=REVISION, dtype=torch.bfloat16
-    ).cuda().eval()
-    blocks = model.model.layers
-    final_norm = model.model.norm
-    unembedding = model.lm_head.weight
-    norm_gain = 1.0 + final_norm.weight
+    blocks = bundle["blocks"]
+    final_norm = bundle["final_norm"]
+    unembedding = bundle["unembedding"]
+    norm_gain = bundle["norm_gain"]
+    cache_hits: list[str] = []
+    cache_misses: list[str] = []
     named_ids = [one_token(tokenizer, word) for word in (" spider", " dog", " ant")]
     normalized_rows = unembedding.float() * norm_gain.float()
     normalized_rows = normalized_rows / normalized_rows.norm(dim=-1, keepdim=True)
@@ -1152,11 +1229,21 @@ def run(
     del normalized_rows
 
     def sample(content, generate=True, instruction=prefill_instruction):
-        chat = render_input(tokenizer, content, prompt_mode, instruction)
+        key = (prompt_mode, instruction, content, max_new_tokens, bundle_revision)
+        if extraction_cache is not None and not generate:
+            assert extraction_cache.get("revision") == bundle_revision
+            if key in extraction_cache:
+                cache_hits.append(content[:48])
+                return extraction_cache[key]
+            cache_misses.append(content[:48])
+        chat = render_input(tokenizer, content, prompt_mode, instruction, device=device)
         assert chat["content_end"] == chat["input_ids"].shape[1]
         if not generate:
             residuals, logits = trajectory(model, chat["input_ids"], final_norm)
-            return {**chat, "residuals": residuals, "logits": logits}
+            sampled = {**chat, "residuals": residuals, "logits": logits}
+            if extraction_cache is not None:
+                extraction_cache[key] = sampled
+            return sampled
         captured = []
         generation, logits = generate_with_first_logits(model, tokenizer, chat["input_ids"], blocks, {}, captured, max_new_tokens)
         return {**chat, "residuals": captured[0], "logits": logits, "generation": generation}
@@ -1178,7 +1265,7 @@ def run(
     if selector_audit:
         audit_started = time.monotonic()
         audit = clean_selector_audit({"source": source, "target": target}, tokenizer, unembedding, norm_gain)
-        audit.update(model=MODEL, revision=REVISION, git=git_state, code_sha256=code_hashes,
+        audit.update(model=model_name, revision=bundle_revision, git=git_state, code_sha256=code_hashes,
                      argv=sys.argv, prefill_instruction=prefill_instruction,
                      elapsed_seconds=time.monotonic() - audit_started)
         (output_dir / "selector_audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2) + "\n")
@@ -1206,6 +1293,7 @@ def run(
         "template-contrast": template_contrast_configs,
         "template-projection": template_projection_configs,
         "template-detector": template_detector_configs,
+        "smoke-detector": smoke_detector_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
@@ -1825,9 +1913,9 @@ def run(
                 assert donor_changed == donor_generation
             clamped_donor = {"generation": donor_changed, "intervention_record": donor_record}
         row = {
-            "model": MODEL,
+            "model": model_name,
             "target_concept": target_concept,
-            "revision": REVISION,
+            "revision": bundle_revision,
             "git": git_state,
             "code_sha256": code_hashes,
             "condition_id": condition_id,
@@ -1850,6 +1938,11 @@ def run(
             "donor_generation_tokens": len(donor_generation["token_ids"]),
             "p_target": float(logp[target_id].exp()),
             "p_source": float(logp[source_id].exp()),
+            "first_logits_sha256": {
+                "base": logits_sha256(base_generation_logits),
+                "donor": logits_sha256(donor_generation_logits),
+                "steered": logits_sha256(generation_logits),
+            },
             "repeated_bigram_fraction": repetition_bigram_fraction(
                 generation["token_ids"], special_ids
             ),
@@ -1894,11 +1987,14 @@ def run(
         logger.info("{}/{} {}", index + 1, len(sweep_configs), condition_id)
 
     result = {
-        "model": MODEL,
+        "model": model_name,
         "elapsed_seconds": time.monotonic() - started,
-        "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated(),
+        "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated() if torch.cuda.is_available() else 0,
         "argv": sys.argv,
-        "revision": REVISION,
+        "revision": bundle_revision,
+        "model_load_seconds": bundle.get("load_seconds"),
+        "extraction_cache": {"hits": cache_hits, "misses": cache_misses} if extraction_cache is not None else None,
+        "batch_spec": batch_spec,
         "git": git_state,
         "code_sha256": code_hashes,
         "package_versions": {name: version(name) for name in ("torch", "transformers", "accelerate", "pyarrow")},
@@ -1911,6 +2007,14 @@ def run(
         },
         "source_prompt": source_prompt,
         "target_prompt": target_prompt,
+        "rendered_inputs": {
+            name: {
+                "input_ids": sample["input_ids"][0].tolist(),
+                "rendered": tokenizer.decode(sample["input_ids"][0], skip_special_tokens=False),
+            }
+            for name, sample in (("source", source), ("donor", target),
+                                 ("extraction_source", extraction_source), ("extraction_donor", extraction_target))
+        },
         "target_concept": target_concept,
         "lexical_pairs": LEXICAL_PAIRS if sweep == "lexical-surface" else None,
         "selector_audit": "selector_audit.md" if selector_audit else None,
@@ -1940,7 +2044,7 @@ def run(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=False, default=None)
     parser.add_argument(
         "--sweep",
         choices=(
@@ -2001,6 +2105,7 @@ if __name__ == "__main__":
             "layer-position-strength", "layer-combo",
             "persistent-generation",
             "persistent-direction",
+            "smoke-detector",
         ),
         default="demo",
     )
@@ -2020,25 +2125,39 @@ if __name__ == "__main__":
     parser.add_argument("--source-output", default="8")
     parser.add_argument("--target-output")
     parser.add_argument("--target", choices=TARGET_PRESETS, default="dog")
+    parser.add_argument("--batch-spec", type=Path, default=None,
+                        help="JSON list of run-kwarg dicts sharing one model load")
     args = parser.parse_args()
-    preset_prompt, preset_output = TARGET_PRESETS[args.target]
-    if args.target_prompt is None:
-        args.target_prompt = preset_prompt
-    if args.target_output is None:
-        args.target_output = preset_output
-    run(
-        args.output_dir,
-        args.sweep,
-        args.prompt_mode,
-        args.target_prompt,
-        args.source_output,
-        args.target_output,
-        args.source_prompt,
-        args.condition_index,
-        args.max_new_tokens,
-        args.lens_corpus_arrow,
-        {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
-        args.prefill_instruction,
-        args.extraction_instruction,
-        args.selector_audit,
-    )
+    if args.batch_spec is None and args.output_dir is None:
+        parser.error("--output-dir is required unless --batch-spec is given")
+    if args.batch_spec is not None:
+        specs = json.loads(args.batch_spec.read_text())
+        bundle = load_bundle()
+        cache: dict = {"revision": bundle["revision"]}
+        for position, spec in enumerate(specs):
+            rest = {key: value for key, value in spec.items() if key != "output_dir"}
+            run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
+                            batch_spec={"batch_file": str(args.batch_spec), "index": position, "spec": dict(spec)},
+                            **rest)
+    else:
+        preset_prompt, preset_output = TARGET_PRESETS[args.target]
+        if args.target_prompt is None:
+            args.target_prompt = preset_prompt
+        if args.target_output is None:
+            args.target_output = preset_output
+        run(
+            args.output_dir,
+            args.sweep,
+            args.prompt_mode,
+            args.target_prompt,
+            args.source_output,
+            args.target_output,
+            args.source_prompt,
+            args.condition_index,
+            args.max_new_tokens,
+            args.lens_corpus_arrow,
+            {"dog": "dog", "ant": "ant", "ant-anthill": "ant"}[args.target],
+            args.prefill_instruction,
+            args.extraction_instruction,
+            args.selector_audit,
+        )
