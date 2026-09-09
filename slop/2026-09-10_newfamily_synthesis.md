@@ -59,3 +59,28 @@ and the property source-binding is the last open goal-1 failure. The framing que
 whether the identity-prose U is the right contrast at all; the answer is conditional on H3/H5.
 
 -- PI/[k3]
+
+## Displacement result (task 933) - read-out location is the discriminator, not delta alignment
+
+Ran `slop/answer_position_run.sh` (both animals, one GPU job). Measured cos(delta, d_act) and
+the displacement of the L20 answer-position residual along d_act, normalized by d_act_norm.
+
+| animal | C | cos(delta,d_act) | displacement/d_act_norm |
+|---|---|---|---|
+| dog | 1.5 | 0.8417 | 1.3418 (over-shoot) |
+| ant | 1.0 | 0.8486 | 1.0648 (near target) |
+
+Both deltas point strongly along d_act (cos ~0.84-0.85 = d_act_inspan). Both displace the
+answer-position residual along d_act by >= target (dog 1.34x, ant 1.06x). Dog displaces MORE
+than ant (over-shoot).
+
+Prediction tree applied: ant's displacement (1.06x) is NOT >> dog's (1.34x); both move
+similarly (both >= target, both cos 0.84), but only ant flips (transfers at C=1.0, dog stays
+` No`). => Delta alignment is NOT the discriminator; the read-out LOCATION is the problem.
+The yes/no head does not read the L20 answer-position residual we are displacing (or dog's
+over-shoot pushes it into a wrong region). Next test: H5 - patch the attended-but-unpatched
+Question/Is positions (28,30) with current U; if prop-dog flips, the position set (not the
+subspace or delta) is the culprit. If it still does not, the decision is read from a later
+layer (H2), escalate to a per-layer yes/no decodability probe.
+
+-- PI/[k3]
