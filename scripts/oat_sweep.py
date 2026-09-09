@@ -88,6 +88,7 @@ class Config:
     future_lexical_union: bool = False
     span_correction: bool = False  # h' = h + C (Δ − UUᵀ h); C=0 is identity
     random_in_span: bool = False  # random_delta projected into U before norm-match
+    extra_prefill_positions: list[int] | None = None  # H5: also patch these prefill indices
 
 
 DEFAULT = Config()
@@ -244,6 +245,21 @@ def span_correction_sweep_configs():
             intervention_positions=3, match_component_norm=True, strength=strength,
             span_correction=True, continue_generation=True, random_delta_seed=seed,
             random_in_span=True, restore_residual_norm=False,
+        )))
+    return rows
+
+
+def h5_extended_positions_configs():
+    """H5: patch attended-but-unpatched question positions (28,30) IN ADDITION to last-3.
+    Same span-corrected delta at C (dog 1.5, ant 1.0). Dev property prompts only."""
+    base = template_attenuation_configs()[7][2]
+    rows = []
+    for strength, tag in ((1.5, "dog"), (1.0, "ant")):
+        rows.append(("h5_extended", f"{tag}_C{strength}", replace(
+            base, detector_layers=(18, 20, 32), intervention_layer=(20,),
+            intervention_positions=3, match_component_norm=True, strength=strength,
+            span_correction=True, continue_generation=True,
+            extra_prefill_positions=[28, 30],
         )))
     return rows
 
@@ -1228,11 +1244,13 @@ def load_bundle() -> dict:
     model_name = os.environ.get("SUPPRESSED_MODEL", MODEL)
     revision = os.environ.get("SUPPRESSED_REVISION", REVISION)
     device = os.environ.get("SUPPRESSED_DEVICE", "cuda")
+    attn = os.environ.get("SUPPRESSED_ATTENTION", "sdpa")  # eager returns attention weights
     started = time.monotonic()
     torch.set_grad_enabled(False)
     tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, revision=revision, dtype=torch.bfloat16
+        model_name, revision=revision, dtype=torch.bfloat16,
+        attn_implementation=attn,
     ).to(device).eval()
     record = {
         "model_name": model_name, "revision": revision, "device": device,
@@ -1399,6 +1417,7 @@ def run_with_bundle(
         "smoke-span-correction": smoke_span_correction_configs,
         "span-correction": span_correction_configs,
         "span-correction-sweep": span_correction_sweep_configs,
+        "h5-extended-positions": h5_extended_positions_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
@@ -1909,6 +1928,7 @@ def run_with_bundle(
             restore_norm=cfg.restore_residual_norm,
             prefill_only=not cfg.continue_generation,
             record=intervention_record,
+            extra_prefill_positions=cfg.extra_prefill_positions,
         )
         captured = []
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
@@ -2222,6 +2242,7 @@ if __name__ == "__main__":
             "smoke-span-correction",
             "span-correction",
             "span-correction-sweep",
+            "h5-extended-positions",
         ),
         default="demo",
     )

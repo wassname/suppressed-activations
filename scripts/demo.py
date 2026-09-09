@@ -122,6 +122,7 @@ def intervention_hooks(
     coordinate_directions: Tensor | None = None,
     source_dominant_only: bool = False,
     target_coordinates: dict[int, Tensor] | None = None,
+    extra_prefill_positions: list[int] | None = None,
 ) -> dict[int, object]:
     if operation == "random":
         random_source = random_basis_like(source_basis, random_seed)
@@ -256,6 +257,17 @@ def intervention_hooks(
                         applied_norm_by_position=(patched-h).norm(dim=-1)[0].tolist(),
                         control="random shared projection norm-matched to semantic edit on current control state",
                     )
+            if extra_prefill_positions and extra_prefill_positions and hidden.shape[1] > 1 and operation == "span_corrected_delta":
+                h = hidden.float()
+                delta = fixed_deltas[residual_layer].float()
+                for idx in extra_prefill_positions:
+                    if idx >= source_start and idx < source_end:
+                        continue  # already covered by the main slice
+                    hj = hidden[:, idx].float()
+                    spanj = component(hj, source_basis)
+                    patched_j = hj + strength * (delta - spanj)
+                    h[:, idx] = patched_j.to(h.dtype)
+                hidden = h.to(output[0].dtype if isinstance(output, tuple) else output.dtype)
             return replace_output(
                 output,
                 torch.cat(
