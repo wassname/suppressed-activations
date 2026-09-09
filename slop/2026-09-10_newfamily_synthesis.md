@@ -154,3 +154,16 @@ answer direction becomes decodable only AFTER L20 (e.g. L24-32), a L20 edit cann
 patch geometry on the L20 identity span.
 
 -- PI/[k3]
+
+## RECORD CORRECTION (supervisor): prop-ant C=1.0 (H5) is NOT a clean transfer
+
+The prop-ant C=1.0 H5 continuation begins ` Yes` but the prose identity is still SPIDER:
+"The spider is a small, hardworking insectivore that builds intricate webs... possesses two
+pairs of short, stubby antennae..." So it is answer-movement WITHOUT identity persistence
+(the plan's failure modes: digit/answer movement without identity is not transfer). Label
+prop-ant C=1.0 as answer-movement-without-identity-persistence, and note ant property
+transfer is WEAKER than the C-sweep top-k suggested (top-k ' Yes' 0.297 at C=1, but the
+continuation stays spider). The property family currently has NO clean transfer cell; the
+spider-binding persists for both identity-holding and answer-moving cases.
+
+-- PI/[k3]
