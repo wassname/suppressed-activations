@@ -167,3 +167,29 @@ continuation stays spider). The property family currently has NO clean transfer 
 spider-binding persists for both identity-holding and answer-moving cases.
 
 -- PI/[k3]
+
+## H2 per-layer decodability probe result (naive logit-lens)
+
+Ran `scripts/h2_layer_probe.py` (logit-lens: RMS-normalize each layer residual difference,
+scale by norm_gain, unembedding, report Yes-No logit gap) for dog and ant property. Result:
+gaps oscillate between ~+0.78 and -0.78 across layers for BOTH animals (e.g. dog L1-6 +,
+L8-13 -, L18-19 +, L20 =0.0000, L21-22 -, L23-27 +, L28-30 -, ...). The constant +/-0.78
+magnitude indicates the raw-logit naive logit-lens is NOT calibrated (RMS-normalizing each
+layer makes every layer's projection onto the normalized Yes-No axis near-parallel, so the
+magnitude is dominated by one direction).
+
+ROBUST observable (not an artifact): dog L20 answer-position target-source diff_norm = 0.000,
+and ant L20 gap = -0.781 (negative). For dog the L20 answer-position residual is IDENTICAL
+for the dog and spider property prompts (diff 0.000), consistent with the earlier finding that
+patching the L20 answer position does nothing for dog's answer. The target-vs-source answer
+signal is NOT resident at L20 for dog at all.
+
+Interpretation (calibrated, cautious): the naive logit-lens is unreliable for locating the
+decodable layer (oscillation = uncalibrated readout). The dog-L20-zero is a robust signal that
+the answer identity difference is not in the L20 answer-position residual. A per-layer linear
+probe (train a logistic regression Yes vs No on the residual at each layer, report
+cross-validated accuracy OR separating-direction cosine) would be the calibrated follow-up.
+But the family evidence already locally excludes L20 spans, positions, and delta alignment; the
+answer decision is most likely formed later or read from a differently-located residual.
+
+-- PI/[k3]
