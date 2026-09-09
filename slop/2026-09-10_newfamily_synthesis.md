@@ -213,3 +213,38 @@ floating-point pipelines are BUG SIGNATURES, not findings.
 Recomputed H2 (fixed probe) is in flight (h2-recomputed-real).
 
 -- PI/[k3]
+
+## H2 FIXED PROBE result (valid) - answer identity diverges progressively, strongest L23-28
+
+Fixed probe (res[:, end-1, :], per-prompt gaps). last-layer diff_norm dog 14.9 / ant 12.6
+(O(1), not 0.001 - sanity passes). tgt-src gap per layer (where gap_target and gap_source
+diverge, the answer identity forms):
+
+| layer | dog tgt-src | ant tgt-src |
+|---|---|---|
+| L8-12 | ~-0.2 to -0.9 (near zero) | ~0.0 (near zero) |
+| L15 | +1.07 | +0.73 |
+| L16 | +1.75 | +1.50 |
+| L18 | +2.16 | +1.05 |
+| L20 | **+3.13** | **+1.66** |
+| L23 | +7.21 | +4.21 |
+| L25 | +9.00 | +3.99 |
+| L28 | +13.54 (peak) | +6.79 (peak) |
+| L32 | +5.87 | +3.94 |
+
+The answer identity difference is present but NOT complete at L20 (dog +3.1, ant +1.7); it
+strengthens substantially at L23-L28 (dog peak +13.5 at L28, ant +6.8 at L28). So the
+target-vs-source answer signal GROWS through the later layers and is strongest after L20,
+not resident fully at L20.
+
+Interpretation (calibrated): the answer identity is progressively composed and does not fully
+form until L23-28, AFTER L20. A L20 edit carries only the partial in-span fraction (measured
+d_act_inspan ~5-10% for dog via the corrected probe), which explains why the L20 patch moves
+the answer residual only partway and why extending the L20 patch to the question positions
+(H5) didn't help. This supports applying the intervention at a later layer (where the
+divergence is largest, ~L23-28), or freezing naming+legs-only with property labelled
+non-transferring for a single-layer L20 edit. dog's divergence exceeds ant's at every layer
+(note: this is the opposite of the C-sweep top-k asymmetry, so ant's C=1 answer movement is
+driven by a different mechanism than dog's L20 partial steer).
+
+-- PI/[k3]
