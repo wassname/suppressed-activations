@@ -87,6 +87,7 @@ class Config:
     future_clamp: bool = False
     future_lexical_union: bool = False
     span_correction: bool = False  # h' = h + C (Δ − UUᵀ h); C=0 is identity
+    random_in_span: bool = False  # random_delta projected into U before norm-match
 
 
 DEFAULT = Config()
@@ -190,6 +191,19 @@ def smoke_span_correction_configs():
         strength=2.0, match_component_norm=True, restore_residual_norm=False,
         span_correction=True, continue_generation=True, random_delta_seed=0,
     )))
+    # bounded-test smoke: C=1 (in-span set) and in-span random (direction-only control)
+    rows.append(("smoke_span_correction", "C1.0", replace(
+        DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+        strength=1.0, match_component_norm=True, restore_residual_norm=False,
+        span_correction=True, continue_generation=True,
+    )))
+    rows.append(("smoke_span_correction", "inspan_seed0_C2", replace(
+        DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+        strength=2.0, match_component_norm=True, restore_residual_norm=False,
+        span_correction=True, continue_generation=True, random_delta_seed=0, random_in_span=True,
+    )))
     return rows
 
 
@@ -209,6 +223,28 @@ def span_correction_configs():
         strength=2.0, span_correction=True, continue_generation=True,
         random_delta_seed=seed, restore_residual_norm=False,
     )) for seed in range(3)])
+    return rows
+
+
+def span_correction_sweep_configs():
+    """Bounded test: C-sweep {0,0.5,1,1.5,2} plus in-span random controls at C=1,2.
+    In-span random projects randn into U before norm-match (direction-only difference vs real Δ).
+    C is the varied axis; projector = L20 attenuation span, same as span-corr family."""
+    base = template_attenuation_configs()[7][2]
+    rows = []
+    for strength in (0.0, 0.5, 1.0, 1.5, 2.0):
+        rows.append(("span_correction_sweep", f"C{strength}", replace(
+            base, detector_layers=(18, 20, 32), intervention_layer=(20,),
+            intervention_positions=3, match_component_norm=True, strength=strength,
+            span_correction=True, continue_generation=True,
+        )))
+    for strength, seed in ((1.0, 0), (2.0, 0)):
+        rows.append(("span_correction_sweep", f"inspan_seed{seed}_C{strength}", replace(
+            base, detector_layers=(18, 20, 32), intervention_layer=(20,),
+            intervention_positions=3, match_component_norm=True, strength=strength,
+            span_correction=True, continue_generation=True, random_delta_seed=seed,
+            random_in_span=True, restore_residual_norm=False,
+        )))
     return rows
 
 
@@ -1340,6 +1376,7 @@ def run_with_bundle(
         "smoke-detector": smoke_detector_configs,
         "smoke-span-correction": smoke_span_correction_configs,
         "span-correction": span_correction_configs,
+        "span-correction-sweep": span_correction_sweep_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
@@ -1775,6 +1812,8 @@ def run_with_bundle(
                 for layer, delta in fixed_deltas.items():
                     generator = torch.Generator(device=delta.device).manual_seed(cfg.random_delta_seed + layer)
                     random_delta = torch.randn(delta.shape, device=delta.device, generator=generator)
+                    if cfg.random_in_span:
+                        random_delta = component(random_delta, shared)
                     fixed_deltas[layer] = random_delta * delta.norm() / random_delta.norm()
         elif cfg.shared_replacement != "none":
             assert len(intervention_layers) == 1
@@ -2158,6 +2197,7 @@ if __name__ == "__main__":
             "smoke-detector",
             "smoke-span-correction",
             "span-correction",
+            "span-correction-sweep",
         ),
         default="demo",
     )
