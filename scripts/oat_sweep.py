@@ -249,6 +249,16 @@ def span_correction_sweep_configs():
     return rows
 
 
+def smoke_h5_extended_configs():
+    """Tiny-model H5 smoke: patch an extra mid-prompt position that exists on the tiny prompt."""
+    return [("smoke_h5_extended", "C1.0", replace(
+        DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+        strength=1.0, match_component_norm=True, restore_residual_norm=False,
+        span_correction=True, continue_generation=True, extra_prefill_positions=[2],
+    ))]
+
+
 def h5_extended_positions_configs():
     """H5: patch attended-but-unpatched question positions (28,30) IN ADDITION to last-3.
     Same span-corrected delta at C (dog 1.5, ant 1.0). Dev property prompts only."""
@@ -1418,6 +1428,7 @@ def run_with_bundle(
         "span-correction": span_correction_configs,
         "span-correction-sweep": span_correction_sweep_configs,
         "h5-extended-positions": h5_extended_positions_configs,
+        "smoke-h5-extended-positions": smoke_h5_extended_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
         "template-attenuation": template_attenuation_configs,
@@ -2243,6 +2254,7 @@ if __name__ == "__main__":
             "span-correction",
             "span-correction-sweep",
             "h5-extended-positions",
+            "smoke-h5-extended-positions",
         ),
         default="demo",
     )
