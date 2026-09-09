@@ -178,21 +178,38 @@ def smoke_detector_configs():
 
 def smoke_span_correction_configs():
     """Tiny-model real path for h' = h + C (Δ − UUᵀ h). C=0 is identity."""
-    return [("smoke_span_correction", f"C{strength}", replace(
+    rows = [("smoke_span_correction", f"C{strength}", replace(
         DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
         detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
         strength=strength, match_component_norm=True, restore_residual_norm=False,
         span_correction=True, continue_generation=True,
     )) for strength in (0.0, 2.0)]
+    rows.append(("smoke_span_correction", "random0_C2", replace(
+        DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+        detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+        strength=2.0, match_component_norm=True, restore_residual_norm=False,
+        span_correction=True, continue_generation=True, random_delta_seed=0,
+    )))
+    return rows
 
 
 def span_correction_configs():
-    """L20 attenuation add with live-span subtraction. Same projector as local-c003."""
-    return [("span_correction", f"C{strength}", replace(
+    """L20 attenuation add with live-span subtraction. Same projector as local-c003.
+
+    Seeds random_delta_seed so the delta is a norm-matched random direction applied
+    through the same span-correction equation (random-direction control)."""
+    rows = [("span_correction", f"C{strength}", replace(
         template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
         intervention_layer=(20,), intervention_positions=3, match_component_norm=True,
         strength=strength, span_correction=True, continue_generation=True,
     )) for strength in (0.0, 2.0)]
+    rows.extend([("span_correction", f"random{seed}_C2", replace(
+        template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+        intervention_layer=(20,), intervention_positions=3, match_component_norm=True,
+        strength=2.0, span_correction=True, continue_generation=True,
+        random_delta_seed=seed, restore_residual_norm=False,
+    )) for seed in range(3)])
+    return rows
 
 
 def template_detector_configs():
