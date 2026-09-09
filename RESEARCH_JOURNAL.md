@@ -787,3 +787,59 @@ C=1 (P h' = delta, no reflection) cell keeps the digit while losing the identity
 bounded test being considered.
 
 This does not establish cross-question persistence. Reserved evaluation strings were not used.
+
+## 2026-09-10 -- bounded test (926): C-sweep shows digit transfer peaks at C=1, degrades at C=2
+
+This entry records the discriminating C-sweep (pueue 926) on the span-correction family,
+run to separate the name-pointer-without-bindings hypothesis from the C=2 reflection
+over-shoot hypothesis. The over-shoot hypothesis was supported for the digit; the answer
+head on property/mirror questions kept a source binding. Evidence and interpretation are
+separated; the isolated worktree path prefix is `batchwork/`.
+
+Context / Methods. Model Qwen/Qwen3.5-4B rev 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a.
+Construct span-correction, L20, span-correction-sweep config (C-sweep plus in-span random).
+Pueue task 926. C mapping in outdir names: `-C0`=0.0, `-C1`=0.5, `-C2`=1.0, `-C3`=1.5,
+`-C4`=2.0. Result files:
+`batchwork/out/2026-09-10_csweep-legs-{dog,ant}-C*/result.json`,
+`batchwork/out/2026-09-10_csweep-prop-{dog,ant}-C*/result.json`,
+`batchwork/out/2026-09-10_inspan-legs-{dog,ant}-C*/result.json`,
+`batchwork/out/2026-09-10_mirror-prop-ant-C*/result.json`.
+Answer readings are answer-position logits (`p_source`, `p_target`) and `top_tokens`, not
+only sampled first tokens.
+
+C-sweep legs (digit attribute; source=8): first token and p_target for the target digit.
+
+| C | dog first | dog p(4) | ant first | ant p(6) |
+|---|---|---|---|---|
+| 0.0 | 8 | 0.046 | 8 | 0.028 |
+| 0.5 | 4 | 0.486 | 8 | 0.393 |
+| 1.0 | 4 | 0.990 | 6 | 0.963 |
+| 1.5 | 4 | 0.969 | 6 | 0.982 |
+| 2.0 | 2 | 0.491 | 6 | 0.712 |
+
+In-span random control (randn projected into U then norm-matched to delta): dog C=1.0
+first=`4` p_tgt=0.960 but text says "the animal is a domestic cat" (not dog); dog C=2.0
+first=`4`; ant C=1.0 first=`8` p_src=0.873 (spider, no transfer); ant C=2.0 first=`8`
+p_src=0.732.
+
+Mirror property (eight-legs; source spider=Yes, target ant=No): C=2.0 first=` Yes`
+p_src=0.003, text "the ant ... possesses eight legs". Answer head returned source-correct
+`Yes`, not target `No`.
+
+Property Yes/No logits: p_source and p_target are ~0.000 for every property cell, so the
+Yes/No answer-position logits are degenerate; sampled first token is unreliable there.
+
+Interpretation (my read, calibrated): the C-sweep shows digit transfer peaks at C=1.0-1.5
+and degrades at C=2.0, so I think the C=2 reflection over-shoots the digit coordinate,
+which is *probable* (maybe 0.8) given the clean peak-then-degrade curve and the reproduced
+`2` at C=2.0. The property/mirror cells returned source-correct answers at C=2.0, which is
+*probable* evidence that the yes/no answer head retains a source (spider) binding even at
+C=2. The in-span random control moving dog to `4` but yielding a cat, while ant stays
+`8` from random, is strong evidence that the dog digit readout is a generic/promiscuous
+effect (4 is the modal animal leg count) rather than a bound dog attribute, *likely* 0.7;
+ant is the direction-specific case. So neither offered mechanism is complete: over-shoot
+accounts for the digit C=2 degradation, spider-binding accounts for the source-correct
+property/mirror answers, and dog digit promiscuity is a separate general-readout effect.
+
+This does not establish cross-question persistence; the reserved evaluation strings were
+not used, and the mirror eight-legs prompt is a new development prompt.
