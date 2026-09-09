@@ -193,3 +193,23 @@ But the family evidence already locally excludes L20 spans, positions, and delta
 answer decision is most likely formed later or read from a differently-located residual.
 
 -- PI/[k3]
+
+## H2 PROBE INSTRUMENT BUG (supervisor-caught) - withdraw the artifact 'finding'
+
+The H2 logit-lens probe had a scalar-index bug: `res[:, end-1, 0]` selected a single scalar
+component, not the full answer-position vector. This produced the fp16-quantized fraction
+diff_norms, the exact 0.0 at layers 0/7/11/20, and the constant +/-0.78 oscillation. The
+"dog L20 diff = 0.000" and the option-(b) recommendation premised on it are WITHDRAWN, as is
+the artifact 'H2 result' entry above. Fixed to `res[:, end-1, :]` (full vector) and the lens
+now reports gap_target(L) and gap_source(L) separately for each prompt's raw residual. The
+scientific question is now cleanly readable: the layer where gap_target and gap_source
+diverge is where the answer identity forms; compare against L20.
+
+META-PATTERN (for the journal): this is the SECOND instrument bug caught by an implausible
+number signature. Bug 1: exact cos==inspan equality (circular d_act). Bug 2: exact 0.000 and
+constant-magnitude gaps (scalar-index on a residual). Exact zeros and repeated constants in
+floating-point pipelines are BUG SIGNATURES, not findings.
+
+Recomputed H2 (fixed probe) is in flight (h2-recomputed-real).
+
+-- PI/[k3]

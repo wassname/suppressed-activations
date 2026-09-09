@@ -37,35 +37,42 @@ def main():
     yes_id = tokenizer.encode(" Yes", add_special_tokens=False)[0]
     no_id = tokenizer.encode(" No", add_special_tokens=False)[0]
 
-    # one source + one target forward for the property prompts
+    # one source + one target forward for the property prompts.
+    # FIX (supervisor): index res[:, end-1, :] (full vector), not res[:, end-1, 0].
     def capture(prompt):
         pre = assistant_prefill_input_ids(tokenizer, prompt, device=device, instruction=INS)
         with torch.no_grad():
             res = trajectory(model, pre["input_ids"], final_norm)[0]  # [layers+1, 1, D]
         end = pre["content_end"]
-        return res[:, end - 1, 0].float()  # answer-position residual per layer
+        return res[:, end - 1, :].float()  # full answer-position residual per layer [L+1, D]
 
     src = capture(args.source_prompt)
     tgt = capture(args.target_prompt)
 
+    def logit_gap(vec):
+        # final-norm + unembedding of a RAW residual vector (no diff, no RMS-rescale of diff)
+        v = vec.view(1, -1)
+        v = v * torch.rsqrt(v.square().mean(-1, keepdim=True) + 1e-6)
+        v = v * norm_gain.float()
+        logits = v @ unembed.float().T
+        return float(logits[0, yes_id] - logits[0, no_id])
+
     results = []
     L = src.shape[0]
     for layer in range(L):
-        diff = (tgt[layer] - src[layer])
-        # logit lens matching the runner: RMS-normalize, scale by norm_gain, then unembedding
-        hn = diff * torch.rsqrt(diff.square().mean(-1, keepdim=True) + 1e-6)
-        hn = hn * norm_gain.float()
-        logits = hn @ unembed.float().T
-        gap = float(logits[yes_id] - logits[no_id])
-        results.append({"layer": layer, "yes_minus_no_logit_gap": gap,
-                        "diff_norm": float(diff.norm())})
-        print(f"  layer {layer:2d}: Yes-No logit gap = {gap:+.4f} (diff_norm {float(diff.norm()):.3f})")
-    # find first layer where gap > 0 (answer difference visible to unembedding)
-    first_positive = next((r["layer"] for r in results if r["yes_minus_no_logit_gap"] > 0), None)
-    out = {"target": args.target, "first_layer_yes_logit_gap_positive": first_positive,
-           "layers": results, "n_layers": len(results), "L20_gap": results[20]["yes_minus_no_logit_gap"] if len(results) > 20 else None}
+        gap_src = logit_gap(src[layer])
+        gap_tgt = logit_gap(tgt[layer])
+        diff_norm = float((tgt[layer] - src[layer]).norm())
+        results.append({"layer": layer, "gap_source": gap_src, "gap_target": gap_tgt,
+                        "gap_target_minus_source": gap_tgt - gap_src, "diff_norm": diff_norm})
+        print(f"  layer {layer:2d}: gap_tgt={gap_tgt:+.4f} gap_src={gap_src:+.4f} tgt-src={gap_tgt-gap_src:+.4f} diff_norm={diff_norm:.3f}")
+    # last-layer diff_norm sanity: O(1) or more, not 0.001
+    last = results[-1]["diff_norm"]
+    out = {"target": args.target, "layers": results, "n_layers": len(results),
+           "last_layer_diff_norm": last,
+           "L20_gap_tgt_minus_src": results[20]["gap_target_minus_source"] if len(results) > 20 else None}
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
-    print(f"first layer with Yes>No logit gap: {first_positive}; wrote {args.out}")
+    print(f"last layer diff_norm={last:.3f} (sanity: should be O(1) not 0.001); wrote {args.out}")
 
 
 if __name__ == "__main__":
