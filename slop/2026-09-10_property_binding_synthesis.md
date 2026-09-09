@@ -87,6 +87,31 @@ needs an eager attention run, not a runner patch. The standalone probe was rejec
 `--capture-attention` in place (harmless, returns None under SDPA) and note the eager
 prerequisite.
 
+## M3 attention result (task 930, eager attention)
+
+Ran prop-dog C=1.5 and C=2.0 with `SUPPRESSED_ATTENTION=eager` + `--capture-attention`
+(result `out/2026-09-10_attn-prop-dog-C1.5` and `-C2.0`). Answer-position attention row
+(last layer, mean over heads), q_len 44, first decode step:
+
+- C=1.5: first `No`, top5 `[(No,0.397),(1,0.165),(Yes,0.100),(thinking,0.100),(2,0.042)]`.
+  Top-6 attention positions (by mass): [43,42,30,27,41,28].
+- C=2.0: first `No`, top5 `[(No,0.423),(Yes,0.156),(1,0.137),(thinking,0.057),(2,0.045)]`.
+  Top-6 attention positions: [43,42,30,27,41,28].
+
+Decoding positions: 43=` `, 42=`:`, 41=`Answer` (the patched prefill last-3), 30=`Is`,
+28=`Question`, 27=newline (early question tokens). The answer position attends to BOTH the
+patched `Answer:` region (43,42,41) AND the question header/`Is` tokens (28,30,27).
+
+Interpretation (calibrated): this partially refutes pure-M3 (the head reads the patched
+`Answer:` region). The `No` stays dominant at both C despite the `Answer:` region being
+patched toward dog/prose. The source-binding therefore is not that the answer head ignores
+the patch; it is that the yes/no DECISION direction is not carried by delta (M2), even
+though the answer position attends to the patch. Weight M2 over pure-M3, *likely* (0.65);
+the mid-prompt `Question`/`Is` attention (28,30,27) may also carry a question-format/pragma
+prior that fixes the `No` answer-shape regardless of the animal (DeepSeek's pragmatic-default
+account). Discriminating those two needs a prompt rephrase or the M2 projection check
+(||U U^T d_answer|| / ||d_answer||).
+
 ## References
 
 - GLM: `slop/reviews/2026-09-09_glm-5.3-flash_propbind_glm.md`
