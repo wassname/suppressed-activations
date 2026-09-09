@@ -89,6 +89,7 @@ class Config:
     span_correction: bool = False  # h' = h + C (Δ − UUᵀ h); C=0 is identity
     random_in_span: bool = False  # random_delta projected into U before norm-match
     extra_prefill_positions: list[int] | None = None  # H5: also patch these prefill indices
+    answer_patch_layer: int | None = None  # two-site: additive raw d_act patch at this layer
 
 
 DEFAULT = Config()
@@ -295,6 +296,34 @@ def l26_span_correction_configs():
             span_correction=True, continue_generation=True,
         )),
     ]
+
+
+def two_site_configs():
+    """Two-site edit: verified L20 span-corrected identity/limb-count delta (C=1.5) AT L20,
+    PLUS an ADDITIVE raw answer-direction d_act patch at L26 (answer_patch_layer). Same
+    verified position coverage (intervention_positions=3: prefill last-3 + decode last-1).
+    The L20 site is the frozen-rule candidate; L26 carries the yes/no answer identity.
+    d_act is injected RAW (no span projection) in the runner. -- PI[k3]"""
+    return [("two_site", name, replace(
+        template_attenuation_configs()[7][2], detector_layers=(18, 20, 32),
+        intervention_layer=(20, 26), intervention_positions=3, match_component_norm=True,
+        strength=1.5, span_correction=True, continue_generation=True,
+        answer_patch_layer=26,
+    )) for name in ("prop-dog", "prop-ant", "legs-dog")]
+
+
+def smoke_two_site_configs():
+    """Tiny-model real path for the two-site edit: detector layers (0,2,4), L2 identity site +
+    L2 answer patch (tiny model has 6 layers; the answer patch layer is 2, same as identity)."""
+    rows = []
+    for name, strength in (("prop-dog", 1.5), ("prop-ant", 1.0)):
+        rows.append(("smoke_two_site", name, replace(
+            DEFAULT, template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+            detector_layers=(0, 2, 4), intervention_layer=(2,), intervention_positions=3,
+            strength=strength, match_component_norm=True, restore_residual_norm=False,
+            span_correction=True, continue_generation=True, answer_patch_layer=2,
+        )))
+    return rows
 
 
 def template_detector_configs():
@@ -1452,6 +1481,8 @@ def run_with_bundle(
         "span-correction-sweep": span_correction_sweep_configs,
         "h5-extended-positions": h5_extended_positions_configs,
         "l26-span-correction": l26_span_correction_configs,
+        "two-site": two_site_configs,
+        "smoke-two-site": smoke_two_site_configs,
         "smoke-h5-extended-positions": smoke_h5_extended_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
@@ -1936,6 +1967,18 @@ def run_with_bundle(
                     [tokenizer.decode([token]) for token in ids]
                     for ids in persistence[name]["token_ids"]
                 ]
+        # two-site: inject RAW answer-direction d_act at the answer_patch_layer (NO span projection).
+        # d_act = target answer-position (content_end-1) residual minus source, at that layer -- PI[k3]
+        if cfg.answer_patch_layer is not None:
+            assert cfg.span_correction, "two-site answer patch currently requires span_correction (L20 identity site)"
+            p = cfg.answer_patch_layer
+            mean_tr = torch.stack([s["residuals"][p, s["content_end"] - 1] for s in (source, target)])
+            d_act = (mean_tr[1] - mean_tr[0]).float()
+            fixed_deltas[p] = d_act
+            persistence["two_site_answer_d_act"] = {
+                "layer": p, "mode": "raw_additive_no_span", "norm": float(d_act.norm()),
+                "source": "clean property forwards, answer position content_end-1",
+            }
         target_coordinates = {layer: template_targets[layer] @ (delta / delta.norm())
                               for layer, delta in fixed_deltas.items()} if cfg.template_clamp else None
         if cfg.future_clamp:
@@ -1964,6 +2007,7 @@ def run_with_bundle(
             prefill_only=not cfg.continue_generation,
             record=intervention_record,
             extra_prefill_positions=cfg.extra_prefill_positions,
+            answer_patch_layer=cfg.answer_patch_layer,
         )
         captured = []
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
@@ -2280,6 +2324,8 @@ if __name__ == "__main__":
             "h5-extended-positions",
             "smoke-h5-extended-positions",
             "l26-span-correction",
+            "two-site",
+            "smoke-two-site",
         ),
         default="demo",
     )

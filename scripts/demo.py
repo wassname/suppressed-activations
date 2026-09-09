@@ -123,6 +123,7 @@ def intervention_hooks(
     source_dominant_only: bool = False,
     target_coordinates: dict[int, Tensor] | None = None,
     extra_prefill_positions: list[int] | None = None,
+    answer_patch_layer: int | None = None,
 ) -> dict[int, object]:
     if operation == "random":
         random_source = random_basis_like(source_basis, random_seed)
@@ -182,8 +183,12 @@ def intervention_hooks(
             elif operation == "span_corrected_delta":
                 # h' = h + C (Δ − UUᵀ h). C=0 → identity. -- PI/Grok
                 delta = fixed_deltas[residual_layer]
-                span = component(h, source_basis)
-                patched = h + strength * (delta - span)
+                if answer_patch_layer is not None and residual_layer == answer_patch_layer:
+                    # two-site: additive RAW answer-direction patch (d_act), no span subtraction
+                    patched = h + strength * delta
+                else:
+                    span = component(h, source_basis)
+                    patched = h + strength * (delta - span)
             elif operation in ("replace", "shared_replace", "shared_random_replace"):
                 if operation in ("shared_replace", "shared_random_replace"):
                     assert not match_component_norm and not restore_norm
