@@ -158,12 +158,13 @@ def template_projection_configs():
 
 
 def smoke_detector_configs():
-    """Worktree-only tiny-model test sweep: reduced valid layers/windows, same code path."""
+    """Worktree-only tiny-model test sweep: reduced valid layers/windows, intended
+    vocabulary-suppression selector (span none -> persistent_shared_basis)."""
     return [("smoke_detector", f"D{early}_{peak}_{late}_matched{matched}", replace(
         DEFAULT, template_contrast=True, persistent_rank=4,
         detector_layers=(early, peak, late), intervention_layer=(2,), strength=2.0,
         match_component_norm=matched, restore_residual_norm=False,
-        template_state_span="peak",
+        template_state_span="none",
     )) for early, peak, late in ((0, 2, 4),)
         for matched in (False, True)]
 
