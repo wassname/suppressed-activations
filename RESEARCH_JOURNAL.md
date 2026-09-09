@@ -843,3 +843,36 @@ property/mirror answers, and dog digit promiscuity is a separate general-readout
 
 This does not establish cross-question persistence; the reserved evaluation strings were
 not used, and the mirror eight-legs prompt is a new development prompt.
+
+## 2026-09-10 -- M2-to-H3 reversal: source-binding is not out-of-span (instrument artifact)
+
+This entry corrects an earlier reading of the property source-binding. The span-correction
+subspace (identity/prose contrast, L20 peak / L32 output attenuation, rank 4) was initially
+judged to carry the yes/no decision direction only ~3-5%, which was taken as evidence the
+decision lives outside the subspace. A separate activation-space probe found that judgment
+was a wrong-instrument artifact; the correction and the evidence are recorded here.
+
+Context / Methods. Model Qwen/Qwen3.5-4B rev 851bf6e806. Two projection ratios computed on
+the real model via `batchwork/scripts/m2_projection.py` (weight-space) and
+`batchwork/scripts/answer_position_probe.py` (activation-space). d_answer (weight) =
+unembedding(Yes) - unembedding(No). d_act (activation) = mean L20 answer-position (last-1)
+residual, target minus spider, averaged over the project templates. U = the span-correction
+attenuation span (rank 4).
+
+| target | weight-space d_answer ratio | activation-space d_act ratio |
+|---|---|---|
+| dog | 0.0326 | 0.8417 |
+| ant | 0.0410 | 0.8486 |
+
+Interpretation (my read, calibrated): the earlier near-zero weight-space ratio (0.03-0.04)
+was a wrong-instrument artifact, *very probable* (0.85). The activation-space decision
+direction (the L20 answer-position residual, target minus spider) is ~84% inside the U-span
+for both animals, so the identity-prose subspace DOES carry the answer direction. This
+reverses the earlier "decision out-of-span / M2 confirmed" reading. The source-binding is
+therefore not that the subspace lacks the answer; it is that the identity-prose delta may not
+point along d_act (cos checks being measured) or the answer-position residual is driven
+differently. The next discriminator (task 933) measures cos(delta, d_act) and the
+displacement of the answer-position residual along d_act under the C-steered patch, for
+prop-dog C=1.5 and prop-ant C=1.0 (positive control).
+
+This does not establish cross-question persistence. Reserved evaluation strings were not used.
