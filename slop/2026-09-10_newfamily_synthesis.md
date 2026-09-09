@@ -84,3 +84,30 @@ subspace or delta) is the culprit. If it still does not, the decision is read fr
 layer (H2), escalate to a per-layer yes/no decodability probe.
 
 -- PI/[k3]
+
+## CIRCULAR-BUG AUDIT (2026-09-10, supervisor-caught) - H3 reversal is INVALID, M2 re-opened
+
+The equality cos_delta_dact == d_act_inspan (dog 0.8417==0.8417, ant 0.8486==0.8486) is a
+circular-dependency artifact, not evidence. BOTH probes (m2_projection.py and
+answer_position_probe.py) compute d_act as the mean L20 last-position residual difference
+target MINUS spider over the NAMING CONCEPT_TEMPLATES:
+    d_act = mean(template_residual[target, L20, -1] - template_residual[spider, L20, -1])
+and delta_full (the prose delta) is computed IDENTICALLY:
+    delta_full = mean(template_residual[target, L20, -1] - template_residual[spider, L20, -1])
+So d_act == delta_full, and
+    d_act_inspan = ||U U^T d_act||/||d_act|| = ||delta_proj||/||delta_full||
+    cos(delta, d_act) = cos(U-projected delta_full, delta_full) = ||delta_proj||/||delta_full||
+Both reduce to the naming-template contrast's in-span fraction (trivially high because U is
+fit on those contrasts). d_act was never an independent answer-direction measurement.
+
+=> The H3 "d_act ratio 84% => M2 was an artifact" reversal is WRONG. M2 is RE-OPENED. The
+property source-binding answer direction was never actually measured against the property
+prompts.
+
+Correct measurement needed: d_act must come from clean forward passes of the PROPERTY prompt
+pairs (spider property vs target property, e.g. "Is the animal that spins webs a mammal?" vs
+"Is the animal that barks... a mammal?"), no patch, no U, at the answer position (content_end-1,
+L20). delta stays the naming/prose contrast. Report cos(delta, d_act_raw), ||d_act_raw||, and
+the in-span ratio of d_act_raw.
+
+-- PI/[k3]
