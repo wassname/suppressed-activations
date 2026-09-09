@@ -1,0 +1,41 @@
+Fetching 2 files:   0%|          | 0/2 [00:00<?, ?it/s]Fetching 2 files: 100%|██████████| 2/2 [00:00<00:00, 1353.87it/s]
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 5041.81it/s]
+2026-09-09 13:16:02.556 | INFO     | __main__:run:1894 - 1/9 000_synchronized_band_random_seed-1
+2026-09-09 13:16:08.181 | INFO     | __main__:run:1894 - 2/9 001_synchronized_band_random_seed0
+2026-09-09 13:16:15.054 | INFO     | __main__:run:1894 - 3/9 002_synchronized_band_random_seed1
+2026-09-09 13:16:20.848 | INFO     | __main__:run:1894 - 4/9 003_synchronized_band_random_seed2
+2026-09-09 13:16:27.004 | INFO     | __main__:run:1894 - 5/9 004_synchronized_band_random_seed3
+2026-09-09 13:16:33.215 | INFO     | __main__:run:1894 - 6/9 005_synchronized_band_random_seed4
+2026-09-09 13:16:39.496 | INFO     | __main__:run:1894 - 7/9 006_synchronized_band_random_seed5
+2026-09-09 13:16:45.161 | INFO     | __main__:run:1894 - 8/9 007_synchronized_band_random_seed6
+2026-09-09 13:16:51.320 | INFO     | __main__:run:1894 - 9/9 008_synchronized_band_random_seed7
+---
+conditions: 9
+metric: "swap_log_odds_shift"
+---
+
+# Intervention sweep
+
+Model: `Qwen/Qwen3.5-4B` at revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`.
+Code: `v0.1.1-332-ga49e4cf-dirty`. [Full provenance and measurements](result.json).
+
+Rows are sorted by target-vs-source log-odds movement, in nats. Grid axes and all resolved
+settings are in each condition log. C=0 rows are identity controls.
+Answer mass and repetition are diagnostics, not semantic success.
+Each log contains exact prompts, readouts, top-token distribution, and continuation.
+
+| condition                                                                                    | swap log-odds↑   | p(6)↑   | p(8)↓   | p(6)+p(8) ↑   | repeat bigrams↓   | first token   | donor readout overlap↑   |
+|:---------------------------------------------------------------------------------------------|:-----------------|:--------|:--------|:--------------|:------------------|:--------------|:-------------------------|
+| [002_synchronized_band_random_seed1](conditions/002_synchronized_band_random_seed1/run.md)   | +5.375           | 0.5258  | 0.1934  | 0.719         | 0.000             | '6'           | 0.250                    |
+| [000_synchronized_band_random_seed-1](conditions/000_synchronized_band_random_seed-1/run.md) | +5.250           | 0.6071  | 0.2531  | 0.860         | 0.000             | '6'           | 0.375                    |
+| [004_synchronized_band_random_seed3](conditions/004_synchronized_band_random_seed3/run.md)   | +3.625           | 0.2292  | 0.4852  | 0.714         | 0.000             | '8'           | 0.250                    |
+| [007_synchronized_band_random_seed6](conditions/007_synchronized_band_random_seed6/run.md)   | +2.750           | 0.1308  | 0.6644  | 0.795         | 0.000             | '8'           | 0.125                    |
+| [003_synchronized_band_random_seed2](conditions/003_synchronized_band_random_seed2/run.md)   | +2.750           | 0.1434  | 0.7284  | 0.872         | 0.000             | '8'           | 0.250                    |
+| [008_synchronized_band_random_seed7](conditions/008_synchronized_band_random_seed7/run.md)   | +0.000           | 0.0079  | 0.6301  | 0.638         | 0.000             | '8'           | 0.125                    |
+| [005_synchronized_band_random_seed4](conditions/005_synchronized_band_random_seed4/run.md)   | -0.250           | 0.0093  | 0.9463  | 0.956         | 0.000             | '8'           | 0.250                    |
+| [001_synchronized_band_random_seed0](conditions/001_synchronized_band_random_seed0/run.md)   | -0.250           | 0.0094  | 0.9612  | 0.971         | 0.000             | '8'           | 0.375                    |
+| [006_synchronized_band_random_seed5](conditions/006_synchronized_band_random_seed5/run.md)   | -2.375           | 0.0012  | 0.9876  | 0.989         | 0.000             | '8'           | 0.375                    |
+
+-- Codex/GPT-6; renderer originally Codex/gpt-5.6-sol
+
+2026-09-09 13:16:51.483 | INFO     | __main__:run:1938 - wrote out/2026-09-08_134200_matched-random-band-ant/run.md
