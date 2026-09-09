@@ -136,3 +136,21 @@ read-out location / other mechanism (H5: patch the attended-but-unpatched Questi
 positions, or later-layer composition H2) even more strongly.
 
 -- PI/[k3]
+
+## H5 result (task 934): patched Question/Is positions does NOT flip prop-dog -> escalate to H2
+
+Extended patch to attended-but-unpatched positions [28,30] (Question/Is) in addition to
+last-3, same U and delta. Result (pueue 934, `out/2026-09-10_h5-prop-*`):
+
+- prop-dog C=1.5: first ` No`, p(No)=0.342, p(Yes)=0.142, r2=0.014, coherent prose
+  ("The animal that spins webs is a dog... Dogs are mammals"). STILL No - did NOT flip.
+- prop-ant C=1.0 (positive control): first ` Yes`, p(Yes)=0.284, p(No)=0.250. Flip preserved.
+
+Prediction tree: dog still stuck => the position set is NOT the culprit. ESCALATE to H2:
+per-layer yes/no decodability probe - at which layer does the target-vs-source yes/no answer
+first become linearly decodable from the residual, and is it before or after L20? If the
+answer direction becomes decodable only AFTER L20 (e.g. L24-32), a L20 edit cannot carry it
+(H2 "must leave" / later-layer composition), and the source binding persists regardless of
+patch geometry on the L20 identity span.
+
+-- PI/[k3]
