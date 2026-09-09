@@ -26,11 +26,12 @@ from suppressed_activation_subspace import component
 INS = "Complete the following fact. Then describe the animal in three sentences."
 
 
-def build_u_dact(b, target, peak, output):
+def build_u_delta(b, target, peak, output):
+    """U (span) and delta (prose delta) from the NAMING CONCEPT_TEMPLATES. Unchanged."""
     model, tokenizer, final_norm = b["model"], b["tokenizer"], b["final_norm"]
     device = b["device"]
     peaks, outs = [], []
-    act = []
+    dl = []
     for tmpl in CONCEPT_TEMPLATES:
         pair = []
         for animal in ("spider", target):
@@ -42,11 +43,9 @@ def build_u_dact(b, target, peak, output):
             pair.append(seg)
         peaks.append(pair[1][peak].mean(0) - pair[0][peak].mean(0))
         outs.append(pair[1][output].mean(0) - pair[0][output].mean(0))
-        act.append(pair[1][peak, -1] - pair[0][peak, -1])
     P, O = torch.stack(peaks), torch.stack(outs)
     U, _ = attenuation_basis(P, O, 4)
-    d_act = torch.stack(act).mean(0)
-    # runner delta: template mean diff target - spider at L20, projected into U, norm-matched
+    # delta from the naming template last-position contrast (independent of property prompt)
     dl = []
     for tmpl in CONCEPT_TEMPLATES:
         s = assistant_prefill_input_ids(tokenizer, tmpl.format(animal="spider"), device=device, instruction=INS)
@@ -58,7 +57,21 @@ def build_u_dact(b, target, peak, output):
     delta_full = torch.stack(dl).mean(0).float()
     delta_proj = component(delta_full, U)
     delta = delta_proj * delta_full.norm() / delta_proj.norm()
-    return U, d_act.float(), delta
+    return U, delta
+
+
+def d_act_property(b, src_prompt, tgt_prompt, peak):
+    """d_act from CLEAN forward passes of the PROPERTY source/target prompts at the answer
+    position (content_end - 1, L20), no patch, no U. Independent of the naming delta."""
+    model, tokenizer, final_norm = b["model"], b["tokenizer"], b["final_norm"]
+    device = b["device"]
+    s = assistant_prefill_input_ids(tokenizer, src_prompt, device=device, instruction=INS)
+    t = assistant_prefill_input_ids(tokenizer, tgt_prompt, device=device, instruction=INS)
+    with torch.no_grad():
+        rs = trajectory(model, s["input_ids"], final_norm)[0]
+        rt = trajectory(model, t["input_ids"], final_norm)[0]
+    d = rt[peak, rt.shape[1]-1].float() - rs[peak, rs.shape[1]-1].float()
+    return d
 
 
 def h_answer_at(b, prompt, U, delta, C, peak):
@@ -87,19 +100,23 @@ def main():
     args = ap.parse_args()
 
     b = load_bundle()
-    U, d_act, delta = build_u_dact(b, args.target, args.peak_layer, args.output_layer)
+    U, delta = build_u_delta(b, args.target, args.peak_layer, args.output_layer)
+    d_act = d_act_property(b, args.prompt, args.target_prompt, args.peak_layer)
     dh = d_act / (d_act.norm() + 1e-12)
-    hC0, h0 = h_answer_at(b, args.prompt, U, delta, 0.0, args.peak_layer)
-    hCs, _ = h_answer_at(b, args.prompt, U, delta, args.c_target, args.peak_layer)
+    hCs = h_answer_at(b, args.prompt, U, delta, args.c_target, args.peak_layer)[0]
+    hC0 = h_answer_at(b, args.prompt, U, delta, 0.0, args.peak_layer)[0]
     disp = float((hCs - hC0) @ dh)
     cos_delta_dact = float((delta @ d_act) / (delta.norm() * d_act.norm() + 1e-12))
+    d_act_inspan = float(((U @ U.T) @ d_act).norm() / (d_act.norm()+1e-12))
     out = {"target": args.target, "c_target": args.c_target,
            "cos_delta_dact": cos_delta_dact,
            "displacement_along_dact": disp,
            "d_act_norm": float(d_act.norm()), "delta_norm": float(delta.norm()),
-           "d_act_inspan": float(((U @ U.T) @ d_act).norm() / (d_act.norm()+1e-12))}
+           "d_act_inspan": d_act_inspan,
+           "circular_check_cos_eq_inspan": abs(cos_delta_dact - d_act_inspan) < 1e-3}
     print(f"{args.target} C={args.c_target}: cos(delta,d_act)={cos_delta_dact:.4f} disp={disp:.4f} "
-          f"d_act_norm={float(d_act.norm()):.3f} delta_norm={float(delta.norm()):.3f}")
+          f"d_act_norm={float(d_act.norm()):.3f} delta_norm={float(delta.norm()):.3f} "
+          f"d_act_inspan={d_act_inspan:.4f} CIRCULAR={out['circular_check_cos_eq_inspan']}")
     Path(args.out).write_text(json.dumps(out, indent=1) + "\n")
     print("wrote", args.out)
 

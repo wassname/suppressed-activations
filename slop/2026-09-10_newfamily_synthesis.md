@@ -111,3 +111,28 @@ L20). delta stays the naming/prose contrast. Report cos(delta, d_act_raw), ||d_a
 the in-span ratio of d_act_raw.
 
 -- PI/[k3]
+
+## CORRECTED (non-circular) answer-position result - M2 RE-CONFIRMED, H3 reversal was circular
+
+Fixed probe (d_act now from clean property-prompt forwards; delta stays naming contrast).
+circular_check_cos_eq_inspan = False for both. Corrected real numbers:
+
+| animal | C | cos(delta, d_act) | d_act_inspan | displacement/d_act_norm |
+|---|---|---|---|---|
+| dog | 1.5 | 0.0748 | 0.0965 | 0.1416 |
+| ant | 1.0 | 0.0317 | 0.0488 | 0.0656 |
+
+Interpretation (calibrated): M2 is RE-CONFIRMED on valid (non-circular) grounds. The
+yes/no answer direction d_act (from the property prompts) is near-zero in-span for BOTH
+animals (~5-10%), the prose delta does NOT align with it (cos ~0.03-0.08), and the C-patch
+displaces the answer residual toward target by only ~6-14%. The property source-binding is
+consistent with the answer decision being largely OUTSIDE the identity-prose U-span and not
+driven by the prose delta.
+
+NOTABLE asymmetry: ant has LOWER d_act_inspan (0.049), LOWER cos (0.032), LOWER displacement
+(0.066) than dog (0.097, 0.075, 0.142), yet ANT transfers (C=1.0) and dog does not. So the
+tiny in-span fraction is NOT what separates ant (flips) from dog (doesn't). That points the
+read-out location / other mechanism (H5: patch the attended-but-unpatched Question/Is
+positions, or later-layer composition H2) even more strongly.
+
+-- PI/[k3]
