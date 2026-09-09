@@ -274,6 +274,29 @@ def h5_extended_positions_configs():
     return rows
 
 
+def l26_span_correction_configs():
+    """Later-layer (L26) span-corrected delta: attenuation basis at L26 peak / L32 output,
+    intervention at L26. One-axis change from L20 (only the layer differs)."""
+    base = template_attenuation_configs()[7][2]
+    return [
+        ("l26_span_correction", "dog_C1.5", replace(
+            base, detector_layers=(24, 26, 32), intervention_layer=(26,),
+            intervention_positions=3, match_component_norm=True, strength=1.5,
+            span_correction=True, continue_generation=True,
+        )),
+        ("l26_span_correction", "ant_C1.0", replace(
+            base, detector_layers=(24, 26, 32), intervention_layer=(26,),
+            intervention_positions=3, match_component_norm=True, strength=1.0,
+            span_correction=True, continue_generation=True,
+        )),
+        ("l26_span_correction", "legs_dog_C1.5", replace(
+            base, detector_layers=(24, 26, 32), intervention_layer=(26,),
+            intervention_positions=3, match_component_norm=True, strength=1.5,
+            span_correction=True, continue_generation=True,
+        )),
+    ]
+
+
 def template_detector_configs():
     return [("template_detector", f"D{early}_{peak}_{late}_matched{matched}", replace(
         DEFAULT, template_contrast=True, persistent_rank=4,
@@ -1428,6 +1451,7 @@ def run_with_bundle(
         "span-correction": span_correction_configs,
         "span-correction-sweep": span_correction_sweep_configs,
         "h5-extended-positions": h5_extended_positions_configs,
+        "l26-span-correction": l26_span_correction_configs,
         "smoke-h5-extended-positions": smoke_h5_extended_configs,
         "template-selector": template_selector_configs,
         "template-state": template_state_configs,
@@ -2255,6 +2279,7 @@ if __name__ == "__main__":
             "span-correction-sweep",
             "h5-extended-positions",
             "smoke-h5-extended-positions",
+            "l26-span-correction",
         ),
         default="demo",
     )
