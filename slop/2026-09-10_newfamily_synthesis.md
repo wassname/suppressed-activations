@@ -248,3 +248,32 @@ non-transferring for a single-layer L20 edit. dog's divergence exceeds ant's at 
 driven by a different mechanism than dog's L20 partial steer).
 
 -- PI/[k3]
+
+## L26 later-layer test result (935) - property NOT fixed, legs BROKEN -> freeze naming+legs
+
+Ran L26 (midpoint of L23-28 divergence band) span-corrected delta, same contrast/positions.
+Result (pueue 935):
+
+- prop-dog-L26-C1.5: first `思考`, then a self-contradicting correction loop ("No, the animal
+  that spins dogs is not a mammal. The animal that spins dogs is a dog, which is a mammal.").
+  Did NOT flip cleanly; degenerate.
+- prop-ant-L26-C1.0: first `1` (numeral, not Yes), but coherent ANT-identity prose ("The ant is
+  a small, social insect... possesses two distinct pairs of antennae"). Identity is now ant
+  (cleaner than H5's L20 ant which stayed spider), but the answer is `1` not Yes (Yes only 0.27
+  top-4). No clean answer+identity transfer.
+- legs-dog-L26-C1.5 (control): first `1` -> `154` (bone-count confabulation loop: "number 154
+  is the total number of bones in a dog's body... 32 + 154 + 154 = 320"). BROKE the legs
+  transfer (was `4` at L20). L20 is special for identity/legs.
+
+Prediction tree: property did NOT flip cleanly at L26 (prop-dog loop, prop-ant answer is a
+numeral), and L26 BREAKS the legs transfer L20 handles. => Result is option (b): FREEZE the
+rule at L20 C=1.5 for naming+legs (both animals, verified clean), and label PROPERTY
+non-transferring for this single-layer L20 edit. L26 and above do not carry property and
+degrade the reliable legs/identity transfer.
+
+This completes the family. The frozen rule: span-corrected delta at L20, C=1.5, prefill last-3
++ decode last-1 -> naming+legs both animals. Property explicitly non-transferring (a single
+L20 or L26 edit does not carry the yes/no answer identity, which forms at L23-28 but editing
+there breaks legs and does not cleanly produce property).
+
+-- PI/[k3]
