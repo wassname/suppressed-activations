@@ -1,0 +1,61 @@
+{
+  "provenance": "derived from out/2026-09-10_trajbank/manifest.json answer_logprobs (same model rev 851bf6e8, same raw fact prompts, clean forwards). Supersedes the invalid clean_answers in out/2026-09-10_causal_selector/result.json, which applied .exp() after .softmax(). The run's own metrics used log_softmax->exp and are unaffected.",
+  "invalid_values_preserved": {
+    "source": {
+      "p_source": 2.4170994758605957,
+      "p_dog": 1.0580426454544067,
+      "p_ant": 1.0270094871520996
+    },
+    "dog": {
+      "p_source": 1.0072304010391235,
+      "p_dog": 2.5691592693328857,
+      "p_ant": 1.0056265592575073
+    },
+    "ant": {
+      "p_source": 1.1174756288528442,
+      "p_dog": 1.032334566116333,
+      "p_ant": 2.0632500648498535
+    }
+  },
+  "invalid_value_diagnosis": "reported value = exp(true probability); e.g. exp(0.8826) = 2.417 = reported source.p_source",
+  "corrected": {
+    "source": {
+      "answer_logprobs_bank": {
+        "8": -0.12491918355226517,
+        "4": -2.8749191761016846,
+        "6": -3.6249191761016846
+      },
+      "p_derived": {
+        "8": 0.8825682257314021,
+        "4": 0.0564206994603742,
+        "6": 0.02665125130733379
+      }
+    },
+    "dog": {
+      "answer_logprobs_bank": {
+        "8": -4.933075428009033,
+        "4": -0.05807551369071007,
+        "6": -5.183075428009033
+      },
+      "p_derived": {
+        "8": 0.007204312830834356,
+        "4": 0.9435786916369573,
+        "6": 0.005610724474145167
+      }
+    },
+    "ant": {
+      "answer_logprobs_bank": {
+        "8": -2.1975739002227783,
+        "4": -3.4475739002227783,
+        "6": -0.32257387042045593
+      },
+      "p_derived": {
+        "8": 0.11107230423550853,
+        "4": 0.031822747961787606,
+        "6": 0.7242824267833254
+      }
+    }
+  },
+  "all_probabilities_in_unit_interval": true,
+  "cross_check": "source p(8)=0.8826 matches base.p_source in out/2026-09-10_crosstoken_dog/result.json"
+}
