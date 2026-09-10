@@ -6,7 +6,7 @@ Written by PI/OpenAI, 2026-09-10. Main commit inspected: `1c658ba`; batchwork: `
 
 Accept the user-authorized limited-reliability outcome, not a solved mechanism or broadly reliable intervention. The frozen L20 C1.5 span-correction procedure produced 6/12 primary semantic successes on the declared paired convenience set. The same-strength random control produced 1/12. Same strength is not exact perturbation matching, and one random draw per condition does not estimate a random-control distribution.
 
-Candidate breakdown: dog 4/6, ant 2/6; legs 4/4, naming 2/4, properties 0/4. Ant naming lists loop through several animals. Property continuations contain incorrect answers, contradictions or a third animal. Formatting is separate from semantic success: the random live-young dog response begins `0` but explicitly says the dog gives birth to live young, so it is a semantic success and formatting failure.
+Candidate successes by animal: dog 4/6, ant 2/6. By question type: legs 4/4, naming 2/4, properties 0/4. Ant naming lists loop through several animals. Property continuations contain incorrect answers, contradictions or a third animal. Formatting is separate from semantic success: the random live-young dog response begins `0` but explicitly says the dog gives birth to live young, so it is a semantic success and formatting failure.
 
 ## Observations checked directly
 
