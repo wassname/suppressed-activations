@@ -68,13 +68,38 @@ alone; no claim that a null proves the detector inert.
 
 ## Result (task 1007; exploratory, different-equation comparison -- labeled per supervisor)
 
-At the candidate's operating point (L20 C1.5, attenuation span, shared_replace equation), BOTH
-arms produce spider identity and unchanged answers on all six dev pairs: frozen and synchronized
-donors are behaviorally identical here. The base equation does not transfer at L20 C1.5 at all,
-so the identity failure that synchronization repaired in job 743 (at ITS operating point, L24
-C2, rank-4 raw attenuation) never arises here. There is no frozen-vs-synchronized difference to
-measure at this operating point; the job-743 lead does not compose with the candidate's
-settings.
+First answer and source identity: the SAME in both arms on all six pairs (first_token logits
+bitwise equal at prefill; both arms stay spider/8/No). That is where the equality ends. The
+continuations and coherence differ materially -- per-cell table, derived from each cell's
+artifact (not compressed):
+
+| pair | arm | first | n tokens | ended | bigram | content difference |
+|---|---|---|---:|---|---:|---|
+| naming-dog | frozen | (spider) | 48 | <|im_end\|> | 0.022 | "The spider is a popular pet ... four legs and a long tail" (factually wrong) |
+| naming-dog | sync | (spider) | 65 | <|im_end\|> | 0.000 | names an EIGHT-LEGGED arachnid (factually correct) |
+| naming-ant | frozen | (spider) | 65 | <|im_end\|> | 0.000 | spider prose |
+| naming-ant | sync | (spider) | 64 | <|im_end\|> | 0.000 | spider prose, minor rewording |
+| legs-dog | frozen | 8 | 56 | <|im_end\|> | 0.000 | spider/Arachnida |
+| legs-dog | sync | 8 | 82 | <|im_end\|> | 0.025 | spider, longer |
+| legs-ant | frozen | 8 | 84 | <|im_end\|> | 0.012 | spider |
+| legs-ant | sync | 8 | 73 | <|im_end\|> | 0.014 | spider, eight legs |
+| property-dog | frozen | No | 128 | CAP (mid-word) | 0.772 | repeats "Spiders are actually mammals, not mammals" to the cap |
+| property-dog | sync | No | 85 | <|im_end\|> | 0.012 | arachnid-not-mammal, ends naturally |
+| property-ant | frozen | No | 63 | <|im_end\|> | 0.000 | spider not a mammal |
+| property-ant | sync | No | 64 | <|im_end\|> | 0.016 | arachnid not a mammal |
+
+Token-count ranges: frozen 48-128, synchronized 64-85 (the configured cap is 128; 11 of 12
+cells end naturally at <|im_end\|>, one -- property-dog frozen -- is censored mid-word in a
+repetition loop). An earlier draft compressed this into "48 vs 65" from the naming-dog case
+alone: wrong.
+
+Separate dimensions, reported separately: the synchronized donor REMOVES SOME DISTORTION
+(factually correct eight-legged description where frozen invents four legs and a tail; natural
+ending where frozen loops) but DOES NOT achieve target transfer (identity and answers stay
+spider in both arms). It is distortion reduction at this operating point, not transfer; and
+step-0 first-token equality is by construction, so nothing here speaks to adaptive steering's
+first-answer effect. The job-743 lead remains specific to its own operating point (L24 C2) and
+does not compose with the candidate's settings.
 
 Verified invariants: prefill first-token logits bitwise equal across arms
 (first_logits_sha256 identical); synchronized donor history exactly equals source history
