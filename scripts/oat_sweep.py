@@ -429,6 +429,34 @@ def attenuation_basis(peak, output, rank, tokens=None):
     return joint @ eigenvectors[:, -rank:].flip(1), values
 
 
+def sync_l20_configs():
+    """Fixed-setting frozen-vs-synchronized donor comparison at the candidate's L20 C1.5.
+    Same attenuation basis/equation both arms; no C sweep. -- PI[claude]"""
+    rows = []
+    for mode in ("frozen", "synchronized"):
+        for strength in (0.0, 1.5):
+            rows.append(("sync_l20", f"{mode}_C{strength}", Config(
+                template_contrast=True, template_state_span="attenuation", persistent_rank=4,
+                detector_layers=(18, 20, 32), intervention_layer=(20,),
+                shared_replacement=mode, strength=strength,
+                match_component_norm=False, restore_residual_norm=False,
+            )))
+    return rows
+
+
+def smoke_sync_l20_configs():
+    rows = []
+    for mode in ("frozen", "synchronized"):
+        for strength in (0.0, 1.5):
+            rows.append(("smoke_sync_l20", f"{mode}_C{strength}", Config(
+                template_contrast=True, template_state_span="attenuation", persistent_rank=2,
+                detector_layers=(0, 2, 5), intervention_layer=(2,),
+                shared_replacement=mode, strength=strength,
+                match_component_norm=False, restore_residual_norm=False,
+            )))
+    return rows
+
+
 def synchronized_attenuation_configs():
     return [("synchronized_attenuation", f"{mode}_L{layer}_C{strength}", Config(
         template_contrast=True, template_state_span="attenuation", persistent_rank=4,
@@ -1535,7 +1563,9 @@ def run_with_bundle(
         "two-site": two_site_configs,
         "two-site-strength": two_site_strength_configs,
         "two-site-strength-narrow": two_site_strength_narrow_configs,
+        "sync-l20": sync_l20_configs,
         "smoke-two-site": smoke_two_site_configs,
+        "smoke-sync-l20": smoke_sync_l20_configs,
         "smoke-two-site-strength": smoke_two_site_strength_configs,
         "smoke-h5-extended-positions": smoke_h5_extended_configs,
         "template-selector": template_selector_configs,
