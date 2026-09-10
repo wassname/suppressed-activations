@@ -284,7 +284,6 @@ display(Markdown("Sources: [cross-token report](/workspace/2026/suppressed-activ
                  "[synchronized brief](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_synchronized_donor_brief.md)"))
 
 # %% [markdown]
-# ## Not demonstrated here# %% [markdown]
 # ## Not demonstrated here
 #
 # Cross-question persistence, readout calibration, and wider transfer are not established.
