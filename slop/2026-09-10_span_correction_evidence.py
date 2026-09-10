@@ -22,13 +22,15 @@ from pathlib import Path
 BATCH = Path("/workspace/2026/suppressed-activations-batchwork")  # worktree holding the measured out/
 
 # Slot -> result.json path (relative to BATCH). Edit to swap development evidence for new runs.
+# Replay artifacts (regression verification, tasks 1005/1006): the same measured cells
+# re-run from the recovered config; probabilities are bitwise-identical to the originals.
 PATHS = {
-    "legs_dog_c15": "out/2026-09-10_csweep-legs-dog-C3/result.json",
-    "legs_ant_c15": "out/2026-09-10_csweep-legs-ant-C3/result.json",
-    "naming_dog_c15": "out/2026-09-10_naming-dog-C1.5/result.json",
-    "naming_ant_c15": "out/2026-09-10_naming-ant-C1.5/result.json",
-    "prop_dog_pending": None,  # pending: eager-attention M3 run
-    "prop_ant_pending": None,
+    "legs_dog_c15": "out/2026-09-10_replay-C1.5-legs-dog/result.json",
+    "legs_ant_c15": "out/2026-09-10_replay-C1.5-legs-ant/result.json",
+    "naming_dog_c15": "out/2026-09-10_replay-C1.5-naming-dog/result.json",
+    "naming_ant_c15": "out/2026-09-10_replay-C1.5-naming-ant/result.json",
+    "prop_dog_c15": "out/2026-09-10_replay-C1.5-property-dog/result.json",
+    "prop_ant_c15": "out/2026-09-10_replay-C1.5-property-ant/result.json",
 }
 DB = {}
 for slot, rel in PATHS.items():
@@ -109,15 +111,43 @@ block("naming_dog_c15", "Dog naming, C=1.5")
 block("naming_ant_c15", "Ant naming, C=1.5")
 
 # %% [markdown]
-# ## Property (PENDING)
+# ## Property (C=1.5): measured FAILURE, kept visible
 #
-# Not populated. The property source-binding is the remaining open failure: prop-dog stays
-# `No` (source-bound) at every tested C, and prop-ant transfers at C=1.0 but reverts at C=2.0.
-# The eager-attention M3 run (task 930) reads the answer-position attention; add the
-# property result.json files to `PATHS` and complete this section once ready.
+# The answer stays `No` for both animals while identity moves. Dog: "The animal that spins
+# webs is a dog, which is a mammal" -- then answers No, a self-contradiction (a dog is a
+# mammal). Ant: identity moves to a honey bee (a third animal). Property transfer does not
+# work at the frozen operating point; these rows are shown unedited.
+
+# %%
+block("prop_dog_c15", "Dog property, C=1.5 (FAILED transfer: identity moves, answer contradicts)")
+block("prop_ant_c15", "Ant property, C=1.5 (FAILED transfer: identity moves to honey bee)")
+
+# %% [markdown]
+# ## Semantic reliability table (frozen manifest; fresh evaluation pending)
+#
+# The frozen manifest (batchwork `slop/2026-09-10_eval_manifest.md` rev 2) declares 12 FRESH
+# never-executed questions (2 wordings x naming/legs/property x dog/ant), four separate
+# judgments (Answer / Identity / Coherence / Formatting; primary rate = first three), exact
+# source+donor strings with donor-competence-verified ground truth, C=0 and matched-random
+# controls at the candidate strength, and Clopper-Pearson intervals over the declared
+# denominator. It has NOT been executed: no fresh-set numbers exist yet. The rows above are
+# DEVELOPMENT regression evidence on heavily exposed prompts, not the reliability estimate.
+#
+# Ground-truth corrections of record: property-mammal-ant's expected answer is No (the clean
+# donor answers "1. No, it is not a mammal"); historical runner configs pairing mammal wording
+# with expected Yes had invalid ground truth and pushed a factually wrong answer.
+
+# %% [markdown]
+# ## Provenance
+#
+# Each artifact stores its own git describe, code SHA-256 of the runner files, resolved config,
+# and revision; the runner writes them at run time and the reliability table must be computed
+# from those fields, not from notebook state. Worker: PI[claude] (glm-5p3-flash session,
+# user-confirmed switch). Recovery decision: batchwork `slop/2026-09-10_recovery_decision.md`.
 
 # %% [markdown]
 # ## Not demonstrated here
 #
-# Cross-question persistence, reserved-evaluation reliability, and readout calibration are
-# not established. Readouts are verbatim and unvalidated.
+# Cross-question persistence, fresh-evaluation reliability, and readout calibration are
+# not established. Readouts are verbatim and unvalidated. The 128-token cap is censoring:
+# a capped continuation is not evidence of natural completion.
