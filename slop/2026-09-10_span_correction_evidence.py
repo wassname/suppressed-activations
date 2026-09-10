@@ -146,8 +146,74 @@ block("prop_ant_c15", "Ant property, C=1.5 (FAILED transfer: identity moves to h
 # user-confirmed switch). Recovery decision: batchwork `slop/2026-09-10_recovery_decision.md`.
 
 # %% [markdown]
+# ## Fresh-evaluation reliability (frozen manifest rev4; task 1008)
+#
+# Twelve never-executed questions, frozen candidate, C=0 and strength-matched in-span random
+# controls. Primary semantic success = answer + persistent identity + coherence; formatting
+# separate. Descriptive n/N on a paired convenience sample -- NOT a population estimate.
+
+# %%
+import re
+
+def eval_dir(cond):
+    return BATCH / f"out/2026-09-10_eval-{cond}/result.json"
+
+def judge(cond, expect, donor_word):
+    row = json.loads(eval_dir(cond).read_text())["rows"][0]
+    gen = row["generation"]["text"]
+    low = gen.lower()
+    answer = row.get("first_answer")
+    ans_ok = (answer == expect) or bool(re.search(rf"\b{re.escape(expect.lower())}\b", low.split("\n")[0].lower()))
+    ident = donor_word in low
+    spider_claim = ("the spider" in low and ("is a" in low or "are" in low))
+    third = any(w in low for w in ("honey bee", "cow", "cat")) and not ident
+    bigram = row.get("repeated_bigram_fraction", 0)
+    censored = len(row["generation"]["token_ids"]) >= 128
+    ident_status = "yes" if (ident and not spider_claim) else ("no" if (spider_claim or third) else "unknown")
+    coherence = (bigram < 0.2) and not censored
+    return ans_ok, ident_status, coherence, bigram, censored
+
+FRESH = json.loads((BATCH / "slop/eval_fresh_batch.json").read_text())
+meta = {e["id"]: e for e in FRESH}
+counts = {"candidate-C1.5": [0, 0], "random-C1.5": [0, 0]}
+table = ["| question | judgment | answer | identity | coherence | censored |", "|---|---|---|---|---|---|"]
+for cond in [e["output_dir"].split("eval-")[1] for e in
+             json.loads((BATCH / "slop/eval_fresh_run_batch.json").read_text())]:
+    # three arms: candidate-C1.5 / random-C1.5 / C0 (identity control, not rubric-scored)
+    arm = next((a for a in ("candidate-C1.5", "random-C1.5") if cond.startswith(a)), None)
+    if arm is None:
+        assert cond.startswith("C0"), cond  # identity control; verified in the runner
+        continue
+    qid = cond[len(arm) + 1:]
+    m = meta[qid]
+    a, i, c, b, cen = judge(cond, m["donor_expected_answer"], qid.rsplit("-", 1)[-1])
+    counts[arm][0] += int(a and i == "yes" and c)
+    counts[arm][1] += 1
+    if arm == "candidate-C1.5":
+        noop = " (no-op control)" if not m["fact_changes"] else ""
+        table.append(f"| {qid}{noop} | candidate | {'Y' if a else 'n'} | {i} | {'Y' if c else 'n'} | {cen} |")
+for arm, (k, n) in counts.items():
+    table.append(f"| **{arm} PRIMARY** | | | | | **{k}/{n}** |")
+display(Markdown("\n".join(table)))
+
+# %% [markdown]
+# ## Paired fresh-set demonstrations (candidate cells, verbatim)
+
+# %%
+for cond, title in (("candidate-C1.5-legs-L1-dog", "Fresh legs, dog (digit + identity + coherent)"),
+                    ("candidate-C1.5-prop-P1-spinneret-dog", "Fresh property, dog (source-bound answer: FAILS)")):
+    row = json.loads(eval_dir(cond).read_text())["rows"][0]
+    data = json.loads(eval_dir(cond).read_text())
+    n = len(row["generation"]["token_ids"])
+    display(Markdown(f"### {title} :: {cond}"))
+    display(Markdown(f"Source (`repr`):\n\n```python\n{data['source_prompt']!r}\n```\n\n"
+                     f"First 32 of {n} tokens:\n\n```text\n{TOK.decode(row['generation']['token_ids'][:32])}\n```\n\n"
+                     f"Full continuation ({n} tokens):\n\n```text\n{row['generation']['text']}\n```"))
+
+# %% [markdown]
 # ## Not demonstrated here
 #
-# Cross-question persistence, fresh-evaluation reliability, and readout calibration are
-# not established. Readouts are verbatim and unvalidated. The 128-token cap is censoring:
-# a capped continuation is not evidence of natural completion.
+# Cross-question persistence, readout calibration, and wider transfer are not established.
+# Readouts are verbatim and unvalidated. The 128-token cap is censoring: a capped continuation
+# is not evidence of natural completion. The 6/12 fresh-set rate is a descriptive fraction of a
+# paired convenience sample, not a population estimate or a solved mechanism.
