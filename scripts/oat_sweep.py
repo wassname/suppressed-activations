@@ -241,7 +241,7 @@ def span_correction_sweep_configs():
             intervention_positions=3, match_component_norm=True, strength=strength,
             span_correction=True, continue_generation=True,
         )))
-    for strength, seed in ((1.0, 0), (2.0, 0)):
+    for strength, seed in ((1.0, 0), (1.5, 0), (2.0, 0)):
         rows.append(("span_correction_sweep", f"inspan_seed{seed}_C{strength}", replace(
             base, detector_layers=(18, 20, 32), intervention_layer=(20,),
             intervention_positions=3, match_component_norm=True, strength=strength,

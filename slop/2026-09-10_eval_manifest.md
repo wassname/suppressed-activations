@@ -82,3 +82,31 @@ that ends at the cap is CENSORING, not evidence of natural completion -- flagged
 Clean source and clean donor continuations; C=0 identity; in-span random direction control at
 C=1.5 (matched to the candidate's actual perturbation norms -- the replay's C=2 random is NOT
 reused, since strengths differ). No evaluation run has occurred against this manifest.
+
+## Rev 3 (append-only correction; rev 2 retained above for provenance)
+
+Rev 2 is NOT approved and had five defects, fixed here:
+
+1. `eval_fresh_batch.json` did not exist. It now does: 12 machine-readable entries with exact
+   source and target prompt strings, both expected answers, fact-change flags, and per-entry
+   verification fields (`suffix_shared_last3`, `answer_single_token`, `*_previously_executed`).
+2. prop-spinneret's two sides asked DIFFERENT predicates (egg-case silk vs have spinnerets).
+   Fixed: the predicate lives in the template and is IDENTICAL on both sides; only the
+   descriptor slot is replaced.
+3. Descriptors were not unambiguous ("produces silk", "builds nests underground"). Fixed
+   descriptors: spider "spinning webs to catch insects"; dog "barking while living as a
+   domesticated pet"; ant "living in six-legged colonies and following pheromone trails". The
+   question WORDING varies between N1/N2, L1/L2; the descriptor identifies the animal.
+4. Ground truth is independent animal facts (spinnerets: spiders yes, dogs no, ants no; live
+   birth: dogs yes, spiders and ants no; legs 8/4/6; the names). The clean model's answer is a
+   reported competence measurement, not the ground truth.
+5. Binomial intervals removed. For a fully evaluated fixed convenience set the success fraction
+   is an OBSERVED descriptive rate (n/N), not a sample from a population: the CP interval in
+   rev 2 assumed independent Bernoulli sampling, and the paired animal rows violate
+   independence. Reported instead: descriptive n/N per level, per-wording and per-animal
+   variation, and judgment/censoring uncertainty (which rows were capped, which judgments were
+   ambiguous), stated simply.
+
+Verification run on the final entries: shared last-3 tokens on every pair (runner assertion
+holds), single-token answers on every expected answer, and ZERO prior execution of the final
+exact strings. The fresh evaluation still has not run; nothing is scored against this manifest.
