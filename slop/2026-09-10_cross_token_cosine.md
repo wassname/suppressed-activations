@@ -446,3 +446,43 @@ decision-position-only donor directions to confirm or refute the leakage reading
 Artifacts: `out/2026-09-10_causal_selector/result.json` (complete call records, token IDs, 64-token
 generations, coverage, selections); the buggy first run is preserved as
 `out/2026-09-10_causal_selector-INVALID-bug-995/`.
+
+
+## FRESH EVALUATION RESULT (task 1008; manifest rev4, hash-pinned; the authorized measured-reliability deliverable)
+
+Twelve never-executed questions (2 wordings x naming/legs/property x dog/ant), frozen candidate
+(L20 C1.5 span-corrected template-attenuation, fixed donor term, current-state removal), C=0 and
+C=1.5 in-span random controls, one model load, full 128-token generations, all cells completed.
+
+Primary semantic success (answer + persistent identity + coherence), descriptive on this fixed
+convenience set:
+
+**Candidate 6/12 vs matched-random 0/12** -- the first construction to separate from its
+strength-matched random control.
+
+| level | candidate | matched-random C1.5 |
+|---|---:|---:|
+| answer | 9/12 | 2/12 |
+| identity | 11/12 | 2/12 |
+| coherence | 9/12 | 8/12 |
+| PRIMARY (all three) | **6/12** | **0/12** |
+
+Per type (candidate): legs **4/4** (dog 4 + dog identity, ant 6 + ant identity, all coherent);
+naming 2/4 (dog rows clean; BOTH ant rows give correct answer+identity then degenerate into a
+"1. Ant 2. Bee 3. Honeybee" repetition loop, censored at cap); property **0/4** (spinneret-dog
+answers Yes -- source-bound, correct for spider not donor; spinneret-ant invents anatomy "Yes,
+ants have spinnerets"; liveyoung-dog factually denies live birth for dogs; the no-op
+liveyoung-ant keeps the correct No but with honey-bee identity). Per animal: dog 5/6, ant 1/6.
+
+Controls: C=0 identity passes everywhere (base answers, zero shift). The matched-random control
+at the SAME strength scores 0/12 primary -- the candidate's identity/answer contribution is
+selector-specific, unlike the earlier strength-mismatched comparison. Scoring corrections made
+during judgment: word-boundary matching for Yes/No ('No' inside 'known' caused false positives);
+third-animal naming counts as identity failure (not unknown); repetition loops counted as
+coherence failures even when the answer is correct.
+
+Scope, stated: paired rows are dependent (same template family, same procedure); one model, one
+construction; the rate is an observed descriptive fraction of this declared set, not a
+population estimate; cap censoring affects the two ant-naming rows. The user's authorized
+conclusion: limited measured reliability (6/12 primary, legs perfect, property failing) after
+real attempts -- NOT a solved mechanism, and no wider-transfer claim.
