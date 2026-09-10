@@ -112,6 +112,30 @@ def main(output_dir: Path) -> None:
                     "named_scores": {w: v for w, v in named.items()},
                     "basis": basis.float().cpu(), "selected_ids": ids_sel.cpu()},
                    output_dir / f"{name}_detector.pt")
+        # Mirrored-selector control (kill-or-rescue check): same construction with the
+        # trajectory criterion inverted -- tokens that FALL early-to-peak then RISE peak-to-
+        # output (rise<0 AND fall<0). Swapping layer roles would reproduce the identical
+        # detector (the min-of-clamped form is symmetric), so the mirror is computed from the
+        # signed rise/fall directly. If mirrored bases show the same peak-layer agreement,
+        # agreement is mid-layer geometry, not the suppression detector.
+        h3 = residuals[:, [EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER]].float()
+        h_norm = h3 * torch.rsqrt(h3.square().mean(-1, keepdim=True) + 1e-6)
+        h_norm = h_norm * (1.0 + final_norm.weight).float()
+        logits3 = h_norm @ unembedding.float().T
+        rise = logits3[:, 1] - logits3[:, 0]
+        fall = logits3[:, 1] - logits3[:, 2]
+        rise = rise - rise.mean(-1, keepdim=True)
+        fall = fall - fall.mean(-1, keepdim=True)
+        mirrored_scores = (-torch.maximum(rise, fall)).clamp_min(0).float().cpu()
+        m_top_values, m_top_ids = mirrored_scores.topk(64, dim=-1)
+        from suppressed_activation_subspace import subspace_from_scores
+        mirrored_basis, mirrored_ids = subspace_from_scores(
+            mirrored_scores, unembedding, (1.0 + final_norm.weight).cpu(),
+            rank=RANK, normalize_unembedding_rows=True,
+        )
+        torch.save({"top_values": m_top_values, "top_ids": m_top_ids,
+                    "basis": mirrored_basis.float().cpu(), "selected_ids": mirrored_ids.cpu()},
+                   output_dir / f"{name}_mirrored_detector.pt")
         manifest["entries"][name] = entry
         print(f"banked {name}: {seq_len} tokens, answers {entry['answer_logprobs']}")
 
