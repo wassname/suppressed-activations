@@ -98,6 +98,10 @@ GIT_COMMIT = subprocess.run(
 # ```
 
 # %%
+# Inference-only: without this, autograd builds a graph over the [vocab, hidden] float32
+# direction chain inside subspace_from_scores (~12 GiB live in one call, since model.eval()
+# does not disable grad and lm_head/final_norm keep requires_grad=True).
+torch.set_grad_enabled(False)
 tokenizer = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
 dtype = torch.bfloat16 if DEVICE == "cuda" else torch.float32
 model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=dtype).to(DEVICE).eval()
