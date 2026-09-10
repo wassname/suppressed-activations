@@ -110,3 +110,23 @@ Rev 2 is NOT approved and had five defects, fixed here:
 Verification run on the final entries: shared last-3 tokens on every pair (runner assertion
 holds), single-token answers on every expected answer, and ZERO prior execution of the final
 exact strings. The fresh evaluation still has not run; nothing is scored against this manifest.
+
+## Rev 4 (pre-run correction, authorized): descriptor answer-cue removed
+
+The ant descriptor "living in six-legged colonies and following pheromone trails" leaked the
+leg-count answer into the donor prompt. Replaced everywhere with "living in colonies and
+following pheromone trails" (6 entries updated; previous descriptor preserved per-entry as
+`donor_descriptor_prev`). All 12 rows re-verified on final strings: shared last-3 tokens,
+single-token answers, zero prior execution. Frozen before GPU:
+
+    sha256 62d96b706f68e4a8256bae29f82e4aa8866aecef52ed87849966d40c37e04f4e  slop/eval_fresh_batch.json
+
+Continuation instruction and chat wrapper identical to the recovered dev replay
+("Answer the question with the answer first. Then describe the animal in three sentences.",
+chat-assistant-prefill); full rendered input reprs and token IDs saved per run; if identity is
+not observable from a continuation it is labeled unknown, not scored a pass. Candidate frozen:
+recovered L20 C1.5 span-corrected template-attenuation, fixed donor term, current-state removal,
+original generation/coverage settings; no synchronization, no retuning after evaluation.
+Controls: clean source/donor (in-run), C=0, and the C=1.5 in-span random; ACTUAL edit norms
+compared per condition (same C is not magnitude matching) and any residual mismatch labeled.
+No new intervention variants; no retuning on this set.
