@@ -89,6 +89,42 @@ Repair: launcher now takes only `dog|ant` as argv with prompts hardcoded inside 
 failure possible), verified on disk, `bash -n` clean, and executed end-to-end on the tiny model
 before requeueing as jobs 990/991.
 
+## Supervisor code review — repairs before GPU spend (2026-09-10)
+
+Before any GPU execution, six causal-comparison invalidities were found by direct code
+inspection and repaired:
+
+1. **Shared absolute positions.** `window`/positions were derived from the source length and
+   reused for donor/control, sampling unrelated positions when prompt lengths differ. Each
+   prompt now uses its own end-aligned window; the smoke artifact shows source [12,14),
+   donor [19,21), control [14,16).
+2. **Missing positions argument.** `run_selector` never passed `positions`, so prefill patched
+   one position while logging three. Now passed, and per-call coverage (prefill positions,
+   decode calls, generated tokens) is recorded and asserted. Zero-strength identity is asserted
+   against base logits (observed: "logits identical to base").
+3. **Weak random control.** The random control was an unmatched rank-1 basis that skipped
+   generation. It now generates and its per-position perturbation norms match the semantic
+   avg-projector edit (smoke ratios exactly 1.0), kind-aware: prefill matches per-position
+   semantic norms, decode calls match the semantic mean decode norm.
+4. **Rank-1 norm-matching degeneracy.** With one shared rank-1 basis, `match_component_norm`
+   rescales the donor onto the source's own magnitude: verified exactly — equal-sign edits are
+   a no-op (residual 5.96e-8) and opposite-sign edits a pure reflection (2|sc| exactly). That
+   erases the signed distinction under test. Replaced with shared-coordinate replacement
+   without component-norm matching and without residual-norm restore; donor magnitude is kept
+   and perturbation/residual norms are logged per call so norm growth is visible.
+5. **Unsupported causal claim** in the unembedding-probe comment removed; it is labelled a
+   linear readout diagnostic, not a causal statement.
+6. **Revision pinning.** Tokenizer and model now both pin revision 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+   for real runs (tiny smoke still overridable via env).
+
+An interim bug found while verifying (3): the matched control applied the strength a second
+time on top of strength-including reference norms (observed ratios 0.125 = strength); fixed so
+control perturbation equals the semantic perturbation exactly.
+
+First-round smoke outputs from the flawed script were replaced by uniquely named v2/v3 smoke
+dirs (`out/*_smoke_crosstoken_v2`, `out/*_smoke_crosstoken_v3`); the flawed form was never run
+on GPU.
+
 ## Result
 
 Pending GPU (jobs 990/991). Will be filled from
