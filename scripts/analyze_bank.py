@@ -97,7 +97,10 @@ def sigma1_norm_standardized(components: Tensor, basis: Tensor, n_null: int = 20
 
 
 def position_locked_cross_cosines(bank: dict, layer: int, selector: str = "detector") -> dict:
-    """cos(c_p^a, c_p^b) at matched positions, plus a position-permutation null per pair."""
+    """cos(c_p^a, c_p^b) at positions aligned by the shared template (same suffix structure and
+    semantic role, labels shown from the source side). Not a same-token-identity criterion:
+    donor prompts do not contain the source's tokens. Nulls are rank-limited sensitivity
+    checks, not calibrated covariance tests."""
     out = {}
     comps = {name: components_at(bank[name]["residuals"], bank[name][selector]["basis"], layer)
              for name in PROMPTS}
@@ -113,6 +116,7 @@ def position_locked_cross_cosines(bank: dict, layer: int, selector: str = "detec
             perm = torch.randperm(n)
             nulls[i] = float((ua * ub[perm]).sum(-1).mean())
         out[f"{a}_vs_{b}"] = {
+            "null_kind": "position-permutation sensitivity check (rank-limited), not calibrated covariance",
             "mean_cosine": float(cos.mean()),
             "per_position": [float(c) for c in cos],
             "labels": bank["source"]["labels"][:n],
@@ -145,7 +149,9 @@ def main(bank_dir: Path, output_path: Path) -> None:
                 "avg_projector_top_null_orthogonal": 1.0 / entry["detector"]["basis"].shape[0],
             }
             stats.update(sigma1_norm_standardized(comps, entry["detector"]["basis"]))
-            # position-class table: mean within-prompt cosine by class (needs >=2 positions/class)
+            # NOTE (scope): a named-basis vs detector-basis disagreement is a DISCRIMINATOR to
+        # investigate, not a verdict -- named vocabulary directions may be poor semantic probes.
+        # position-class table: mean within-prompt cosine by class (needs >=2 positions/class)
             classes: dict[str, list[int]] = {}
             for p, label in enumerate(entry["labels"]):
                 classes.setdefault(position_class(label), []).append(p)

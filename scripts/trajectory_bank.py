@@ -136,11 +136,42 @@ def main(output_dir: Path) -> None:
         torch.save({"top_values": m_top_values, "top_ids": m_top_ids,
                     "basis": mirrored_basis.float().cpu(), "selected_ids": mirrored_ids.cpu()},
                    output_dir / f"{name}_mirrored_detector.pt")
+        # PCA of the residuals at each detector layer, for covariance-matched random nulls.
+        # With only T token positions the covariance has rank at most T-1 after centering, so
+        # we save exactly that many directions and record the rank; nulls built from these are
+        # sensitivity checks against a rank-limited estimate, not a calibrated covariance.
+        for layer in (EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER):
+            centred = residuals[layer].float().cpu()
+            centred = centred - centred.mean(0, keepdim=True)
+            n_comp = min(centred.shape[0] - 1, 256)
+            u, s, _ = torch.linalg.svd(centred.T, full_matrices=False)
+            torch.save({"directions": u[:, :n_comp],
+                        "values": s[:n_comp].square() / centred.shape[0],
+                        "sample_positions": int(centred.shape[0]), "rank": int(n_comp)},
+                       output_dir / f"{name}_pca_L{layer}.pt")
         manifest["entries"][name] = entry
         print(f"banked {name}: {seq_len} tokens, answers {entry['answer_logprobs']}")
 
     (output_dir / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n")
-    print(f"bank: {output_dir}")
+    # Unembedding rows (centered, gain-weighted -- the exact form subspace_from_scores uses)
+    # for the union of every prompt's selected ids plus the a-priori named tokens. Lets the
+    # analysis rebuild any selection GPU-free: named-token bases (zero selection bias) and
+    # held-out cross-prompt selection (the winner's-curse control).
+    union_ids = set()
+    for name in PROMPTS:
+        det = torch.load(output_dir / f"{name}_detector.pt", weights_only=False)
+        mir = torch.load(output_dir / f"{name}_mirrored_detector.pt", weights_only=False)
+        union_ids.update(int(i) for i in det["scores_top64_ids"].flatten())
+        union_ids.update(int(i) for i in mir["top_ids"].flatten())
+    union_ids.update(int(v) for v in manifest["entries"]["source"]["named_token_ids"].values())
+    union_ids = sorted(union_ids)
+    dirs = unembedding[union_ids].float().cpu()
+    dirs = dirs - dirs.mean(0, keepdim=True)
+    dirs = dirs * (1.0 + final_norm.weight).float().cpu()
+    # bf16 halves the file; the analysis casts to float32 before any SVD.
+    torch.save({"ids": union_ids, "rows": dirs.to(torch.bfloat16)},
+               output_dir / "selected_unembedding_rows.pt")
+    print(f"bank: {output_dir} ({len(union_ids)} union unembedding rows saved)")
 
 
 if __name__ == "__main__":
