@@ -214,3 +214,71 @@ Artifacts: `out/2026-09-10_crosstoken_dog/result.json`,
 - GPU: `out/2026-09-10_crosstoken_{dog,ant}/result.json` (queued).
 
 -- PI[claude]
+
+
+## Trajectory-bank measurement (next family: full pairwise, labelled, null-referenced)
+
+Bank: `out/2026-09-10_trajbank/` (33MB, task 994, real model rev 851bf6e8): full clean residuals
+for source/dog/ant/control, per-position token labels, detector scores (top-64 + named tokens),
+per-position bases, mirrored fall-then-rise bases, rank-limited PCA per layer, clean answers
+(source p(8)=0.883 matches the known base 0.8826; dog p(4)=0.944; ant p(6)=0.724). Analysis:
+`out/2026-09-10_trajbank/analysis.json`, GPU-free from [scripts/analyze_bank.py](../scripts/analyze_bank.py).
+
+A build bug worth recording: the first bank attempt crashed with a CUDA index-out-of-bounds at
+`residuals[:, [23,25,32]]` -- that indexes the SEQ dim (14 positions) with LAYER indices. The
+tiny-model smoke had passed silently because its sequence was long enough for those indices,
+i.e. it silently selected positions instead of layers. Fixed to index the layer axis with a
+shape guard. Found by CUDA_LAUNCH_BLOCKING reproduction, not by reading.
+
+### Positive control: the instrument detects agreement when it exists
+
+Cross-prompt cosine of the suppressed components at matched template positions, per position
+(source vs dog / ant / control), all layers:
+
+- Positions 0-9 ('Fact' ... ' animal', identical surface tokens in all four prompts):
+  **cos = +0.9998 to +1.0000 at every layer, every pair.** Where the surface token is shared,
+  the suppressed component is shared exactly.
+- Positions 10-13 (' spins', ' webs', ' is', ' '), where the prompts actually differ
+  (spider-identifying phrase vs barks/colonies/ocean): **cos = -0.05 to +0.10**, statistically
+  indistinguishable between donors and the neutral control.
+
+The 0.65-0.71 cross-prompt means from the aggregate table were ten cos-1.0 positions drowning
+four informative ones. Position-level data, not means, was the fix.
+
+### Within-prompt cross-token agreement: none, at any layer
+
+Mean pairwise signed cosine of the components across all positions of one prompt: 0.003-0.05 at
+L23/L25/L32 for all four prompts (peak-vs-early rise ~10x exists -- 0.003 to 0.032 -- but the
+control shows the identical rise, so it is mid-layer geometry, not concept). The mirrored
+fall-then-rise selector gives -0.046 to -0.048, the same noise level: the detector's selection
+shows nothing a mirrored selector does not. Consensus ratios 0.27-0.35 vs orthogonal nulls
+0.21-0.27; sigma1 is above its basis-respecting null only inconsistently (source is BELOW null
+at L23 and L32). Detector scores are healthy (min top-64 score 0.95, no near-zero ties), so
+this is not a tie artifact.
+
+### A generated-and-killed follow-up hypothesis
+
+My read after the shared-template finding was that the prior SVD `source_remove` success (p(6)
+0.79) worked because its shared-span direction is the shared-template direction. Measured: cos
+between the rank-1 SVD direction of the per-position bases and the template direction is
+-0.26 to +0.25 across prompts and layers. Refuted; the removal result remains unexplained by
+template identity.
+
+### Verdict on the user's cross-token proposal
+
+Tested at three layers x all positions x four prompts with a validated instrument (positive
+control passed): the suppressed activations share no signed direction across tokens, beyond
+surface-token identity. The earlier span-overlap numbers were geometry plus shared-template
+identity. This is now a measured limit across layers, not a one-layer null; the residual
+uncertainty is one prompt template and one detector, not one layer.
+
+### Next family (pre-authorized suppression-state mechanism): token-local edits
+
+Since no consensus exists, the distinct mechanism is per-token suppression state. Cheapest
+discriminator: at L25, patch each of the last-3 prefill positions along ITS OWN per-position
+basis (no consensus, no transfer), decode steps inheriting the last prompt position's own
+basis; fixed replacement procedure, selector-only change; conditions = own-direction,
+consensus (re-run reference), per-position matched-random; both animals; full continuations.
+If own-direction edits move p(8)/p(4) or identity where consensus never did, suppression is
+real but token-local. If they do not, the detector selects causally inert directions and the
+suppression framing itself is in question.

@@ -118,7 +118,13 @@ def main(output_dir: Path) -> None:
         # detector (the min-of-clamped form is symmetric), so the mirror is computed from the
         # signed rise/fall directly. If mirrored bases show the same peak-layer agreement,
         # agreement is mid-layer geometry, not the suppression detector.
-        h3 = residuals[:, [EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER]].float()
+        # residuals is [layers, seq, hidden]: the layer list indexes dim 0. (A first draft
+        # wrote residuals[:, [...]] which indexes the SEQ dim -- silently valid on the tiny
+        # smoke model, where it selected positions instead of layers -- so the shape guard
+        # below is load-bearing.)
+        h3 = residuals[[EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER]].float()
+        assert h3.shape[0] == 3 and h3.shape[-1] == residuals.shape[-1], \
+            f"layer slice on wrong axis: {h3.shape} vs residuals {residuals.shape}"
         h_norm = h3 * torch.rsqrt(h3.square().mean(-1, keepdim=True) + 1e-6)
         h_norm = h_norm * (1.0 + final_norm.weight).float()
         logits3 = h_norm @ unembedding.float().T
@@ -130,7 +136,7 @@ def main(output_dir: Path) -> None:
         m_top_values, m_top_ids = mirrored_scores.topk(64, dim=-1)
         from suppressed_activation_subspace import subspace_from_scores
         mirrored_basis, mirrored_ids = subspace_from_scores(
-            mirrored_scores, unembedding, (1.0 + final_norm.weight).cpu(),
+            mirrored_scores, unembedding, 1.0 + final_norm.weight,
             rank=RANK, normalize_unembedding_rows=True,
         )
         torch.save({"top_values": m_top_values, "top_ids": m_top_ids,
