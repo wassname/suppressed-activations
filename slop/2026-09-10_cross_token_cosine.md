@@ -125,10 +125,66 @@ First-round smoke outputs from the flawed script were replaced by uniquely named
 dirs (`out/*_smoke_crosstoken_v2`, `out/*_smoke_crosstoken_v3`); the flawed form was never run
 on GPU.
 
-## Result
+## Result (GPU screen: L23, rank-1, C=2.0, 32 tokens, rev 851bf6e8)
 
-Pending GPU (jobs 990/991). Will be filled from
-`out/2026-09-10_crosstoken_dog/result.json` and `out/2026-09-10_crosstoken_ant/result.json`.
+### The measurement answers the user's question directly
+
+If the suppressed activations from 2+ token positions shared a reusable signed direction, the
+actual projected components would agree across positions. They do not:
+
+| prompt | mean signed cosine | mean-centered | consensus ratio | avg-projector top | norm fraction |
+|---|---:|---:|---:|---:|---:|
+| source (spider) | **0.0184** | **-0.4857** | 0.6364 | 0.4370 | 2.4-8.2% |
+| donor (dog) | 0.0509 | -0.4883 | 0.6469 | 0.4527 | 2.5-5.9% |
+| donor (ant) | 0.0523 | -0.4972 | 0.6189 | 0.4991 | 3.3-4.3% |
+| control (neutral) | 0.0017 | -0.4506 | 0.6419 | 0.4397 | 3.1-8.6% |
+
+This is the discriminating pattern both reviewers defined in advance: **substantial span overlap
+(0.44-0.50) with near-zero raw signed cosine and strongly negative mean-centered cosine.** The
+per-position suppressed components share a span and a mean, but their signed directions do not
+agree -- they anti-align once the shared mean is removed. The 0.64 consensus ratio is carried by
+the shared mean, not by directional agreement. Source and control show the same structure, so it
+is generic (mean/position/syntax), not concept-specific. Component magnitudes are 2-9% of the
+residual: modulators, not carriers.
+
+### Behavioral screen (same layer/strength, full 32-token continuations)
+
+All three selectors and the matched-random control produce the same answer and the same spider
+identity; none transfers. Base p(8)=0.8826.
+
+| selector | dog p(8) | dog p(4) | ant p(8) | ant p(6) | continuation |
+|---|---:|---:|---:|---:|---|
+| signed consensus | 0.8669 | 0.0489 | 0.8590 | 0.0485 | `8.\nHypothesis: The animal that spins webs has 8 legs.` |
+| avg-projector | 0.8832 | 0.0565 | 0.8833 | 0.0267 | same, spider identity |
+| matched-random | 0.8836 | 0.0565 | 0.8836 | 0.0267 | same, spider identity |
+
+The avg-projector and matched-random rows are indistinguishable from base: the rank-1
+shared-coordinate edit at this setting is behaviorally negligible. The signed-consensus edit
+moves p(8) by less than 0.03 and changes nothing semantically. Coverage asserted
+(prefill [11,13], 31 decode calls, 32 tokens); zero-strength identity passed ("logits identical
+to base").
+
+### Verdict for this family
+
+The screen does not support a cross-token signed-consensus direction as the missing unifying
+rule at this site. The measurement explains why: **there is no signed consensus to extract** --
+the overlap the earlier SVD work detected is span-plus-mean, and the signed content anti-aligns
+across positions. This is a measurement-level negative for the proposal as stated, not a
+strength-sweep null.
+
+Limits, precisely: one layer (L23), rank-1, C=2.0, screening length 32 tokens; the random
+control matches avg_projector prefill per-position and mean decode magnitudes (not exact
+per-step, not signed-consensus magnitudes); the consensus direction is a magnitude-weighted
+mean, not a pairwise-cosine selector. No reliability or superiority claim follows. The rewrite
+dropped the direct source-control cross-prompt cosine key (the control's own stats above stand
+in); recomputing it needs one cheap re-run if required.
+
+Distinct next comparisons this leaves open (supervisor's call): the later divergence band
+(L23-28, where the answer identity forms) and higher-rank/state-dependent rules, either of which
+could behave differently from this rank-1 L23 screen.
+
+Artifacts: `out/2026-09-10_crosstoken_dog/result.json`,
+`out/2026-09-10_crosstoken_ant/result.json` (full token IDs, top-10 tables, per-call norms).
 
 ## Verification
 

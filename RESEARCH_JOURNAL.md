@@ -734,3 +734,26 @@ Source: [boundary check and exact rendering](docs/slop/audits/2026-09-08_151441_
 Interpretation, Codex: question placement is a plausible cause of some bad clean controls. The completed [wrapper audit](docs/slop/audits/2026-09-08_150650_question-wrapper-jobs759-764.md) quotes a continuation saying the question was not provided, although it appeared in the assistant prefill. The new boundary check does not establish that moving the question repairs the behavior. This comparison also changes extraction positions, so it is a role-and-boundary repair rather than a wrapper-only test.
 
 The next decision requires clean answers from the repaired path before we judge the intervention.
+
+## 2026-09-10 -- Cross-token signed cosine of suppressed components: span overlap without signed agreement
+
+The user asked whether the cosine overlap of suppressed activations from 2+ tokens identifies a reusable concept direction, and whether we had tried it. We had not: `token_persistent_subspace` averages projectors (sign-invariant span overlap), so this family measured the signed agreement of the actual projected components c_p = component(residual_p, B_p) at L23 over the last three prompt positions, for spider (source), dog and ant (donors), and a same-form neutral control, then screened the resulting rank-1 edits behaviorally. Method and controls in [cross_token_cosine.md](slop/2026-09-10_cross_token_cosine.md); commits 14b4c25 and f7d6369; pueue tasks 990 (dog) and 991 (ant), revision 851bf6e8.
+
+Signed agreement of the components, per prompt (mean pairwise cosine of the c_p; mean-centered removes the shared mean; consensus ratio is the norm of the mean component over the mean component norm; avg-projector top is the span-overlap value the SVD construction uses; norm fraction is the component share of residual norm):
+
+| prompt | mean signed cosine | mean-centered | consensus ratio | avg-projector top | norm fraction |
+|---|---:|---:|---:|---:|---:|
+| source (spider) | 0.0184 | -0.4857 | 0.6364 | 0.4370 | 2.4-8.2% |
+| donor (dog) | 0.0509 | -0.4883 | 0.6469 | 0.4527 | 2.5-5.9% |
+| donor (ant) | 0.0523 | -0.4972 | 0.6189 | 0.4991 | 3.3-4.3% |
+| control (neutral) | 0.0017 | -0.4506 | 0.6419 | 0.4397 | 3.1-8.6% |
+
+Source: `out/2026-09-10_crosstoken_dog/result.json` and `out/2026-09-10_crosstoken_ant/result.json`, keys `per_prompt.*.signed_agreement` and `per_prompt.*.subspace_overlap`.
+
+Behavioral screen at L23 rank-1 C=2.0, full 32-token continuations. Base p(8)=0.8826. Dog: signed consensus p(8)=0.8669, avg-projector 0.8832, matched-random 0.8836. Ant: signed consensus p(8)=0.8590, avg-projector 0.8833, matched-random 0.8836. Every condition, including both controls, continues `8.\nHypothesis: The animal that spins webs has 8 legs.` with spider identity intact. Coverage asserted (prefill positions [11,13], 31 decode calls, 32 tokens per condition) and zero-strength identity passed ("logits identical to base"). Source: same result files, keys `rows` and `zero_strength_identity`.
+
+Interpretation, PI[claude]: the measurements show the discriminating pattern the reviewers defined in advance, substantial span overlap with near-zero signed cosine and negative centered cosine, so my read is that the suppressed components share a span and a mean but not a signed direction, and the 0.64 consensus ratio is carried by the shared mean rather than directional agreement (probable, because raw cosines are 0.002-0.05 while the centered cosines are near -0.49, and source and control show the same structure, which points to something generic rather than concept-specific). The behavioral screen is consistent with that: the rank-1 edits are behaviorally negligible and the matched-random control is indistinguishable from the avg-projector edit, so nothing here supports a cross-token signed-consensus construction as the unifying rule at this site. A different layer in the L23-28 divergence band or a higher-rank state-dependent rule could still behave differently; this screen does not test those.
+
+Limits: one layer, rank 1, C=2.0, 32-token screening continuations; the random control matches the avg-projector prefill per-position and mean decode magnitudes, not exact per-step and not the signed-consensus magnitudes; the rewrite dropped the direct source-control cross-prompt cosine key, so the generic-structure reading rests on the control's own within-prompt stats.
+
+First submission of this family failed before reaching GPU (jobs 985 and 986: an unquoted apostrophe in argv, and a launcher whose write had silently not landed). The repair record and failed-job logs are in [the correction section](slop/2026-09-10_cross_token_cosine.md) and [slop/audits/2026-09-10_crosstoken-failed-jobs/](slop/audits/2026-09-10_crosstoken-failed-jobs/).
