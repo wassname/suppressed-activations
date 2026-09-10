@@ -345,7 +345,9 @@ def main(output_path: Path, target_prompt: str, target_concept: str, target_outp
             "target_concept": target_concept, "source_output": SOURCE_OUTPUT,
             "target_output": target_output, "control_prompt": control_prompt,
             "replacement": "shared-coordinate, no component-norm matching, no residual-norm restore",
-            "random_control": "rank-1 random basis, perturbation norms matched to avg_projector prefill per position",
+            "signed_agreement_selector": "rank-1 direction = normalized mean of per-position projected components; a magnitude-weighted signed consensus, NOT a pairwise-cosine threshold selector",
+            "random_control": "rank-1 random basis; perturbation norms matched to the avg_projector semantic edit -- prefill per-position and MEAN decode magnitude, not exact per-step, and NOT matched to signed_agreement's perturbation",
+            "screen_limits": "32 tokens is screening only; promising candidates need full-continuation confirmation and matched controls before any reliability claim; no magnitude-controlled signed-vs-average superiority claim from this design alone",
             "git_describe": subprocess.run(
                 ["git", "describe", "--always", "--dirty"], check=True, text=True, capture_output=True
             ).stdout.strip(),
