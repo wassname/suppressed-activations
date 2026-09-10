@@ -123,21 +123,6 @@ block("prop_dog_c15", "Dog property, C=1.5 (FAILED transfer: identity moves, ans
 block("prop_ant_c15", "Ant property, C=1.5 (FAILED transfer: identity moves to honey bee)")
 
 # %% [markdown]
-# ## Semantic reliability table (frozen manifest; fresh evaluation pending)
-#
-# The frozen manifest (batchwork `slop/2026-09-10_eval_manifest.md` rev 2) declares 12 FRESH
-# never-executed questions (2 wordings x naming/legs/property x dog/ant), four separate
-# judgments (Answer / Identity / Coherence / Formatting; primary rate = first three), exact
-# source+donor strings with donor-competence-verified ground truth, C=0 and matched-random
-# controls at the candidate strength, and Clopper-Pearson intervals over the declared
-# denominator. It has NOT been executed: no fresh-set numbers exist yet. The rows above are
-# DEVELOPMENT regression evidence on heavily exposed prompts, not the reliability estimate.
-#
-# Ground-truth corrections of record: property-mammal-ant's expected answer is No (the clean
-# donor answers "1. No, it is not a mammal"); historical runner configs pairing mammal wording
-# with expected Yes had invalid ground truth and pushed a factually wrong answer.
-
-# %% [markdown]
 # ## Provenance
 #
 # Each artifact stores its own git describe, code SHA-256 of the runner files, resolved config,
@@ -153,50 +138,41 @@ block("prop_ant_c15", "Ant property, C=1.5 (FAILED transfer: identity moves to h
 # separate. Descriptive n/N on a paired convenience sample -- NOT a population estimate.
 
 # %%
-import re
-
 def eval_dir(cond):
     return BATCH / f"out/2026-09-10_eval-{cond}/result.json"
 
-def judge(cond, expect, donor_word):
-    row = json.loads(eval_dir(cond).read_text())["rows"][0]
-    gen = row["generation"]["text"]
-    low = gen.lower()
-    answer = row.get("first_answer")
-    ans_ok = (answer == expect) or bool(re.search(rf"\b{re.escape(expect.lower())}\b", low.split("\n")[0].lower()))
-    ident = donor_word in low
-    spider_claim = ("the spider" in low and ("is a" in low or "are" in low))
-    third = any(w in low for w in ("honey bee", "cow", "cat")) and not ident
-    bigram = row.get("repeated_bigram_fraction", 0)
-    censored = len(row["generation"]["token_ids"]) >= 128
-    ident_status = "yes" if (ident and not spider_claim) else ("no" if (spider_claim or third) else "unknown")
-    coherence = (bigram < 0.2) and not censored
-    return ans_ok, ident_status, coherence, bigram, censored
+# Durable per-row semantic adjudications (human-read full continuations, exact quotes in the
+# record); the notebook aggregates the record and does not re-run heuristics.
+ADJ = json.loads((BATCH / "slop/eval_fresh_adjudications.json").read_text())
+print("adjudication provenance:", ADJ["provenance"][:80], "...")
 
-FRESH = json.loads((BATCH / "slop/eval_fresh_batch.json").read_text())
-meta = {e["id"]: e for e in FRESH}
-counts = {"candidate-C1.5": [0, 0], "random-C1.5": [0, 0]}
-table = ["| question | judgment | answer | identity | coherence | censored |", "|---|---|---|---|---|---|"]
-for cond in [e["output_dir"].split("eval-")[1] for e in
-             json.loads((BATCH / "slop/eval_fresh_run_batch.json").read_text())]:
-    # three arms: candidate-C1.5 / random-C1.5 / C0 (identity control, not rubric-scored)
-    arm = next((a for a in ("candidate-C1.5", "random-C1.5") if cond.startswith(a)), None)
-    if arm is None:
-        assert cond.startswith("C0"), cond  # identity control; verified in the runner
-        continue
-    qid = cond[len(arm) + 1:]
-    m = meta[qid]
-    a, i, c, b, cen = judge(cond, m["donor_expected_answer"], qid.rsplit("-", 1)[-1])
-    counts[arm][0] += int(a and i == "yes" and c)
-    counts[arm][1] += 1
-    if arm == "candidate-C1.5":
-        noop = " (no-op control)" if not m["fact_changes"] else ""
-        table.append(f"| {qid}{noop} | candidate | {'Y' if a else 'n'} | {i} | {'Y' if c else 'n'} | {cen} |")
+rows = [(r, ) for r in ADJ["rows"]]
+table = ["| question | arm | answer | identity | coherence |", "|---|---|---|---|---|"]
+counts = {}
+for (r,) in rows:
+    counts.setdefault(r["arm"], [0, 0])
+    counts[r["arm"]][1] += 1
+    primary = (r["answer"] == "pass" and r["identity"] == "pass" and r["coherence"] == "pass")
+    counts[r["arm"]][0] += int(primary)
+    table.append(f"| {r['id']}{' (no-op control)' if 'no-op' in r['notes'] else ''} | {r['arm']} "
+                 f"| {r['answer']} | {r['identity']} | {r['coherence']} |")
 for arm, (k, n) in counts.items():
-    table.append(f"| **{arm} PRIMARY** | | | | | **{k}/{n}** |")
+    table.append(f"| **{arm} PRIMARY** | | | | **{k}/{n}** |")
 display(Markdown("\n".join(table)))
 
 # %% [markdown]
+# ### Example adjudication quotes
+
+# %%
+ex = next(r for r in ADJ["rows"] if r["id"] == "prop-P1-spinneret-ant")
+display(Markdown("Failed cell `prop-P1-spinneret-ant` (fabricated anatomy):\n\n> " +
+                 "\n\n> ".join(ex["quotes"])))
+ex2 = next(r for r in ADJ["rows"] if r["id"] == "name-N1-ant")
+display(Markdown("Failed cell `name-N1-ant` (repetition loop, ambiguous answer):\n\n> " +
+                 "\n\n> ".join(ex2["quotes"])))
+
+# %% [markdown]
+# ## Paired fresh-set demonstrations# %% [markdown]
 # ## Paired fresh-set demonstrations (candidate cells, verbatim)
 
 # %%
