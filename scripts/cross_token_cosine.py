@@ -135,11 +135,19 @@ def main(output_dir: Path) -> None:
         i, j, cos = max_agreement_pair(comps[name])
         assert i >= PREFIX_END and j >= PREFIX_END
         post = post_prefix[name]
+        pair_comps = comps[name][[i, j]]  # absolute positions; offsets would select prefix rows
+        pair_dir = rank1_span(pair_comps)
+        # guard: the span direction must align with the SELECTED components (a max-cosine
+        # pair's rows dominate their own span). Catches offset/absolute index confusion.
+        unit_pair = pair_comps / pair_comps.norm(dim=-1, keepdim=True).clamp_min(1e-12)
+        align = (unit_pair @ pair_dir).abs()  # sign is arbitrary (and edit-invariant)
+        assert pair_dir.shape == comps[name].shape[1:] and float(align.max()) > 0.5, \
+            f"pair direction not aligned with selected rows {i},{j}: align={align.tolist()}"
         selections[name] = {
             "pair": {"i": int(i), "j": int(j), "cosine": cos,
                      "tokens": [res[name]["labels"][i], res[name]["labels"][j]],
                      "post_prefix_indices": post},
-            "pair_direction": rank1_span(comps[name][[post.index(i), post.index(j)]]),
+            "pair_direction": pair_dir,
             "consensus_direction": rank1_span(comps[name][post]),
         }
         print(f"{name}: max-agreement pair {selections[name]['pair']}")
@@ -203,6 +211,8 @@ def main(output_dir: Path) -> None:
         prefill = [c for c in record["calls"] if c["seq_len"] > 1]
         decode = [c for c in record["calls"] if c["seq_len"] == 1]
         assert prefill and prefill[0]["active"] == LAST3
+        assert len(decode) == len(gen["token_ids"]) - 1, \
+            f"decode coverage {len(decode)} != generated-1 {len(gen['token_ids']) - 1}"
         record["coverage"] = {
             "prefill_positions": prefill[0]["positions"], "decode_calls": len(decode),
             "generated_tokens": len(gen["token_ids"]),
@@ -245,9 +255,10 @@ def main(output_dir: Path) -> None:
                 prefill_call = [c for c in sem["record"]["calls"] if c["seq_len"] > 1][0]
                 decode_calls = [c for c in sem["record"]["calls"] if c["seq_len"] == 1]
                 gen = torch.Generator(device=DEVICE).manual_seed(zlib.crc32(key.encode()))  # deterministic
-                rand_dir = torch.linalg.qr(
-                    torch.randn(1, u_src.shape[0], device=DEVICE, generator=gen)
-                ).Q.squeeze(0)
+                rand_dir = torch.randn(u_src.shape[0], device=DEVICE, generator=gen)
+                rand_dir = rand_dir / rand_dir.norm()
+                assert rand_dir.shape == u_src.shape and abs(float(rand_dir.norm()) - 1) < 1e-5
+                assert float(rand_dir.std()) > 0.01, "random direction collapsed to a constant"
                 r = run(key, u_src, u_don, t, strength,
                         matched_norms={"prefill": prefill_call["perturbation_norm_by_position"],
                                        "decode": [c["perturbation_norm_by_position"][0]
