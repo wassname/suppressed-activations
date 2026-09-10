@@ -1,50 +1,43 @@
 # Reliable suppressed-concept replacement
 
 > "in the end shuld coherenty do dog and ant demo and continue coherenctly" -- wassname
-> "you should not have stopped" -- wassname, about steering through generation
 
-- [ ] Goal: one understandable method replaces spider with dog or ant.
-  - Ant versus bee is a diagnostic comparison, not the goal; both have six legs, so leg count cannot distinguish them.
-  - [ ] Keep the successful examples as references, not proof of reliability.
-  - [ ] Return to source/donor replacement in a shared, layer-local suppressed subspace; do not add another animal-specific correction.
-  - [ ] Separate vocabulary rise-and-fall suppression from contrast-energy attenuation. The latter is a candidate selector, not an equivalent definition.
-  - [ ] Select persistent directions across aligned prompt tokens; fit at the layer where the edit is applied.
-  - [x] Full-state final-layer replacement exactly reproduces both donors (734/735); this is a decoder control, not subspace evidence.
-  - [x] Frozen versus synchronized rank8 replacement both remain spider at L12/L20 (736/737).
-  - [x] Full selected vocabulary support, ranks51–56, also remains spider at C1/C2 (738/739).
-  - [ ] Audit stronger-dose and layer-local attenuation results (740-743); inspect full continuations before choosing the next change.
-  - [x] One selected band works on both original demos: L22–24, C2 per layer, raw rank4 local attenuation (756/757).
-  - [ ] Keep that band fixed on plain leg, naming and property questions (768–773); require valid clean controls before counting transfer.
-  - Failure mode: an unrestricted direction or a hand-tuned species correction changes the answer while the claimed suppressed replacement does not.
-  - Deliverable: exact construction, resolved settings, and paired logs for both animals, with in-subspace and out-of-subspace edit norms.
+- [ ] goal: one restricted intervention coherently replaces spider with dog and ant across questions.
+  - [x] Keep the rule fixed at raw rank-four contrast-energy attenuation, L22--24, C=2, with continuous synchronized steering.
+  - [x] Test legs, naming, and one property for dog and ant. Leg questions are coherent; naming self-corrects; dog mammal stays spider; ant antennae has target prose but no explicit Yes.
+  - [x] Run eight per-layer rank-matched random spans for each animal. Random spans can exceed the selected digit movement while continuing as spider.
+  - [ ] Add only `donor_conditioning={source_token,donor_token}`. Keep U, C, layers, prompt wrapper, positions, and decoding fixed. Run paired dog/ant naming questions.
+  - failure mode: donor-token conditioning changes fluency or first digits but still corrects to spider.
+  - deliverable: paired full continuations and a predeclared identity rubric for both conditioning modes.
 
-- [ ] Goal: the readout measures the changed source computation.
-  - [ ] Validate clean spider, dog and ant readouts before interpreting steered ones.
-  - [ ] Capture after the edit and subsequent computation, using the same chat-template path as generation.
-  - [ ] Compare full-state and selected-component future transport (766/767); readable edited dog tokens alone do not validate clean donor readouts.
-  - [ ] Check C=0 identity, hook ordering, aligned positions and agreement with generation's first-token logits.
-  - [x] Synchronized decoder C=0 matches generation exactly in job 731; retain these assertions in subsequent runs.
-  - Failure mode: the readout shows the donor, a pre-edit state, or a classifier that must move because it shares the steering direction.
-  - Deliverable: clean and post-edit source readouts with capture locations and controls; keep failures visible.
+- [ ] goal: distinguish prompt-phase mismatch from a weak method.
+  - [x] Repair and GPU-test the user-message generation boundary. Clean source and donor prose are correct, but the intervention stays spider.
+  - [ ] Log the first answer-token offset and first-token top distribution in every condition.
+  - [ ] If donor-token conditioning fails, run one answer-first user-message control that retains the question in the user message. Do not change the selector at the same time.
+  - failure mode: a wrapper comparison changes both answer phase and method inputs, so no causal diagnosis follows.
+  - deliverable: a paired wrapper table with prompt representation, answer-token offset, full continuation, and hook coverage.
 
-- [ ] Goal: replacement survives different questions and continuous generation.
-  - [ ] Use one fixed rule for both animals; keep species-specific strength tuning out of the final transfer test.
-  - [ ] Test naming, leg count and another distinguishing property only where clean source/donor answers are correct.
-  - [ ] Test repaired user-message controls in jobs 778/779 before changing strength; CPU token alignment passes, GPU behavior is unverified.
-  - [ ] Steer the last prompt positions and every generated token through EOS or the declared limit; log full continuations.
-  - [ ] Compare no edit, donor, matched-random edits and the unrestricted reference. Inspect contradictions, not just target log odds.
-  - [ ] Audit matched-random band controls (775/776). Vary one axis around one shared default in subsequent sweeps.
-  - [ ] On failure, use ml-debug and independent review to distinguish code, prompt and method errors; fix or change the construction, then repeat the paired tests.
-  - Failure mode: the first answer changes but the continuation reverses it, invents facts, or repeats; test prompts select the configuration.
-  - Deliverable: all conditions in unique timestamped logs, with development and frozen-setting follow-ups identified.
+- [ ] goal: make semantic success measurable rather than inferring it from a digit.
+  - [ ] Add a deterministic continuation rubric before the next GPU run: target identity present, source identity absent, expected target property present, and no explicit correction.
+  - [ ] Score every existing selected and random continuation with this rubric and retain the raw text beside it.
+  - [ ] Keep `swap_log_odds_shift`, `bare_answer_mass`, and repetition as diagnostics only.
+  - failure mode: a random edit gets the expected digit or a high log-odds shift and is counted as concept replacement.
+  - deliverable: one table linking every score to its complete continuation.
+
+- [ ] goal: validate the suppressed readout separately from generation.
+  - [x] Run selected-component and full-state transport; neither validates the delayed lexical detector.
+  - [ ] Evaluate a frozen readout on clean spider, dog, and ant prompts plus held-out templates before interpreting any post-edit tokens.
+  - failure mode: the readout changes because it shares the intervention construction, not because it measures animal state.
+  - deliverable: clean calibration records, capture locations, and held-out accuracy or an explicit failed validation.
 
 ## UAT / Verification
 
-- Open one notebook with complete Base and Causal intervention demos for dog and ant: exact prompt, post-edit readout, verbatim generation and token probabilities.
-- Open the linked results table and inspect every frozen follow-up, including failures. A correct number alone is not a pass.
-- [x] Show the first 32 tokens verbatim in new condition logs; link longer raw continuations separately. Tested against stored ant Base, donor and steered token IDs.
-- Report `swap_log_odds_shift`, `bare_answer_mass` and repetition separately. None alone proves coherent replacement.
-- Verify continuous-hook coverage and C=0 assertions in the logs. Run the notebook smoke test, queued notebook execution and project checks before handoff.
-- Terra follows each job to completion and audits with `auditlog` and `ml-debug`. A fresh reviewer checks the final evidence.
+| scenario | what it looks like | how we catch it |
+|---|---|---|
+| success | both naming continuations identify the target through EOS; selected conditions pass the identity rubric; random controls do not | full `result.json` continuations plus the rubric table |
+| likely failure | first token moves, then the output says spider or corrects itself | target/source identity and correction checks over the full continuation |
+| sneaky failure | a wrapper or random span produces a target digit without target computation | compare fixed paired runs, answer-token offsets, and all matched-random continuations |
 
-Written by Codex/GPT-6. This plan does not mark the research goal complete.
+Run `just notebook-smoke` before any GPU code change, queue each GPU run through the default pueue group, then read the complete condition logs and apply `ml-debug` plus an independent review. The full audit of jobs 767--779 is [here](../docs/slop/audits/2026-09-09_fixed-band-random-and-wrapper.md).
+
+-- Codex/GPT-6
