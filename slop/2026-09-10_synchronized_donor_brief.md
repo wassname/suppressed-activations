@@ -64,3 +64,35 @@ Literal animal identity through the continuation; the numeric/yes-no answer; coh
 pair confound (a decision-position token in the pair) does not arise here -- no pair selection
 is involved; the donor direction is the full L20 attenuation span. No causal claim from a digit
 alone; no claim that a null proves the detector inert.
+
+
+## Result (task 1007; exploratory, different-equation comparison -- labeled per supervisor)
+
+At the candidate's operating point (L20 C1.5, attenuation span, shared_replace equation), BOTH
+arms produce spider identity and unchanged answers on all six dev pairs: frozen and synchronized
+donors are behaviorally identical here. The base equation does not transfer at L20 C1.5 at all,
+so the identity failure that synchronization repaired in job 743 (at ITS operating point, L24
+C2, rank-4 raw attenuation) never arises here. There is no frozen-vs-synchronized difference to
+measure at this operating point; the job-743 lead does not compose with the candidate's
+settings.
+
+Verified invariants: prefill first-token logits bitwise equal across arms
+(first_logits_sha256 identical); synchronized donor history exactly equals source history
+(64 tokens; conditioning recorded as "unchanged donor prompt followed by source-selected
+tokens" -- no donor ground-truth tokens); C0 identities pass; coverage differences declared
+(frozen 48 tokens to natural EOS, sync 65 to cap). Full continuations read on all 12 C1.5 cells.
+
+As the supervisor noted, step-0 equality is by construction and absence of first-answer repair
+here is not evidence about adaptive steering generally; the open candidate recurrence
+(Δ_t = Δ0 + P(d_t − d_prefill), h' = h + C(Δ_t − Ph), exactly Δ0 at prefill) remains a REVIEW
+candidate, not run.
+
+## Frozen-candidate nomination (for the fresh evaluation)
+
+Nominate the recovered L20 C1.5 span-corrected candidate (raw equation, no norm matching; the
+only construction with verified naming+legs identity transfer on both animals, reproduced
+bitwise in the replay, C0 and clean controls passing). Limits explicit: property fails at this
+operating point (self-contradiction); the digit component of legs success is direction-agnostic
+(in-span random at C2 also moves it; strength-unmatched); synchronized updating shows no effect
+at this operating point; multi-layer distributed edits (job 549) are full-residual and
+unported. Fresh 12-question evaluation per manifest rev 2 awaits approval.
