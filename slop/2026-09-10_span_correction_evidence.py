@@ -222,11 +222,11 @@ for qp in sorted(_glob.glob(str(BATCH / "out/2026-09-10_eval-candidate-C1.5-*"))
     crec = list(cn["rows"][0]["intervention_record"].values())[0]
     rrec = list(rn["rows"][0]["intervention_record"].values())[0]
     norm_table.append(f"| {qid} | {crec['perturbation_norm']:.3f} | {rrec['perturbation_norm']:.3f} "
-                      f"| {crec.get('total_applied_norm', 0):.1f} | {rrec.get('total_applied_norm', 0):.1f} |")
-display(Markdown("Perturbation norms: PREFILL norm is the prefill-window edit magnitude; "
-                 "full-decode total sums all applied edits across the cached decode steps "
-                 "(candidate vs matched random at the same C; same C is not a magnitude-match "
-                 "claim):\n\n" + "\n".join(norm_table)))
+                      f"| {crec['total_applied_norm']:.1f} | {rrec['total_applied_norm']:.1f} |")
+display(Markdown("Perturbation norms: the PREFILL norm is the prefill-window edit magnitude; "
+                 "total applied norm (prefill+decode) sums every applied edit across all cached "
+                 "decode steps (candidate vs matched random at the same C; same C is not a "
+                 "magnitude-match claim):\n\n" + "\n".join(norm_table)))
 
 # %% [markdown]
 # ### Example adjudication quotes
@@ -254,31 +254,37 @@ for cond, title in (("candidate-C1.5-legs-L1-dog", "Fresh legs, dog (digit + ide
                      f"Full continuation ({n} tokens):\n\n```text\n{row['generation']['text']}\n```"))
 
 # %% [markdown]
-# ## Mechanism findings and limits (linked sources)
+# ## Mechanism findings and limits (linked sources; narrow facts)
 #
-# - **Cross-token agreement** (batchwork `slop/2026-09-10_cross_token_cosine.md`): suppressed
-#   components align exactly where surface tokens are shared (cos ~1.0) and not elsewhere;
-#   no signed consensus across tokens at early/peak/output.
-# - **Pair selector** (batchwork `slop/2026-09-10_causal_selector_brief.md`): the
-#   maximum-agreement pair direction does not separate from its matched-random control at the
-#   same C; the one cross-concept continuation is attributable to a decision-position token
-#   (donor-answer leakage) - possible explanation, not established.
-# - **Synchronized donor** (batchwork `slop/2026-09-10_synchronized_donor_brief.md`): at the
-#   candidate operating point, updating donor coordinates REMOVES SOME DISTORTION (correct
-#   eight-legged description where frozen invents four legs and a tail; natural end where
-#   frozen loops) but does NOT achieve target transfer; the job-743 effect was specific to its
-#   own operating point (L24 C2).
-# - **Limits**: property fails at C=1.5; the legs digit movement is direction-agnostic at
-#   unmatched random strength; four adaptation items remain untested (recovery decision doc).
+# - Measured pair agreement (L25, post-prefix): the SOURCE's maximum pair cosine is about
+#   +0.102; the donor prompts contain high-agreement subsets (dog about +0.854, ant about
+#   +0.584). The shared-prefix comparison (cos ~1.0) is a pipeline consistency check, not
+#   semantic validation. Details: batchwork `slop/2026-09-10_cross_token_cosine.md`.
+# - Pair selector: tested at rank 1, L25, C=1 and C=2 against a per-condition matched-random
+#   control; did not yield coherent replacement. ONE random draw per condition cannot establish
+#   equivalence or general nonseparation. Brief: batchwork
+#   `slop/2026-09-10_causal_selector_brief.md`.
+# - Donor-answer leakage: remains UNTESTED (not "attributable").
+# - Synchronized donor: a DIFFERENT shared_replace equation at L20 C1.5 (not the recovered
+#   span-correction candidate). Reduced distortion observed (correct eight-legged description
+#   where frozen invents four legs and a tail; natural end where frozen loops); NO target
+#   transfer. Brief: batchwork `slop/2026-09-10_synchronized_donor_brief.md`.
+# - Random control at C=2 in the replay also changed some dog leg answers (with wrong
+#   identity); the candidate-vs-random comparisons here are at matched C=1.5. No broader
+#   generalization from either.
+# - Limits: property fails at C=1.5; four adaptation items remain untested (recovery decision
+#   doc, batchwork `slop/2026-09-10_recovery_decision.md`).
 
 # %%
 display(Markdown("Sources: [cross-token report](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_cross_token_cosine.md) | "
                  "[recovery decision](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_recovery_decision.md) | "
                  "[frozen manifest](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_eval_manifest.md) | "
                  "[adjudication record](/workspace/2026/suppressed-activations-batchwork/slop/eval_fresh_adjudications.json) | "
+                 "[selector brief](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_causal_selector_brief.md) | "
                  "[synchronized brief](/workspace/2026/suppressed-activations-batchwork/slop/2026-09-10_synchronized_donor_brief.md)"))
 
 # %% [markdown]
+# ## Not demonstrated here# %% [markdown]
 # ## Not demonstrated here
 #
 # Cross-question persistence, readout calibration, and wider transfer are not established.
