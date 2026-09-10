@@ -63,3 +63,45 @@ evaluation, with donor information fixed (donor prompt residual difference at th
 positions; no answer tokens, no continuation content from the donor). Proceed to replay +
 regression verification now. Record synchronized donor updating as the preserved distinct
 construction and the four untested items above as the honest boundary of the freeze.
+
+
+## Replay result (regression verification; tasks 1005/1006)
+
+The C=0 identity controls pass on all six question/animal pairs (first answer equals the clean
+base answer, swap_log_odds_shift exactly 0.0 -- logits identical to base). The candidate
+reproduces the prior successes EXACTLY (bitwise-stable probabilities):
+
+| condition | replay | original |
+|---|---|---|
+| legs-dog C1.5 | 4, p_tgt 0.9687 | 4, 0.9687 |
+| legs-ant C1.5 | 6, p_tgt 0.9818 | 6, 0.9818 |
+| naming-ant C1.5 | Ant, 0.0068 | Ant, 0.0068 |
+| naming-dog C1.5 | 狗(Dog), 0.0062 | 狗(Dog), 0.0062 |
+
+Property at C1.5 confirms the known failure with new detail: the answer stays No for both
+animals while the identity moves -- dog ("The animal that spins webs is a dog, which is a
+mammal" then answers No: self-contradiction, since a dog is a mammal) and ant (identity moves
+to a honey bee, a THIRD animal). Property is identity-moves-answer-does-not, never coherent
+transfer.
+
+### Regression finding: the digit movement is not selector-specific
+
+The in-span random direction control (C=2, one strength above the candidate's 1.5 -- the sweep
+has no C1.5 random) moves legs-dog to 4 with HIGHER probability than the candidate (p_tgt
+0.9851 vs 0.9687) while the identity becomes a cow; naming-dog becomes a cat (猫). So the digit
+change is largely direction-agnostic: any in-span perturbation of this magnitude moves it. What
+the semantic Δ adds is WHICH animal the continuation describes (dog/ant vs cow/cat/random), and
+random edits also break identity (to a third animal) or degrade into repetition (bigram 0.46-0.56
+on ant). The honest framing of the frozen candidate: the digit component of "success" is
+non-specific; the donor concept's contribution is the identity substitution, and the property
+type fails outright.
+
+Note: random C=2 vs candidate C=1.5 is not strength-matched; no C1.5 random exists in the
+sweep. This weakens the control and is recorded as a replay limitation.
+
+### Verdict
+
+Prior claimed successes REPRODUCE (regression verification passes; no fix needed before
+freeze). The candidate's mechanism reading is corrected: it is a digit-mover (non-specific) +
+identity-steerer (semantic), not a pure concept transfer, and property is a confirmed failure
+with visible self-contradiction. This is regression evidence only, not reliability evidence.
