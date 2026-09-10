@@ -2,14 +2,21 @@
 # requires-python = ">=3.12"
 # dependencies = ["accelerate>=1.10", "torch>=2.8", "transformers>=5.5"]
 # ///
-"""Cross-token signed-cosine agreement of suppressed activation components.
+"""Causal selector comparison: maximum-agreement pair vs consensus rank-1 patch at L25.
 
-`token_persistent_subspace` picks eigenvectors of the *average projector* (sign-invariant span
-overlap). This script instead measures whether the actual projected residual components
-c_p = component(residual_p, B_p) agree in sign across token positions, then compares a
-shared-coordinate replacement chosen by the signed-agreement direction vs the avg-projector
-span, against a perturbation-norm-matched random control. Semantic success is judged from the
-full continuation: a changed digit with unchanged identity is NOT a transfer.
+Per prompt (source spider, donors dog/ant), on clean forwards with the existing detector:
+select the post-prefix position pair with maximum signed component cosine (deterministic
+tie-break), take its rank-1 span direction; comparator is the rank-1 consensus over all
+post-prefix positions. Patch equation, identical across selectors:
+
+    h' = h + C * ( (t . u_don) u_don - (h . u_src) u_src )
+
+with u_src/u_don the source's and donor's own unit directions and t the donor residual averaged
+over the donor's own selected positions. The edit lies in span{u_src, u_don}, so the orthogonal
+source residual is preserved; no component-norm matching; the source input string is unchanged.
+Coverage is last-3 prefill positions plus every cached decode step, identical across selectors.
+Random controls match each semantic condition's actual per-position/per-step perturbation norms.
+Written by PI[claude]; brief: slop/2026-09-10_causal_selector_brief.md.
 """
 
 from __future__ import annotations
@@ -19,6 +26,7 @@ import json
 import os
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -26,14 +34,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import torch
 from torch import Tensor
 
-from suppressed_activation_subspace import (
-    component,
-    cross_position_covariance,
-    suppressed_activation_subspace,
-    token_persistent_subspace,
-)
+from suppressed_activation_subspace import component, suppressed_activation_subspace
 
-# Real-model defaults; overridable by SUPPRESSED_* env for the tiny CPU smoke model.
 MODEL = os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B")
 REAL_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 REVISION = os.environ.get("SUPPRESSED_REVISION") or (
@@ -43,19 +45,20 @@ DEVICE = os.environ.get("SUPPRESSED_DEVICE", "cuda")
 EARLY_LAYER = int(os.environ.get("SUPPRESSED_EARLY_LAYER", "23"))
 PEAK_LAYER = int(os.environ.get("SUPPRESSED_PEAK_LAYER", "25"))
 OUTPUT_LAYER = int(os.environ.get("SUPPRESSED_OUTPUT_LAYER", "32"))
-INTERVENTION_LAYER = int(os.environ.get("SUPPRESSED_INTERVENTION_LAYER", "23"))
+INTERVENTION_LAYER = PEAK_LAYER
 RANK = int(os.environ.get("SUPPRESSED_RANK", "8"))
-STRENGTH = float(os.environ.get("SUPPRESSED_STRENGTH", "2.0"))
-READOUT_POSITIONS = int(os.environ.get("SUPPRESSED_READOUT_POSITIONS", "3"))
-POSITIONS = int(os.environ.get("SUPPRESSED_INTERVENTION_POSITIONS", "3"))
-MAX_NEW_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", "32"))
+PREFIX_END = 10  # positions 0-9 are the shared template prefix in all four prompts
+LAST3 = 3
+STRENGTHS = (1.0, 2.0)
+MAX_NEW_TOKENS = int(os.environ.get("SUPPRESSED_TOKENS", "64"))
 
-SOURCE_PROMPT = os.environ.get(
-    "SUPPRESSED_SOURCE_PROMPT",
-    "Fact: The number of legs on the animal that spins webs is ",
-)
-SOURCE_OUTPUT = os.environ.get("SUPPRESSED_SOURCE_OUTPUT", "8")
-TARGET_OUTPUT = os.environ.get("SUPPRESSED_TARGET_OUTPUT", "4")
+PROMPTS = {
+    "source": "Fact: The number of legs on the animal that spins webs is ",
+    "dog": "Fact: The number of legs on the animal that barks and is called man's best friend is ",
+    "ant": "Fact: The number of legs on the animal that lives in colonies and follows pheromone trails is ",
+}
+SOURCE_OUTPUT = "8"
+DONOR_OUTPUTS = {"dog": "4", "ant": "6"}
 
 
 def one_token(tokenizer, text: str) -> int:
@@ -65,8 +68,29 @@ def one_token(tokenizer, text: str) -> int:
     return ids[0]
 
 
-def main(output_path: Path, target_prompt: str, target_concept: str, target_output: str,
-         control_prompt: str | None = None) -> None:
+def max_agreement_pair(components: Tensor) -> tuple[int, int, float]:
+    """Post-prefix pair with maximum signed cosine; ties broken by smaller i then j."""
+    norms = components.norm(dim=-1).clamp_min(1e-12)
+    unit = components / norms.unsqueeze(-1)
+    cos = (unit @ unit.T)
+    best = max(((float(cos[i, j]), i, j)
+                for i in range(PREFIX_END, components.shape[0])
+                for j in range(i + 1, components.shape[0])),
+               key=lambda t: (t[0], -t[1], -t[2]))
+    return best[1], best[2], best[0]
+
+
+def rank1_span(components: Tensor) -> Tensor:
+    """Unit top singular direction of stacked components [n, hidden], in hidden space.
+
+    For n < hidden the left singular vectors are n-dimensional row-space mixing coefficients;
+    the direction that combines the rows lives in Vh[0] ([hidden]).
+    """
+    _, _, vh = torch.linalg.svd(components.float(), full_matrices=False)
+    return vh[0] / vh[0].norm()
+
+
+def main(output_dir: Path) -> None:
     torch.set_grad_enabled(False)
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -79,321 +103,229 @@ def main(output_path: Path, target_prompt: str, target_concept: str, target_outp
     unembedding = model.lm_head.weight
     norm_gain = 1.0 + final_norm.weight
 
-    # Reuse the verified trajectory/generate from the demonstration script.
     from scripts import demo as demo_mod
 
-    trajectory = demo_mod.trajectory
-    generate = demo_mod.generate
-
-    source_ids = tokenizer(SOURCE_PROMPT, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
-    target_ids = tokenizer(target_prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
-    source_residuals, source_logits = trajectory(model, source_ids, final_norm)
-    target_residuals, target_logits = trajectory(model, target_ids, final_norm)
-
-    source_id = one_token(tokenizer, SOURCE_OUTPUT)
-    target_id = one_token(tokenizer, target_output)
-    base_logp = source_logits.log_softmax(-1)
-    source_p = float(base_logp.exp()[source_id])
-    target_p_base = float(base_logp.exp()[target_id])
-
-    # Each prompt gets its own end-aligned window; prompts of different length must not share
-    # absolute positions.
-    def extract(residuals: Tensor) -> dict:
-        end = residuals.shape[1]
-        window = slice(max(0, end - READOUT_POSITIONS), end)
-        positions = list(range(window.start, window.stop))
-        bases, ids_sel = suppressed_activation_subspace(
-            residuals[:, window].permute(1, 0, 2), unembedding, norm_gain,
-            early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER, output_layer=OUTPUT_LAYER, rank=RANK,
-            normalize_unembedding_rows=True,
+    ids = {n: tokenizer(p, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
+           for n, p in PROMPTS.items()}
+    res = {}
+    for name in PROMPTS:
+        r, logits = demo_mod.trajectory(model, ids[name], final_norm)
+        res[name] = {"residuals": r, "logits": logits,
+                     "labels": [tokenizer.decode([int(t)]) for t in ids[name][0]]}
+    # Per-position bases over ALL positions; selection runs over ALL post-prefix positions
+    # (the brief's domain), e.g. dog's maximum pair (' called'@14, ' '@20) lies outside last-3.
+    bases = {}
+    comps = {}
+    for name in PROMPTS:
+        seq_len = res[name]["residuals"].shape[1]
+        b, _ = suppressed_activation_subspace(
+            res[name]["residuals"].permute(1, 0, 2),
+            unembedding, norm_gain, early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER,
+            output_layer=OUTPUT_LAYER, rank=RANK, normalize_unembedding_rows=True,
         )
-        components = torch.stack([
-            component(residuals[INTERVENTION_LAYER, p].float(), bases[i])
-            for i, p in enumerate(positions)
-        ])
-        return {
-            "window": [window.start, window.stop], "positions": positions,
-            "bases": bases, "ids_sel": ids_sel, "components": components,
+        bases[name] = b  # [seq_len, hidden, rank]
+        comps[name] = torch.stack([
+            component(res[name]["residuals"][INTERVENTION_LAYER, p].float(), b[p])
+            for p in range(seq_len)
+        ])  # [seq_len, hidden]
+
+    selections = {}
+    post_prefix = {n: list(range(PREFIX_END, res[n]["residuals"].shape[1])) for n in PROMPTS}
+    for name in PROMPTS:
+        i, j, cos = max_agreement_pair(comps[name])
+        assert i >= PREFIX_END and j >= PREFIX_END
+        post = post_prefix[name]
+        selections[name] = {
+            "pair": {"i": int(i), "j": int(j), "cosine": cos,
+                     "tokens": [res[name]["labels"][i], res[name]["labels"][j]],
+                     "post_prefix_indices": post},
+            "pair_direction": rank1_span(comps[name][[post.index(i), post.index(j)]]),
+            "consensus_direction": rank1_span(comps[name][post]),
         }
+        print(f"{name}: max-agreement pair {selections[name]['pair']}")
 
-    source_ex = extract(source_residuals)
-    target_ex = extract(target_residuals)
-    positions_list = source_ex["positions"]
+    answer_ids = {n: one_token(tokenizer, o) for n, o in
+                  (("source", SOURCE_OUTPUT), *DONOR_OUTPUTS.items())}
 
-    # Cross-prompt baseline: a same-form neutral prompt tests whether within-prompt agreement is
-    # concept-specific or a shared mean / syntax edge.
-    control_ex = None
-    if control_prompt is not None:
-        control_ids = tokenizer(control_prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(DEVICE)
-        control_residuals, _ = trajectory(model, control_ids, final_norm)
-        control_ex = extract(control_residuals)
-
-    def _mean_signed_cosine(components: Tensor) -> float | None:
-        if components.shape[0] < 2:
-            return None
-        norms = components.norm(dim=-1).clamp_min(1e-12)
-        normalized = components / norms.unsqueeze(-1)
-        cosines = (normalized @ normalized.T).fill_diagonal_(0.0)
-        n_pairs = components.shape[0] * (components.shape[0] - 1)
-        return float(cosines.sum() / n_pairs)
-
-    def signed_agreement_summary(components: Tensor) -> dict:
-        """components: [T, hidden]. Signed agreement of actual projected suppressed components.
-
-        `component` is the projector h @ (B B^T), sign-invariant to basis flips, so these
-        cosines are not corrupted by QR sign ambiguity. Mean-subtracted and drop-max-norm
-        variants test the shared-mean / sink artifact: a high raw cosine on a shared mean is
-        not concept evidence.
-        """
-        mean_dir = components.mean(dim=0)
-        mean_component_norm = components.norm(dim=-1).mean()
-        cent = _mean_signed_cosine(components - mean_dir)
-        drop = None
-        if components.shape[0] > 2:
-            keep_mask = torch.ones(components.shape[0], dtype=torch.bool)
-            keep_mask[components.norm(dim=-1).argmax()] = False
-            drop = _mean_signed_cosine(components[keep_mask])
-        cpc = cross_position_covariance(components[None])
-        return {
-            "signed_agreement_norm_mean_over_mean_norm": float(mean_dir.norm() / mean_component_norm),
-            "mean_signed_cosine": _mean_signed_cosine(components),
-            "mean_centered_signed_cosine": cent,
-            "drop_max_norm_signed_cosine": drop,
-            "mean_component_norm": float(mean_component_norm),
-            "mean_agreement_vector_norm": float(mean_dir.norm()),
-            "cross_position_covariance_mean_diagonal": float(cpc.diagonal().mean()),
-            "mean_norm_is_zero": bool(mean_dir.norm() < 1e-8),
-        }
-
-    def subspace_overlap_summary(bases: Tensor) -> dict:
-        """bases: [T, hidden, rank]. Sign-invariant span-overlap (the existing avg-projector view)."""
-        vectors, singular_values, _ = torch.linalg.svd(bases.permute(1, 0, 2).flatten(1), full_matrices=False)
-        spectrum = (singular_values.square() / bases.shape[0]).tolist()
-        principal = []
-        for i in range(bases.shape[0] - 1):
-            q1 = torch.linalg.qr(bases[i], mode="reduced").Q
-            q2 = torch.linalg.qr(bases[i + 1], mode="reduced").Q
-            principal.append(torch.linalg.svdvals(q1.T @ q2).tolist())
-        return {
-            "avg_projector_spectrum": spectrum,
-            "principal_angle_cosines_between_consecutive": principal,
-            "top_avg_projector_value": float(spectrum[0]),
-        }
-
-    # Rank-1 behavioral basis selectors (shape [hidden, 1] for component()).
-    signed_dir = source_ex["components"].mean(dim=0)
-    signed_dir = signed_dir / signed_dir.norm()
-    signed_basis = signed_dir.reshape(-1, 1)
-    support, _, _ = token_persistent_subspace(
-        source_residuals[:, slice(*source_ex["window"])].permute(1, 0, 2), unembedding, norm_gain,
-        persistent_rank=1,
-        early_layer=EARLY_LAYER, peak_layer=PEAK_LAYER, output_layer=OUTPUT_LAYER,
-        rank=RANK, normalize_unembedding_rows=True,
-    )
-    avg_basis = support / support.norm()
-    generator = torch.Generator(device=DEVICE).manual_seed(0)
-    random_dir = torch.linalg.qr(
-        torch.randn(avg_basis.shape, device=DEVICE, generator=generator), mode="reduced"
-    ).Q
-
-    residual_layer = INTERVENTION_LAYER
-    target_position = target_residuals.shape[1] - 1
-
-    # Shared-coordinate replacement WITHOUT component-norm matching: with one shared rank-1
-    # basis, norm matching rescales the donor onto the source's own magnitude, which makes
-    # equal-sign edits a no-op and opposite-sign edits a reflection -- exactly the distinction
-    # under test. Donor magnitude is therefore kept, and perturbation/residual norms are logged
-    # per call so norm growth is visible rather than hidden.
-    def edit_hook(basis: Tensor, *, record: dict | None = None, matched_norms: dict | None = None,
-                  strength: float = STRENGTH):
+    # ---- patch machinery: shared-coordinate replacement, no norm matching ----
+    def build_patch(u_src: Tensor, u_don: Tensor, donor_target: Tensor, strength: float,
+                    record: dict | None, matched_norms: dict | None = None,
+                    rand_dir: Tensor | None = None):
         def hook(_module, _inputs, output):
             hidden = output[0] if isinstance(output, tuple) else output
-            active = 1 if hidden.shape[1] == 1 else POSITIONS
+            active = 1 if hidden.shape[1] == 1 else LAST3
             start = hidden.shape[1] - active
             h = hidden[:, start:].float()
-            target_h = target_residuals[residual_layer, target_position].reshape(1, 1, -1).expand(h.shape).float()
-            delta = component(target_h, basis) - component(h, basis)
+            semantic = (donor_target @ u_don) * u_don - (h @ u_src).unsqueeze(-1) * u_src
             if matched_norms is not None:
-                # kind-aware matching: prefill matches per-position semantic norms; each decode
-                # call matches the semantic edit's mean decode-call norm.
+                # random control: match this call's actual per-position semantic norms; decode
+                # steps match step-by-step (partial beyond the semantic trajectory's length,
+                # declared post-hoc, reusing the last step's norm).
                 if hidden.shape[1] > 1:
+                    # prefill norms are window-relative (LAST3 entries), not absolute indices
                     ref = torch.as_tensor(matched_norms["prefill"][:active],
                                           device=h.device).float()
                 else:
-                    ref = torch.full((1,), matched_norms["decode_mean"], device=h.device)
-                scale = ref / delta.norm(dim=-1).clamp_min(1e-12)
-                delta = delta * scale.unsqueeze(-1)
-                # the reference norms are post-strength semantic perturbations; applying strength
-                # again would square it, so the matched control adds the scaled delta directly.
-                patched = h + delta
+                    step = sum(1 for c in (record or {}).get("calls", []) if c["seq_len"] == 1)
+                    idx = min(step, len(matched_norms["decode"]) - 1)
+                    ref = torch.as_tensor([matched_norms["decode"][idx]], device=h.device).float()
+                rand_vec = rand_dir.reshape(1, 1, -1).expand_as(semantic)
+                delta = rand_vec * semantic.norm(dim=-1, keepdim=True).clamp_min(1e-12)
+                scale = ref.reshape(1, -1, 1) / delta.norm(dim=-1, keepdim=True).clamp_min(1e-12)
+                delta = delta * scale
+                patched = h + delta  # norm-matched: strength already inside the reference
             else:
+                delta = semantic
                 patched = h + strength * delta
             if record is not None:
                 record.setdefault("calls", []).append({
                     "seq_len": int(hidden.shape[1]), "active": active,
                     "positions": list(range(start, hidden.shape[1])),
                     "perturbation_norm_by_position": (patched - h).norm(dim=-1)[0].tolist(),
-                    "residual_norm_by_position_before": h.norm(dim=-1)[0].tolist(),
-                    "residual_norm_by_position_after": patched.norm(dim=-1)[0].tolist(),
                 })
             full = torch.cat([hidden[:, :start], patched.to(hidden.dtype),
                               hidden[:, start + active:]], dim=1)
             return (full, *output[1:]) if isinstance(output, tuple) else full
-        return {residual_layer - 1: hook}
+        return {INTERVENTION_LAYER - 1: hook}
 
-    def run_selector(name: str, basis: Tensor, *, generate_too: bool, strength: float = STRENGTH,
-                     matched_norms: dict | None = None):
+    def run(name: str, u_src: Tensor, u_don: Tensor, donor_target: Tensor, strength: float,
+            matched_norms: dict | None = None, rand_dir: Tensor | None = None,
+            max_new_tokens: int = MAX_NEW_TOKENS):
         record: dict = {}
-        hooks = edit_hook(basis, record=record, matched_norms=matched_norms, strength=strength)
-        logits = demo_mod.run_forward(model, source_ids, blocks, hooks)
-        generation = None
-        if generate_too:
-            generation = generate(model, tokenizer, source_ids, blocks, hooks,
-                                  max_new_tokens=MAX_NEW_TOKENS)
-            record["generation_token_ids"] = generation["token_ids"]
+        hooks = build_patch(u_src, u_don, donor_target, strength, record,
+                            matched_norms=matched_norms, rand_dir=rand_dir)
+        logits = demo_mod.run_forward(model, ids["source"], blocks, hooks)
+        gen = demo_mod.generate(model, tokenizer, ids["source"], blocks, hooks,
+                                max_new_tokens=max_new_tokens)
         if strength == 0:
-            torch.testing.assert_close(logits, source_logits.float(), rtol=0, atol=0)
-            record["zero_strength_identity"] = "logits identical to base"
-        if generate_too:
-            prefill = [c for c in record["calls"] if c["seq_len"] > 1]
-            decode = [c for c in record["calls"] if c["seq_len"] == 1]
-            assert prefill and prefill[0]["active"] == POSITIONS, f"{name}: prefill coverage {prefill}"
-            assert len(decode) >= len(generation["token_ids"]) - 1, f"{name}: decode coverage short"
-            record["coverage"] = {
-                "prefill_positions": prefill[0]["positions"],
-                "decode_calls": len(decode),
-                "generated_tokens": len(generation["token_ids"]),
-            }
-        record["strength"] = strength
-        record["matched_to"] = "semantic avg_projector per-position norms" if matched_norms else None
-        return logits, generation, record
+            torch.testing.assert_close(logits, res["source"]["logits"].float(), rtol=0, atol=0)
+            record["zero_strength_identity"] = "logits identical to clean source"
+        prefill = [c for c in record["calls"] if c["seq_len"] > 1]
+        decode = [c for c in record["calls"] if c["seq_len"] == 1]
+        assert prefill and prefill[0]["active"] == LAST3
+        record["coverage"] = {
+            "prefill_positions": prefill[0]["positions"], "decode_calls": len(decode),
+            "generated_tokens": len(gen["token_ids"]),
+            "ended_at_eos": gen["token_ids"][-1] in (tokenizer.eos_token_id, tokenizer.pad_token_id),
+        }
+        return {"logits": logits, "generation": gen, "record": record}
 
-    # Semantic edits first; their per-position perturbation norms calibrate the random control.
-    semantic_norms = None
-    rows = []
-    for name, basis, gen in (("signed_agreement", signed_basis, True),
-                             ("avg_projector", avg_basis, True)):
-        logits, generation, record = run_selector(name, basis, generate_too=gen)
-        if name == "avg_projector":
-            prefill_calls = [c for c in record["calls"] if c["seq_len"] > 1]
-            decode_calls = [c for c in record["calls"] if c["seq_len"] == 1]
-            semantic_norms = {
-                "prefill": prefill_calls[0]["perturbation_norm_by_position"],
-                "decode_mean": (sum(c["perturbation_norm_by_position"][0] for c in decode_calls)
-                                / max(len(decode_calls), 1)),
-            }
-        rows.append({"selector": name, "logits": logits, "generation": generation, "record": record})
-    logits_r, generation_r, record_r = run_selector(
-        "matched_random", random_dir, generate_too=True, matched_norms=semantic_norms)
-    rows.append({"selector": "matched_random", "logits": logits_r,
-                 "generation": generation_r, "record": record_r})
-    # zero-strength identity check
-    _, _, record_zero = run_selector("zero_strength", avg_basis, generate_too=False, strength=0.0)
-
-    # Unembedding probe: does applying each direction (RMSNorm + gain-weighted unembedding)
-    # raise the target concept token logit? A linear readout diagnostic, not a causal claim.
-    def logit_probe(direction: Tensor) -> dict:
-        d = direction.float().flatten()
-        d_norm = d * torch.rsqrt(d.square().mean() + 1e-6) * norm_gain.float()
-        vals = d_norm @ unembedding.float().T
-        return {
-            "source_token_logit": {t: float(vals[one_token(tokenizer, t)])
-                                   for t in (" spider", SOURCE_OUTPUT)},
-            "target_token_logit": {t: float(vals[one_token(tokenizer, t)])
-                                   for t in (" " + target_concept, target_output)},
+    # ---- conditions ----
+    results = []
+    donor_t = {}
+    for donor in ("dog", "ant"):
+        L = res[donor]["residuals"]
+        pair = selections[donor]["pair"]
+        donor_t[donor] = {
+            "pair": (L[INTERVENTION_LAYER, pair["i"]] + L[INTERVENTION_LAYER, pair["j"]]).float() / 2,
+            "consensus": L[INTERVENTION_LAYER, post_prefix[donor]].float().mean(0),
         }
 
-    logit_probes = {n: logit_probe(b) for n, b in
-                    (("signed_agreement", signed_basis), ("avg_projector", avg_basis),
-                     ("matched_random", random_dir))}
+    for donor in ("dog", "ant"):
+        u_don_pair = selections[donor]["pair_direction"]
+        u_don_cons = selections[donor]["consensus_direction"]
+        u_src_pair = selections["source"]["pair_direction"]
+        u_src_cons = selections["source"]["consensus_direction"]
+        selectors = {
+            "max_agreement_pair": (u_src_pair, u_don_pair, donor_t[donor]["pair"]),
+            "consensus": (u_src_cons, u_don_cons, donor_t[donor]["consensus"]),
+        }
+        for sel_name, (u_src, u_don, t) in selectors.items():
+            for strength in (0.0, *STRENGTHS):
+                r = run(f"{donor}/{sel_name}/C{strength}", u_src, u_don, t, strength)
+                r.update({"donor": donor, "selector": sel_name, "strength": strength})
+                results.append(r)
+        # matched-random per semantic condition
+        for sel_name, (u_src, u_don, t) in selectors.items():
+            for strength in STRENGTHS:
+                key = f"{donor}/{sel_name}/C{strength}"
+                sem = next(r for r in results
+                           if r.get("donor") == donor and r.get("selector") == sel_name
+                           and r.get("strength") == strength)
+                prefill_call = [c for c in sem["record"]["calls"] if c["seq_len"] > 1][0]
+                decode_calls = [c for c in sem["record"]["calls"] if c["seq_len"] == 1]
+                gen = torch.Generator(device=DEVICE).manual_seed(zlib.crc32(key.encode()))  # deterministic
+                rand_dir = torch.linalg.qr(
+                    torch.randn(1, u_src.shape[0], device=DEVICE, generator=gen)
+                ).Q.squeeze(0)
+                r = run(key, u_src, u_don, t, strength,
+                        matched_norms={"prefill": prefill_call["perturbation_norm_by_position"],
+                                       "decode": [c["perturbation_norm_by_position"][0]
+                                                  for c in decode_calls]},
+                        rand_dir=rand_dir)
+                r.update({"donor": donor, "selector": f"{sel_name}_random", "strength": strength})
+                results.append(r)
+            # declare coverage mismatch explicitly rather than forcing a match
+            sem_last = next(r for r in results if r.get("donor") == donor
+                            and r.get("selector") == sel_name and r.get("strength") == STRENGTHS[-1])
+            rand_last = next(r for r in results if r.get("donor") == donor
+                             and r.get("selector") == f"{sel_name}_random"
+                             and r.get("strength") == STRENGTHS[-1])
+            if (sem_last["record"]["coverage"]["generated_tokens"]
+                    != rand_last["record"]["coverage"]["generated_tokens"]):
+                results.append({"note": f"coverage mismatch {donor}/{sel_name}: semantic "
+                                 f"{sem_last['record']['coverage']['generated_tokens']} vs random "
+                                 f"{rand_last['record']['coverage']['generated_tokens']} tokens; "
+                                 "norm matching declared partial beyond the shorter trajectory"})
+
+    # clean references
+    clean_source_gen = demo_mod.generate(model, tokenizer, ids["source"], blocks, {},
+                                         max_new_tokens=MAX_NEW_TOKENS)
+    for donor in ("dog", "ant"):
+        clean_donor_gen = demo_mod.generate(model, tokenizer, ids[donor], blocks, {},
+                                            max_new_tokens=MAX_NEW_TOKENS)
+        results.append({"donor": donor, "selector": "clean_donor",
+                        "generation": clean_donor_gen})
+    results.append({"selector": "clean_source", "generation": clean_source_gen})
 
     def summarize(logits):
         logp = logits.log_softmax(-1)
-        return {
-            "p_source": float(logp[source_id].exp()),
-            "p_target": float(logp[target_id].exp()),
-            "log_odds_target_vs_source": float(logp[target_id] - logp[source_id]),
-            "top_tokens": [
-                {"token_id": int(i), "token": tokenizer.decode([int(i)]), "logp": float(logp[i])}
-                for i in logp.topk(10).indices
-            ],
-        }
+        return {f"p_{a}": float(logp[answer_ids[a]].exp()) for a in answer_ids} | {
+            "top_tokens": [{"token_id": int(i), "token": tokenizer.decode([int(i)]),
+                            "logp": float(logp[i])} for i in logp.topk(10).indices]}
 
-    def ex_summary(ex, residuals):
-        return {
-            "window": ex["window"], "positions": ex["positions"],
-            "selected_tokens": [{"position": ex["positions"][i], "token_id": int(t),
-                                 "token": tokenizer.decode([int(t)])}
-                                for i, t in enumerate(ex["ids_sel"][:, 0])],
-            "signed_agreement": signed_agreement_summary(ex["components"]),
-            "subspace_overlap": subspace_overlap_summary(ex["bases"]),
-            "component_norms": [float(n) for n in ex["components"].norm(dim=-1)],
-            "component_norm_fraction": [
-                float(n / r) for n, r in zip(
-                    ex["components"].norm(dim=-1),
-                    [residuals[INTERVENTION_LAYER, p].float().norm() for p in ex["positions"]])],
-        }
-
-    result = {
+    out = {
         "metadata": {
             "model": MODEL, "revision": REVISION, "device": DEVICE,
             "detector_layers": [EARLY_LAYER, PEAK_LAYER, OUTPUT_LAYER],
-            "intervention_layer": INTERVENTION_LAYER, "rank": RANK, "strength": STRENGTH,
-            "readout_positions": READOUT_POSITIONS, "positions": POSITIONS,
+            "intervention_layer": INTERVENTION_LAYER, "rank": RANK,
+            "prefix_end": PREFIX_END, "last3": LAST3, "strengths": list(STRENGTHS),
             "max_new_tokens": MAX_NEW_TOKENS,
-            "source_prompt": SOURCE_PROMPT, "target_prompt": target_prompt,
-            "target_concept": target_concept, "source_output": SOURCE_OUTPUT,
-            "target_output": target_output, "control_prompt": control_prompt,
-            "replacement": "shared-coordinate, no component-norm matching, no residual-norm restore",
-            "signed_agreement_selector": "rank-1 direction = normalized mean of per-position projected components; a magnitude-weighted signed consensus, NOT a pairwise-cosine threshold selector",
-            "random_control": "rank-1 random basis; perturbation norms matched to the avg_projector semantic edit -- prefill per-position and MEAN decode magnitude, not exact per-step, and NOT matched to signed_agreement's perturbation",
-            "screen_limits": "32 tokens is screening only; promising candidates need full-continuation confirmation and matched controls before any reliability claim; no magnitude-controlled signed-vs-average superiority claim from this design alone",
-            "git_describe": subprocess.run(
-                ["git", "describe", "--always", "--dirty"], check=True, text=True, capture_output=True
-            ).stdout.strip(),
+            "prompts": PROMPTS, "answers": {"source": SOURCE_OUTPUT, **DONOR_OUTPUTS},
+            "equation": "h' = h + C*((t.u_don)u_don - (h.u_src)u_src); no norm matching",
+            "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
+                                           check=True, text=True, capture_output=True).stdout.strip(),
         },
-        "per_prompt": {
-            "source": ex_summary(source_ex, source_residuals),
-            "donor": ex_summary(target_ex, target_residuals),
-            **({"control": ex_summary(control_ex, control_residuals)} if control_ex else {}),
-        },
-        "unembedding_logit_probe": logit_probes,
-        "base": {"p_source": source_p, "p_target": target_p_base},
-        "zero_strength_identity": record_zero.get("zero_strength_identity"),
-        "rows": [
-            {"selector": r["selector"], "metrics": summarize(r["logits"]),
-             "generation": r["generation"],
-             "coverage": r["record"].get("coverage"),
-             "matched_to": r["record"].get("matched_to"),
-             "first_call_perturbation_norm_by_position": r["record"]["calls"][0]["perturbation_norm_by_position"]}
-            for r in rows
-        ],
+        "selections": {n: {k: v for k, v in s.items() if not k.endswith("_direction")}
+                         | {"tokens_with_positions": [
+                               {"position": int(p), "token": res[n]["labels"][int(p)]}
+                               for p in (s["pair"]["i"], s["pair"]["j"])]}
+                       for n, s in selections.items()},
+        "clean_answers": {n: {f"p_{a}": float(res[n]["logits"].softmax(-1)[answer_ids[a]].exp())
+                              for a in answer_ids} for n in PROMPTS},
+        "runs": [{"donor": r.get("donor"), "selector": r.get("selector"),
+                  "strength": r.get("strength"),
+                  "metrics": summarize(r["logits"]) if "logits" in r else None,
+                  "generation": r.get("generation"), "coverage": r.get("record", {}).get("coverage"),
+                  "zero_strength_identity": r.get("record", {}).get("zero_strength_identity"),
+                  "note": r.get("note"),
+                  "calls": r.get("record", {}).get("calls")}
+                 for r in results],
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
-    print(json.dumps({
-        "source_mean_signed_cosine": result["per_prompt"]["source"]["signed_agreement"]["mean_signed_cosine"],
-        "source_mean_centered_signed_cosine": result["per_prompt"]["source"]["signed_agreement"]["mean_centered_signed_cosine"],
-        "donor_mean_signed_cosine": result["per_prompt"]["donor"]["signed_agreement"]["mean_signed_cosine"],
-        "avg_projector_top_source": result["per_prompt"]["source"]["subspace_overlap"]["top_avg_projector_value"],
-        "zero_strength_identity": result["zero_strength_identity"],
-        "rows": [{"selector": r["selector"], "p_source": r["metrics"]["p_source"],
-                  "p_target": r["metrics"]["p_target"],
-                  "log_odds": r["metrics"]["log_odds_target_vs_source"],
-                  "coverage": r["coverage"],
-                  "generation": (r["generation"] or {}).get("text", "")[:160]}
-                 for r in result["rows"]],
-    }, indent=2))
-    print(f"\noutput: {output_path}")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "result.json").write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n")
+    for r in out["runs"]:
+        if r.get("metrics"):
+            g = (r["generation"] or {}).get("text", "").replace("\n", " ")[:100]
+            print(f"{str(r['donor']):6s} {r['selector']:22s} C={r['strength']!s:4s} "
+                  f"p8={r['metrics']['p_source']:.3f} p4={r['metrics']['p_dog']:.3f} "
+                  f"p6={r['metrics']['p_ant']:.3f} | {g}")
+        else:
+            print(f"clean {r['selector']}: {(r['generation'] or {}).get('text', '')[:80]!r}")
+    print(f"\noutput: {output_dir / 'result.json'}")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--target-prompt", required=True)
-    parser.add_argument("--target-concept", required=True)
-    parser.add_argument("--target-output", required=True)
-    parser.add_argument("--control-prompt", default=None,
-                        help="same-form neutral prompt for a generic-syntax / shared-mean baseline")
-    args = parser.parse_args()
-    main(args.output, args.target_prompt, args.target_concept, args.target_output, args.control_prompt)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    main(parser.parse_args().output_dir)
