@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -28,15 +29,17 @@ from suppressed_activation_subspace import (
     suppressed_activation_subspace,
 )
 
+# Env overrides exist for GPU verification runs on smaller cards; defaults keep the public
+# notebook artifacts unchanged (a 256-control run no longer fits a 24GB card under torch 2.13).
 MODEL = "Qwen/Qwen3.5-4B"
 EARLY_LAYER = 23
 PEAK_LAYER = 25
 OUTPUT_LAYER = 32
 RANK = 8
 CONTROL_STRENGTH = 2.0
-RANDOM_CONTROL_COUNT = 256
+RANDOM_CONTROL_COUNT = int(os.environ.get("SUPPRESSED_RANDOM_CONTROL_COUNT", "256"))
 INTERVENTION_BLOCKS = range(22, 30)  # block 22 writes residual L23
-MAX_NEW_TOKENS = 64
+MAX_NEW_TOKENS = int(os.environ.get("SUPPRESSED_MAX_NEW_TOKENS", "64"))
 SOURCE_PROMPT = "Fact: The number of legs on the animal that spins webs is "
 TARGET_PROMPT = "Fact: The number of legs on the animal that barks and is called man's best friend is "
 SOURCE_HIDDEN_WORD = "spider"
