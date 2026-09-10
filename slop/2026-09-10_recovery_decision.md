@@ -26,7 +26,12 @@ answer-position measurements put the yes/no decision largely outside the edited 
 The span-correction equation is h' = h + C(Δ − UUᵀh). The −UUᵀh term is evaluated at every
 patched position and every cached decode step from the CURRENT state, so the removal part is
 already position- and step-adaptive: what gets removed depends on what the model is currently
-representing. The donor term Δ is fixed (frozen donor coordinates).
+representing. The donor term Δ is fixed (template-mean donor-minus-source residual difference
+projected into the span). CORRECTION (supervisor review): the actual `span_corrected_delta`
+branch (scripts/demo.py) never reads the `match_component_norm` config field -- the equation is
+raw: no component-norm matching and no residual renormalization anywhere. An earlier draft of
+this document and of the journal described the candidate as "template-mean Δ with norm
+matching"; that was read from the config field, not the branch, and is wrong.
 
 ## Genuinely distinct prior construction that was omitted: synchronized donor updating
 
