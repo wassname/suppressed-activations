@@ -312,7 +312,8 @@ def main(output_dir: Path) -> None:
                                {"position": int(p), "token": res[n]["labels"][int(p)]}
                                for p in (s["pair"]["i"], s["pair"]["j"])]}
                        for n, s in selections.items()},
-        "clean_answers": {n: {f"p_{a}": float(res[n]["logits"].softmax(-1)[answer_ids[a]].exp())
+        # softmax already returns probabilities; the earlier .exp() here was a double transform
+        "clean_answers": {n: {f"p_{a}": float(res[n]["logits"].softmax(-1)[answer_ids[a]])
                               for a in answer_ids} for n in PROMPTS},
         "runs": [{"donor": r.get("donor"), "selector": r.get("selector"),
                   "strength": r.get("strength"),

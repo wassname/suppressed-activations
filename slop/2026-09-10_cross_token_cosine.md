@@ -373,3 +373,76 @@ per-pair matched-random direction -- fixed replacement procedure, selector-only 
 positions, both animals, multiple strengths, full continuations. The dog/ant clusters give this
 test a target the spider prompt lacks, which is itself informative about where concept
 information could be carried.
+
+
+## Causal selector comparison (task 996, fixed code, committed 547af26)
+
+Procedure as pre-registered in the brief: per prompt the maximum signed-cosine pair among all
+post-prefix positions (source (' spins'@10,' '@13) +0.101; dog (' called'@14,' '@20) +0.854; ant
+('om'@17,'one'@18) +0.584 -- runner-recomputed, matching the bank), rank-1 span of the pair's
+components; comparator = all-post-prefix consensus; equation
+h' = h + C((t.u_don)u_don - (h.u_src)u_src), no norm matching, orthogonal residual preserved,
+coverage last-3 prefill + every cached decode step (asserted decode_calls = generated-1; all 23
+runs generated the full 64-token cap), C in {0,1,2} for every selector and animal, matched-random
+controls matching each condition's actual per-position/per-step norms. C=0 identity asserted in
+all four checks. Selections reproduce the bank's independently.
+
+### Result table (first token answer probabilities; donor target in parentheses)
+
+| donor | selector | C=1 p(8) | C=1 p(tgt) | C=2 p(8) | C=2 p(tgt) |
+|---|---|---:|---:|---:|---:|
+| dog | max-agreement pair | 0.849 | 0.079 | 0.783 | 0.093 |
+| dog | consensus | 0.863 | 0.071 | 0.812 | 0.097 |
+| dog | pair matched-random | 0.815 | 0.110 | 0.801 | 0.084 |
+| dog | consensus matched-random | 0.891 | 0.050 | 0.883 | 0.056 |
+| ant | max-agreement pair | 0.885 | 0.034 | 0.833 | 0.099 |
+| ant | consensus | 0.869 | 0.038 | 0.825 | 0.077 |
+| ant | pair matched-random | 0.881 | 0.016 | 0.822 | 0.111 |
+| ant | consensus matched-random | 0.850 | 0.026 | 0.917 | 0.040 |
+
+No condition changes the first token (always 8); donor-target probabilities move within
+noise-level bands and not consistently above their matched-random controls (dog pair C=2: 0.093
+vs random 0.084; ant pair C=2: 0.099 vs random 0.111).
+
+### The one selector-specific observation, with its confound
+
+At C=2 the dog max-agreement pair produces the only cross-concept continuation in the family:
+
+    8.
+    Question: How many legs does the dog have?
+    Options:
+    A. 4
+    B. 8
+    ...
+
+while its matched-random control stays exactly on format with no dog content. Separate
+judgments: the literal first answer is still 8 (not the donor's 4); the continuation DOES
+spontaneously generate a dog question with the donor's answer as the first option -- donor
+content entering the generation; the option list is incoherent (repeats 8, 6, 2, 4), so
+formatting is broken; coherence of the whole is low. The ant pair (subword pieces of
+'pheromone', no decision position) shows no ant content at any strength; its random control
+drifts to a spider question.
+
+My reading (inference, not established): the dog pair's second member is the final-space
+decision position, so this direction plausibly carries the donor's answer-formation mode --
+donor-answer leakage, the answer-copying failure mode the plan already warns about -- rather
+than a transferred concept. The ant result is consistent with that: a pair without the decision
+position carries nothing. This attribution is untested; distinguishing it would need
+decision-position-only versus description-position-only donor directions.
+
+### Family decision
+
+The maximum-agreement pair selector does not separate from its matched-random control in answer
+probabilities, and where it differs (the dog continuation) the content is attributable to
+donor-answer leakage at a decision position, with broken formatting and no first-token change.
+Together with the bank measurement (no cross-token signed agreement beyond surface-token
+identity, positive control passed), the cross-token cosine-agreement proposal is a measured
+limit on this template: no unifying rule came out of it. The verified frozen candidate remains
+the prior L20 span-correction rule for naming+legs; property transfer remains unsolved. The
+evidence supports moving to the reliability evaluation of the frozen candidate (Goal 2) rather
+than another selector sweep; the one open lead worth a targeted test, if pursued, is
+decision-position-only donor directions to confirm or refute the leakage reading.
+
+Artifacts: `out/2026-09-10_causal_selector/result.json` (complete call records, token IDs, 64-token
+generations, coverage, selections); the buggy first run is preserved as
+`out/2026-09-10_causal_selector-INVALID-bug-995/`.
