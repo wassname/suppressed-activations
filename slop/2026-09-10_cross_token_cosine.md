@@ -139,13 +139,28 @@ actual projected components would agree across positions. They do not:
 | donor (ant) | 0.0523 | -0.4972 | 0.6189 | 0.4991 | 3.3-4.3% |
 | control (neutral) | 0.0017 | -0.4506 | 0.6419 | 0.4397 | 3.1-8.6% |
 
-This is the discriminating pattern both reviewers defined in advance: **substantial span overlap
-(0.44-0.50) with near-zero raw signed cosine and strongly negative mean-centered cosine.** The
-per-position suppressed components share a span and a mean, but their signed directions do not
-agree -- they anti-align once the shared mean is removed. The 0.64 consensus ratio is carried by
-the shared mean, not by directional agreement. Source and control show the same structure, so it
-is generic (mean/position/syntax), not concept-specific. Component magnitudes are 2-9% of the
-residual: modulators, not carriers.
+**Interpretation correction (supervisor review, 2026-09-10).** The first draft of this section
+over-read three of these numbers. Corrected readings, with the mathematical nulls verified in
+session:
+
+- The mean-centered cosine at T=3 positions is mechanically ~-1/2 whenever component norms are
+  comparable: centering forces sum z_i = 0, so the mean over the six ordered pairs is
+  -sum_i ||z_i||^2 / 6, which is -1/2 for equal norms. Verified numerically (random vectors give
+  -0.490; a 10x norm spread moves it to -0.343). The observed -0.49 therefore carries only
+  norm-spread information. It is NOT evidence of anti-alignment, of a shared nuisance mean, or
+  of why steering failed. Withdrawn as a finding; the statistic is uninformative at T=3.
+- The consensus ratio null for three equal-norm orthogonal vectors is 1/sqrt(3) = 0.577, so the
+  observed 0.62-0.65 is barely above orthogonal. The avg-projector top-value null is 1/3 = 0.333;
+  observed 0.437-0.499 is above that null but has not been compared against matched random or
+  semantic nulls, so "substantial shared span" and "source and control share a structure" are
+  withdrawn pending those nulls. Similar scalar statistics across prompts do not by themselves
+  establish a shared direction.
+- The 2-9% residual-norm share does not imply "modulators, not carriers": small components can
+  matter causally. Withdrawn.
+
+What survives: the raw mean signed cosine is 0.002-0.05 at EARLY layer L23, i.e. the projected
+components show little directional agreement there. That is a statement about one layer only;
+see the peak-vs-early limit below.
 
 ### Behavioral screen (same layer/strength, full 32-token continuations)
 
@@ -164,27 +179,34 @@ moves p(8) by less than 0.03 and changes nothing semantically. Coverage asserted
 (prefill [11,13], 31 decode calls, 32 tokens); zero-strength identity passed ("logits identical
 to base").
 
-### Verdict for this family
+### Verdict for this family (narrowed by the corrections above)
 
-The screen does not support a cross-token signed-consensus direction as the missing unifying
-rule at this site. The measurement explains why: **there is no signed consensus to extract** --
-the overlap the earlier SVD work detected is span-plus-mean, and the signed content anti-aligns
-across positions. This is a measurement-level negative for the proposal as stated, not a
-strength-sweep null.
+The screen shows little EARLY-layer (L23) directional agreement among the projected components,
+and its rank-1 edits -- semantic or random -- are behaviorally negligible at C=2.0 with retained
+spider identity in all 32-token continuations. It does NOT establish that no reusable signed
+agreement exists, because of two design limits:
+
+- **Layer mismatch with the detector.** The detector selects tokens that RISE by PEAK layer 25
+  and FALL by layer 32, but the components were measured at EARLY layer 23, before that rise.
+  Low alignment before the rise cannot reject post-rise agreement. A peak-vs-early comparison
+  is required before any claim about the detector or the user's proposal.
+- **Aggregate window.** Only last-3 mean statistics were recorded. A mean can hide a single
+  useful token pair; the user's proposal is about agreement from 2+ tokens, which needs full
+  pairwise values with token labels.
+
+Also withdrawn: any "answer identity forms at L23-28" causal claim (an earlier logit-lens
+reading; decodability does not locate computation).
 
 Limits, precisely: one layer (L23), rank-1, C=2.0, screening length 32 tokens; the random
 control matches avg_projector prefill per-position and mean decode magnitudes (not exact
 per-step, not signed-consensus magnitudes); the consensus direction is a magnitude-weighted
 mean, not a pairwise-cosine selector. No reliability or superiority claim follows. The rewrite
-dropped the direct source-control cross-prompt cosine key (the control's own stats above stand
-in); recomputing it needs one cheap re-run if required.
-
-Distinct next comparisons this leaves open (supervisor's call): the later divergence band
-(L23-28, where the answer identity forms) and higher-rank/state-dependent rules, either of which
-could behave differently from this rank-1 L23 screen.
+dropped the direct source-control cross-prompt cosine key, and the saved JSON retains only
+first-call perturbation norms, not full per-call records (both to be fixed in the next family).
+Reserved prompts were not touched.
 
 Artifacts: `out/2026-09-10_crosstoken_dog/result.json`,
-`out/2026-09-10_crosstoken_ant/result.json` (full token IDs, top-10 tables, per-call norms).
+`out/2026-09-10_crosstoken_ant/result.json` (full token IDs, top-10 tables, first-call norms).
 
 ## Verification
 
