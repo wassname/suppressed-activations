@@ -96,34 +96,46 @@ def sigma1_norm_standardized(components: Tensor, basis: Tensor, n_null: int = 20
             "sigma1_null_p95": float(nulls.quantile(0.95)), "sigma1_above_null": bool(observed > float(nulls.quantile(0.95)))}
 
 
-def position_locked_cross_cosines(bank: dict, layer: int, selector: str = "detector") -> dict:
-    """cos(c_p^a, c_p^b) at positions aligned by the shared template (same suffix structure and
-    semantic role, labels shown from the source side). Not a same-token-identity criterion:
-    donor prompts do not contain the source's tokens. Nulls are rank-limited sensitivity
-    checks, not calibrated covariance tests."""
-    out = {}
-    comps = {name: components_at(bank[name]["residuals"], bank[name][selector]["basis"], layer)
+def position_locked_cross_cosines(bank: dict, layer: int) -> dict:
+    """Cross-prompt component cosines with an explicit, honest mapping.
+
+    Shared prefix: positions 0-9 carry IDENTICAL surface tokens at identical indices in all
+    four prompts, so index matching is exact there (causally expected agreement -- a pipeline
+    consistency check, not semantic validation). Suffix: the final ' is' and ' ' are
+    END-aligned (per-prompt seq_len-2, seq_len-1). Animal-description spans have different
+    tokens and lengths and are left UNALIGNED: no justified mapping exists between them.
+    Labels from BOTH sides are retained. Off-diagonal zeros are kept exactly.
+    """
+    comps = {name: components_at(bank[name]["residuals"], bank[name][selector_key(layer)]["basis"], layer)
              for name in PROMPTS}
-    n = min(c.shape[0] for c in comps.values())
-    for a, b in (("source", "dog"), ("source", "ant"), ("source", "control"),
-                 ("dog", "ant"), ("dog", "control")):
-        ua = comps[a][:n] / comps[a][:n].norm(dim=-1).clamp_min(1e-12).unsqueeze(-1)
-        ub = comps[b][:n] / comps[b][:n].norm(dim=-1).clamp_min(1e-12).unsqueeze(-1)
-        cos = (ua * ub).sum(-1)
-        # permutation null: break position locking, keep each side's marginal structure
-        nulls = torch.empty(2000)
-        for i in range(2000):
-            perm = torch.randperm(n)
-            nulls[i] = float((ua * ub[perm]).sum(-1).mean())
-        out[f"{a}_vs_{b}"] = {
-            "null_kind": "position-permutation sensitivity check (rank-limited), not calibrated covariance",
-            "mean_cosine": float(cos.mean()),
-            "per_position": [float(c) for c in cos],
-            "labels": bank["source"]["labels"][:n],
-            "null_mean": float(nulls.mean()), "null_p95": float(nulls.quantile(0.95)),
-            "above_null": bool(float(cos.mean()) > float(nulls.quantile(0.95))),
-        }
+    labels = {name: bank[name]["labels"] for name in PROMPTS}
+    prefix_end = 10
+    out = {"mapping": {
+        "shared_prefix": {"indices": list(range(prefix_end)), "note": "identical tokens, identical indices"},
+        "suffix": {name: [len(labels[name]) - 2, len(labels[name]) - 1] for name in PROMPTS},
+        "description_spans": "UNALIGNED (different tokens and lengths; no justified mapping)",
+    }}
+    pairs = (("source", "dog"), ("source", "ant"), ("source", "control"),
+             ("dog", "ant"), ("dog", "control"))
+    for a, b in pairs:
+        rows = []
+        for i in range(prefix_end):  # shared prefix, index-exact
+            cos = float(comps[a][i] @ comps[b][i] /
+                        (comps[a][i].norm() * comps[b][i].norm()).clamp_min(1e-12))
+            rows.append({"kind": "shared_prefix", "i_a": i, "tok_a": labels[a][i],
+                         "i_b": i, "tok_b": labels[b][i], "cosine": cos})
+        for off in (2, 1):  # end-aligned suffix: ' is' then ' '
+            ia, ib = len(labels[a]) - off, len(labels[b]) - off
+            cos = float(comps[a][ia] @ comps[b][ib] /
+                        (comps[a][ia].norm() * comps[b][ib].norm()).clamp_min(1e-12))
+            rows.append({"kind": "suffix_end_aligned", "i_a": ia, "tok_a": labels[a][ia],
+                         "i_b": ib, "tok_b": labels[b][ib], "cosine": cos})
+        out[f"{a}_vs_{b}"] = rows
     return out
+
+
+def selector_key(layer: int) -> str:
+    return "detector"
 
 
 def main(bank_dir: Path, output_path: Path) -> None:
@@ -168,6 +180,15 @@ def main(bank_dir: Path, output_path: Path) -> None:
 
     for layer in layers:
         result["cross_prompt"][layer] = position_locked_cross_cosines(bank, layer)
+        # Full within-prompt pairwise cosine matrices with token labels, exact zeros kept:
+        # the user's question is within-concept recurrence across 2+ token positions, which a
+        # mean cannot answer (a high-agreement subset would hide in it).
+        result.setdefault("within_prompt_matrices", {})[layer] = {
+            name: {"labels": bank[name]["labels"],
+                   "cosines": pairwise_cosines(components_at(
+                       bank[name]["residuals"], bank[name]["detector"]["basis"], layer)).tolist()}
+            for name in PROMPTS
+        }
         # mirrored-selector comparison at the same layer: same statistics, control bases
         result["mirrored"][layer] = {}
         for name in PROMPTS:

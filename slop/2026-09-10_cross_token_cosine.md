@@ -282,3 +282,94 @@ consensus (re-run reference), per-position matched-random; both animals; full co
 If own-direction edits move p(8)/p(4) or identity where consensus never did, suppression is
 real but token-local. If they do not, the detector selects causally inert directions and the
 suppression framing itself is in question.
+
+
+## Corrected analysis (supervisor review round 2): explicit mapping, full matrices
+
+The first bank analysis had an alignment bug: cross-prompt cosines matched ABSOLUTE indices
+(`comps[a][:n]`), which is not suffix or semantic-role alignment. Manifest boundaries: source
+' is'/' ' at 12/13 (seq 14); dog at 19/20 (seq 21); ant at 20/21 (seq 22); control at 14/15
+(seq 16). The old table compared source ' is' with dog ' and' and ant ' colonies'. Corrected in
+`scripts/analyze_bank.py`: shared prefix 0-9 (identical tokens, identical indices), END-aligned
+suffix pairs, description spans left UNALIGNED (no justified mapping between different token
+sequences). Labels from both sides retained. Full within-prompt pairwise matrices with token
+labels are now saved (exact zeros kept), in `analysis.json` under `within_prompt_matrices`.
+
+### Prefix deviations explained: rank-8 selection instability, not residual differences
+
+The shared-prefix residuals are bitwise equal or bf16-ULP different across prompts (max|diff|
+3e-2 to 1.25e-1; SDPA kernel block sizes vary with sequence length). But at 5 of 10 prefix
+positions the rank-8 vs rank-9 detector score margin is itself ULP-scale (relative margins
+1.8e-4 to 9.2e-3), so bf16 noise flips the 8th selected token: only 50 percent of prefix
+positions have the same rank-8 token across prompt pairs, 70-80 percent the same set. Positions
+with a flipped rank-8 token are exactly the prefix positions whose cross-prompt cosine was
+0.66-0.94; same-set positions give 1.0000 (the projector depends on the span, not the basis
+order). Two consequences: the earlier '+0.9998 to +1.0000 at every layer and pair' claim was
+wrong (exact bounds 0.608-1.0000 across layers); and rank-8 components carry ULP-scale
+selection noise. Rank-8 margin instability is a property of the detector construction, recorded
+here as a measurement limit.
+
+### Table A: within-prompt pairs among post-animal positions (the 2+ token question)
+
+Same-prompt component cosines, source (spider), L23/L25/L32:
+
+| pair | L23 | L25 | L32 |
+|---|---:|---:|---:|
+| ' spins'@10 <-> ' webs'@11 | +0.017 | +0.037 | +0.027 |
+| ' spins'@10 <-> ' is'@12 | +0.017 | +0.021 | +0.005 |
+| ' webs'@11 <-> ' is'@12 | -0.006 | +0.049 | -0.015 |
+| ' spins'@10 <-> ' '@13 | +0.102 | +0.101 | +0.069 |
+| ' webs'@11 <-> ' '@13 | +0.057 | +0.099 | +0.067 |
+| ' is'@12 <-> ' '@13 | +0.003 | -0.030 | +0.020 |
+
+The spider prompt shows no high-agreement pair (max +0.102). It has only four post-prefix
+positions (six pairs), so the spider-specific version of the subset question is under-powered.
+
+Dog (11 post-prefix positions, 55 pairs) and ant (66 pairs) DO contain structured high-agreement
+subsets the mean hid. Highest L25 pairs: dog ' called'@14<->' '@20 +0.854, ' and'@12<->' '@20
++0.687, 'arks'@11<->' man'@15 +0.496; ant 'om'@17<->'one'@18 +0.584 (the two pieces of
+'pheromone'), ' colonies'@12<->' trails'@19 +0.480, 'om'@17<->' trails'@19 +0.444. These
+concentrate on subword pieces of single words and on the final-space decision position; with
+9-11x more pairs than source, multiple comparisons also favor them. Control's max is +0.122.
+Descriptive only.
+
+### Table B: end-aligned cross-prompt suffix pairs
+
+| pair | ' is' L23 | ' is' L25 | ' is' L32 | ' ' all layers |
+|---|---:|---:|---:|---:|
+| source<->dog (' is'@12<->@19) | +0.137 | +0.249 | +0.144 | \|cos| <= 0.06 |
+| source<->ant (' is'@12<->@20) | +0.230 | +0.518 | +0.149 | \|cos| <= 0.06 |
+| source<->control (' is'@12<->@14) | +0.095 | +0.204 | +0.067 | \|cos| <= 0.03 |
+| dog<->ant (' is'@19<->@20) | +0.192 | +0.399 | -0.006 | \|cos| <= 0.04 |
+
+At L25 the answer-position component aligns more between source and ant (+0.518) than
+source-control (+0.204) or source-dog (+0.249). With four prompts this is a descriptive,
+ant-specific observation, not evidence of a concept direction; the same-side donor (dog) sits at
+control level.
+
+### What this does and does not establish
+
+Established descriptively: no broad within-prompt consensus anywhere (means 0.003-0.05);
+exact agreement where surface tokens are shared (pipeline consistency, causally expected);
+rank-8 ULP-scale selection instability in the detector construction; structured high-agreement
+subsets in the longer dog/ant prompts (subword pieces, decision position), absent so far in the
+shorter spider prompt. NOT established: that any subset is a concept rather than subword or
+syntax structure; that the spider prompt lacks such a subset (six pairs is under-powered);
+anything causal; anything beyond four prompts and one template.
+
+### Provenance correction
+
+The bank rebuild after the CUDA fix ran directly on the GPU outside the pueue queue because the
+lane was free. That violated the queue protocol; the correct action was `pueue add` even for a
+short run. Future GPU work goes through pueue regardless of lane state.
+
+### Concrete causal comparison this justifies (not yet run, awaiting approval)
+
+The observations justify testing the high-agreement cluster span rather than the all-token
+consensus: at L25, patch the decision-relevant positions along (a) the cluster's own span
+direction (per-prompt rank-1 SVD over the high-agreement cluster's components, e.g. dog's
+' called'/' and'/' man'/'arks'/' ' cluster), versus (b) the consensus direction, versus (c) a
+per-pair matched-random direction -- fixed replacement procedure, selector-only change, same
+positions, both animals, multiple strengths, full continuations. The dog/ant clusters give this
+test a target the spider prompt lacks, which is itself informative about where concept
+information could be carried.
