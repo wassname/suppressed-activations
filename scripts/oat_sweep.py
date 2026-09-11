@@ -91,6 +91,10 @@ class Config:
     extra_prefill_positions: list[int] | None = None  # H5: also patch these prefill indices
     answer_patch_layer: int | None = None  # two-site: additive raw d_act patch at this layer
     answer_patch_strength: float | None = None  # two-site: C at the answer patch layer (decoupled from strength)
+    common_basis: str = "none"  # "per_token"|"full_union"|"top8_union"|"random_shared"|"random_perpos"
+    common_window: int = 4  # end-aligned window (in tokens) for the union bases
+    common_random_rank: int = 8  # rank of random bases in random_shared/random_perpos
+    common_seed: int = 0  # seed for random_shared/random_perpos bases
 
 
 DEFAULT = Config()
@@ -249,6 +253,51 @@ def span_correction_sweep_configs():
             random_in_span=True, restore_residual_norm=False,
         )))
     return rows
+
+
+def common_basis_configs():
+    """Common per-token subspace replacement: h' = h + C (P_d d_p − P_s h_p).
+
+    P_s/P_d come from per-token rank-8 detector bases (23/25/32) over the end-aligned
+    last-4 window, in three constructions: per-token (B_i at the matching end-aligned
+    position; decode uses the fixed last-position basis), full union (SVD left vectors
+    of the concatenated window bases, rank 32), top8 union. Matched random rows replace
+    the bases with seeded random orthonormal ones of the same rank/structure and keep
+    the real donor states. The recovered-ref row is the frozen L20 C1.5 template-
+    attenuation span correction h + C(δ − P_ref h) — a DIFFERENT equation (additive
+    template delta, not a projector replacement), kept as the reference. -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_layer=(20,), intervention_positions=3,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=4)
+    rows = [("common_basis", "recovered-ref_C1.5", span_correction_sweep_configs()[3][2])]
+    for name in ("per_token", "full_union", "top8_union"):
+        rows.append(("common_basis", f"{name}_C1.5", replace(
+            base, common_basis=name, strength=1.5)))
+    rows.append(("common_basis", "random_shared8_seed0_C1.5", replace(
+        base, common_basis="random_shared", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis", "random_shared32_seed0_C1.5", replace(
+        base, common_basis="random_shared", common_random_rank=32, strength=1.5)))
+    rows.append(("common_basis", "random_perpos8_seed0_C1.5", replace(
+        base, common_basis="random_perpos", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis", "C0", replace(base, common_basis="per_token", strength=0.0)))
+    return rows
+
+
+def smoke_common_basis_configs():
+    """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_layer=(2,), intervention_positions=2,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=2)
+    return [("smoke_common_basis", name, replace(base, common_basis=kind, strength=s))
+            for name, kind, s in (("per_token_C1.5", "per_token", 1.5),
+                                  ("full_union_C1.5", "full_union", 1.5),
+                                  ("top8_union_C1.5", "top8_union", 1.5),
+                                  ("random_shared8_seed0_C1.5", "random_shared", 1.5),
+                                  ("C0", "per_token", 0.0))]
 
 
 def smoke_h5_extended_configs():
@@ -1558,6 +1607,8 @@ def run_with_bundle(
         "smoke-span-correction": smoke_span_correction_configs,
         "span-correction": span_correction_configs,
         "span-correction-sweep": span_correction_sweep_configs,
+        "common-basis": common_basis_configs,
+        "smoke-common-basis": smoke_common_basis_configs,
         "h5-extended-positions": h5_extended_positions_configs,
         "l26-span-correction": l26_span_correction_configs,
         "two-site": two_site_configs,
@@ -1797,6 +1848,7 @@ def run_with_bundle(
             else cfg.intervention_layer
         )
         fixed_deltas, persistence = (None, {})
+        common_specs = None
         assert cfg.shared_replacement in ("none", "frozen", "synchronized", "full_synchronized")
         if cfg.shared_replacement != "none":
             assert not (cfg.coordinate_swap or cfg.template_clamp or cfg.bee_correction or cfg.future_clamp)
@@ -2072,11 +2124,108 @@ def run_with_bundle(
             fixed_deltas = {layer: future_clamp_axes[layer] for layer in intervention_layers}
             target_coordinates = {layer: future_clamp_calibration[layer]["threshold"] for layer in intervention_layers}
             persistence["clamp_calibration"] = future_clamp_calibration
+        # Common per-token subspace replacement: build per-position specs for
+        # h' = h + C (P_d d_p − P_s h_p). Bases = per-token rank-r detector bases on
+        # the rendered source/target prompts (same construction as the trajectory
+        # bank); donors = end-aligned donor prefill states, frozen at decode.
+        if cfg.common_basis != "none":
+            assert not (cfg.span_correction or cfg.coordinate_swap or cfg.template_clamp
+                        or cfg.future_clamp or cfg.shared_replacement != "none"), \
+                "common_basis is mutually exclusive with the other edit families"
+            assert len(intervention_layers) == 1, "first common-basis batch is single-layer"
+            layer = intervention_layers[0]
+            s_end, t_end = source["content_end"], target["content_end"]
+            # end-aligned mapping needs the same prompt tail structure
+            torch.testing.assert_close(
+                source["input_ids"][0, s_end - positions:s_end],
+                target["input_ids"][0, t_end - positions:t_end],
+            )
+            src_bases, src_sel = suppressed_activation_subspace(
+                source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+                output_layer=cfg.detector_layers[2], rank=cfg.rank,
+                normalize_unembedding_rows=True)
+            tgt_bases, tgt_sel = suppressed_activation_subspace(
+                target["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+                output_layer=cfg.detector_layers[2], rank=cfg.rank,
+                normalize_unembedding_rows=True)
+            for tag, bs in (("source", src_bases), ("target", tgt_bases)):
+                torch.testing.assert_close(
+                    bs.transpose(1, 2) @ bs,
+                    torch.eye(cfg.rank, device=bs.device).expand(bs.shape[0], -1, -1),
+                    rtol=1e-4, atol=1e-4, msg=f"{tag} per-token bases not orthonormal")
+            W = cfg.common_window
+
+            def union_basis(win):
+                m = win.permute(1, 0, 2).reshape(win.shape[1], -1)  # (hidden, r*W)
+                u, s_vals, _ = torch.linalg.svd(m, full_matrices=False)
+                torch.testing.assert_close(u.T @ u, torch.eye(u.shape[1], device=u.device),
+                                           rtol=1e-4, atol=1e-4, msg="union basis not orthonormal")
+                return u, s_vals
+
+            random_rank = min(cfg.common_random_rank, unembedding.shape[1])
+
+            def random_basis(seed):
+                gen = torch.Generator("cpu").manual_seed(cfg.common_seed + seed)
+                rnd = torch.randn(unembedding.shape[1], random_rank, generator=gen)
+                q, _ = torch.linalg.qr(rnd.to(unembedding.device), mode="reduced")
+                return q
+
+            if cfg.common_basis in ("full_union", "top8_union"):
+                U_s, sv_s = union_basis(src_bases[s_end - W:s_end])
+                U_d, sv_d = union_basis(tgt_bases[t_end - W:t_end])
+                if cfg.common_basis == "top8_union":
+                    U_s, U_d = U_s[:, :8], U_d[:, :8]
+                src_by_offset = lambda o: U_s
+                don_by_offset = lambda o: U_d
+            elif cfg.common_basis == "per_token":
+                sv_s = sv_d = None
+                src_by_offset = lambda o: src_bases[s_end - o]
+                don_by_offset = lambda o: tgt_bases[t_end - o]
+            elif cfg.common_basis == "random_shared":
+                sv_s = sv_d = None
+                R_s, R_d = random_basis(layer), random_basis(layer + 100)
+                src_by_offset = lambda o: R_s
+                don_by_offset = lambda o: R_d
+            elif cfg.common_basis == "random_perpos":
+                sv_s = sv_d = None
+                src_by_offset = lambda o: random_basis(layer + o)
+                don_by_offset = lambda o: random_basis(layer + o + 100)
+            else:
+                raise ValueError(cfg.common_basis)
+            offsets = list(range(1, positions + 1))
+            pos_order = list(reversed(offsets))  # position-ascending, matching the hook slice
+            donor_states = {o: target["residuals"][layer, t_end - o].float() for o in offsets}
+            donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
+                          for o in offsets}
+            decode_src = src_by_offset(1)[None]        # fixed last-position basis
+            decode_proj = donor_proj[1][None]          # frozen final prefill donor state
+            common_specs = {layer: {
+                "src": torch.stack([src_by_offset(o) for o in pos_order]),
+                "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
+                "decode_src": decode_src, "decode_proj": decode_proj,
+            }}
+            source_basis = target_basis = src_by_offset(1)  # unused by the op; shapes only
+            persistence = {
+                "direction_estimator": f"common_{cfg.common_basis}",
+                "edit_equation": "h' = h + C (P_d d_p - P_s h_p); per position, decode fixed last-position",
+                "detector_layers": list(cfg.detector_layers), "basis_rank": cfg.rank,
+                "window": W, "intervention_layer": layer,
+                "end_aligned_offsets": offsets,
+                "union_singular_values": {"source": (sv_s.tolist() if sv_s is not None else None),
+                                          "target": (sv_d.tolist() if sv_d is not None else None)},
+                "donor_state_norms": {o: float(d.norm()) for o, d in donor_states.items()},
+                "donor_proj_norms": {o: float(p.norm()) for o, p in donor_proj.items()},
+                "selected_ids": {"source": src_sel.tolist(), "target": tgt_sel.tolist()},
+                "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
+                "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
+            }
         hooks = intervention_hooks(
             source_basis,
             target_basis,
             target["residuals"],
-            operation=("span_corrected_delta" if cfg.span_correction else ("shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))))),
+            operation=("common_replace" if cfg.common_basis != "none" else ("span_corrected_delta" if cfg.span_correction else ("shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace")))))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
@@ -2093,6 +2242,7 @@ def run_with_bundle(
             extra_prefill_positions=cfg.extra_prefill_positions,
             answer_patch_layer=cfg.answer_patch_layer,
             answer_patch_strength=cfg.answer_patch_strength,
+            common_specs=common_specs,
         )
         captured = []
         if cfg.shared_replacement in ("synchronized", "full_synchronized"):
@@ -2406,6 +2556,8 @@ if __name__ == "__main__":
             "smoke-span-correction",
             "span-correction",
             "span-correction-sweep",
+            "common-basis",
+            "smoke-common-basis",
             "h5-extended-positions",
             "smoke-h5-extended-positions",
             "l26-span-correction",

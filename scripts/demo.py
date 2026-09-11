@@ -128,6 +128,7 @@ def intervention_hooks(
     extra_prefill_positions: list[int] | None = None,
     answer_patch_layer: int | None = None,
     answer_patch_strength: float | None = None,
+    common_specs: dict[int, dict] | None = None,
 ) -> dict[int, object]:
     if operation == "random":
         random_source = random_basis_like(source_basis, random_seed)
@@ -180,6 +181,18 @@ def intervention_hooks(
                 deficit = (target_coordinates[residual_layer] - h @ direction).clamp_min(0)
                 patched = h + strength * deficit[..., None] * direction
                 assert not restore_norm
+            elif operation == "common_replace":
+                # h'_p = h_p + C (P_d d_p − P_s h_p), per active position p.
+                # Prefill uses per-position bases/donor states; decode uses the fixed
+                # last-position basis and final prefill donor state. C=0 → identity. -- PI[claude]
+                spec = common_specs[residual_layer]
+                if hidden.shape[1] > 1:
+                    src, dproj = spec["src"], spec["donor_proj"]
+                else:
+                    src, dproj = spec["decode_src"], spec["decode_proj"]
+                coords = torch.einsum("khr,bkh->bkr", src, h)
+                span = torch.einsum("bkr,khr->bkh", coords, src)
+                patched = h + strength * (dproj.unsqueeze(0) - span)
             elif operation == "fixed_delta":
                 patched = h + strength * fixed_deltas[residual_layer]
                 if restore_norm:
@@ -251,6 +264,15 @@ def intervention_hooks(
                     "deficit": deficit[0].tolist(),
                     "applied_norm": (patched - h).norm(dim=-1)[0].tolist(),
                     "after_model_dtype": (patched.to(hidden.dtype).float() @ direction)[0].tolist(),
+                })
+            if record is not None and operation == "common_replace":
+                patch_norm = float((patched.to(hidden.dtype).float() - h).norm())
+                record[residual_layer]["total_applied_norm"] = record[residual_layer].get("total_applied_norm", 0.0) + patch_norm
+                record[residual_layer].setdefault("replacement_trace", []).append({
+                    "applied_norm_after_dtype": patch_norm,
+                    "span_norm_by_position": span.norm(dim=-1)[0].tolist(),
+                    "donor_proj_norm_by_position": dproj.norm(dim=-1).tolist(),
+                    "phase": "prefill" if hidden.shape[1] > 1 else "decode",
                 })
             if record is not None and operation in ("shared_replace", "shared_random_replace", "span_corrected_delta"):
                 patch_norm = float((patched.to(hidden.dtype).float() - h).norm())

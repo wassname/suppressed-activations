@@ -12,7 +12,11 @@ a token window, M = [B_t1 | … | B_tN] ∈ R^(2560×8N), SVD, common projector 
 vectors (eigenvectors of the average projector Σ_t B_t B_tᵀ). Windows are end-aligned: `last2`,
 `last4` (…, ' is', ' '), `tail` (everything after ' that'), `all`.
 
-## 1. Union spectrum: the per-token bases are nearly mutually orthogonal
+## 1. Union spectrum: weak shared projector concentration
+
+Note: `det['basis']` is ONE detector-selected basis per token (selection criterion computed over
+layers 23/25/32), reused across all layers. The by-layer table below therefore measures residual
+projection onto a FIXED selected span, not changing layer-local subspaces.
 
 | union (prompt:window) | n tokens | cols | s1 | s8/s1 | eff. rank | E(top4) | E(top8) | E(top16) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -26,15 +30,18 @@ vectors (eigenvectors of the average projector Σ_t B_t B_tᵀ). Windows are end
 | source:all | 14 | 112 | 1.742 | 0.678 | 97.8/112 | 0.082 | 0.135 | 0.231 |
 
 The average-projector spectrum is nearly FLAT: effective rank ≈ the full 8N everywhere, s8/s1
-0.62–0.94. There is no dominant shared component. For 2 near-orthogonal 8-dim bases the top8
-union captures 0.525 of each basis — the observed 0.525–0.536 ≈ 0.5 + small overlap confirms
-near-orthogonality rather than a shared axis.
+0.62–0.94. This supports weak shared projector concentration between per-token bases, i.e. the
+union behaves close to a direct sum; it does not by itself rule out a smaller shared component
+below top-8. For 2 near-orthogonal 8-dim bases the TOP8-TRUNCATED union captures 0.525 of each
+basis (full union captures 1.0 by construction); the observed 0.525–0.536 ≈ 0.5 + small overlap
+is consistent with near-orthogonality rather than a shared axis.
 
 ## 2. What a common top8 projector captures
 
 Per-token capture = fraction of each token's own basis inside the common top-k span (mean over
-window); residual energy fraction at L25 = Σ‖P r‖²/Σ‖r‖² over window tokens (from
-`capture_by_basis.json`; the table.json `resid_frac_L25` is the norm fraction, a different unit).
+window); residual energy = mean over window tokens of the per-token energy fraction
+‖P r_t‖²/‖r_t‖² at L25 (from `capture_by_basis.json`). The `table.json` `resid_frac_L25` field is
+the mean NORM fraction ‖P r_t‖/‖r_t‖ — a different unit; do not square one to get the other.
 
 | prompt:last4 | capture(top8) | capture(top32) | own-basis energy L25 | full-union energy L25 | top8-union energy L25 |
 |---|---:|---:|---:|---:|---:|
@@ -74,14 +81,17 @@ top8 union:
 | ant | +0.50/+0.58 | +0.46/+0.77 | +0.52/+0.83 |
 | control | +0.52/+0.38 | +0.47/+0.64 | +0.40/+0.28 |
 
-Projected residuals inside the shared top8 are much more aligned (0.6–0.9) than raw residuals
-(0.4–0.5) — the small shared span is where cross-token activity agrees. Control's projected
-cosine collapses at L32 (0.28) while animal prompts stay 0.83–0.89: some of this alignment is
-animal-prompt-specific, not generic syntax.
+Projected residuals inside the shared top8 are more aligned (0.6–0.9) than raw residuals
+(0.4–0.5). Part of this rise can come from projection onto a common low-dim span alone
+(shared-mean effect), so it is not by itself evidence of shared semantics; with only 4 prompts
+the animal-vs-control difference (control collapses at L32: 0.28 vs 0.83–0.89) is suggestive,
+not established.
 
 ## 5. Cross-prompt subspace affinity (mean cos² of principal angles, top8 unions)
 
-Chance level for two 8-dim subspaces in R^2560 is 8/2560 = 0.003.
+8/2560 = 0.003 is the Haar-isotropic reference for two random 8-dim subspaces, NOT an empirical
+null for unembedding-row-selected bases (which are centered and share the norm-gain geometry, so
+their chance overlap can be higher). Treat the 10–20× margin accordingly.
 
 | pair | last4 | tail |
 |---|---:|---:|
@@ -95,15 +105,16 @@ NOT specific to animal pairs — source–control is the same as source–dog. A
 source+donor basis is therefore mostly the direct sum, not a shared axis:
 combined source+dog last4 union has eff. rank 58.9/64, E(top8) 0.188.
 
-## What the table predicts for the paired comparison (inference, labelled)
+## What the table says for the paired comparison (inference, labelled)
 
-- Full union ≈ per-token at the projector level: near-orthogonal bases make the union projector
-  the SUM of per-token projectors; applied at every position it edits each token's residual by
-  ~5% energy (own 2% + other tokens' ~3%), vs the per-token baseline's 2%.
-- Top8 union is a much smaller, different edit (~2% energy, 30% of each basis), concentrated
-  where cross-token projected activity agrees (§4).
-- Neither construction imports a large donor-shared axis (§5), so donor-specific transfer must
-  come through the delta term, not the projector overlap.
+- At the projector level the union is close to the direct sum of per-token projectors: weak
+  shared concentration means a full-union projector at every position edits each token's
+  residual by ~5% energy (own 2% + other tokens' ~3%), vs the per-token baseline's 2%.
+- Top8 union is a smaller, different edit (~2% energy, 30% of each basis), concentrated where
+  projected activity agrees (§4).
+- Shared source–donor support is small and not animal-specific (§5), so a joint projector is
+  unlikely to carry donor identity by itself; whether transfer rides the delta term or the
+  shared span is what the paired comparison tests — the table does not decide it.
 
 ## First batch (GPU, one model load via batch-spec, NOT queued yet)
 
