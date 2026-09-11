@@ -2160,9 +2160,14 @@ def run_with_bundle(
             def union_basis(win):
                 m = win.permute(1, 0, 2).reshape(win.shape[1], -1)  # (hidden, r*W)
                 u, s_vals, _ = torch.linalg.svd(m, full_matrices=False)
+                # support filter: drop numerical-null columns (arbitrary directions),
+                # record support so a changed rank is visible, never silent. -- PI[claude]
+                tol = max(m.shape) * torch.finfo(s_vals.dtype).eps * s_vals[0]
+                support = int((s_vals > tol).sum())
+                u = u[:, :support]
                 torch.testing.assert_close(u.T @ u, torch.eye(u.shape[1], device=u.device),
                                            rtol=1e-4, atol=1e-4, msg="union basis not orthonormal")
-                return u, s_vals
+                return u, s_vals, support
 
             random_rank = min(cfg.common_random_rank, unembedding.shape[1])
 
@@ -2173,10 +2178,10 @@ def run_with_bundle(
                 return q
 
             if cfg.common_basis in ("full_union", "top8_union"):
-                U_s, sv_s = union_basis(src_bases[s_end - W:s_end])
-                U_d, sv_d = union_basis(tgt_bases[t_end - W:t_end])
+                U_s, sv_s, sup_s = union_basis(src_bases[s_end - W:s_end])
+                U_d, sv_d, sup_d = union_basis(tgt_bases[t_end - W:t_end])
                 if cfg.common_basis == "top8_union":
-                    U_s, U_d = U_s[:, :8], U_d[:, :8]
+                    U_s, U_d = U_s[:, :8], U_d[:, :8]  # within support (u already filtered)
                 src_by_offset = lambda o: U_s
                 don_by_offset = lambda o: U_d
             elif cfg.common_basis == "per_token":
@@ -2215,6 +2220,10 @@ def run_with_bundle(
                 "end_aligned_offsets": offsets,
                 "union_singular_values": {"source": (sv_s.tolist() if sv_s is not None else None),
                                           "target": (sv_d.tolist() if sv_d is not None else None)},
+                "union_support": {"source": (sup_s if cfg.common_basis in ("full_union", "top8_union") else None),
+                                  "target": (sup_d if cfg.common_basis in ("full_union", "top8_union") else None),
+                                  "columns": W * cfg.rank,
+                                  "note": "support-filtered SVD left vectors; rank changes are recorded, not concealed"},
                 "donor_state_norms": {o: float(d.norm()) for o, d in donor_states.items()},
                 "donor_proj_norms": {o: float(p.norm()) for o, p in donor_proj.items()},
                 "selected_ids": {"source": src_sel.tolist(), "target": tgt_sel.tolist()},
