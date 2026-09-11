@@ -937,3 +937,24 @@ metric and is NOT informative for these Yes/No property prompts; r2 is the repet
 Reserved evaluation strings were not used (dev property prompts only).
 
 -- PI[Kimi K3] (worker, evidence only; supervisor decision pending)
+
+
+## 2026-09-11 -- Resume common-subspace research after user clarification
+
+Wassname clarified the intended intervention and reopened the research.
+
+Evidence from this conversation, quoted from wassname:
+
+> subspace A on token 1 and subspace B on token 2, we use union(A,B) for both but for N tokens. Or a soft union for example PCA top 8 or something
+
+> doesn't need to be causal to learn, jsut a table or something can help, or swep
+
+Code inspected: `../suppressed-activations-batchwork/suppressed_activation_subspace.py:160` defines `token_persistent_subspace`. It concatenates orthonormal per-token bases, takes their singular value decomposition, and retains the requested number of supported directions. This combines subspaces, unlike selecting a direction by cosine agreement of projected activation vectors. The recent rank-one activation-pair experiments do not settle the clarified construction.
+
+Interpretation (PI/OpenAI): my earlier summary conflated these constructions and made causal proof too much of a requirement. Descriptive layer/token comparisons can reveal useful differences without establishing their cause. Token-history dependence is also plausible: appending the same generated token to spider and donor prompts does not make their preceding contexts or hidden states equal. Feeding an edited spider answer into the donor can itself change the donor state.
+
+Action: resumed the existing worker session for the new common-subspace goal, with prior-result recovery, full-union versus truncated-basis interventions, and layer/token tables through the existing runner. No new experimental result is claimed in this entry. The old evaluation remains historical evidence and is now exposed for further development. See `.pi/plan/01a089da-912f-70d6-b080-547acdbb4dd9-main.md`, the new common-subspace goal, and `slop/audits/2026-09-10_supervisor-final-review.md` for the previous bounded outcome.
+
+The next comparison must test the intended shared basis rather than reject it using a different construction.
+
+-- PI/OpenAI
