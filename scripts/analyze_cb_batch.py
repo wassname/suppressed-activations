@@ -66,10 +66,11 @@ def main() -> None:
                     sup = support_rank(s, n_cols)
                     row[f"support_{side}"] = f"{sup}/{n_cols}"
                     row[f"effrank_{side}"] = round(eff_rank(s), 1)
-                    if sup < n_cols:
+                    if cond == "full_union_C1.5" and sup < n_cols:
+                        # only full_union USES the unfiltered tail columns
                         flags.append(f"{cell_dir.name}: {side} union support {sup}/{n_cols} "
                                      f"(s_min={min(s):.3e}, s1={max(s):.3e}) -- full_union includes "
-                                     f"{n_cols - sup} numerical-null columns")
+                                     f"{n_cols - sup} numerical-null columns; INVALID as union")
                     if cond == "top8_union_C1.5" and sup < 8:
                         flags.append(f"{cell_dir.name}: {side} support {sup} < 8 -- top8 truncated to support")
             rows.append(row)
