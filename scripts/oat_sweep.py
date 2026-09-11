@@ -285,6 +285,32 @@ def common_basis_configs():
     return rows
 
 
+def common_basis_l25_configs():
+    """Layer-25 OAT of the SAME common-basis constructions (per_token/full_union/
+    top8_union, C1.5, window 4, positions 3, detector 23/25/32 unchanged).
+    Why: the detector selects 23/25/32 but L20 injects BEFORE the measured rise;
+    the trajectory-bank table predicts a different component scale near L25.
+    No recovered-ref row here: the L20 reference stays historical and distinct.
+    Matched randoms are rank-matched Gaussian projectors (descriptive). -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_layer=(25,), intervention_positions=3,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=4)
+    rows = []
+    for name in ("per_token", "full_union", "top8_union"):
+        rows.append(("common_basis_l25", f"{name}_C1.5", replace(
+            base, common_basis=name, strength=1.5)))
+    rows.append(("common_basis_l25", "random_shared8_seed0_C1.5", replace(
+        base, common_basis="random_shared", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis_l25", "random_shared32_seed0_C1.5", replace(
+        base, common_basis="random_shared", common_random_rank=32, strength=1.5)))
+    rows.append(("common_basis_l25", "random_perpos8_seed0_C1.5", replace(
+        base, common_basis="random_perpos", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis_l25", "C0", replace(base, common_basis="per_token", strength=0.0)))
+    return rows
+
+
 def smoke_common_basis_configs():
     """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
@@ -297,6 +323,19 @@ def smoke_common_basis_configs():
                                   ("full_union_C1.5", "full_union", 1.5),
                                   ("top8_union_C1.5", "top8_union", 1.5),
                                   ("random_shared8_seed0_C1.5", "random_shared", 1.5),
+                                  ("C0", "per_token", 0.0))]
+
+
+def smoke_common_basis_l25_configs():
+    """Tiny real path for the L25 family (intervention at the tiny output layer)."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_layer=(4,), intervention_positions=2,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=2)
+    return [("smoke_common_basis_l25", name, replace(base, common_basis=kind, strength=s))
+            for name, kind, s in (("per_token_C1.5", "per_token", 1.5),
+                                  ("full_union_C1.5", "full_union", 1.5),
                                   ("C0", "per_token", 0.0))]
 
 
@@ -1608,7 +1647,9 @@ def run_with_bundle(
         "span-correction": span_correction_configs,
         "span-correction-sweep": span_correction_sweep_configs,
         "common-basis": common_basis_configs,
+        "common-basis-l25": common_basis_l25_configs,
         "smoke-common-basis": smoke_common_basis_configs,
+        "smoke-common-basis-l25": smoke_common_basis_l25_configs,
         "h5-extended-positions": h5_extended_positions_configs,
         "l26-span-correction": l26_span_correction_configs,
         "two-site": two_site_configs,
@@ -2230,6 +2271,20 @@ def run_with_bundle(
                 "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
                 "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
             }
+            # own/donor state and projection NORMS at L20 and L25 (norm fractions,
+            # not energy fractions); L25 is where the bank table peaks. -- PI[claude]
+            persistence["state_norms_L20_L25"] = {}
+            for diag_layer in (20, 25):
+                if diag_layer >= source["residuals"].shape[0]:
+                    continue  # tiny smoke model has fewer layers
+                persistence["state_norms_L20_L25"][str(diag_layer)] = {
+                    "source_state": {o: float(source["residuals"][diag_layer, s_end - o].float().norm()) for o in offsets},
+                    "source_span": {o: float((lambda S, h: (S @ (S.T @ h)).norm())(
+                        src_by_offset(o), source["residuals"][diag_layer, s_end - o].float())) for o in offsets},
+                    "donor_state": {o: float(target["residuals"][diag_layer, t_end - o].float().norm()) for o in offsets},
+                    "donor_proj": {o: float((lambda D, d: (D @ (D.T @ d)).norm())(
+                        don_by_offset(o), target["residuals"][diag_layer, t_end - o].float())) for o in offsets},
+                }
         hooks = intervention_hooks(
             source_basis,
             target_basis,
@@ -2566,7 +2621,9 @@ if __name__ == "__main__":
             "span-correction",
             "span-correction-sweep",
             "common-basis",
+            "common-basis-l25",
             "smoke-common-basis",
+            "smoke-common-basis-l25",
             "h5-extended-positions",
             "smoke-h5-extended-positions",
             "l26-span-correction",
