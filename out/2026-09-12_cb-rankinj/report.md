@@ -1,7 +1,6 @@
 # Injection-rank results (task 1208, 60 cells)
 
-2026-09-12, PI[glm-5p3-flash]. Run: pueue 1208, `slop/common_basis_rankinj_batch.json` (full
-contracts validated pre-model; 120/120 input list-equality), one model load, 638 s.
+2026-09-12, PI[glm-5p3-flash]. Run: pueue 1208, `slop/common_basis_rankinj_batch.json` (every expected-field assertion — strength/condition identity/rank/anchor/removal/selector — checked before model load; 120/120 input list-equality), one model load, 638 s.
 Design: FIXED P_joint8 removal in every condition (fingerprint-identical across ranks);
 ONLY the injection basis varies — v_k = Ud_k Ud_kᵀ d25 (k ∈ {1,2,4,8}), all contained; h8
 site, donor anchor 25 frozen at decode offset-1, C=1.5, increment selector, last-3 + all
