@@ -3177,6 +3177,26 @@ if __name__ == "__main__":
         parser.error("--output-dir is required unless --batch-spec is given")
     if args.batch_spec is not None:
         specs = json.loads(args.batch_spec.read_text())
+        # PRE-MODEL contract validation: resolve EVERY spec through the registry and check
+        # index range + declared expectations (condition identity, strength, selector, ...)
+        # BEFORE loading the model or running cell 0. -- supervisor 2026-09-12
+        for position, spec in enumerate(specs):
+            choice = spec["sweep"]
+            assert choice in SWEEP_CONFIGS, f"spec[{position}]: sweep {choice!r} not registered"
+            rows = SWEEP_CONFIGS[choice]()
+            idx = spec.get("condition_index")
+            assert idx is not None and idx < len(rows), \
+                f"spec[{position}]: condition_index {idx} out of range ({len(rows)})"
+            cfg_res = rows[idx][2]
+            for key, want in spec.items():
+                if not key.startswith("expected_"):
+                    continue
+                field = key[len("expected_"):]
+                got = getattr(cfg_res, field, None)
+                got = list(got) if isinstance(got, tuple) else got
+                want_cmp = list(want) if isinstance(want, (tuple, list)) else want
+                assert got == want_cmp, \
+                    f"spec[{position}]: config.{field} = {got!r} != expected {want_cmp!r}"
         bundle = load_bundle()
         cache: dict = {"revision": bundle["revision"]}
         for position, spec in enumerate(specs):

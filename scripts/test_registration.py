@@ -56,6 +56,18 @@ def main(specs: list[Path]) -> None:
                     got = list(rows[idx][2].detector_layers)
                     assert got == list(spec["expected_detector_layers"]), \
                         f"spec[{i}]: resolved selector {got} != requested {spec['expected_detector_layers']}"
+                # full CONTRACT fields: any expected_<field> is checked against the resolved
+                # config (strength, removal span, inject axes, site, wrapper, ...) - the
+                # 1158 incident: strength ran at DEFAULT 2.5 while labels said C1.5
+                cfg_res = rows[idx][2]
+                for key, want in spec.items():
+                    if not key.startswith("expected_") or key == "expected_detector_layers":
+                        continue
+                    field = key[len("expected_"):]
+                    got = getattr(cfg_res, field, None)
+                    got = list(got) if isinstance(got, tuple) else got
+                    want = list(want) if isinstance(want, tuple) else want
+                    assert got == want, f"spec[{i}]: config.{field} = {got!r} != expected {want!r}"
         except Exception as e:  # noqa: BLE001
             failures.append(f"spec {spec_path.name}: {type(e).__name__}: {e}")
     if failures:
