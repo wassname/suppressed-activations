@@ -347,6 +347,38 @@ def common_basis_location_configs():
     return rows
 
 
+def common_basis_location_late_configs():
+    """Approved follow-up: IDENTICAL site design to common_basis_location (top8_union +
+    random_shared8 at L3/L25/L30/L32, C0), but bases selected by the LATE criterion
+    (early,peak,output) = (29,30,32) - rise at block 29, readout fall across blocks
+    30,31. The selector assertion in run_with_bundle ties each saved config to the
+    requested spec so a criterion mismatch cannot recur silently. -- PI[claude]"""
+    rows = []
+    for layer in (3, 25, 30, 32):
+        rows.append(("common_basis_location_late", f"L{layer}_top8_C1.5", replace(
+            DEFAULT, template_contrast=True, template_state_span="none",
+            detector_layers=(29, 30, 32), rank=8, readout_positions=4,
+            intervention_layer=(layer,), intervention_positions=3,
+            match_component_norm=False, restore_residual_norm=False,
+            continue_generation=True, common_window=4,
+            common_basis="top8_union", strength=1.5)))
+        rows.append(("common_basis_location_late", f"L{layer}_randshared8_seed0_C1.5", replace(
+            DEFAULT, template_contrast=True, template_state_span="none",
+            detector_layers=(29, 30, 32), rank=8, readout_positions=4,
+            intervention_layer=(layer,), intervention_positions=3,
+            match_component_norm=False, restore_residual_norm=False,
+            continue_generation=True, common_window=4,
+            common_basis="random_shared", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis_location_late", "C0_L30", replace(
+        DEFAULT, template_contrast=True, template_state_span="none",
+        detector_layers=(29, 30, 32), rank=8, readout_positions=4,
+        intervention_layer=(30,), intervention_positions=3,
+        match_component_norm=False, restore_residual_norm=False,
+        continue_generation=True, common_window=4,
+        common_basis="per_token", strength=0.0)))
+    return rows
+
+
 def smoke_common_basis_configs():
     """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
@@ -1602,6 +1634,7 @@ def run_with_bundle(
     extraction_cache: dict | None = None,
     batch_spec: dict | None = None,
     capture_attention: bool = False,
+    expected_detector_layers: list[int] | None = None,
 ) -> None:
     tokenizer = bundle["tokenizer"]
     model = bundle["model"]
@@ -1704,6 +1737,7 @@ def run_with_bundle(
         "common-basis": common_basis_configs,
         "common-basis-l25": common_basis_l25_configs,
         "common-basis-location": common_basis_location_configs,
+        "common-basis-location-late": common_basis_location_late_configs,
         "smoke-common-basis-loc": smoke_common_basis_location_configs,
         "smoke-common-basis": smoke_common_basis_configs,
         "smoke-common-basis-l25": smoke_common_basis_l25_configs,
@@ -1859,6 +1893,12 @@ def run_with_bundle(
     indexed_configs = list(enumerate(sweep_configs))
     if condition_index is not None:
         indexed_configs = [indexed_configs[condition_index]]
+    if expected_detector_layers is not None:
+        # the selector-mismatch guard: saved config must equal the requested spec
+        for index, (_, _, cfg_c) in indexed_configs:
+            assert list(cfg_c.detector_layers) == list(expected_detector_layers), (
+                f"condition {index}: resolved selector {cfg_c.detector_layers} != requested "
+                f"{expected_detector_layers} (batch_spec={batch_spec})")
     future_vectors, future_provenance = {}, {}
     if any(cfg.future_coordinate for _, (_, _, cfg) in indexed_configs):
         future_vectors, future_provenance = fit_future_rows(
@@ -2702,6 +2742,7 @@ if __name__ == "__main__":
             "common-basis",
             "common-basis-l25",
             "common-basis-location",
+            "common-basis-location-late",
             "smoke-common-basis-loc",
             "smoke-common-basis",
             "smoke-common-basis-l25",
@@ -2743,9 +2784,12 @@ if __name__ == "__main__":
         bundle = load_bundle()
         cache: dict = {"revision": bundle["revision"]}
         for position, spec in enumerate(specs):
-            rest = {key: value for key, value in spec.items() if key != "output_dir"}
+            expected = spec.get("expected_detector_layers")
+            rest = {key: value for key, value in spec.items()
+                    if key not in ("output_dir", "expected_detector_layers")}
             run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
                             batch_spec={"batch_file": str(args.batch_spec), "index": position, "spec": dict(spec)},
+                            expected_detector_layers=expected,
                             **rest)
     else:
         preset_prompt, preset_output = TARGET_PRESETS[args.target]
