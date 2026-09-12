@@ -139,3 +139,16 @@ ladder SPANS the collapse threshold (~1.8–2.0 from 1230): k1/k2 below, k4+ abo
 trade-off ladder.
 
 NOT queued — awaiting the supervisor's code verification + queue approval.
+
+## 1240 root-cause + one-line fix pending (report 6 — intercom absent)
+
+FACTS: the k1/k2/k4/k8 arms COMPLETED for name-N1-dog (joints 2/4/8/16, C1.5, removal =
+the truncated joint Pj ✓). The kfull arm CRASHED: the containment assert ran against the
+WRONG span (Pu = the top8 joint) while the kfull injection lives in the FULL joint Pj
+(57 cols); the measured containment vs top8 = 0.72 (the runner's nan = a downstream
+artifact of that wrong-span check). NO other cells ran (the crash stopped the batch at
+cell 1's kfull arm); the 4 completed arms' outputs PRESERVED.
+
+THE FIX (ready, one line): the containment assert uses the arm's ACTUAL removal span
+(Pj for the complete-rank arms), not Pu. Re-run the pre-model validation + smoke, then
+requeue the SAME 72-cell spec (attempt att2). Awaiting the supervisor's go.
