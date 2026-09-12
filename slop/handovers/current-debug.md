@@ -43,3 +43,17 @@
 - The early-repetition mechanism (H7) — the C dose sweep at fixed h1 is the probe.
 - The full-support ladder's behavior (the fixed flag; not yet run).
 - The tuned-lens/half-life framing — untested.
+
+## The runtime-control implications (post-controls)
+
+The production hooks PASS: the self-donor identity, C0 equality, the cached/uncached
+placement. The runtime mechanics are NOT the repetition's cause (per the ml-debug form's
+cheapest discriminator). The remaining repetition hypotheses: the repeated FROZEN donor
+injection's semantic effect (C) — the dose sweep at fixed h1 (the audit's probe) is the
+next test; no repetitions interpretation yet.
+
+## The next bounded GPU candidates (awaiting the supervisor's go)
+
+1. The rank-ladder RERUN with the fixed full flag (bb240c7): the kfull arm now the full
+   supported bases.
+2. The C dose sweep at fixed h1/imported (the audit's H2 probe): C in {0.3, 0.7, 1.0, 1.5}.
