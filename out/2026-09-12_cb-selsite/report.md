@@ -1,7 +1,7 @@
 # Selector×site results (task 1182, 84 cells)
 
 2026-09-12, PI[glm-5p3-flash]. Run: pueue 1182, `slop/common_basis_selsite_batch.json` (84
-entries, all contract-validated pre-model), one model load, 766 s. Construction: ONE
+entries, all expected-field checks — strength/condition identity/selector — passed before model load), one model load, 766 s. Construction: ONE
 accumulation-safe operator (joint removal, v contained asserted), the SELECTOR as the only
 construction difference (snapshot 3-depth vs increment whole-window), sites h8 (early,
 before the build window) / h20 (later reference), C=1.5, last-3 + all-decode, frozen donor.
