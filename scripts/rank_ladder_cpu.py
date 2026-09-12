@@ -23,21 +23,24 @@ def main():
         res_s = torch.load(BANK/f'{cid}-source_residuals.pt', weights_only=False).float()
         seq_d, seq_s = res_d.shape[1], res_s.shape[1]
         ad, asr = seq_d-4, seq_s-4
-        def union_full(res, a):
+        def union_full(res, a, W):
+            # the production temporal span: the LAST W positions (1230 config window=4)
             rows1 = res.permute(1,0,2)
             inc = increment_scores(rows1, unembed, gain, normalize_unembedding_rows=True)
             b, _ = subspace_from_scores(inc, unembed, gain, rank=8, normalize_unembedding_rows=True)
-            M = b[a:].permute(1,0,2).reshape(res.shape[2], -1)
+            M = b[res.shape[1]-W:].permute(1,0,2).reshape(res.shape[2], -1)
             u, sv, _ = torch.linalg.svd(M, full_matrices=False)
             tol = max(M.shape) * torch.finfo(sv.dtype).eps * sv[0]
             sup = int((sv > tol).sum())
             return u[:, :sup], sup          # FULL supported temporal basis + rank
-        Us_full, sup_s = union_full(res_s, asr)
-        Ud_full, sup_d = union_full(res_d, ad)
+        Us_full, sup_s = union_full(res_s, asr, W=4)
+        Ud_full, sup_d = union_full(res_d, ad, W=4)
+        SITE = 1  # the predeclared early intervention layer (h1)
         for o in (1, 2, 3):
             d25 = res_d[25, seq_d-o]
-            h8 = res_s[8, seq_s-o]
-            rec = {'cell': cid, 'offset': o, 'h_norm': round(float(h8.norm()), 4)}
+            h8 = res_s[SITE, seq_s-o]   # the edited state = h_SITE (h1), named h in records
+            rec = {'cell': cid, 'offset': o, 'site_layer': SITE,
+                   'h_norm': round(float(h8.norm()), 4)}
             for k in (1, 2, 4, 8, 'full'):
                 ks = sup_s if k == 'full' else k
                 kd = sup_d if k == 'full' else k
