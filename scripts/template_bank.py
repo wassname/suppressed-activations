@@ -23,7 +23,7 @@ import torch
 MODEL = os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B")
 REAL_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 REVISION = os.environ.get("SUPPRESSED_REVISION") or (
-    REAL_REVISION if MODEL == "Qwen3.5-4B" else None)
+    REAL_REVISION if MODEL == "Qwen/Qwen3.5-4B" else None)
 DEVICE = os.environ.get("SUPPRESSED_DEVICE", "cuda")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

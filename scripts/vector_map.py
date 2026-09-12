@@ -25,24 +25,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from suppressed_activation_subspace import (
     suppressed_activation_scores, subspace_from_scores)
+from scripts.oat_sweep import attenuation_basis
 
 BANK = ROOT / "out/2026-09-12_devbank"
 TBANK = ROOT / "out/2026-09-12_templatebank"
 OUT = ROOT / "out/2026-09-12_vector-map"
 L20 = 20
 RANK_REF = 4
-
-
-def attenuation_basis(peak: Tensor, output: Tensor, rank: int):
-    """Verbatim from scripts/oat_sweep.py:737 (fit positive contrast-energy attenuation)."""
-    columns = torch.cat([peak.T, output.T], dim=1)
-    vectors, _, _ = torch.linalg.svd(columns, full_matrices=False)
-    joint = vectors[:, :torch.linalg.matrix_rank(columns)]
-    peakJ, outputJ = peak @ joint, output @ joint
-    energy_difference = (peakJ.T @ peakJ - outputJ.T @ outputJ) / len(peak)
-    values, eigenvectors = torch.linalg.eigh(energy_difference)
-    assert (values > 0).sum() >= rank
-    return joint @ eigenvectors[:, -rank:].flip(1), values
 
 
 def top_readout(x: Tensor, unembed: Tensor, gain: Tensor, k: int = 8):
@@ -78,7 +67,13 @@ def main() -> None:
         "g_definition": "donor - source residual difference at L20, same question, same positions",
     }}
     for animal in ("dog", "ant"):
-        # contrasts for this concept: (8 templates, 3 positions, layers, hidden)
+        # delta: the HISTORICAL tensor the successful runs actually applied
+        # (template_vectors.pt saved sweep-side: mean over templates of the suffix differences)
+        cell0 = f"legs-L1-{animal}"
+        hist = torch.load(ROOT / f"out/2026-09-10_eval-candidate-C1.5-{cell0}/template_vectors.pt",
+                          weights_only=False)
+        delta = hist["deltas"][L20].float()          # the actual reference delta at L20
+        # P_ref: rebuilt from the PINNED template-bank suffixes via the RUNNER's function
         cons = []
         for ti in range(8):
             suf = [torch.load(TBANK / f"t{ti}-{a}_suffix.pt", weights_only=False).float()
@@ -89,7 +84,6 @@ def main() -> None:
         output = cons[:, 32, :].flatten(0, 1)
         fit = peak.shape[0] // 2                # 12: first 4 templates (the sweep's fit split)
         P_ref, ref_vals = attenuation_basis(peak[:fit], output[:fit], RANK_REF)
-        delta = cons[:, L20, :].mean(dim=(0, 1))      # mean over templates+positions at L20
         proj = P_ref.T @ delta
         delta_applied = P_ref @ (proj / proj.norm()) * delta.norm()  # match_component_norm
         for cid in sorted({n.rsplit('-source', 1)[0] for n in json.load(open(BANK / 'manifest.json'))['entries']
@@ -136,9 +130,23 @@ def main() -> None:
                                    "v": top_readout(v, unembed, gain, 6),
                                    "g": top_readout(g, unembed, gain, 6)}
                 rows.append(row)
-            table["per_cell"][f"{cid}"] = {"ref_singular_values": [float(x) for x in ref_vals],
-                                            "rows": rows}
-    json.dump(table, open(OUT / "vector_map.json", "w"), indent=1)
+            # principal angles between span(P_ref) and the temporal spans (cosine of the
+            # singular values of the column pairs) - subspace-level, not vector-level
+            def princ_angles(A, B):
+                return [round(float(x), 4) for x in torch.linalg.svdvals(A.T @ B)]
+            table["per_cell"][f"{cid}"] = {
+                "ref_singular_values": [float(x) for x in ref_vals],
+                "principal_angle_cosines": {
+                    "ref_vs_source_top8": princ_angles(P_ref, Cs),
+                    "ref_vs_donor_top8": princ_angles(P_ref, Cd),
+                },
+                "rows": rows}
+    def clean(o):
+        if isinstance(o, dict): return {k: clean(v) for k, v in o.items()}
+        if isinstance(o, (list, tuple)): return [clean(v) for v in o]
+        if isinstance(o, torch.Tensor): return o.tolist()
+        return o
+    json.dump(clean(table), open(OUT / "vector_map.json", "w"), indent=1)
     print(f"wrote {OUT/'vector_map.json'}")
 
 

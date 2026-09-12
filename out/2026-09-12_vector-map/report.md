@@ -1,54 +1,66 @@
 # Same-question vector/procedure map at L20: why the reference transfers and the replacements do not
 
-2026-09-12, PI[claude]. CPU from saved artifacts: template corpus (task 1144,
-`scripts/template_bank.py` — 8 CONCEPT_TEMPLATES × spider/dog/ant, sweep-identical
-rendering), dev-bank residuals, and the runner's constructions rebuilt verbatim
-(`scripts/vector_map.py` → `vector_map.json`). The reference tensors are reconstructed with
-the sweep's exact operations: contrasts = donor-template − source-template suffix residual
-(per template); P_ref = attenuation_basis(peak=L20 contrasts, output=L32 contrasts, rank 4)
-on the sweep's fit split (first 4 templates); δ = template-mean difference at L20;
-**applied δ′ = P_ref δ rescaled to ‖δ‖** (the sweep's match_component_norm renormalization);
-v = Pd d (donor top8 temporal-union projection of the SAME-question donor residual at L20,
-bank criterion 23/25/32); g = donor − source residual difference at L20.
+2026-09-12, PI[claude]. PROVENANCE (validated after a first draft had two defects):
+- δ is the HISTORICAL tensor the successful runs actually applied — loaded from the sweep's
+  own `out/2026-09-10_eval-candidate-C1.5-legs-L1-{dog,ant}/template_vectors.pt` (saved
+  sweep-side), not reconstructed.
+- P_ref is rebuilt from the PINNED template-bank suffixes (revision 851bf6e8; the first
+  extraction 1144 was UNPINNED due to a model-name comparison bug — fixed and re-extracted
+  as task 1145; the dev bank 1127 was pinned correctly) using the RUNNER's own
+  `attenuation_basis` function (imported, not duplicated).
+- The SWEEP DOES NORM-MATCH: the sweep projects the delta onto the shared basis AND
+  renormalizes to the raw delta norm upstream (sweep line ~2376), BEFORE the
+  span_corrected_delta hook (which doesn't read match_component_norm). The earlier
+  "hook doesn't read the flag therefore no norm matching" inference (mine and the first
+  review's) was incomplete — hook vs construction distinguished; correction recorded in the
+  ARJ. So δ′ = P_ref δ rescaled to ‖δ‖ is the actual applied reference delta.
+- v = Pd d (donor top8 temporal-union projection of the same-question donor residual at
+  L20, bank criterion 23/25/32, pinned dev bank); g = donor − source residual difference
+  at L20. Script: `scripts/vector_map.py` → `vector_map.json`.
 
 ## Headline (means over 12 cells × 3 end-aligned positions)
 
 | quantity | dog | ant |
 |---|---:|---:|
-| ‖δ raw‖ = ‖δ′‖ (rescaled) | 5.47 | 4.13 |
+| ‖δ raw‖ = ‖δ′‖ (rescaled; historical tensor) | 6.81 | 5.70 |
 | ‖v‖ | 1.92 | 1.77 |
 | ‖g‖ (donor−source difference) | 5.87 | 4.75 |
 | ‖h20‖ | 15.92 | 15.92 |
-| **cos(δ′, v)** | **+0.005** | **+0.005** |
-| cos(δ′, g) | +0.186 | +0.145 |
-| cos(v, g) | +0.041 | +0.015 |
+| **cos(δ′, v)** mean (per-row min/med/max) | **+0.008** (−0.02/+0.01/+0.04) | **+0.010** (−0.02/+0.01/+0.04) |
+| cos(δ′, g) mean (range) | +0.182 (−0.04…+0.46) | +0.149 (−0.03…+0.36) |
+| cos(v, g) mean | +0.041 | +0.015 |
 
-**The successful reference delta and the failed replacement vector are ORTHOGONAL
-(cos ≈ 0.005).** Both are also nearly orthogonal to the plain donor−source residual
-difference — the template-mean delta is NOT the donor−source direction.
+**The successful reference delta and the failed replacement vector are effectively
+ORTHOGONAL**: mean cos +0.008/+0.010, per-row |cos| ≤ 0.04 (36 rows; negative in 6/18
+dog and 3/18 ant rows — the mean does not hide large mixed signs; the distribution is
+tightly around zero). Both vectors are also near-orthogonal to the plain donor−source
+difference; the template-mean delta is NOT the donor−source direction. Norm differences
+remain (δ′ 3.5× v) and are NOT ruled out as contributors by orthogonality.
 
 ## Fraction of each vector inside each span (norm fraction / energy fraction)
 
 | span | δ′ norm/energy | v norm/energy |
 |---|---|---|
-| source top8 | 0.12 / 0.015 | 0.60 / 0.39 |
-| donor top8 | 0.11 / 0.012 | 1.000 / 1.000 |
-| joint [top8s] | 0.17 / 0.030 | 1.000 / 1.000 |
+| source top8 | — / — | 0.60 / 0.39 |
+| donor top8 | — / — | 1.000 / 1.000 |
+| joint [top8s] | — / — | 1.000 / 1.000 |
 | **ref span (rank 4)** | **1.000 / 1.000** | 0.04 / 0.002 |
 
-The two interventions act in (near-)DISJOINT subspaces: the replacements write into the
-suppression-score top8 temporal-union spans; the reference delta writes into the rank-4
-template-contrast attenuation span, orthogonal to them.
+SPAN-LEVEL subspace relation (principal-angle cosines, legs cells; vector-level fractions
+above): span(P_ref) vs span(source top8): max principal cosine 0.15; vs span(donor top8):
+max 0.14 — near-orthogonal at the subspace level, with small real overlaps (not asserted
+zero). Full angle lists in `vector_map.json`. The two interventions act in near-disjoint
+subspaces: the replacements write into the suppression-score top8 temporal-union spans;
+the reference delta writes into the rank-4 template-contrast attenuation span.
 
 ## What each vector WRITES (top gain-weighted readout tokens)
 
-- δ′: `' Maria'`, `' hom'`, `'灵'`, `' sul'`, `' dans'` — a coherent multilingual
-  NAME/LABEL direction (the templates are all "labeled '{animal}'" phrasings). The
-  reference's transferable content is a label/naming direction, not animal semantics.
-- v: `'ANDROID'`, `' leash'`, `'狗粮'` (dog food), `'生态保护'`, `'fetch'`, `'สุนัข'`
-  (Thai: dog) — scattered multilingual token debris; the same tokens that surfaced as loop
-  content in the degenerate interval runs (chien/狗粮). The suppression-score top8 spans'
-  donor projections are debris-dominated.
+- TOKEN READOUTS ONLY (a vocabulary-level statistic; the semantic story below is a
+  HYPOTHESIS, not established): δ′ top readouts `' Maria'`, `' hom'`, `'灵'`, `' sul'`,
+  `' dans'` — name/label-like tokens across languages (the templates are all
+  "labeled '{animal}'" phrasings). v top readouts `'ANDROID'`, `' leash'`, `'狗粮'`,
+  `'生态保护'`, `'fetch'`, `'สุนัข'` — heterogeneous multilingual tokens; the same token
+  families that appeared as loop content in the degenerate interval runs.
 
 ## Procedure differences (explicit)
 
@@ -60,17 +72,18 @@ template-contrast attenuation span, orthogonal to them.
   spans; no averaging over templates; no contrast-energy criterion on the injection
   direction.
 
-## Reading (labeled inference)
+## Reading (labeled inference; norm differences NOT ruled out by orthogonality)
 
-On this evidence, the reference's advantage is that its injection direction is a coherent
-low-rank label/identity direction whose energy sits in its own removal span (stable
-operator), while the tested replacements inject projections of the donor state onto
-debris-dominated vocabulary spans that are orthogonal to the label direction. This is a
-direction-selection difference, not a magnitude difference (δ′ and v have comparable
-norms relative to ‖h20‖: 0.34 vs 0.12 — v is smaller but the orthogonality, not the 2.8×
-norm ratio, is the sharp separation). Hypotheses this suggests for a future 2×2: replace
-the injection direction (template-label delta) while varying the removal span (Ps vs
-P_ref-like) — the compact comparison the supervisor asked to design only after this map.
+The measured facts: the two injection directions are near-orthogonal at both the vector
+level (|cos| ≤ 0.04) and the span level (principal cosines ≤ 0.15); δ′ is 3.5× larger
+relative to ‖h20‖; δ′ sits fully in its own removal span (stable operator per the algebra);
+v sits fully in the donor top8. HYPOTHESIS (not established): the reference's advantage is
+direction selection — a coherent low-rank label/identity direction in its own removal span
+— while the replacements inject projections onto debris-dominated vocabulary spans;
+template averaging may cancel question-specific coordinates (untested). The norm difference
+co-varies and is not separated. Bounded 2×2 (supervisor-approved shape, after provenance
+validation): injection {δ_ref, v} × removal {P_ref, Ps} at the SAME L20 single site,
+permitting the exact successful-baseline cell.
 
 ## Scope
 
