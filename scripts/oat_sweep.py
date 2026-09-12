@@ -398,6 +398,20 @@ def common_basis_sync_configs():
             ("common_basis_sync", "C0_sync", replace(base, sync_donor=True, strength=0.0))]
 
 
+def smoke_common_basis_interval_configs():
+    """Tiny twin of the interval arm: every available residual boundary h1..h5 (5 sites on
+    the 5-layer tiny model), fixed shared random-free top8 projector, C1.5 + C0."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=2, common_basis="top8_union", strength=1.5)
+    return [("smoke_common_basis_interval", "interval_C1.5",
+             replace(base, intervention_layer=(1, 2, 3, 4, 5))),
+            ("smoke_common_basis_interval", "C0_interval",
+             replace(base, intervention_layer=(1, 2, 3, 4, 5), strength=0.0))]
+
+
 def smoke_common_basis_sync_configs():
     """Tiny twin of the sync comparison: 5-layer model, L3 (block 2), rank2/window2
     (top8 == full union), plus the frozen twin for the bitwise prefill check."""
@@ -410,6 +424,30 @@ def smoke_common_basis_sync_configs():
     return [("smoke_common_basis_sync", "sync_C1.5", replace(base, sync_donor=True, strength=1.5)),
             ("smoke_common_basis_sync", "C0_sync", replace(base, sync_donor=True, strength=0.0)),
             ("smoke_common_basis_sync", "frozen_C1.5", replace(base, sync_donor=False, strength=1.5))]
+
+
+def common_basis_interval_configs():
+    """Authorized interval-wise re-correction (supervisor 2026-09-12): common_replace at
+    EVERY residual boundary h25..h30 (blocks 24..29, six sites per call) with FIXED shared
+    source/donor top8 projectors (bank selector 23/25/32), per-layer donor residuals,
+    frozen decode policy, C1.5, window4, positions3. Arms: interval, both endpoint single-site
+    replays (L25, L30), C0 interval, random-projector interval (descriptive; NOT dose-matched
+    - more sites means more cumulative intervention, explicitly not a pure timing effect).
+    -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_positions=3, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=4, common_basis="top8_union", strength=1.5)
+    rows = [
+        ("common_basis_interval", "interval_h25-30_C1.5", replace(base, intervention_layer=(25, 26, 27, 28, 29, 30))),
+        ("common_basis_interval", "L25_only_C1.5", replace(base, intervention_layer=(25,))),
+        ("common_basis_interval", "L30_only_C1.5", replace(base, intervention_layer=(30,))),
+        ("common_basis_interval", "C0_interval", replace(base, intervention_layer=(25, 26, 27, 28, 29, 30), strength=0.0)),
+        ("common_basis_interval", "random_interval_C1.5", replace(base, intervention_layer=(25, 26, 27, 28, 29, 30),
+                                                                  common_basis="random_shared", common_random_rank=8)),
+    ]
+    return rows
 
 
 def smoke_common_basis_configs():
@@ -1839,7 +1877,9 @@ def run_with_bundle(
         "common-basis-location": common_basis_location_configs,
         "common-basis-location-late": common_basis_location_late_configs,
         "common-basis-sync": common_basis_sync_configs,
+        "common-basis-interval": common_basis_interval_configs,
         "smoke-common-basis-sync": smoke_common_basis_sync_configs,
+        "smoke-common-basis-interval": smoke_common_basis_interval_configs,
         "smoke-common-basis-loc": smoke_common_basis_location_configs,
         "smoke-common-basis": smoke_common_basis_configs,
         "smoke-common-basis-l25": smoke_common_basis_l25_configs,
@@ -2372,7 +2412,6 @@ def run_with_bundle(
             assert not (cfg.span_correction or cfg.coordinate_swap or cfg.template_clamp
                         or cfg.future_clamp or cfg.shared_replacement != "none"), \
                 "common_basis is mutually exclusive with the other edit families"
-            assert len(intervention_layers) == 1, "first common-basis batch is single-layer"
             layer = intervention_layers[0]
             s_end, t_end = source["content_end"], target["content_end"]
             # end-aligned mapping needs the same prompt tail structure
@@ -2430,7 +2469,9 @@ def run_with_bundle(
                 don_by_offset = lambda o: tgt_bases[t_end - o]
             elif cfg.common_basis == "random_shared":
                 sv_s = sv_d = None
-                R_s, R_d = random_basis(layer), random_basis(layer + 100)
+                # shared across an interval too: one seeded basis pair for ALL interval layers
+                seed0 = cfg.common_seed + intervention_layers[0]
+                R_s, R_d = random_basis(seed0), random_basis(seed0 + 100)
                 src_by_offset = lambda o: R_s
                 don_by_offset = lambda o: R_d
             elif cfg.common_basis == "random_perpos":
@@ -2441,17 +2482,26 @@ def run_with_bundle(
                 raise ValueError(cfg.common_basis)
             offsets = list(range(1, positions + 1))
             pos_order = list(reversed(offsets))  # position-ascending, matching the hook slice
-            donor_states = {o: target["residuals"][layer, t_end - o].float() for o in offsets}
-            donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
-                          for o in offsets}
-            decode_src = src_by_offset(1)[None]        # fixed last-position basis
-            decode_proj = donor_proj[1][None]          # frozen final prefill donor state
-            common_specs = {layer: {
-                "src": torch.stack([src_by_offset(o) for o in pos_order]),
-                "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
-                "decode_src": decode_src, "decode_proj": decode_proj,
-                "donor_U": don_by_offset(1),  # applied donor columns (fixed P_d basis)
-            }}
+            decode_src = src_by_offset(1)[None]        # fixed last-position basis (shared)
+            donor_U = don_by_offset(1)                 # applied donor columns (fixed P_d basis)
+            # per-layer specs: the projectors are FIXED and shared across the interval; the
+            # donor residual comes from EACH actual layer (end-aligned), per the design.
+            common_specs, layer_norms = {}, {}
+            for L in intervention_layers:
+                donor_states = {o: target["residuals"][L, t_end - o].float() for o in offsets}
+                donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
+                              for o in offsets}
+                common_specs[L] = {
+                    "src": torch.stack([src_by_offset(o) for o in pos_order]),
+                    "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
+                    "decode_src": decode_src, "decode_proj": donor_proj[1][None],
+                    "donor_U": donor_U,
+                }
+                layer_norms[L] = {
+                    "donor_state_norms": {o: float(d.norm()) for o, d in donor_states.items()},
+                    "donor_proj_norms": {o: float(p.norm()) for o, p in donor_proj.items()},
+                }
+            layer = intervention_layers[0]  # persistence keys use the first interval layer
             source_basis = target_basis = src_by_offset(1)  # unused by the op; shapes only
             persistence = {
                 "direction_estimator": f"common_{cfg.common_basis}",
@@ -2465,8 +2515,10 @@ def run_with_bundle(
                                   "target": (sup_d if cfg.common_basis in ("full_union", "top8_union") else None),
                                   "columns": W * cfg.rank,
                                   "note": "support-filtered SVD left vectors; rank changes are recorded, not concealed"},
-                "donor_state_norms": {o: float(d.norm()) for o, d in donor_states.items()},
-                "donor_proj_norms": {o: float(p.norm()) for o, p in donor_proj.items()},
+                "donor_state_norms": layer_norms[layer]["donor_state_norms"],
+                "donor_proj_norms": layer_norms[layer]["donor_proj_norms"],
+                "per_layer_donor_norms": {str(L): layer_norms[L] for L in intervention_layers},
+                "interval_layers": list(intervention_layers),
                 "selected_ids": {"source": src_sel.tolist(), "target": tgt_sel.tolist()},
                 "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
                 "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
@@ -2852,7 +2904,9 @@ if __name__ == "__main__":
             "common-basis-location",
             "common-basis-location-late",
             "common-basis-sync",
+            "common-basis-interval",
             "smoke-common-basis-sync",
+            "smoke-common-basis-interval",
             "smoke-common-basis-loc",
             "smoke-common-basis",
             "smoke-common-basis-l25",
