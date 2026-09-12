@@ -91,3 +91,26 @@ narrowing at the PREDECLARED h1 (both U_s/U_d truncated at k ∈ {1,2,4,8,full};
 P_joint(k) = span([U_s^k | U_d^k]); injection U_d^k d25): the h1 edit fraction shrinks
 with k — may re-enter the non-degenerate range while testing the early idea; k=full
 replays earlyloc imported-h1. CPU pre-computation on request.
+
+## Complete-edit rank ladder prepared (report 4 — intercom absent)
+
+Commits 70f950e (protocol), 08f71a8 (H5 aggregation code), 7a18992 (CPU precomputation).
+
+- PROTOCOL: slop/complete_rank_protocol.md — BOTH full-supported temporal SVD bases
+  truncated at k ∈ {1,2,4,8,full}; P_joint(k) = orthonormal support-filtered
+  union(Us_k, Ud_k); injection Pd_k d25; h1 PREDECLARED; full = ACTUAL support; actual
+  support ranks recorded; projector/VECTOR equality vs the 1230-h1 path; C0; the
+  rank-shrinks-content-and-size confound labeled; NON-MONOTONIC predictions: (i) smaller k
+  may avoid the loop collapse while retaining donor-direction movement; (ii) all-k inert;
+  (iii) mid-k non-monotonic.
+- CPU PRECOMPUTATION (per-position, the audit's conventions, triangle + delta-identity
+  asserts per row): inj/rem/edit norm fracs — k1 0.39/0.03/0.40 (joint rank 2); k2
+  0.56/0.04/0.56 (rank 4); k4 0.74/0.06/0.73 (rank 8); k8 0.91/0.09/0.90 (rank 16); kfull
+  1.31/0.15/1.27 (rank 44). KEY: the h1 loop collapse appeared at edit fracs 1.8–2.0; the
+  k1–k4 arms sit at 0.40–0.73 — BELOW the collapse range — the ladder may re-enter the
+  non-degenerate range at small k (prediction (i)).
+- H5 fixed (aggregation code committed, definitions labeled). Audit rev-2 corrections
+  applied throughout (96 nonzero; 3/96 donor-direction answers; direction-invariant
+  matched-size degradation; 'full-rank' terminology).
+
+Family/spec/code ready on the supervisor's go; not queued.
