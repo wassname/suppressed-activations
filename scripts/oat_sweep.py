@@ -628,6 +628,8 @@ def common_basis_ablation_configs():
              replace(base, span_correction=False)),
             ("common_basis_ablation", "removal_only_C1.5",
              replace(base, span_correction=False, removal_only=True)),
+            ("common_basis_ablation", "A_replay_C1.5",
+             replace(base, span_correction=True)),
             ("common_basis_ablation", "C0",
              replace(base, span_correction=False, strength=0.0))]
 
