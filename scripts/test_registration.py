@@ -100,11 +100,13 @@ def enrich_specs(specs: list[dict]) -> list[dict]:
         for prefix, exp in EXPECTED.items():
             if dirname.startswith(prefix + "-") or dirname == prefix:
                 merged = {**spec}
-                conflicts = {k: (spec.get(k), v) for k, v in exp.items()
-                             if k in spec and spec[k] != v}
-                for k, (spec_v, indep_v) in conflicts.items():
-                    # force the INDEPENDENT value (the spec's differing value is reported)
-                    merged[k] = indep_v
+                for k, v in exp.items():
+                    if k in spec and spec[k] != v:
+                        # a spec expectation CONFLICTING with the independent value is a
+                        # spec error: fail it (neither silently overrides)
+                        raise AssertionError(
+                            f"spec expectation conflict on {k}: spec {spec[k]!r} != "
+                            f"independent {v!r} ({dirname})")
                 out.append(merged)
                 break
         else:
