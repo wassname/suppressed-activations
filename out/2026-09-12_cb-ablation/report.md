@@ -53,3 +53,28 @@ injected at sufficient norm.
 
 Scope: one site (L20), one C (1.5), 12 dev questions, alternate-wrapper diagnostics caveats
 where bank-based; the runner-path causal batches are unaffected.
+
+## RESULTS (task 1158, completed after the 1154 partial-loss incident; unique-attempt rerun)
+
+| condition | equation | swap ↑ | legs | naming | property | capped | loops(r2>.5) |
+|---|---|---|---:|---:|---:|---:|---:|
+| injection-only | h + C·δ_ref′ | **+10.16** | +8.03 | +22.93 | −0.47 | 3/12 | 2/12 |
+| removal-only | h − C·P_ref h | −0.19 | −0.38 | −0.14 | −0.05 | 0/12 | 0/12 |
+| A-replay | h + C(δ_ref′ − P_ref h) | +10.29 | +6.73 | +24.60 | −0.47 | 3/12 | 1/12 |
+| C0 | identity | 0.00 exact | | | | 0/12 | |
+
+Applied-delta vector equality verified IN-RUN: applied_delta_sha256 identical across all
+three C≠0 arms (2 hashes = dog/ant concepts). Semantic reads: injection-only RETAINS A's
+successes (name-N1-dog `狗 (Dog)` + persistent dog identity; legs-L1-ant `6` + `The red
+ant…` — donor digit AND identity; legs-L1-dog identity moved, digit 2 wrong). Removal-only
+does NOTHING: clean spider/8, no digit change, no identity change, every cell. C0 exact.
+
+VERDICT (registered predictions): injection-sufficiency at this setting SUPPORTED
+(injection-only ≈ A); removal-only answer-bias did NOT occur (nothing happened); historical
+job-500 removal-only pattern does not transfer to this operator (as its motivational-only
+label anticipated). Combined with the 2×2 (injection direction discriminates; B arm) and
+the vector map (δ_ref′ ⊥ v), the active ingredient is the template-label direction injected
+at sufficient norm. Scope: L20, C=1.5 per the family... NOTE: the supervisor's independent
+config audit found these cells ran at C=2.5 despite C1.5 labels (see the contract incident
+in the ARJ) — treat the numbers as C2.5 evidence; the injection-sufficiency comparison is
+within-batch (all arms same C) and stands as C2.5 evidence.
