@@ -2281,12 +2281,7 @@ def validate_specs(specs: list[dict], registry: dict) -> None:
             got = getattr(cfg_res, field)
             got = list(got) if isinstance(got, tuple) else got
             want_cmp = list(want) if isinstance(want, (tuple, list)) else want
-            # scalar-vs-singleton tolerance: intervention_layer=20 and [20] agree
-            if isinstance(want_cmp, list) and not isinstance(got, list) and len(want_cmp) == 1:
-                got_cmp = [got]
-            else:
-                got_cmp = got
-            assert got_cmp == want_cmp, \
+            assert got == want_cmp, \
                 f"spec[{position}]: config.{field} = {got!r} != expected {want_cmp!r}"
 
 
@@ -2925,8 +2920,17 @@ def run_with_bundle(
             anchor = cfg.xdepth_anchor_layer if cfg.xdepth_anchor_layer >= 0 else None
             anchor_layers = ([anchor] * len(intervention_layers) if anchor is not None
                              else intervention_layers)
-            for L, La in zip(intervention_layers, anchor_layers):
+            norm_layers = ([cfg.xdepth_norm_from_layer] * len(intervention_layers)
+                           if cfg.xdepth_norm_from_layer >= 0 else anchor_layers)
+            for L, La, Ln in zip(intervention_layers, anchor_layers, norm_layers):
                 donor_states = {o: target["residuals"][La, t_end - o].float() for o in offsets}
+                # anchor projection (the injected direction) and norm-source projection
+                # (the injected size): both through the SAME fixed donor columns
+                v_anchor = {o: don_by_offset(o) @ (don_by_offset(o).T @ donor_states[o])
+                            for o in offsets}
+                v_normsrc = {o: don_by_offset(o) @ (don_by_offset(o).T @
+                                                      (target["residuals"][Ln, t_end - o].float()))
+                             for o in offsets} if cfg.xdepth_norm_from_layer >= 0 else None
                 if cfg.common_inject == "ref_delta" and cfg.common_inject_norm == "own":
                     donor_proj = {o: delta_ref.clone() for o in offsets}  # fixed vector, all positions
                 elif cfg.common_inject == "ref_delta":  # common_inject_norm == "cross_v"
@@ -2934,6 +2938,19 @@ def run_with_bundle(
                     donor_proj = {o: delta_ref * (v_raw[o].norm() / delta_ref.norm()) for o in offsets}
                 elif cfg.common_inject_norm == "cross_delta":  # v direction scaled UP to ||delta||
                     donor_proj = {o: v_raw[o] * (delta_ref.norm() / v_raw[o].norm()) for o in offsets}
+                elif cfg.xdepth_norm_from_layer >= 0:
+                    # RESCALE: anchor direction, norm-source size (per offset)
+                    donor_proj = {o: v_anchor[o] * (v_normsrc[o].norm() /
+                                                    (v_anchor[o].norm() + 1e-9))
+                                  for o in offsets}
+                    for o in offsets:
+                        cos = float(donor_proj[o] @ v_anchor[o] /
+                                    (donor_proj[o].norm() * v_anchor[o].norm() + 1e-9))
+                        assert cos > 1 - 1e-6, f"rescale changed direction: cos {cos}"
+                        assert abs(float(donor_proj[o].norm()) -
+                                   float(v_normsrc[o].norm())) < 1e-4, "rescale norm mismatch"
+                elif cfg.xdepth_anchor_layer >= 0:
+                    donor_proj = v_anchor  # imported anchor projection (own norm)
                 elif cfg.common_inject_restricted:
                     # v := Ps(Pd d): the injection's outside-source part is dropped
                     donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(don_by_offset(o), donor_states[o])
@@ -2945,8 +2962,7 @@ def run_with_bundle(
                     for o in offsets:
                         cont = float((donor_proj[o] - Pu @ (Pu.T @ donor_proj[o])).norm()
                                      / donor_proj[o].norm())
-                        # 1e-4: float32 SVD accumulation with ~2x joint columns measured
-                        # 1.002e-5 on real data; a real non-containment would be ~0.1+
+                        # 1e-4: float32 SVD accumulation measured 1.002e-5 on real data
                         assert cont < 1e-4, f"injection v not in joint span: {cont}"
                 else:
                     for o in offsets:

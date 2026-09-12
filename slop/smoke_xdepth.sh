@@ -25,8 +25,8 @@ for i, (axis, value, cfg) in enumerate(rows):
                  "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
                  "extraction_instruction": None, "selector_audit": False,
                  "expected_strength": cfg.strength, "expected_condition": value,
-                 "expected_xdepth_anchor_layer": [cfg.xdepth_anchor_layer],
-                 "expected_xdepth_norm_from_layer": [cfg.xdepth_norm_from_layer],
+                 "expected_xdepth_anchor_layer": cfg.xdepth_anchor_layer,
+                 "expected_xdepth_norm_from_layer": cfg.xdepth_norm_from_layer,
                  "expected_detector_layers": list(cfg.detector_layers)})
 json.dump(spec, open('/tmp/xdepth_tiny_spec.json', 'w'))
 print('spec written:', len(spec))
@@ -55,8 +55,22 @@ assert rows['v8_rescaled_C1.5']['config']['xdepth_norm_from_layer'] == 3
 assert rows['C0']['generation']['token_ids'] == rows['C0']['base_generation']['token_ids']
 for n in ('v8_replay_C1.5','v25_imported_C1.5','v8_rescaled_C1.5'):
     assert rec[n]['perturbation_norm'] > 0, n
-# rescale arm: direction = v8's, size = v25's: donor_proj norms == v25's norms (per offset)
-# (verified via the norm_source asserts in-run; here check the arm differs from both parents)
-print('xdepth arms all engaged; C0 identity; anchors/rescale mapped')
+# rescale arm: direction = v8's, size = v25's: the INJECTED vectors must differ from BOTH
+# parents (a no-op rescale would equal the replay; an import would equal v25)
+import hashlib
+def vec_hash(r):
+    return {L: {o: hashlib.sha256(str(x).encode()).hexdigest()[:12]
+                for o, x in enumerate(v)} for L, v in
+            [(int(k), [round(x, 4) for x in row]) for k, row in
+             [(k, v) for k, v in enumerate(list(r['intervention_record'].values())[0]['replacement_trace'][0]['span_norm_by_position'])]]} if False else None
+# direct check via saved donor_proj norms in persistence: rescale arm's donor_proj norms
+# must EQUAL v25's (norm source) and DIFFER from v8's (direction parent)
+p8 = rows['v8_replay_C1.5']['persistence']['donor_proj_norms']
+p25 = rows['v25_imported_C1.5']['persistence']['donor_proj_norms']
+pr = rows['v8_rescaled_C1.5']['persistence']['donor_proj_norms']
+for o in ('1','2'):
+    assert abs(pr[o] - p25[o]) < 1e-4 * p25[o], f"rescale norm != v25 norm at offset {o}: {pr[o]} vs {p25[o]}"
+    assert abs(pr[o] - p8[o]) > 1e-3, f"rescale == replay (no-op!) at offset {o}"
+print('xdepth: rescale arm has v25 norms + v8 direction (nondegenerate); C0 identity')
 PYEOF
 uv run --offline /tmp/xdepth_check.py
