@@ -95,7 +95,13 @@ class Config:
     common_window: int = 4  # end-aligned window (in tokens) for the union bases
     common_random_rank: int = 8  # rank of random bases in random_shared/random_perpos
     common_seed: int = 0  # seed for random_shared/random_perpos bases
-    common_removal: str = "source"  # "source" (Ps) | "joint" (support-filtered span of [Us8|Ud8])
+    common_bank_layers: tuple = (23, 25, 32)  # per-token basis criterion for the common
+    # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
+    # detector_layers drives the reference/template path)
+    common_removal: str = "source"  # "source" (Ps) | "joint" | "pref" (reference attenuation span)
+    common_inject: str = "pd_d"  # "pd_d" (current) | "ref_delta" (the successful branch's
+    # norm-matched projection delta'=P_ref delta rescaled to ||delta||, computed by the SAME
+    # runtime sweep code and kept EXACTLY fixed when the removal span changes)
     common_inject_restricted: bool = False  # inject Ps(Pd d) instead of Pd d (accumulation control)
     sync_donor: bool = False  # common_replace with the donor teacher-forced on source-selected
     # tokens; per-decode donor state = CURRENT h_L projected with the FIXED P_d. Changes ONLY
@@ -523,6 +529,47 @@ def smoke_common_basis_fulljoint_configs():
             ("smoke_common_basis_fulljoint", "fulljoint_random_C1.5", replace(base, common_basis="random_shared",
                                                                                common_random_rank=2)),
             ("smoke_common_basis_fulljoint", "fulljoint_C0", replace(base, common_basis="full_union", strength=0.0))]
+
+
+def common_basis_2x2_configs():
+    """Authorized bounded 2x2 (supervisor 2026-09-12): injection {delta_ref', v} x removal
+    {P_ref, Ps} at the SAME L20 single site, C1.5, frozen donor, last3+all-decode.
+    delta_ref' = the successful branch's applied delta (sweep-computed norm-matched
+    projection, kept EXACTLY fixed across removal arms); v = Pd d per position/end-aligned
+    (current construction). Pd/Ps spans: bank criterion (23,25,32) top8; P_ref: the
+    reference criterion (18,20,32) rank-4 attenuation basis (cfg.detector_layers drives the
+    reference/template path; the per-token bases use the bank criterion explicitly).
+    Arm A (successful baseline) = the EXISTING span-correction-sweep idx 3 path (separate
+    spec rows). C0 for both removal paths. -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="attenuation",
+                   persistent_rank=4, detector_layers=(18, 20, 32), match_component_norm=True,
+                   rank=8, readout_positions=4, intervention_layer=(20,),
+                   intervention_positions=3, restore_residual_norm=False,
+                   continue_generation=True, common_window=4, common_basis="top8_union",
+                   span_correction=False)
+    rows = [
+        ("common_basis_2x2", "injref_remPs_C1.5", replace(base, common_inject="ref_delta", common_removal="source")),
+        ("common_basis_2x2", "injv_remPref_C1.5", replace(base, common_inject="pd_d", common_removal="pref")),
+        ("common_basis_2x2", "injv_remPs_C1.5", replace(base, common_inject="pd_d", common_removal="source")),
+        ("common_basis_2x2", "C0_remPref", replace(base, common_inject="pd_d", common_removal="pref", strength=0.0)),
+        ("common_basis_2x2", "C0_remPs", replace(base, common_inject="pd_d", common_removal="source", strength=0.0)),
+    ]
+    return rows
+
+
+def smoke_common_basis_2x2_configs():
+    """Tiny twin of the 2x2: tiny reference criterion (0,2,4) rank2 attenuation, bank
+    criterion (0,2,4) for the per-token bases (identical on tiny), single site L2."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="attenuation",
+                   persistent_rank=2, detector_layers=(0, 2, 4), match_component_norm=True,
+                   rank=2, readout_positions=2, intervention_layer=(2,),
+                   intervention_positions=2, restore_residual_norm=False,
+                   continue_generation=True, common_window=2, common_basis="top8_union",
+                   span_correction=False, common_bank_layers=(0, 2, 4))
+    return [("smoke_common_basis_2x2", "injref_remPs_C1.5", replace(base, common_inject="ref_delta", common_removal="source")),
+            ("smoke_common_basis_2x2", "injref_remPref_C1.5", replace(base, common_inject="ref_delta", common_removal="pref")),
+            ("smoke_common_basis_2x2", "injv_remPref_C1.5", replace(base, common_inject="pd_d", common_removal="pref")),
+            ("smoke_common_basis_2x2", "C0_remPs", replace(base, common_inject="pd_d", common_removal="source", strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -1955,6 +2002,8 @@ def run_with_bundle(
         "common-basis-interval": common_basis_interval_configs,
         "common-basis-joint": common_basis_joint_configs,
         "common-basis-fulljoint": common_basis_fulljoint_configs,
+        "common-basis-2x2": common_basis_2x2_configs,
+        "smoke-common-basis-2x2": smoke_common_basis_2x2_configs,
         "smoke-common-basis-fulljoint": smoke_common_basis_fulljoint_configs,
         "smoke-common-basis-joint": smoke_common_basis_joint_configs,
         "smoke-common-basis-sync": smoke_common_basis_sync_configs,
@@ -2498,15 +2547,16 @@ def run_with_bundle(
                 source["input_ids"][0, s_end - positions:s_end],
                 target["input_ids"][0, t_end - positions:t_end],
             )
+            assert cfg.detector_layers != (18, 20, 32) or cfg.common_bank_layers == (23, 25, 32)
             src_bases, src_sel = suppressed_activation_subspace(
                 source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
-                early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
-                output_layer=cfg.detector_layers[2], rank=cfg.rank,
+                early_layer=cfg.common_bank_layers[0], peak_layer=cfg.common_bank_layers[1],
+                output_layer=cfg.common_bank_layers[2], rank=cfg.rank,
                 normalize_unembedding_rows=True)
             tgt_bases, tgt_sel = suppressed_activation_subspace(
                 target["residuals"].permute(1, 0, 2), unembedding, norm_gain,
-                early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
-                output_layer=cfg.detector_layers[2], rank=cfg.rank,
+                early_layer=cfg.common_bank_layers[0], peak_layer=cfg.common_bank_layers[1],
+                output_layer=cfg.common_bank_layers[2], rank=cfg.rank,
                 normalize_unembedding_rows=True)
             for tag, bs in (("source", src_bases), ("target", tgt_bases)):
                 torch.testing.assert_close(
@@ -2577,15 +2627,31 @@ def run_with_bundle(
                 rem_cols = Pu
             elif cfg.common_removal == "source":
                 rem_cols = Us8
+            elif cfg.common_removal == "pref":
+                # the reference's rank-4 attenuation span, computed by the SAME runtime
+                # sweep code above (template_contrast + attenuation branch): `shared`
+                assert cfg.template_state_span == "attenuation" and cfg.persistent_rank > 0, \
+                    "pref removal requires the reference attenuation branch"
+                rem_cols = shared.float()
             else:
                 raise ValueError(cfg.common_removal)
             rem_by_offset = (lambda o: rem_cols) if cfg.common_removal == "joint" else src_by_offset
             # per-layer specs: the projectors are FIXED and shared across the interval; the
             # donor residual comes from EACH actual layer (end-aligned), per the design.
+            delta_ref = None
+            if cfg.common_inject == "ref_delta":
+                # the successful branch's applied vector: the sweep computed template_deltas,
+                # projected them on the shared (attenuation) basis and norm-matched upstream
+                # (fixed_deltas = rescaled projection). Kept EXACTLY fixed when the removal
+                # span changes (not reprojected).
+                assert cfg.common_removal in ("pref", "source")
+                delta_ref = fixed_deltas[layer].float()
             common_specs, layer_norms = {}, {}
             for L in intervention_layers:
                 donor_states = {o: target["residuals"][L, t_end - o].float() for o in offsets}
-                if cfg.common_inject_restricted:
+                if cfg.common_inject == "ref_delta":
+                    donor_proj = {o: delta_ref.clone() for o in offsets}  # fixed vector, all positions
+                elif cfg.common_inject_restricted:
                     # v := Ps(Pd d): the injection's outside-source part is dropped
                     donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(don_by_offset(o), donor_states[o])
                                   for o in offsets}
@@ -2634,8 +2700,13 @@ def run_with_bundle(
                 "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
                 "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
                 "removal_span": cfg.common_removal,
+                "bank_layers_for_common_bases": list(cfg.common_bank_layers),
+                "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
+                "delta_ref_prime": ({"norm": float(delta_ref.norm()),
+                                     "note": "the successful branch's applied delta; identical across removal arms"}
+                                    if cfg.common_inject == "ref_delta" else None),
             }
             # own/donor state and projection NORMS at L20 and L25 (norm fractions,
             # not energy fractions); L25 is where the bank table peaks. -- PI[claude]
@@ -3021,6 +3092,8 @@ if __name__ == "__main__":
             "common-basis-interval",
             "common-basis-joint",
             "common-basis-fulljoint",
+            "common-basis-2x2",
+            "smoke-common-basis-2x2",
             "smoke-common-basis-fulljoint",
             "smoke-common-basis-joint",
             "smoke-common-basis-sync",
