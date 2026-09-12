@@ -95,6 +95,9 @@ class Config:
     common_window: int = 4  # end-aligned window (in tokens) for the union bases
     common_random_rank: int = 8  # rank of random bases in random_shared/random_perpos
     common_seed: int = 0  # seed for random_shared/random_perpos bases
+    sync_donor: bool = False  # common_replace with the donor teacher-forced on source-selected
+    # tokens; per-decode donor state = CURRENT h_L projected with the FIXED P_d. Changes ONLY
+    # donor-state evolution, not selector/site/equation. -- supervisor 2026-09-12
 
 
 DEFAULT = Config()
@@ -377,6 +380,36 @@ def common_basis_location_late_configs():
         continue_generation=True, common_window=4,
         common_basis="per_token", strength=0.0)))
     return rows
+
+
+def common_basis_sync_configs():
+    """Authorized donor-state-updating comparison (supervisor 2026-09-12): the frozen-donor
+    common_replace at L25 (bank selector 23/25/32, top8_union, C1.5, window4, pos3) vs the
+    SYNCHRONIZED donor - teacher-forced on source-selected tokens, per-decode current h25
+    projected with the FIXED P_d. Changes only donor-state evolution. C0 for both execution
+    paths; randoms referenced descriptively from task1130 L25 rows (identical config). -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_layer=(25,), intervention_positions=3,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=4,
+                   common_basis="top8_union")
+    return [("common_basis_sync", "sync_C1.5", replace(base, sync_donor=True, strength=1.5)),
+            ("common_basis_sync", "C0_sync", replace(base, sync_donor=True, strength=0.0))]
+
+
+def smoke_common_basis_sync_configs():
+    """Tiny twin of the sync comparison: 5-layer model, L3 (block 2), rank2/window2
+    (top8 == full union), plus the frozen twin for the bitwise prefill check."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_layer=(3,), intervention_positions=2,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=2,
+                   common_basis="top8_union")
+    return [("smoke_common_basis_sync", "sync_C1.5", replace(base, sync_donor=True, strength=1.5)),
+            ("smoke_common_basis_sync", "C0_sync", replace(base, sync_donor=True, strength=0.0)),
+            ("smoke_common_basis_sync", "frozen_C1.5", replace(base, sync_donor=False, strength=1.5))]
 
 
 def smoke_common_basis_configs():
@@ -1413,6 +1446,73 @@ def generate_synchronized_donor(model, tokenizer, source, target, basis, layer, 
     return {"token_ids": token_ids, "text": tokenizer.decode(token_ids, skip_special_tokens=False)}, first_logits
 
 
+def generate_sync_common(model, tokenizer, source, target, common_specs, layer, strength,
+                         positions, record, residual_capture, max_new_tokens):
+    """Synchronized-donor variant of common_replace: teacher-force the donor on the
+    source-selected tokens (separate caches, equal token-ID histories asserted, no
+    ground-truth answer fed); at each decode step project the donor's CURRENT h_layer
+    with the FIXED donor columns (P_d basis) and use it as the decode donor state.
+    Changes ONLY donor-state evolution: same selector, site, equation, projectors.
+    Step 0 uses the donor's final prefill state == the frozen arm's state, so the
+    prefill logits/first token must match the frozen arm bitwise (checked post hoc
+    via saved first_logits_sha256). -- PI[claude]"""
+    def forward(ids, mask_length, cache, hooks):
+        raw_final = []
+        handle = model.model.norm.register_forward_pre_hook(
+            lambda _module, inputs: raw_final.append(inputs[0].detach()))
+        try:
+            with layer_hooks(model.model.layers, hooks), torch.no_grad():
+                output = model(
+                    input_ids=ids, attention_mask=ids.new_ones((1, mask_length)),
+                    past_key_values=cache, use_cache=True, output_hidden_states=True,
+                    logits_to_keep=1,
+                )
+        finally:
+            handle.remove()
+        states = torch.stack([h[0] for h in output.hidden_states[:-1]] + [raw_final[0][0]])
+        return output.logits[0, -1].float(), output.past_key_values, states
+
+    spec = common_specs[layer]
+    U_s8, U_d8 = spec["decode_src"][0], spec["donor_U"]
+    source_ids, donor_ids = source["input_ids"], target["input_ids"]
+    source_length, donor_length = source_ids.shape[1], donor_ids.shape[1]
+    source_cache = donor_cache = None
+    token_ids, source_history, donor_history = [], [], []
+    first_logits = None
+    for step in range(max_new_tokens):
+        _, donor_cache, donor_states = forward(donor_ids, donor_length + step, donor_cache, {})
+        d_t = donor_states[layer, -1].float()
+        dproj_t = (U_d8 @ (U_d8.T @ d_t))[None]  # fixed P_d applied to CURRENT donor state
+        hooks = intervention_hooks(
+            U_s8, U_d8, target["residuals"], operation="common_replace",
+            common_specs={layer: {**spec, "decode_proj": dproj_t}},
+            blocks_to_hook=[layer - 1], positions=positions,
+            source_position=source["content_end"] - 1,
+            match_component_norm=False, restore_norm=False, record=record,
+            strength=strength,
+        )
+        logits, source_cache, states = forward(source_ids, source_length + step, source_cache, hooks)
+        if step == 0:
+            first_logits = logits
+            residual_capture.append(states)
+        last_states = states
+        token = int(logits.argmax())
+        token_ids.append(token)
+        if token in (tokenizer.eos_token_id, tokenizer.pad_token_id):
+            break
+        source_ids = source_ids.new_tensor([[token]])
+        donor_ids = donor_ids.new_tensor([[token]])
+        source_history.append(token)
+        donor_history.append(token)
+        assert source_history == donor_history
+    residual_capture.append(last_states)
+    record[layer]["synchronized_history"] = {
+        "source_tokens": source_history, "donor_tokens": donor_history,
+        "donor_conditioning": "donor own prompt followed by exactly the source-selected tokens; per-decode donor h_L projected with fixed P_d",
+    }
+    return {"token_ids": token_ids, "text": tokenizer.decode(token_ids, skip_special_tokens=False)}, first_logits
+
+
 def render_input(tokenizer, content, prompt_mode, instruction, device="cuda"):
     if prompt_mode == "raw":
         input_ids = tokenizer(content, add_special_tokens=False, return_tensors="pt").input_ids.to(device)
@@ -1738,6 +1838,8 @@ def run_with_bundle(
         "common-basis-l25": common_basis_l25_configs,
         "common-basis-location": common_basis_location_configs,
         "common-basis-location-late": common_basis_location_late_configs,
+        "common-basis-sync": common_basis_sync_configs,
+        "smoke-common-basis-sync": smoke_common_basis_sync_configs,
         "smoke-common-basis-loc": smoke_common_basis_location_configs,
         "smoke-common-basis": smoke_common_basis_configs,
         "smoke-common-basis-l25": smoke_common_basis_l25_configs,
@@ -2348,6 +2450,7 @@ def run_with_bundle(
                 "src": torch.stack([src_by_offset(o) for o in pos_order]),
                 "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
                 "decode_src": decode_src, "decode_proj": decode_proj,
+                "donor_U": don_by_offset(1),  # applied donor columns (fixed P_d basis)
             }}
             source_basis = target_basis = src_by_offset(1)  # unused by the op; shapes only
             persistence = {
@@ -2411,6 +2514,11 @@ def run_with_bundle(
                 model, tokenizer, source, target, synchronized_bases if cfg.template_contrast else shared, intervention_layers[0], cfg.strength,
                 positions, intervention_record, captured, max_new_tokens, cfg.random_delta_seed,
             )
+        elif cfg.sync_donor:
+            assert cfg.common_basis != "none" and len(intervention_layers) == 1
+            generation, generation_logits = generate_sync_common(
+                model, tokenizer, source, target, common_specs, intervention_layers[0],
+                cfg.strength, positions, intervention_record, captured, max_new_tokens)
         else:
             generation, generation_logits = generate_with_first_logits(
                 model, tokenizer, source["input_ids"], blocks, hooks, captured, max_new_tokens,
@@ -2743,6 +2851,8 @@ if __name__ == "__main__":
             "common-basis-l25",
             "common-basis-location",
             "common-basis-location-late",
+            "common-basis-sync",
+            "smoke-common-basis-sync",
             "smoke-common-basis-loc",
             "smoke-common-basis",
             "smoke-common-basis-l25",
