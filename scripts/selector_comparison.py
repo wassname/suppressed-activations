@@ -8,24 +8,40 @@ sum candidate (whole-last-3), per the recovery report's unit tests. CPU only. --
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import torch
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from suppressed_activation_subspace import suppressed_activation_scores
 
 ROOT = Path(__file__).resolve().parents[1]
 BANK = ROOT / "out/2026-09-12_exact-input-bank-att3"
-OUT = ROOT / "out/2026-09-12_selector-comparison"
+OUT = ROOT / "out/2026-09-12_selector-comparison-v2"
 B_BUILD = range(13, 24)          # the hypothesis window (b13..b23)
 LAST3_WRITES = (29, 30, 31)      # exactly the last-3 block writes
 
 
 def readout(res: torch.Tensor, unembed: torch.Tensor, gain: torch.Tensor) -> torch.Tensor:
-    """ϕ[b, pos, vocab]: RMS+gain readout, row-normalized (existing convention)."""
+    """ϕ[b, pos, vocab]: RMS+gain readout, row-normalized. Gain applied ONCE (h-side) with
+    the row normalization dividing by ||unembed*gain|| - EXACTLY the
+    suppressed_activation_scores convention (the previous version applied gain twice)."""
     h = res.float()
     hn = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6) * gain
-    row = (unembed * gain)
-    row = row / row.norm(dim=-1, keepdim=True)
-    return hn @ row.T  # (33, seq, V)
+    row_norm = (unembed * gain).norm(dim=-1)
+    return hn @ unembed.T / row_norm  # (33, seq, V)
+
+
+def regression_check(phi: torch.Tensor, res: torch.Tensor, unembed: torch.Tensor,
+                     gain: torch.Tensor) -> None:
+    """Executed regression: my snapshot scores == canonical suppressed_activation_scores
+    (normalize_unembedding_rows=True) on the same saved tensors."""
+    canonical = suppressed_activation_scores(
+        res.permute(1, 0, 2), unembed, gain, early_layer=23, peak_layer=25,
+        output_layer=32, normalize_unembedding_rows=True)  # (seq, V)
+    mine = selectors(phi)[0]  # snapshot scores (seq, V)
+    torch.testing.assert_close(mine, canonical, rtol=1e-4, atol=1e-4,
+                               msg="snapshot scores diverge from canonical scores")
 
 
 def selectors(phi: torch.Tensor):
@@ -61,6 +77,7 @@ def main() -> None:
         res = torch.load(BANK / f"{name}_residuals.pt", weights_only=False).float()
         seq = res.shape[1]
         phi = readout(res, unembed, gain)
+        regression_check(phi, res, unembed, gain)
         snap, cand, cand_post = selectors(phi)
         a = seq - 4  # window = last-4 (as before)
         r = {}
