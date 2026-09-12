@@ -38,3 +38,31 @@ in the resumed session; the send attempt failed with "Tool intercom not found").
   spinneret No persists; k2-ant flips; donor identity 0/48).
 - Main .py/.ipynb changes ON DISK (commit blocked by the shared index.lock — owner
   handling it).
+
+## Early-location implementation complete (report 2 — intercom still unavailable)
+
+DELIVERED (commit e53ede5):
+1. PROTOCOL (slop/earlyloc_protocol.md, saved before implementation): the DECLARED
+   condition list — 12 conditions × 12 = 144 cells: imported-v25 at h1/h2/h3/h8 (the SITE
+   axis, one-at-a-time); site-rescaled size controls at h1/h2/h3 (the early vector
+   rescaled to ‖v25‖ — distinguishes importing a late component from mere upscaling);
+   v8-replay@h8 (baseline verification); C0 at each tested site. Selection from LATE
+   trajectory windows (increment), NOT fitted at the intervention site; anchor h25 frozen
+   at decode offset-1; last3+every decode; exact original 12 questions/wrappers.
+2. THE RANK ALGEBRA (Part 2, for check): complete-edit rank at one fixed early site (h8):
+   P_joint(k) = support-span([Us8 | Ud_k]) (rank ≈ 8+k), injection v_k = Ud_k Ud_kᵀ d25,
+   h' = h + C(v_k − P_joint(k) h) — "rank" = the DONOR rank in BOTH removal+injection
+   (narrowing both); the source component unchanged; CONTAINMENT holds for every k.
+   k=full = 1194's imported replay. Confounds explicit.
+3. CODE: common_basis_earlyloc_configs (12 rows) + the tiny twin; REAL tiny dispatch smoke
+   (slop/smoke_earlyloc.sh; all contracts per entry): C0 identities at both tested sites;
+   imported ≠ replay vectors (the anchor engaged); the rescale arm: norm == imported's,
+   direction == the site's (cos asserted in-run). A DESIGN BUG (the rescaled arm inherited
+   anchor 25 = no discrimination) was caught by the 144-entry contract validation
+   pre-queue and fixed.
+4. SPEC: slop/common_basis_earlyloc_batch.json (144 entries) — validate_specs PASS.
+5. h8 BASELINE VERIFICATION planned at analysis: hashes/texts vs 1194 v8-replay + 1208
+   imported before interpreting differences.
+
+NO GPU until the queue review of protocol/spec/smoke. The rank design NOT bundled (Part 2
+awaits the algebra check).
