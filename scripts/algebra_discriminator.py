@@ -64,9 +64,10 @@ def main() -> None:
         Pu = Pu_cols[:, :pu_keep]  # SLICED once; the only joint projector used below
         torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep), rtol=1e-4, atol=1e-4)
 
-        idem_rows = []
+        idem_rows, entry_contract = [], None
         entry = {"support_union": pu_keep, "support_source": sup_s, "support_donor": sup_d,
-                 "fixed_v_idempotence_C1": {"rows": idem_rows}, "positions": []}
+                 "fixed_v_idempotence_C1": {"rows": idem_rows},
+                 "fixed_v_contraction_C1p5": entry_contract, "positions": []}
         for o in (1, 2, 3):  # end-aligned offsets (the 3 patched positions)
             pos_s, pos_d = seq_s - o, seq_d - o
             v_ls, outs, rec = {}, {}, []
@@ -130,6 +131,19 @@ def main() -> None:
                                 "source_span": float((Us8.T @ h).norm()),
                                 "outside": float((h - Ps @ h).norm())})
                 return log
+            # EXACT fixed-v contraction check: h* = (I - Pu)h0 + v with the SAME v each
+            # step; ||h_{k+1} - h*|| = |1-C| ||h_k - h*|| exactly (h*-h0 in the joint span).
+            h_star = (h0 - Pu @ (Pu.T @ h0)) + v_frozen
+            h_fx = h0.clone(); contract = []
+            for k in range(1, 7):
+                h_fx = h_fx + C * (v_frozen - Pu @ (Pu.T @ h_fx))
+                dist = float((h_fx - h_star).norm())
+                contract.append({"k": k, "dist_to_h_star": dist})
+                assert abs(dist - (0.5 ** k) * float((h0 - h_star).norm())) < 1e-4 * float(h0.norm()), \
+                    f"fixed-v contraction violated at k={k}: {dist}"
+            entry_contract = contract
+            # (the earlier per-layer-v 'fixed_point_dist' sequence is NOT a fixed-point
+            #  proof: the reference moves with v_k; kept only as descriptive)
             entry["positions"].append({
                 "offset": o, "injection": rec, "outside_cross_layer_cos": agree,
                 "toy_frozen_1to6": sim(seq_frozen), "toy_actual_layers": sim(seq_actual),

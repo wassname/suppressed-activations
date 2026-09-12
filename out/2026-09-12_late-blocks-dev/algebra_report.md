@@ -17,10 +17,11 @@ coefficient is 1 − C = −0.5. Not idempotent replacement.
 ## Measured (actual bases/states, means over 12 cells × 3 positions)
 
 1. **Outside fraction of the injection** ‖(I−Ps)Pd d_l‖/‖Pd d_l‖: **NORM fraction
-   0.78–0.80 at every layer** (ENERGY fraction 0.69–0.71 — the complement: 60% inside-norm
-   / 36% inside-energy. Norm and energy units are kept separate). Per-row distributions are
-   wide (h25: min 0.26, median 0.96, max 1.00) — the mean is not representative of every
-   row; full per-row data in `algebra.json`.
+   0.78–0.80 at every layer**; squared (square of the mean-norm) = 0.61–0.64 energy
+   equivalent. The per-row MEAN SQUARE is a different aggregate: 0.69–0.71 (mean square ≠
+   square mean; rows are heterogeneous — h25 per-row norm fraction min 0.26 / median 0.96 /
+   max 1.00). Inside-norm ≈ 60% / inside-energy ≈ 36–39% depending on aggregate; both
+   labeled. Full per-row data in `algebra.json`.
 2. **Signed cross-layer agreement of those outside components**: mean cosine **+0.946**
    (all 15 layer pairs positive) — the accumulated vector points in nearly the SAME
    direction at every layer. No alignment was assumed; it is measured.
