@@ -4,7 +4,7 @@
 load, 587 s; protocol saved before execution (`slop/interval_protocol.md`). Interval condition:
 common_replace at EVERY residual boundary h25..h30 (six sites per call, blocks 24..29),
 fixed shared top8 projectors (bank selector 23/25/32), per-layer donor residuals, frozen
-decode policy, C1.5. Raw: `out/2026-09-12_cb-interval/{arm}-{cell}/result.json`.
+decode policy, C1.5. Raw: `out/2026-09-12_cb-interval/{condition}-{cell}/result.json`.
 
 ## Aggregate (swap means over 12; splits 4 cells)
 
@@ -20,7 +20,7 @@ Endpoint replays reproduce 1130 (L25 +2.22, L30 +1.63) — regression check pass
 
 ## Semantic adjudication (full continuations read; quotes in raw files)
 
-The interval arm is DEGENERATE: all 12 continuations are single-token repetition loops
+The interval condition is DEGENERATE: all 12 continuations are single-token repetition loops
 (r2 ≈ 0.99, every cell capped at 128), several with donor-flavored loop tokens:
 name-N1-dog `chien chien chien…` (swap +19.3), name-N2-dog `狗粮狗粮…` (dog food; +23.1),
 legs-L1-dog `ogs ogs ogs…` (+5.9), name-N1-ant `regal regal…`, legs-L1-ant
