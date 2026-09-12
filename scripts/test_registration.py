@@ -17,6 +17,56 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import scripts.oat_sweep as oat
 
 
+EXPECTED = {  # independent expected values (hand-written, not read from the families)
+    "snapshot-h8": {"expected_strength": 1.5, "expected_condition": "snapshot_h8_C1.5",
+                    "expected_selector": "snapshot", "expected_site": 8,
+                    "expected_detector_layers": [23, 25, 32]},
+    "increment-h8": {"expected_strength": 1.5, "expected_condition": "increment_h8_C1.5",
+                     "expected_selector": "increment", "expected_site": 8,
+                     "expected_detector_layers": [23, 25, 32]},
+    "snapshot-h20": {"expected_strength": 1.5, "expected_condition": "snapshot_h20_C1.5",
+                     "expected_selector": "snapshot", "expected_site": 20,
+                     "expected_detector_layers": [23, 25, 32]},
+    "increment-h20": {"expected_strength": 1.5, "expected_condition": "increment_h20_C1.5",
+                      "expected_selector": "increment", "expected_site": 20,
+                      "expected_detector_layers": [23, 25, 32]},
+    "random-h8": {"expected_strength": 1.5, "expected_condition": "random_h8_C1.5",
+                  "expected_selector": "snapshot", "expected_site": 8,
+                  "expected_detector_layers": [23, 25, 32]},
+    "random-h20": {"expected_strength": 1.5, "expected_condition": "random_h20_C1.5",
+                   "expected_selector": "snapshot", "expected_site": 20,
+                   "expected_detector_layers": [23, 25, 32]},
+    "C0": {"expected_strength": 0.0, "expected_condition": "C0",
+           "expected_selector": "snapshot", "expected_site": 8,
+           "expected_detector_layers": [23, 25, 32]},
+}
+
+
+# config-field mapping for the independent expectations (selector/site are not Config
+# fields: selector routes the score fn; site = intervention_layer)
+CONFIG_FIELD = {"expected_selector": "common_selector", "expected_site": "intervention_layer"}
+
+
+def enrich_specs(specs: list[dict]) -> list[dict]:
+    """Attach the independent expected values by output-dir condition prefix, renamed to
+    the actual config fields they assert."""
+    out = []
+    for spec in specs:
+        dirname = Path(spec["output_dir"]).name
+        for prefix, exp in EXPECTED.items():
+            if dirname.startswith(prefix + "-") or dirname == prefix:
+                merged = {**spec}
+                for k, v in exp.items():
+                    merged[CONFIG_FIELD.get(k, k)] = v
+                merged.pop("expected_selector", None)
+                merged.pop("expected_site", None)
+                out.append(merged)
+                break
+        else:
+            out.append(spec)
+    return out
+
+
 def main(spec_paths: list[Path]) -> None:
     registry = oat.SWEEP_CONFIGS
     text = (Path(__file__).resolve().parents[1] / "scripts/oat_sweep.py").read_text()
@@ -31,9 +81,23 @@ def main(spec_paths: list[Path]) -> None:
                 assert cfg is not None
         except Exception as e:  # noqa: BLE001
             failures.append(f"choice {choice!r}: {type(e).__name__}: {e}")
+    bank_hashes = {}
+    bank_manifest = Path(__file__).resolve().parents[1] / "out/2026-09-12_exact-input-bank-att3/manifest.json"
+    if bank_manifest.exists():
+        for name, e in json.load(open(bank_manifest))["entries"].items():
+            bank_hashes[(e["cell_id"], e["side"])] = e["rendered_input_sha256"]
     for spec_path in spec_paths:
         try:
             entries = json.loads(spec_path.read_text())
+            if "selsite" in spec_path.name:
+                entries = enrich_specs(entries)  # independent expected values attached
+                # bank linkage: every spec cell id must exist in the exact-input bank
+                # (rendered-ID equality was verified 24/24 at capture and re-asserted by
+                # the runner's preflight before capture; here the spec<->bank linkage)
+                cell_ids = {bc for bc, _ in bank_hashes}
+                uncovered = [e["output_dir"] for e in entries
+                             if not any(bc in e["output_dir"] for bc in cell_ids)]
+                assert not uncovered, f"specs without bank coverage: {uncovered[:3]}"
             oat.validate_specs(entries, registry)
         except Exception as e:  # noqa: BLE001
             failures.append(f"spec {spec_path.name}: {type(e).__name__}: {e}")
