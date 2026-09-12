@@ -44,7 +44,12 @@ reproduces 1130's L25-top8 swap (+2.22) — regression check passed.
 
 **Self-correction incidence: unchanged.** The one reverting naming cell (name-N2-dog)
 reverts in BOTH arms; no cell where sync preserves an induced identity that frozen loses.
-One donor-direction property answer (spinneret-ant No) is LOST under sync.
+One donor-direction property answer (spinneret-ant No) is LOST under sync. Scope notes
+(supervisor): this does NOT exclude a stale donor as a contributor — a fixed P_d can misread
+current states and multiple causes can co-occur; and the smaller per-decode ‖P_d d‖ (~1.3)
+is the MEASURED PROJECTED NORM only — it is not proof of a smaller total edit
+‖P_d d − P_s h‖ nor of less semantic donor representation. ρ/ρ_P are residual-based
+diagnostics, not computed from logits.
 
 ## Verdict (per the registered prediction)
 
