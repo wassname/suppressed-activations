@@ -41,6 +41,10 @@ def main() -> None:
         res_d = torch.load(BANK / f"{cid}-donor_residuals.pt", weights_only=False).float()
         seq_s, seq_d = res_s.shape[1], res_d.shape[1]
         a_s, a_d = seq_s - 4, seq_d - 4
+        def support_rank(s_vals):
+            # numerical support: s > max(shape) * eps * s1 (shared tolerance helper)
+            return int((s_vals > max(s_vals.shape[0], 1) * torch.finfo(torch.float32).eps * s_vals[0]).sum())
+
         def own_bases(res, a):
             rows1 = res.permute(1, 0, 2)
             sc = suppressed_activation_scores(rows1, unembed, gain, early_layer=23,
@@ -56,21 +60,29 @@ def main() -> None:
         Ud8, sup_d = own_bases(res_d, a_d)
         Ps = Us8 @ Us8.T
         Pu_cols, pu_s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
-        pu_keep = int((pu_s > 16 * torch.finfo(torch.float32).eps * pu_s[0]).sum())
+        pu_keep = support_rank(pu_s)  # shared tolerance: max(shape) * eps * s1
+        Pu = Pu_cols[:, :pu_keep]  # SLICED once; the only joint projector used below
+        torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep), rtol=1e-4, atol=1e-4)
 
+        idem_rows = []
         entry = {"support_union": pu_keep, "support_source": sup_s, "support_donor": sup_d,
-                 "positions": []}
+                 "fixed_v_idempotence_C1": {"rows": idem_rows}, "positions": []}
         for o in (1, 2, 3):  # end-aligned offsets (the 3 patched positions)
             pos_s, pos_d = seq_s - o, seq_d - o
             v_ls, outs, rec = {}, {}, []
             for L in LAYERS:
                 d_l = res_d[L, pos_d]               # donor residual at the ACTUAL layer
                 v_l = Ud8 @ (Ud8.T @ d_l)           # Pd d_l (injection vector)
+                # v containment in the JOINT span: (I - P_union) v must vanish
+                containment = float((v_l - Pu @ (Pu.T @ v_l)).norm() / v_l.norm())
+                assert containment < 1e-5, f"v not in joint span: residual {containment}"
                 out_v = v_l - Ps @ v_l              # (I - Ps) v_l
                 r_l = float(out_v.norm() / v_l.norm())
                 v_ls[L], outs[L] = v_l, out_v
-                rec.append({"layer": L, "outside_frac": r_l,
-                            "v_norm": float(v_l.norm()), "outside_norm": float(out_v.norm())})
+                rec.append({"layer": L, "outside_norm_frac": r_l,
+                            "outside_energy_frac": r_l ** 2,
+                            "v_norm": float(v_l.norm()), "outside_norm": float(out_v.norm()),
+                            "joint_containment_residual": containment})
             # signed cross-layer agreement of outside components
             agree = {}
             for i, L1 in enumerate(LAYERS):
@@ -95,11 +107,20 @@ def main() -> None:
             def sim_union(step_vs, c):
                 h = h0.clone(); log = []
                 for k, v in enumerate(step_vs, 1):
-                    h = h + c * (v - Pu_cols @ (Pu_cols.T @ h))
+                    h = h + c * (v - Pu @ (Pu.T @ h))
                     log.append({"k": k, "full": float(h.norm()),
                                 "source_span": float((Us8.T @ h).norm()),
-                                "outside": float((h - Pu_cols @ (Pu_cols.T @ h)).norm())})
+                                "outside": float((h - Pu @ (Pu.T @ h)).norm()),
+                                "fixed_point_dist": float((Pu.T @ h - Pu.T @ v).norm())})
                 return log
+            # EXPLICIT fixed-v idempotence assertion at C=1: T(T(h)) == T(h)
+            hA = h0.clone()
+            v_fix = v_ls[25]
+            T1 = hA + 1.0 * (v_fix - Pu @ (Pu.T @ hA))
+            T2 = T1 + 1.0 * (v_fix - Pu @ (Pu.T @ T1))
+            idem_res = float((T2 - T1).norm())
+            assert idem_res < 1e-6 * h0.norm(), f"C=1 fixed-v idempotence fails: {idem_res}"
+            idem_rows.append({"T2_minus_T1": idem_res, "relative": idem_res / float(h0.norm())})
             def sim_restricted(step_vs, c):
                 h = h0.clone(); log = []
                 for k, v in enumerate(step_vs, 1):

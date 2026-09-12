@@ -16,12 +16,14 @@ coefficient is 1 − C = −0.5. Not idempotent replacement.
 
 ## Measured (actual bases/states, means over 12 cells × 3 positions)
 
-1. **Outside fraction of the injection** ‖(I−Ps)Pd d_l‖/‖Pd d_l‖: **0.78–0.80 at every
-   layer** h25..h30 (v norms 4.6→6.1). ~80% of each injection lands OUTSIDE the removal
-   span.
-2. **Signed cross-layer agreement of those outside components**: cosines **+0.90 to
-   +0.98** (all 15 pairs) — the accumulated vector points in nearly the SAME direction at
-   every layer. No alignment was assumed; it is measured.
+1. **Outside fraction of the injection** ‖(I−Ps)Pd d_l‖/‖Pd d_l‖: **NORM fraction
+   0.78–0.80 at every layer** (ENERGY fraction 0.69–0.71 — the complement: 60% inside-norm
+   / 36% inside-energy. Norm and energy units are kept separate). Per-row distributions are
+   wide (h25: min 0.26, median 0.96, max 1.00) — the mean is not representative of every
+   row; full per-row data in `algebra.json`.
+2. **Signed cross-layer agreement of those outside components**: mean cosine **+0.946**
+   (all 15 layer pairs positive) — the accumulated vector points in nearly the SAME
+   direction at every layer. No alignment was assumed; it is measured.
 3. **Toy simulations** (start = actual clean source h25; per-position means):
 
 | operator (6 steps) | outside: k1→k6 | source-span: k1→k6 | behavior |
@@ -29,7 +31,7 @@ coefficient is 1 − C = −0.5. Not idempotent replacement.
 | current, frozen v | 27.9 → 42.9 | 2.90 → 2.29 (→ \|1−C\| fixed point) | linear outside accumulation |
 | current, actual per-layer v_l | 27.9 → 45.3 | 2.90 → 3.15 | ≈ frozen (cross-layer cos ≈ 0.95) |
 | **shared P_union removal, C=1.5** | **27.04 constant** | 2.90 → 3.15 oscillating-converging (\|1−C\|<1) | stable fixed point |
-| **shared P_union removal, C=1** | 27.04 constant | k2 ≈ k1 (2.28 → 2.25) | **exact idempotence** |
+| **shared P_union removal, C=1** | 27.04 constant | k2 ≈ k1 (2.28 → 2.25) | **fixed-v idempotence ASSERTED numerically**: max \|T(T(h))−T(h)\| = 7.5e-6 over 36 (cell, position) pairs, saved in algebra.json; C=1.5 fixed-point distances shrink 2.17 → 1.13 → 0.68 → 0.63 (convergent, ratio ≈ −0.5) |
 | restricted injection Ps·Pd d, C=1.5 | 27.12 constant | 2.90 → 3.15 | no accumulation, drops the outside 80% of v |
 
 The toy matches the algebra exactly. Union support is 16 = 8+8 at every cell: the source
@@ -47,8 +49,9 @@ unmatched cumulative dose).
 
 The recovered frozen candidate h + C(δ − P_ref h) already has δ ∈ span(P_ref) (its
 template-attenuation delta is projected onto the shared basis before injection, sweep-side:
-`projected = {layer: component(delta, shared)}`). So the reference NEVER had the
-accumulation failure mode — its injection lives in its removal span. Earlier joint-span
+`projected = {layer: component(delta, shared)}`). So the reference NEVER had this
+accumulation mode — its injection lives in its removal span. ("Reference works BECAUSE
+of this" remains a HYPOTHESIS — many fixed-point-stable operators can fail behaviorally.) Earlier joint-span
 constructions also exist: `persistent_shared_basis` (joins source+donor spans, used by the
 shared_replacement families, task 1007 era) and the synchronized-donor variants. The
 candidate below re-derives the candidate's structure on the per-token union bases; the
