@@ -57,3 +57,23 @@ next test; no repetitions interpretation yet.
 1. The rank-ladder RERUN with the fixed full flag (bb240c7): the kfull arm now the full
    supported bases.
 2. The C dose sweep at fixed h1/imported (the audit's H2 probe): C in {0.3, 0.7, 1.0, 1.5}.
+
+## Correction (2026-09-13, worker f15929b4)
+
+The "cached/uncached placement — all PASS" claim above rested on a VACUOUS test:
+section 3 of scripts/runtime_controls.py ran generate_with_first_logits with EMPTY
+hooks and max_new_tokens=1 (no cached decode) and asserted only the first token;
+res1/logits1 were computed and never used. Rebuilt and executed for real
+(slop/reviews/2026-09-13_runtime-controls-audit.md, spec
+slop/2026-09-13_runtime-controls-spec.md): teacher-forced fixed-history comparison
+over prefill + >=3 cached decode steps with a real nonzero production-hook edit
+(uncached reference edits prompt-last3 AND all generated positions at the same
+layer), in-run null-calibrated tolerances, wrong-mask/no-hook discrimination probes.
+PASS on tiny CPU (bf16+fp32) and Qwen3.5-4B GPU (single layer L26, rank 256, C=8;
+fp32 exact, bf16 within null noise, one exact-tie argmax flip explained). The
+conclusion "runtime mechanics are not the repetition's cause" is now supported for
+the tested single-layer mechanics only; multi-layer interval hooks remain untested.
+The positive pinned reference was also re-executed via the exact existing
+confirm_causal_demo.py path: generations byte-identical, clean/C0 exact, C4
+probabilities reproduce to ~0.03 (top tokens and 256-random-control percentiles
+agree). -- PI[glm-5p3-flash]

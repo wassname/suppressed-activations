@@ -44,7 +44,11 @@ DTYPE = {"bfloat16": torch.bfloat16, "float32": torch.float32}[
 L = int(os.environ.get("SUPPRESSED_CONTROL_LAYER", "2"))  # residual layer; hook block L-1
 N_GEN = int(os.environ.get("SUPPRESSED_CONTROL_NGEN", "6"))
 POS = 3
-STRENGTH = 1.5
+# control-intervention size: NOT a scientific condition — on the 4B model a small
+# random 4-dim edit moves logits by only ~2x the bf16 cache-vs-recompute null, which
+# would make the equivalence test near-vacuous; larger rank/strength make it decisive.
+RANK = int(os.environ.get("SUPPRESSED_CONTROL_RANK", "4"))
+STRENGTH = float(os.environ.get("SUPPRESSED_CONTROL_STRENGTH", "1.5"))
 sys_path = str(Path(__file__).resolve().parents[1])
 sys_path in __import__("sys").path or __import__("sys").path.insert(0, sys_path)
 from scripts.demo import intervention_hooks, layer_hooks, trajectory
@@ -93,12 +97,7 @@ def forward_final(model, ids_full, hooks):
     return out.logits[0].float(), fin[0][0].float()
 
 
-def main():
-    result = {"model": MODEL, "revision": REV, "device": DEV, "control_layer": L,
-              "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
-              cwd=ROOT, check=True, text=True, capture_output=True).stdout.strip(),
-              "code_sha256": code_hashes(), "strength": STRENGTH, "positions": POS,
-              "max_new_tokens": N_GEN}
+def run_controls(result):
     tok = AutoTokenizer.from_pretrained(MODEL, revision=REV)
     model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REV, dtype=DTYPE,
                                                  attn_implementation="sdpa").to(DEV).eval()
@@ -118,7 +117,7 @@ def main():
     # projections are end-aligned donor-prompt states (production semantics), so the
     # edit is a REAL nonzero replacement, not an identity.
     g = torch.Generator().manual_seed(0)
-    U = torch.linalg.qr(torch.randn(res_clean.shape[-1], 4, generator=g))[0].to(DEV)
+    U = torch.linalg.qr(torch.randn(res_clean.shape[-1], RANK, generator=g).to(DEV))[0]
     pos_order = list(reversed(range(1, POS + 1)))  # position-ascending, matching the hook slice
     donor_states = {o: res_donor[L, donor_chat["content_end"] - o].float() for o in pos_order}
     spec = {L: {
@@ -249,10 +248,24 @@ def main():
         assert d <= tol_rel, f"cached/uncached logits diverge at step {j}: rel {d:.3e} > tol {tol_rel:.3e}"
     for j, d in enumerate(hidden_delta):
         assert d <= tol_hidden, f"cached/uncached final hidden diverge at decode {j}: rel {d:.3e} > tol {tol_hidden:.3e}"
-    # no sampling drift: every greedy step picks the same token under both paths
+    # top-2 separation per step: a greedy argmax flip with a gap below the measured
+    # cached-vs-uncached delta is numerics, not a placement bug
+    gap = lambda row: float(row.topk(2).values[0] - row.topk(2).values[1])
+    result["cached_top2_gap"] = [gap(r) for r in rows]
+    result["ref_top2_gap"] = [gap(r) for r in rows_ref]
+    result["step_abs_delta"] = [float((rows[j] - rows_ref[j]).abs().max()) for j in range(n)]
     argmax_match = [int(rows[j].argmax()) == int(rows_ref[j].argmax()) for j in range(n)]
-    assert all(argmax_match), f"greedy argmax differs cached vs uncached: {argmax_match}"
     result["step_argmax_match"] = argmax_match
+    # no sampling drift: every greedy step picks the same token, EXCEPT exact bf16
+    # ties (top-2 gap within the measured step delta), where argmax is arbitrary
+    tie_flip = [j for j in range(n) if not argmax_match[j]
+                and result["cached_top2_gap"][j] <= result["step_abs_delta"][j]]
+    result["argmax_tie_flips"] = tie_flip
+    assert all(argmax_match[j] or j in tie_flip for j in range(n)), \
+        f"greedy argmax differs cached vs uncached beyond tie numerics: " \
+        f"mismatches {[j for j in range(n) if not argmax_match[j]]}, " \
+        f"top2 gaps {[round(v, 4) for v in result['cached_top2_gap']]}, " \
+        f"step deltas {[round(v, 4) for v in result['step_abs_delta']]}"
     first_shift = (rows[0] - logits_clean).abs().max().item()
     clean_abs0 = float((rows_cl[0] - rows_cl_ref[0]).abs().max())
     # same quantity as the null: max abs logit delta at step 0, intervention shift must
@@ -264,7 +277,9 @@ def main():
     print(f"3. cached/uncached teacher-forced equivalence (n={n}, decode_steps={n - 1}): "
           f"per-step rel logit delta max {max(step_delta):.2e}, rel hidden delta max "
           f"{max(hidden_delta) if hidden_delta else 0.0:.2e}, tol_rel {tol_rel:.2e} OK; "
-          f"argmax match {sum(argmax_match)}/{n} OK; "
+          f"argmax match {sum(argmax_match)}/{n}"
+          + (f" (tie flips at steps {tie_flip} within numerics)" if tie_flip
+             else " (no flips)") + "; "
           f"first-token shift vs clean {first_shift:.2e} (nonzero) OK")
 
     # discrimination probes: these bugs MUST mismatch the cached intervened run
@@ -289,6 +304,25 @@ def main():
 
     out_dir = ROOT / "out" / f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}"
     out_dir.mkdir(parents=True, exist_ok=True)
+    result["outcome"] = "PASS"
+
+
+def main():
+    result = {"model": MODEL, "revision": REV, "device": DEV, "control_layer": L,
+              "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
+              cwd=ROOT, check=True, text=True, capture_output=True).stdout.strip(),
+              "code_sha256": code_hashes(), "strength": STRENGTH, "positions": POS,
+              "control_rank": RANK, "max_new_tokens": N_GEN}
+    out_dir = ROOT / "out" / f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        run_controls(result)
+        result.setdefault("outcome", "PASS")
+    except AssertionError as e:
+        result["outcome"] = f"FAILED: {e}"
+        (out_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+        print(f"RUNTIME CONTROLS FAIL | result: {out_dir / 'result.json'}")
+        raise
     (out_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(f"RUNTIME CONTROLS PASS (production hooks) | result: {out_dir / 'result.json'}")
 
