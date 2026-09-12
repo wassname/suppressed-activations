@@ -108,7 +108,7 @@ class Config:
     common_inject_restricted: bool = False  # inject Ps(Pd d) instead of Pd d (accumulation control)
     sync_donor: bool = False  # common_replace with the donor teacher-forced on source-selected
     # tokens; per-decode donor state = CURRENT h_L projected with the FIXED P_d. Changes ONLY
-    # donor-state evolution, not selector/site/equation. -- supervisor 2026-09-12
+    # donor-state evolution, not selector/site/equation. -- PI[glm-5p3-flash]
 
 
 DEFAULT = Config()
@@ -2136,6 +2136,43 @@ SWEEP_CONFIGS = {
 }
 
 
+def validate_specs(specs: list[dict], registry: dict) -> None:
+    """Pre-model contract validation: resolve EVERY spec through the registry and check
+    index range, REQUIRED expected_strength/expected_condition, and any expected_<field>
+    against the resolved config -- before model load or cell 0. -- PI[glm-5p3-flash]"""
+    for position, spec in enumerate(specs):
+        choice = spec["sweep"]
+        assert choice in registry, f"spec[{position}]: sweep {choice!r} not registered"
+        rows = registry[choice]()
+        idx = spec.get("condition_index")
+        assert idx is not None and 0 <= idx < len(rows), \
+            f"spec[{position}]: condition_index {idx!r} out of range (0..{len(rows)-1})"
+        axis, value, cfg_res = rows[idx]
+        for required in ("expected_strength", "expected_condition"):
+            assert required in spec, \
+                f"spec[{position}]: missing {required} (silent contract mismatch guard)"
+        got_value = value if isinstance(value, str) else str(value)
+        assert got_value == spec["expected_condition"], \
+            f"spec[{position}]: condition {idx} is {got_value!r}, expected {spec['expected_condition']!r}"
+        for key, want in spec.items():
+            if not key.startswith("expected_") or key == "expected_condition":
+                continue
+            field = key[len("expected_"):]
+            assert hasattr(cfg_res, field), \
+                f"spec[{position}]: expected field {field!r} is not a config field"
+            got = getattr(cfg_res, field)
+            got = list(got) if isinstance(got, tuple) else got
+            want_cmp = list(want) if isinstance(want, (tuple, list)) else want
+            assert got == want_cmp, \
+                f"spec[{position}]: config.{field} = {got!r} != expected {want_cmp!r}"
+
+
+def strip_spec_metadata(spec: dict) -> dict:
+    """Runner-call kwargs: everything EXCEPT output_dir and expected_* metadata."""
+    return {k: v for k, v in spec.items()
+            if k != "output_dir" and not k.startswith("expected_")}
+
+
 def run_with_bundle(
     bundle: dict,
     output_dir: Path,
@@ -3177,32 +3214,12 @@ if __name__ == "__main__":
         parser.error("--output-dir is required unless --batch-spec is given")
     if args.batch_spec is not None:
         specs = json.loads(args.batch_spec.read_text())
-        # PRE-MODEL contract validation: resolve EVERY spec through the registry and check
-        # index range + declared expectations (condition identity, strength, selector, ...)
-        # BEFORE loading the model or running cell 0. -- supervisor 2026-09-12
-        for position, spec in enumerate(specs):
-            choice = spec["sweep"]
-            assert choice in SWEEP_CONFIGS, f"spec[{position}]: sweep {choice!r} not registered"
-            rows = SWEEP_CONFIGS[choice]()
-            idx = spec.get("condition_index")
-            assert idx is not None and idx < len(rows), \
-                f"spec[{position}]: condition_index {idx} out of range ({len(rows)})"
-            cfg_res = rows[idx][2]
-            for key, want in spec.items():
-                if not key.startswith("expected_"):
-                    continue
-                field = key[len("expected_"):]
-                got = getattr(cfg_res, field, None)
-                got = list(got) if isinstance(got, tuple) else got
-                want_cmp = list(want) if isinstance(want, (tuple, list)) else want
-                assert got == want_cmp, \
-                    f"spec[{position}]: config.{field} = {got!r} != expected {want_cmp!r}"
+        validate_specs(specs, SWEEP_CONFIGS)  # pre-model contract check -- PI[glm-5p3-flash]
         bundle = load_bundle()
         cache: dict = {"revision": bundle["revision"]}
         for position, spec in enumerate(specs):
             expected = spec.get("expected_detector_layers")
-            rest = {key: value for key, value in spec.items()
-                    if key not in ("output_dir", "expected_detector_layers")}
+            rest = strip_spec_metadata(spec)
             run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
                             batch_spec={"batch_file": str(args.batch_spec), "index": position, "spec": dict(spec)},
                             expected_detector_layers=expected,
