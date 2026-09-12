@@ -151,6 +151,7 @@ def main() -> None:
                 "toy_union_C1_actual": sim_union(seq_actual, 1.0),
                 "toy_restricted_C1p5_actual": sim_restricted(seq_actual, 1.5),
             })
+        entry["fixed_v_contraction_C1p5"] = entry_contract
         out["per_cell"][cid] = entry
     json.dump(out, open(OUT, "w"), indent=1)
     print(f"wrote {OUT}")
