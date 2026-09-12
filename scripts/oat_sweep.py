@@ -95,6 +95,8 @@ class Config:
     common_window: int = 4  # end-aligned window (in tokens) for the union bases
     common_random_rank: int = 8  # rank of random bases in random_shared/random_perpos
     common_seed: int = 0  # seed for random_shared/random_perpos bases
+    common_removal: str = "source"  # "source" (Ps) | "joint" (support-filtered span of [Us8|Ud8])
+    common_inject_restricted: bool = False  # inject Ps(Pd d) instead of Pd d (accumulation control)
     sync_donor: bool = False  # common_replace with the donor teacher-forced on source-selected
     # tokens; per-decode donor state = CURRENT h_L projected with the FIXED P_d. Changes ONLY
     # donor-state evolution, not selector/site/equation. -- supervisor 2026-09-12
@@ -412,6 +414,22 @@ def smoke_common_basis_interval_configs():
              replace(base, intervention_layer=(1, 2, 3, 4, 5), strength=0.0))]
 
 
+def smoke_common_basis_joint_configs():
+    """Tiny twin of the same-injection comparison: interval = every boundary h1..h5 on the
+    5-layer tiny model; original/joint/restricted/C0."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=2, common_basis="top8_union", strength=1.5,
+                   intervention_layer=(1, 2, 3, 4, 5))
+    return [("smoke_common_basis_joint", "original_C1.5", replace(base, common_removal="source")),
+            ("smoke_common_basis_joint", "joint_removal_C1.5", replace(base, common_removal="joint")),
+            ("smoke_common_basis_joint", "restricted_inject_C1.5", replace(base, common_removal="source",
+                                                                            common_inject_restricted=True)),
+            ("smoke_common_basis_joint", "joint_C0", replace(base, common_removal="joint", strength=0.0))]
+
+
 def smoke_common_basis_sync_configs():
     """Tiny twin of the sync comparison: 5-layer model, L3 (block 2), rank2/window2
     (top8 == full union), plus the frozen twin for the bitwise prefill check."""
@@ -448,6 +466,28 @@ def common_basis_interval_configs():
                                                                   common_basis="random_shared", common_random_rank=8)),
     ]
     return rows
+
+
+def common_basis_joint_configs():
+    """Authorized same-injection comparison (supervisor 2026-09-12): interval h25..h30
+    C1.5, frozen donor, selector 23/25/32, top8 temporal source/donor bases then JOINT
+    support. Conditions: original (Ps removal, replay), joint-span removal (P_union over
+    [Us8|Ud8] support; same v = Pd d; accumulation removed in toy), restricted injection
+    (Ps(Pd d), Ps removal; accumulation control that drops the outside-donor part),
+    joint C0. CONFOUNDS explicit: joint removes 16 dims not 8; restricted injects ~40%
+    of the injection energy. Tests removal-of-accumulation + behavioral consequence, NOT
+    isolated semantic cause. -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_positions=3, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=4, common_basis="top8_union", strength=1.5,
+                   intervention_layer=(25, 26, 27, 28, 29, 30))
+    return [("common_basis_joint", "original_C1.5", replace(base, common_removal="source")),
+            ("common_basis_joint", "joint_removal_C1.5", replace(base, common_removal="joint")),
+            ("common_basis_joint", "restricted_inject_C1.5", replace(base, common_removal="source",
+                                                                      common_inject_restricted=True)),
+            ("common_basis_joint", "joint_C0", replace(base, common_removal="joint", strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -1878,6 +1918,8 @@ def run_with_bundle(
         "common-basis-location-late": common_basis_location_late_configs,
         "common-basis-sync": common_basis_sync_configs,
         "common-basis-interval": common_basis_interval_configs,
+        "common-basis-joint": common_basis_joint_configs,
+        "smoke-common-basis-joint": smoke_common_basis_joint_configs,
         "smoke-common-basis-sync": smoke_common_basis_sync_configs,
         "smoke-common-basis-interval": smoke_common_basis_interval_configs,
         "smoke-common-basis-loc": smoke_common_basis_location_configs,
@@ -2482,19 +2524,49 @@ def run_with_bundle(
                 raise ValueError(cfg.common_basis)
             offsets = list(range(1, positions + 1))
             pos_order = list(reversed(offsets))  # position-ascending, matching the hook slice
-            decode_src = src_by_offset(1)[None]        # fixed last-position basis (shared)
             donor_U = don_by_offset(1)                 # applied donor columns (fixed P_d basis)
+            # removal span: source top8 (current operator) or the JOINT support of [Us8|Ud8]
+            # (numerical support, shared tolerance; v = Pd d must lie in the joint span)
+            Us8 = src_by_offset(1).float()
+            Ud8 = don_by_offset(1).float()
+            Ps_rm = Us8 @ Us8.T  # source-removal projector (rank 8)
+            Pu_cols, pu_s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
+            pu_keep = int((pu_s > max(Pu_cols.shape) * torch.finfo(torch.float32).eps * pu_s[0]).sum())
+            Pu = Pu_cols[:, :pu_keep]
+            torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep, device=Pu.device), rtol=1e-4, atol=1e-4)
+            Ps = Ps_rm  # alias for the restricted-injection branch below
+            if cfg.common_removal == "joint":
+                assert not cfg.common_inject_restricted, "restricted injection pairs with source removal"
+                rem_cols = Pu
+            elif cfg.common_removal == "source":
+                rem_cols = Us8
+            else:
+                raise ValueError(cfg.common_removal)
+            rem_by_offset = (lambda o: rem_cols) if cfg.common_removal == "joint" else src_by_offset
             # per-layer specs: the projectors are FIXED and shared across the interval; the
             # donor residual comes from EACH actual layer (end-aligned), per the design.
             common_specs, layer_norms = {}, {}
             for L in intervention_layers:
                 donor_states = {o: target["residuals"][L, t_end - o].float() for o in offsets}
-                donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
-                              for o in offsets}
+                if cfg.common_inject_restricted:
+                    # v := Ps(Pd d): the injection's outside-source part is dropped
+                    donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(don_by_offset(o), donor_states[o])
+                                  for o in offsets}
+                else:
+                    donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
+                                  for o in offsets}
+                if cfg.common_removal == "joint":
+                    for o in offsets:
+                        cont = float((donor_proj[o] - Pu @ (Pu.T @ donor_proj[o])).norm()
+                                     / donor_proj[o].norm())
+                        assert cont < 1e-5, f"injection v not in joint span: {cont}"
+                else:
+                    for o in offsets:
+                        assert don_by_offset(o).dtype == torch.float32
                 common_specs[L] = {
-                    "src": torch.stack([src_by_offset(o) for o in pos_order]),
+                    "src": torch.stack([rem_by_offset(o) for o in pos_order]),
                     "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
-                    "decode_src": decode_src, "decode_proj": donor_proj[1][None],
+                    "decode_src": rem_by_offset(1)[None], "decode_proj": donor_proj[1][None],
                     "donor_U": donor_U,
                 }
                 layer_norms[L] = {
@@ -2522,6 +2594,9 @@ def run_with_bundle(
                 "selected_ids": {"source": src_sel.tolist(), "target": tgt_sel.tolist()},
                 "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
                 "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
+                "removal_span": cfg.common_removal,
+                "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
+                "inject_restricted": cfg.common_inject_restricted,
             }
             # own/donor state and projection NORMS at L20 and L25 (norm fractions,
             # not energy fractions); L25 is where the bank table peaks. -- PI[claude]
@@ -2532,7 +2607,7 @@ def run_with_bundle(
                 persistence["state_norms_L20_L25"][str(diag_layer)] = {
                     "source_state": {o: float(source["residuals"][diag_layer, s_end - o].float().norm()) for o in offsets},
                     "source_span": {o: float((lambda S, h: (S @ (S.T @ h)).norm())(
-                        src_by_offset(o), source["residuals"][diag_layer, s_end - o].float())) for o in offsets},
+                        rem_by_offset(o), source["residuals"][diag_layer, s_end - o].float())) for o in offsets},
                     "donor_state": {o: float(target["residuals"][diag_layer, t_end - o].float().norm()) for o in offsets},
                     "donor_proj": {o: float((lambda D, d: (D @ (D.T @ d)).norm())(
                         don_by_offset(o), target["residuals"][diag_layer, t_end - o].float())) for o in offsets},
@@ -2905,6 +2980,8 @@ if __name__ == "__main__":
             "common-basis-location-late",
             "common-basis-sync",
             "common-basis-interval",
+            "common-basis-joint",
+            "smoke-common-basis-joint",
             "smoke-common-basis-sync",
             "smoke-common-basis-interval",
             "smoke-common-basis-loc",
