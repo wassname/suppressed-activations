@@ -235,6 +235,12 @@ def intervention_hooks(
                 patched = matched_random_rotation(h, random_delta, distance)
             elif operation == "remove":
                 patched = remove(h, source_basis, restore_norm=True)
+            elif operation == "remove_scaled":
+                # h - C*P h alone: the removal component of the span-corrected equation,
+                # same C and no norm restore, matching A's removal in magnitude and form
+                # -- PI[claude]
+                patched = h - strength * component(h, source_basis)
+                assert not restore_norm
             else:
                 raise ValueError(operation)
             if record is not None and residual_layer not in record:

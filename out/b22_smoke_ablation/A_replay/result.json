@@ -1,0 +1,1464 @@
+{
+  "model": "wassname/qwen3-5lyr-tiny-random",
+  "elapsed_seconds": 1.9103967580012977,
+  "peak_gpu_memory_bytes": 0,
+  "argv": [
+    "scripts/oat_sweep.py",
+    "--sweep",
+    "smoke-common-basis-ablation",
+    "--condition-index",
+    "2",
+    "--output-dir",
+    "out/b22_smoke_ablation/A_replay",
+    "--target",
+    "dog",
+    "--prompt-mode",
+    "chat-assistant-prefill",
+    "--max-new-tokens",
+    "4",
+    "--source-prompt",
+    "Question: what is the animal that spins webs called?\nAnswer: ",
+    "--target-prompt",
+    "Question: what is the animal that barks and is called man's best friend called?\\nAnswer: ",
+    "--source-output",
+    "Spider",
+    "--target-output",
+    "Dog",
+    "--prefill-instruction",
+    "Answer the question with the answer first. Then describe the animal in three sentences."
+  ],
+  "revision": "main",
+  "model_load_seconds": 0.6062734560109675,
+  "extraction_cache": null,
+  "batch_spec": null,
+  "git": "v0.1.1-466-g93f8781-dirty",
+  "code_sha256": {
+    "scripts/oat_sweep.py": "a47e92e4218bb61652f783454d98d66ca5532cf82db93ee451b847cc2d3047fd",
+    "scripts/demo.py": "746628a7c0413f949f75693796e4ff1c0527ab9169fed2dfc520e1595268149f",
+    "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+    "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+    "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+    "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+  },
+  "package_versions": {
+    "torch": "2.13.0",
+    "transformers": "5.16.1",
+    "accelerate": "1.14.0",
+    "pyarrow": "25.0.1"
+  },
+  "default": {
+    "aggregation": "union",
+    "detector_layers": [
+      23,
+      25,
+      32
+    ],
+    "readout_positions": 4,
+    "rank": 8,
+    "intervention_layer": [
+      24
+    ],
+    "intervention_positions": 3,
+    "strength": 2.5,
+    "match_component_norm": true,
+    "restore_residual_norm": true,
+    "donor_position_offset": 0,
+    "lexical_forms": "detector",
+    "lexical_divisor": 1,
+    "continue_generation": true,
+    "persistent_rank": 0,
+    "random_delta_seed": -1,
+    "delta_component": "difference",
+    "coordinate_swap": false,
+    "shared_replacement": "none",
+    "source_dominant_only": false,
+    "template_contrast": false,
+    "contrastive_suppression": false,
+    "template_state_span": "none",
+    "discarded_fraction": 0.0,
+    "normalize_selector_residuals": false,
+    "bee_correction": 0.0,
+    "bee_correction_seed": -1,
+    "bee_correction_only": false,
+    "project_bee_correction": false,
+    "transport_readout": false,
+    "template_clamp": false,
+    "future_coordinate": false,
+    "future_clamp": false,
+    "future_lexical_union": false,
+    "span_correction": false,
+    "random_in_span": false,
+    "extra_prefill_positions": null,
+    "answer_patch_layer": null,
+    "answer_patch_strength": null,
+    "common_basis": "none",
+    "common_window": 4,
+    "common_random_rank": 8,
+    "common_seed": 0,
+    "common_bank_layers": [
+      23,
+      25,
+      32
+    ],
+    "common_removal": "source",
+    "removal_only": false,
+    "common_inject_norm": "own",
+    "common_inject": "pd_d",
+    "common_inject_restricted": false,
+    "sync_donor": false
+  },
+  "prompt_mode": "chat-assistant-prefill",
+  "prompt_boundaries": {
+    "source": {
+      "content_start": 28,
+      "content_end": 42
+    },
+    "donor": {
+      "content_start": 28,
+      "content_end": 50
+    },
+    "extraction_source": {
+      "content_start": 28,
+      "content_end": 42
+    },
+    "extraction_donor": {
+      "content_start": 28,
+      "content_end": 50
+    }
+  },
+  "source_prompt": "Question: what is the animal that spins webs called?\nAnswer: ",
+  "target_prompt": "Question: what is the animal that barks and is called man's best friend called?\\nAnswer: ",
+  "rendered_inputs": {
+    "source": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        44758,
+        80920,
+        2598,
+        5267,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that spins webs called?\nAnswer: "
+    },
+    "donor": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        293,
+        7193,
+        323,
+        374,
+        2598,
+        883,
+        594,
+        1850,
+        4238,
+        2598,
+        32620,
+        77,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that barks and is called man's best friend called?\\nAnswer: "
+    },
+    "extraction_source": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        44758,
+        80920,
+        2598,
+        5267,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that spins webs called?\nAnswer: "
+    },
+    "extraction_donor": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        293,
+        7193,
+        323,
+        374,
+        2598,
+        883,
+        594,
+        1850,
+        4238,
+        2598,
+        32620,
+        77,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that barks and is called man's best friend called?\\nAnswer: "
+    }
+  },
+  "target_concept": "dog",
+  "lexical_pairs": null,
+  "selector_audit": null,
+  "base": {
+    "source_output": "Spider",
+    "target_output": "Dog",
+    "p_target": 9.425384632777423e-07,
+    "p_source": 9.735533240018412e-06,
+    "generation": {
+      "token_ids": [
+        121503,
+        10029,
+        120917,
+        83622
+      ],
+      "text": "滹iated跖quia",
+      "attention_capture": null
+    }
+  },
+  "donor_base": {
+    "target_output": "Dog",
+    "p_target": 8.384078000744921e-07,
+    "generation": {
+      "token_ids": [
+        25238,
+        133688,
+        60470,
+        24223
+      ],
+      "text": "campביטחarer neces",
+      "attention_capture": null
+    }
+  },
+  "rows": [
+    {
+      "model": "wassname/qwen3-5lyr-tiny-random",
+      "target_concept": "dog",
+      "revision": "main",
+      "git": "v0.1.1-466-g93f8781-dirty",
+      "code_sha256": {
+        "scripts/oat_sweep.py": "a47e92e4218bb61652f783454d98d66ca5532cf82db93ee451b847cc2d3047fd",
+        "scripts/demo.py": "746628a7c0413f949f75693796e4ff1c0527ab9169fed2dfc520e1595268149f",
+        "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+        "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+        "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+        "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+      },
+      "condition_id": "002_smoke_common_basis_ablation_A_replay_C1.5",
+      "axis": "smoke_common_basis_ablation",
+      "value": "A_replay_C1.5",
+      "is_default": false,
+      "readout_from_generation": true,
+      "attention_mask_policy": "all ones: prompts are unpadded",
+      "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "extraction_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "expected_base_answer": "Spider",
+      "expected_steered_answer": "Dog",
+      "persistence": {
+        "direction_estimator": "span_corrected_template_delta",
+        "rendered_template_pairs": [
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'spider'. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'dog'. The animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'spider' nearby. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'dog' nearby. That animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'spider' as the creature's name. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'dog' as the creature's name. The animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'spider'. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'dog'. That animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'spider'. This animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'dog'. This animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'spider'. The creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'dog'. The creature is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'spider'. This creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'dog'. This creature is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'spider' yesterday. That creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'dog' yesterday. That creature is "
+          ]
+        ],
+        "projected_norm_fraction": {
+          "2": 0.8654370903968811
+        },
+        "discarded_fraction_before_norm_matching": 0.0,
+        "per_token_component_norms_after_strength": {
+          "2": {
+            "selected": 121.70386505126953,
+            "discarded": 8.934586367104203e-05
+          }
+        },
+        "selector": "raw_template_contrast_attenuation",
+        "selector_contrast": [
+          "dog",
+          "spider"
+        ],
+        "selector_residual_geometry": "raw",
+        "spectrum": [
+          -6401.03076171875,
+          -4526.16357421875,
+          -1521.8890380859375,
+          -1396.2010498046875,
+          -922.6571044921875,
+          -772.1201782226562,
+          -416.34869384765625,
+          -255.59751892089844,
+          -233.3347625732422,
+          -133.98513793945312,
+          -98.86392211914062,
+          -56.7806282043457,
+          5.9415483474731445,
+          14.685708999633789,
+          30.470550537109375,
+          35.9479866027832,
+          57.10089111328125,
+          87.12727355957031,
+          138.61949157714844,
+          152.62863159179688,
+          300.33099365234375,
+          572.3255004882812,
+          1054.2408447265625,
+          1603.6046142578125
+        ],
+        "fit_template_indices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "peak_projected_contrast_norm": 50.3653450012207,
+        "output_projected_contrast_norm": 20.83816909790039,
+        "fit_peak_mean_square": [
+          1919.4461669921875,
+          1212.4271240234375
+        ],
+        "fit_peak_signed_mean": [
+          42.36716842651367,
+          -3.523325204849243
+        ],
+        "fit_output_mean_square": [
+          315.8416442871094,
+          158.18727111816406
+        ],
+        "fit_output_signed_mean": [
+          15.124163627624512,
+          1.3073967695236206
+        ],
+        "heldout_peak_mean_square": [
+          1569.8837890625,
+          807.25
+        ],
+        "heldout_peak_signed_mean": [
+          39.204803466796875,
+          -17.59595489501953
+        ],
+        "heldout_output_mean_square": [
+          489.4029846191406,
+          213.3196258544922
+        ],
+        "heldout_output_signed_mean": [
+          18.28590965270996,
+          -3.3203728199005127
+        ],
+        "clean_identity_separation": {
+          "method": "signed distance from midpoint of first-four-template centroids; positive is target; not independent steering evidence",
+          "template_scores_source_target_position": [
+            [
+              [
+                -11.283644676208496,
+                -99.59394836425781,
+                -65.14066314697266
+              ],
+              [
+                53.7746696472168,
+                -59.880828857421875,
+                -28.641454696655273
+              ]
+            ],
+            [
+              [
+                60.237754821777344,
+                -29.743236541748047,
+                -2.318753242492676
+              ],
+              [
+                83.51287078857422,
+                10.830467224121094,
+                30.257863998413086
+              ]
+            ],
+            [
+              [
+                63.87751388549805,
+                -25.362472534179688,
+                -1.7988295555114746
+              ],
+              [
+                109.23099517822266,
+                24.723581314086914,
+                43.66015625
+              ]
+            ],
+            [
+              [
+                -17.583377838134766,
+                -81.42301940917969,
+                -44.94788360595703
+              ],
+              [
+                24.154386520385742,
+                -35.96803665161133,
+                -0.5741257667541504
+              ]
+            ],
+            [
+              [
+                -35.082740783691406,
+                -88.7017593383789,
+                -60.763465881347656
+              ],
+              [
+                2.452725648880005,
+                -44.73748016357422,
+                -16.933773040771484
+              ]
+            ],
+            [
+              [
+                -20.739463806152344,
+                -48.586509704589844,
+                -27.25546646118164
+              ],
+              [
+                20.703609466552734,
+                -13.154553413391113,
+                3.462479829788208
+              ]
+            ],
+            [
+              [
+                -13.750469207763672,
+                -45.74028015136719,
+                -27.261104583740234
+              ],
+              [
+                36.964271545410156,
+                3.7136049270629883,
+                18.40965461730957
+              ]
+            ],
+            [
+              [
+                44.851863861083984,
+                8.824063301086426,
+                22.087390899658203
+              ],
+              [
+                82.83503723144531,
+                45.89837646484375,
+                54.606624603271484
+              ]
+            ]
+          ],
+          "bee_template_prompts": [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'bee'. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'bee' nearby. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'bee' as the creature's name. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'bee'. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'bee'. This animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'bee'. The creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'bee'. This creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'bee' yesterday. That creature is "
+          ],
+          "bee_template_scores": [
+            [
+              63.42797088623047,
+              -45.97649383544922,
+              -5.6150431632995605
+            ],
+            [
+              84.4668960571289,
+              28.543174743652344,
+              50.1594352722168
+            ],
+            [
+              107.46285247802734,
+              39.875160217285156,
+              63.13337707519531
+            ],
+            [
+              42.18804931640625,
+              -20.278501510620117,
+              22.57122802734375
+            ],
+            [
+              10.087045669555664,
+              -40.2345085144043,
+              2.727038621902466
+            ],
+            [
+              42.382991790771484,
+              0.8604717254638672,
+              23.197288513183594
+            ],
+            [
+              51.23466110229492,
+              14.228877067565918,
+              38.512489318847656
+            ],
+            [
+              97.7330093383789,
+              63.636287689208984,
+              72.0216064453125
+            ]
+          ],
+          "heldout_template_indices": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "implicit_scores": {
+            "source": [
+              1.9443042278289795,
+              -22.866167068481445,
+              -20.053194046020508
+            ],
+            "donor": [
+              -10.048530578613281,
+              -47.278629302978516,
+              -45.62532424926758
+            ]
+          },
+          "implicit_extraction_instruction_scores": {
+            "source": [
+              1.9443042278289795,
+              -22.866167068481445,
+              -20.053194046020508
+            ],
+            "donor": [
+              -10.048530578613281,
+              -47.278629302978516,
+              -45.62532424926758
+            ]
+          }
+        },
+        "edit_equation": "h + C * (Δ - U U^T h)",
+        "applied_delta_sha256": "7f25e841fb9be47d13684bb614764074060ef15e8653d4c17d09e7aa69c494c4",
+        "applied_delta_norm": 48.681522369384766,
+        "span_readout": {
+          "method": "RMS-scaled fitted-span coordinates, optionally transported by mean-J to raw L32, then gain-weighted unembedding; not probabilities",
+          "transported_to_layer32": false,
+          "layer": 2,
+          "base": {
+            "tokens": [
+              " nº",
+              "핀"
+            ],
+            "scores": [
+              3.740492582321167,
+              3.3325276374816895
+            ]
+          },
+          "donor": {
+            "tokens": [
+              " nº",
+              "mnt"
+            ],
+            "scores": [
+              7.798640251159668,
+              7.202399253845215
+            ]
+          },
+          "intervened": {
+            "tokens": [
+              "蛲",
+              ",),"
+            ],
+            "scores": [
+              13.440608978271484,
+              13.392212867736816
+            ]
+          },
+          "last_decode": {
+            "tokens": [
+              "蛲",
+              "assignments"
+            ],
+            "scores": [
+              14.382488250732422,
+              13.417146682739258
+            ]
+          }
+        }
+      },
+      "swap_log_odds_shift": 4.4130859375,
+      "bare_answer_mass": 2.3803381736797746e-06,
+      "source_output": "Spider",
+      "target_output": "Dog",
+      "donor_p_target": 8.384078000744921e-07,
+      "donor_first_answer": null,
+      "donor_generation_tokens": 4,
+      "p_target": 2.1155465219635516e-06,
+      "p_source": 2.647916801379324e-07,
+      "first_logits_sha256": {
+        "base": "d31cea1f4173f5fecf17207af60c33325c71c6cc42557d7fc865ceb2663b6ea8",
+        "donor": "d27d64f75ad0854e728cb5f7edf8739c7ac0fcd20d883cf10970bfa651f6760f",
+        "steered": "ff09c45928a94be3920ecbbf899b88806fa959abb2e46419a34c6689278c4826"
+      },
+      "repeated_bigram_fraction": 0.0,
+      "generation_tokens": 4,
+      "first_token": ",var",
+      "first_answer": null,
+      "mentions_spins_webs": false,
+      "readout_overlap": 0.0,
+      "readout_status": "computed; semantic validity not established",
+      "intervention_record": {
+        "2": {
+          "prefill_positions": [
+            40,
+            41
+          ],
+          "decode_steps": 3,
+          "residual_norm": 253.7813720703125,
+          "perturbation_norm": 276.3100280761719,
+          "relative_perturbation_by_position": [
+            1.3375011682510376,
+            0.926361620426178
+          ],
+          "total_applied_norm": 508.5214157104492,
+          "replacement_trace": [
+            {
+              "applied_norm_after_dtype": 276.3276062011719,
+              "before": [
+                [
+                  -31.524276733398438,
+                  -29.401119232177734
+                ],
+                [
+                  -28.034555435180664,
+                  -21.380146026611328
+                ]
+              ],
+              "target": [
+                [
+                  -53.86849594116211,
+                  -23.46683692932129
+                ],
+                [
+                  -53.86849594116211,
+                  -23.46683692932129
+                ]
+              ],
+              "after": [
+                [
+                  165.1055908203125,
+                  13.597951889038086
+                ],
+                [
+                  159.87103271484375,
+                  1.5665054321289062
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  165.11705017089844,
+                  13.612157821655273
+                ],
+                [
+                  159.8806915283203,
+                  1.5677433013916016
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 92.23551940917969,
+              "before": [
+                [
+                  67.09772491455078,
+                  18.807514190673828
+                ]
+              ],
+              "target": [
+                [
+                  -53.86849594116211,
+                  -23.46683692932129
+                ]
+              ],
+              "after": [
+                [
+                  17.17241096496582,
+                  -58.71503448486328
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  17.155956268310547,
+                  -58.73695755004883
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.926780700683594,
+              "before": [
+                [
+                  43.72229766845703,
+                  -10.100398063659668
+                ]
+              ],
+              "target": [
+                [
+                  -53.86849594116211,
+                  -23.46683692932129
+                ]
+              ],
+              "after": [
+                [
+                  52.23563003540039,
+                  -15.353174209594727
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  52.13425827026367,
+                  -15.356101989746094
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 130.03150939941406,
+              "before": [
+                [
+                  5.020112991333008,
+                  -42.66840744018555
+                ]
+              ],
+              "target": [
+                [
+                  -53.86849594116211,
+                  -23.46683692932129
+                ]
+              ],
+              "after": [
+                [
+                  110.28897857666016,
+                  33.498836517333984
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  110.35649108886719,
+                  33.570281982421875
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      "answer_position_attention": null,
+      "log": "conditions/002_smoke_common_basis_ablation_A_replay_C1.5/run.md",
+      "config": {
+        "aggregation": "union",
+        "detector_layers": [
+          0,
+          2,
+          4
+        ],
+        "readout_positions": 2,
+        "rank": 2,
+        "intervention_layer": [
+          2
+        ],
+        "intervention_positions": 2,
+        "strength": 2.5,
+        "match_component_norm": true,
+        "restore_residual_norm": false,
+        "donor_position_offset": 0,
+        "lexical_forms": "detector",
+        "lexical_divisor": 1,
+        "continue_generation": true,
+        "persistent_rank": 2,
+        "random_delta_seed": -1,
+        "delta_component": "difference",
+        "coordinate_swap": false,
+        "shared_replacement": "none",
+        "source_dominant_only": false,
+        "template_contrast": true,
+        "contrastive_suppression": false,
+        "template_state_span": "attenuation",
+        "discarded_fraction": 0.0,
+        "normalize_selector_residuals": false,
+        "bee_correction": 0.0,
+        "bee_correction_seed": -1,
+        "bee_correction_only": false,
+        "project_bee_correction": false,
+        "transport_readout": false,
+        "template_clamp": false,
+        "future_coordinate": false,
+        "future_clamp": false,
+        "future_lexical_union": false,
+        "span_correction": true,
+        "random_in_span": false,
+        "extra_prefill_positions": null,
+        "answer_patch_layer": null,
+        "answer_patch_strength": null,
+        "common_basis": "none",
+        "common_window": 4,
+        "common_random_rank": 8,
+        "common_seed": 0,
+        "common_bank_layers": [
+          0,
+          2,
+          4
+        ],
+        "common_removal": "source",
+        "removal_only": false,
+        "common_inject_norm": "own",
+        "common_inject": "pd_d",
+        "common_inject_restricted": false,
+        "sync_donor": false
+      },
+      "readout": [
+        "haft",
+        "Hp"
+      ],
+      "readout_by_position": [
+        {
+          "position": 40,
+          "patched": true,
+          "tokens": [
+            "haft",
+            "Hp"
+          ],
+          "scores": [
+            3.30568265914917,
+            3.28583025932312
+          ]
+        },
+        {
+          "position": 41,
+          "patched": true,
+          "tokens": [
+            "ຍ",
+            "重点"
+          ],
+          "scores": [
+            2.245569944381714,
+            2.2298874855041504
+          ]
+        }
+      ],
+      "named_suppression_diagnostics": {
+        "detector_layers": [
+          0,
+          2,
+          4
+        ],
+        "base": [
+          {
+            "position": 40,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  0.5266903638839722,
+                  -0.14770853519439697,
+                  -1.0334739685058594
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.5266903638839722,
+                  1.4409809112548828,
+                  -0.14770853519439697,
+                  -1.2824904918670654,
+                  -1.0334739685058594,
+                  -0.7399123311042786
+                ],
+                "rise": -0.6743988990783691,
+                "fall": 0.8857654333114624,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.40141406655311584,
+                  -0.061824411153793335,
+                  1.628591537475586
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.40141406655311584,
+                  -1.0992130041122437,
+                  -0.061824411153793335,
+                  2.057432174682617,
+                  1.628591537475586,
+                  1.8192293643951416
+                ],
+                "rise": 0.3395896553993225,
+                "fall": -1.6904159784317017,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.19564032554626465,
+                  0.5233863592147827,
+                  0.06304728984832764
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.19564032554626465,
+                  0.42050352692604065,
+                  0.5233863592147827,
+                  0.3071812391281128,
+                  0.06304728984832764,
+                  -0.0988311767578125
+                ],
+                "rise": 0.32774603366851807,
+                "fall": 0.4603390693664551,
+                "suppression_score": 0.3277459442615509,
+                "suppression_rank_min_ties": 29571
+              }
+            }
+          },
+          {
+            "position": 41,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  1.121016025543213,
+                  0.6562101244926453,
+                  -0.32281485199928284
+                ],
+                "centered_logits_by_residual_layer": [
+                  1.121016025543213,
+                  0.5192925333976746,
+                  0.6562101244926453,
+                  -0.39579951763153076,
+                  -0.32281485199928284,
+                  -0.1032145619392395
+                ],
+                "rise": -0.4648059010505676,
+                "fall": 0.9790250062942505,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.7297919988632202,
+                  0.5996756553649902,
+                  1.733537197113037
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.7297919988632202,
+                  -0.6040075421333313,
+                  0.5996756553649902,
+                  1.992681622505188,
+                  1.733537197113037,
+                  1.661672592163086
+                ],
+                "rise": 1.3294676542282104,
+                "fall": -1.1338615417480469,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.868182897567749,
+                  -0.765163779258728,
+                  -0.637926459312439
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.868182897567749,
+                  -0.44820868968963623,
+                  -0.765163779258728,
+                  -0.979804277420044,
+                  -0.637926459312439,
+                  -0.14976471662521362
+                ],
+                "rise": -1.633346676826477,
+                "fall": -0.12723731994628906,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              }
+            }
+          }
+        ],
+        "post_edit": [
+          {
+            "position": 40,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  0.5266903638839722,
+                  -0.004190512001514435,
+                  0.9787610769271851
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.5266903638839722,
+                  1.4409809112548828,
+                  -0.004190512001514435,
+                  0.702555775642395,
+                  0.9787610769271851,
+                  0.8712909817695618
+                ],
+                "rise": -0.530880868434906,
+                "fall": -0.9829515814781189,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46832
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.40141406655311584,
+                  0.8268001079559326,
+                  -0.28197038173675537
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.40141406655311584,
+                  -1.0992130041122437,
+                  0.8268001079559326,
+                  0.6652773022651672,
+                  -0.28197038173675537,
+                  0.07522454857826233
+                ],
+                "rise": 1.228214144706726,
+                "fall": 1.108770489692688,
+                "suppression_score": 1.108770489692688,
+                "suppression_rank_min_ties": 8104
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.19564032554626465,
+                  2.1165964603424072,
+                  1.2215447425842285
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.19564032554626465,
+                  0.42050352692604065,
+                  2.1165964603424072,
+                  2.7227251529693604,
+                  1.2215447425842285,
+                  1.2824965715408325
+                ],
+                "rise": 1.9209561347961426,
+                "fall": 0.8950517177581787,
+                "suppression_score": 0.8950523734092712,
+                "suppression_rank_min_ties": 12398
+              }
+            }
+          },
+          {
+            "position": 41,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  1.121016025543213,
+                  0.5830575823783875,
+                  0.7430475950241089
+                ],
+                "centered_logits_by_residual_layer": [
+                  1.121016025543213,
+                  0.5192925333976746,
+                  0.5830575823783875,
+                  0.5211039781570435,
+                  0.7430475950241089,
+                  0.6946802139282227
+                ],
+                "rise": -0.5379584431648254,
+                "fall": -0.15999001264572144,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 38550
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.7297919988632202,
+                  1.1766570806503296,
+                  0.6445775032043457
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.7297919988632202,
+                  -0.6040075421333313,
+                  1.1766570806503296,
+                  1.5811724662780762,
+                  0.6445775032043457,
+                  0.6590874791145325
+                ],
+                "rise": 1.9064490795135498,
+                "fall": 0.5320795774459839,
+                "suppression_score": 0.5320796966552734,
+                "suppression_rank_min_ties": 12254
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.868182897567749,
+                  0.8597698211669922,
+                  0.33363795280456543
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.868182897567749,
+                  -0.44820868968963623,
+                  0.8597698211669922,
+                  1.1748169660568237,
+                  0.33363795280456543,
+                  0.9870530366897583
+                ],
+                "rise": -0.008413076400756836,
+                "fall": 0.5261318683624268,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 38550
+              }
+            }
+          }
+        ]
+      },
+      "clamped_donor": null,
+      "base_readout": [
+        " студент",
+        ".k"
+      ],
+      "last_decode_readout": [
+        "fection",
+        "�"
+      ],
+      "target_readout": [
+        "悄",
+        " Braz"
+      ],
+      "generation": {
+        "token_ids": [
+          64055,
+          73332,
+          138803,
+          108031
+        ],
+        "text": ",var списокるために经贸",
+        "attention_capture": null
+      },
+      "base_generation": {
+        "token_ids": [
+          121503,
+          10029,
+          120917,
+          83622
+        ],
+        "text": "滹iated跖quia",
+        "attention_capture": null
+      },
+      "base_top_tokens": [
+        {
+          "token_id": 121503,
+          "token": "滹",
+          "logp": -5.242852687835693,
+          "p": 0.005285158287733793,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 31189,
+          "token": " textView",
+          "logp": -5.367852687835693,
+          "p": 0.004664136096835136,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 137036,
+          "token": " קיש",
+          "logp": -5.742852687835693,
+          "p": 0.0032056106720119715,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 11191,
+          "token": "acked",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 68258,
+          "token": "(samples",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 64748,
+          "token": "acr",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 67836,
+          "token": " Lans",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 116790,
+          "token": "战士来说",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 104339,
+          "token": "的方法",
+          "logp": -6.149102687835693,
+          "p": 0.002135396935045719,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 59890,
+          "token": "атель",
+          "logp": -6.180352687835693,
+          "p": 0.002069697715342045,
+          "delta_logp": 0.0
+        }
+      ],
+      "donor_generation": {
+        "token_ids": [
+          25238,
+          133688,
+          60470,
+          24223
+        ],
+        "text": "campביטחarer neces",
+        "attention_capture": null
+      },
+      "top_tokens": [
+        {
+          "token_id": 64055,
+          "token": ",var",
+          "logp": -5.581822395324707,
+          "p": 0.003765696659684181,
+          "delta_logp": 5.7704057693481445
+        },
+        {
+          "token_id": 23618,
+          "token": " Bond",
+          "logp": -5.894322395324707,
+          "p": 0.0027550426311790943,
+          "delta_logp": 8.107319831848145
+        },
+        {
+          "token_id": 119325,
+          "token": "拄",
+          "logp": -5.988072395324707,
+          "p": 0.002508494770154357,
+          "delta_logp": 2.6922807693481445
+        },
+        {
+          "token_id": 33490,
+          "token": "PART",
+          "logp": -6.019322395324707,
+          "p": 0.0024313165340572596,
+          "delta_logp": 5.3797807693481445
+        },
+        {
+          "token_id": 19028,
+          "token": " crypto",
+          "logp": -6.144322395324707,
+          "p": 0.0021456293761730194,
+          "delta_logp": 5.9657182693481445
+        },
+        {
+          "token_id": 70972,
+          "token": "\tmysqli",
+          "logp": -6.144322395324707,
+          "p": 0.0021456293761730194,
+          "delta_logp": 1.8485302925109863
+        },
+        {
+          "token_id": 8019,
+          "token": ".lang",
+          "logp": -6.144322395324707,
+          "p": 0.0021456293761730194,
+          "delta_logp": 7.5926713943481445
+        },
+        {
+          "token_id": 137632,
+          "token": " gestão",
+          "logp": -6.175572395324707,
+          "p": 0.0020796151366084814,
+          "delta_logp": 3.5985307693481445
+        },
+        {
+          "token_id": 78227,
+          "token": " таблиц",
+          "logp": -6.175572395324707,
+          "p": 0.0020796151366084814,
+          "delta_logp": 3.3797807693481445
+        },
+        {
+          "token_id": 75940,
+          "token": "sealed",
+          "logp": -6.206822395324707,
+          "p": 0.0020156321115791798,
+          "delta_logp": 2.1922807693481445
+        }
+      ]
+    }
+  ]
+}

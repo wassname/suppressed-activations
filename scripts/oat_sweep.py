@@ -99,6 +99,7 @@ class Config:
     # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
     # detector_layers drives the reference/template path)
     common_removal: str = "source"  # "source" (Ps) | "joint" | "pref" (reference attenuation span)
+    removal_only: bool = False  # ablation: h - C*P_ref h alone (matches A's removal component)
     common_inject_norm: str = "own"  # "own" | "cross_v" (delta_ref' scaled per-position to ||v_o||) |
     # "cross_delta" (v scaled to ||delta_ref'||); rescaling preserves direction (no reprojection)
     common_inject: str = "pd_d"  # "pd_d" (current) | "ref_delta" (the successful branch's
@@ -610,6 +611,38 @@ def smoke_common_basis_norm2x2_configs():
              replace(base, common_inject="pd_d", common_inject_norm="cross_delta")),
             ("smoke_common_basis_norm2x2", "C0",
              replace(base, common_inject="pd_d", strength=0.0))]
+
+
+def common_basis_ablation_configs():
+    """Authorized current-reference ablation (supervisor 2026-09-12): at L20 C1.5, same 12
+    questions, the SAME applied delta'/P_ref constructed once by the runtime sweep code:
+    injection-only (h + C*delta', fixed_delta op), removal-only (h - C*P_ref h,
+    remove_scaled), A replay (existing span-correction path), C0. No reprojection/renorm
+    after condition selection. -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="attenuation",
+                   persistent_rank=4, detector_layers=(18, 20, 32), match_component_norm=True,
+                   rank=8, readout_positions=4, intervention_layer=(20,),
+                   intervention_positions=3, restore_residual_norm=False,
+                   continue_generation=True, common_bank_layers=(23, 25, 32))
+    return [("common_basis_ablation", "injection_only_C1.5",
+             replace(base, span_correction=False)),
+            ("common_basis_ablation", "removal_only_C1.5",
+             replace(base, span_correction=False, removal_only=True)),
+            ("common_basis_ablation", "C0",
+             replace(base, span_correction=False, strength=0.0))]
+
+
+def smoke_common_basis_ablation_configs():
+    """Tiny twin of the ablation family: tiny reference criterion (0,2,4) rank2."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="attenuation",
+                   persistent_rank=2, detector_layers=(0, 2, 4), match_component_norm=True,
+                   rank=2, readout_positions=2, intervention_layer=(2,),
+                   intervention_positions=2, restore_residual_norm=False,
+                   continue_generation=True, common_bank_layers=(0, 2, 4))
+    return [("smoke_common_basis_ablation", "injection_only_C1.5", replace(base, span_correction=False)),
+            ("smoke_common_basis_ablation", "removal_only_C1.5", replace(base, span_correction=False, removal_only=True)),
+            ("smoke_common_basis_ablation", "A_replay_C1.5", replace(base, span_correction=True)),
+            ("smoke_common_basis_ablation", "C0", replace(base, span_correction=False, strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -1937,6 +1970,8 @@ SWEEP_CONFIGS = {
     "common-basis-interval": common_basis_interval_configs,
     "common-basis-joint": common_basis_joint_configs,
     "common-basis-fulljoint": common_basis_fulljoint_configs,
+    "common-basis-ablation": common_basis_ablation_configs,
+    "smoke-common-basis-ablation": smoke_common_basis_ablation_configs,
     "common-basis-2x2": common_basis_2x2_configs,
     "common-basis-norm2x2": common_basis_norm2x2_configs,
     "smoke-common-basis-norm2x2": smoke_common_basis_norm2x2_configs,
@@ -2483,6 +2518,10 @@ def run_with_bundle(
                     source_basis = target_basis = shared
                     persistence["direction_estimator"] = "span_corrected_template_delta"
                     persistence["edit_equation"] = "h + C * (Δ - U U^T h)"
+                if cfg.template_state_span == "attenuation" and cfg.persistent_rank:
+                    # the applied (projected+norm-matched) delta hash for ALL arms that use
+                    # it - injection-only / full span-corrected / 2x2 - enables exact
+                    # cross-arm vector equality checks
                     persistence["applied_delta_sha256"] = hashlib.sha256(
                         fixed_deltas[intervention_layers[0]].detach().cpu().contiguous().float().numpy().tobytes()
                     ).hexdigest()
@@ -2812,7 +2851,7 @@ def run_with_bundle(
             source_basis,
             target_basis,
             target["residuals"],
-            operation=("common_replace" if cfg.common_basis != "none" else ("span_corrected_delta" if cfg.span_correction else ("shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace")))))),
+            operation=("remove_scaled" if cfg.removal_only else ("common_replace" if cfg.common_basis != "none" else ("span_corrected_delta" if cfg.span_correction else ("shared_replace" if cfg.shared_replacement != "none" else ("coordinate_clamp" if cfg.template_clamp or cfg.future_clamp else ("coordinate_swap" if cfg.coordinate_swap else ("fixed_delta" if cfg.persistent_rank or cfg.template_contrast else "replace"))))))),
             target_coordinates=target_coordinates,
             coordinate_directions=coordinate_directions,
             source_dominant_only=cfg.source_dominant_only,
