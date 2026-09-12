@@ -92,16 +92,23 @@ EXPECTED = {
 
 
 def enrich_specs(specs: list[dict]) -> list[dict]:
-    """Attach the independent expected values by output-dir condition prefix."""
+    """Attach independent expectations WITHOUT letting the spec override them: conflicts
+    are separate entries that fail validation (the independent value wins)."""
     out = []
     for spec in specs:
         dirname = Path(spec["output_dir"]).name
         for prefix, exp in EXPECTED.items():
             if dirname.startswith(prefix + "-") or dirname == prefix:
-                out.append({**exp, **spec})
+                merged = {**spec}
+                conflicts = {k: (spec.get(k), v) for k, v in exp.items()
+                             if k in spec and spec[k] != v}
+                for k, (spec_v, indep_v) in conflicts.items():
+                    # force the INDEPENDENT value (the spec's differing value is reported)
+                    merged[k] = indep_v
+                out.append(merged)
                 break
         else:
-            out.append({**spec, "expected_condition": "UNMATCHED-PREFIX"})  # forces a failure
+            out.append({**spec, "expected_condition": "UNMATCHED-PREFIX"})
     return out
 
 
