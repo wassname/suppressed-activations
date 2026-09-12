@@ -46,6 +46,12 @@ def main(specs: list[Path]) -> None:
                 rows = registry[choice]()
                 idx = spec["condition_index"]
                 assert idx < len(rows), f"spec[{i}] condition_index {idx} out of range ({len(rows)})"
+                if "expected_condition" in spec:
+                    # identity check: idx-in-range can still map to the WRONG condition
+                    # (the 1154 incident: idx2 was in range but was C0, labeled A-replay)
+                    got = rows[idx][1]
+                    assert got == spec["expected_condition"], \
+                        f"spec[{i}]: condition {idx} is {got!r}, expected {spec['expected_condition']!r}"
                 if "expected_detector_layers" in spec:
                     got = list(rows[idx][2].detector_layers)
                     assert got == list(spec["expected_detector_layers"]), \
