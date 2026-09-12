@@ -13,10 +13,15 @@
   fallbacks needed. Briefs carried pseudocode + verbatim code + measured numbers + the
   user's question; NO hypothesis list, NO candidate list from us.
 - **Artifacts**: pseudocode `slop/pseudocode/2026-09-12_location-oat.py` (pasted to the
-  supervisor before any call); briefs `/tmp/brief_full.txt` (source in this message chain);
+  supervisor before any call); exact briefs preserved in-repo:
+  `slop/reviews/briefs/{brief_full,science_brief,seminar_glm,seminar_deepseek,seminar_kimi}.txt`;
   raw reports + traces `slop/reviews/2026-09-12_*science_{pass1,seminar}_*.md/.trace.jsonl`;
   measured sources `out/2026-09-11_cb-batch/`, `out/2026-09-11_cb-l25-batch/`,
   `out/2026-09-12_late-blocks-dev/`, `out/2026-09-12_cb-loc/`.
+- **Partial-exposure disclosure**: pirev's 20KB input cap forced truncation of DeepSeek's
+  section in the GLM and Kimi SEMINAR briefs (marked in-file; full pass-1 report linked).
+  The DeepSeek seminar saw untruncated GLM+Kimi finals. Pass-1 briefs were complete for all
+  three; the seminar evidence recap was compressed for all three.
 
 ## Observations (supplied material; model-independent)
 
@@ -65,10 +70,10 @@
 |---|---|---|---|
 | H1 | Late blocks REMOVE the component | fixed-basis numerator falls, span E falls | REJECTED in this form: E rises; numerator falls only at block 31; complement absorbs the rise (rotation signature measured) |
 | H2 | Span content ROTATES within the union (blocks 30–31 counter-write) | negative cross-terms with positive norm terms; rise concentrated in top8-complement | SUPPORTED (measured signature); direction-level tracking still missing |
-| H3 | Early edits (L3) propagate | behavioral change at L3; ρ comparable to later sites | REJECTED for this construction at C=1.5: no behavior, ρ 5× smaller; donor-state confound noted |
-| H4 | Post-build site (L30) beats mid-rise (L25) | larger persistent naming transfer at L30 | REJECTED (L30 +1.63 < L25 +2.22); "post-build alone insufficient" (plan prediction held) |
+| H3 | Early edits (L3) propagate downstream | behavioral change at L3; nonzero downstream state change | PROPAGATION YES, BEHAVIOR NO (supervisor correction): ρ=0.047 is nonzero h32 state change from an L3 edit, but no behavioral transfer — the two are separated; do not call H3 rejected on behavior alone |
+| H4 | Post-build site (L30) beats mid-rise (L25) | larger PERSISTENT-IDENTITY naming transfer at L30 | NOT JUDGED BY AGGREGATE SWAP (supervisor correction): adjudicated semantic outcomes — L25-top8 naming: 0/4 persistent donor identity (1 transient flip + 1 pure spider); L30-top8: 0/4 (1 mid-generation "These dogs" leak inside a spider description); L32-top8: 0/4 (2 degenerate loops). NO site achieves persistent transfer; 1.63<2.22 is not the discriminator |
 | H5 | L32 readout edit can bypass suppression | stable donor answers at L32 | REJECTED: flips + repetition loops, no persistence; readout-level effect only |
-| H6 | Selector circularity inflates "suppression" | independent-selection or unnormalized-logit selection changes the top8 / removes the fall | OPEN — cheap CPU test with existing residuals |
+| H6 | Selector circularity inflates "suppression" | independent-selection or unnormalized-logit selection changes the top8 / removes the fall | RAN (CPU sensitivity): an unnormalized-numerator selector picks a largely DIFFERENT set (Jaccard 16%, 69 shared of ~430) yet shows the SAME-magnitude late readout fall (≈8.7 both) — the late-fall PHENOMENON is not selection-specific, but the specific projector contents ARE selector-sensitive (caveat applies to 1132 comparisons). Note: this desensitizes the circularity concern for the phenomenon, NOT for basis identity |
 | H7 | Frozen-prefill donor state at decode causes self-correction mechanically | per-decode donor-state variant reduces self-correction | OPEN — distinct candidate (supervisor: not bundled, not queued) |
 | H8 | Historical +10.01 reference is inflated/less specific rather than better | matched measurement shows its effect is non-subspace | OPEN — flagged as serious anomaly by GLM; re-read proposed by Kimi |
 | H9 | Specificity of the L25 effect is real | magnitude-matched random still ≈ 0 | OPEN — randoms currently norm-mismatched (descriptive only) |

@@ -1,0 +1,98 @@
+Mode: independent scientific exploration.
+
+Reconstruct the method from the attached primary evidence and pseudocode. Starting from
+that reconstruction, list the distinctions, assumptions, possible failure modes, alternative
+formulations, and experiments that you think matter. Use your own organization and order.
+
+For each claim, separate what the supplied material directly shows from your inference.
+State what observation would change your mind. State uncertainties and missing evidence.
+You may give a mathematical expression or pseudocode where it clarifies a proposed test.
+
+Do not assume that the question's framing or any familiar taxonomy is complete. Do not
+optimize for agreement with other reviewers. Do not edit code, fabricate results, or pick a
+winner.
+
+=== USER'S QUESTION ===
+A 4B instruct model (Qwen3.5-4B, 32 blocks) answers animal questions. A "suppressed
+activation" analysis selects, per token position, a rank-8 readout-direction subspace whose
+logits rise then fall across chosen layers. The user asks: identify what the LAST THREE
+blocks (29,30,31) suppress; then decide where an intervention should act — early (their
+suggestion: layer 3), where the components are built, after built/before suppressed, or at
+multiple layers. They note raw activation norms across layers are not comparable semantic
+strengths. A same-procedure location comparison is running.
+
+=== PRIMARY EVIDENCE 1: the applied edit (verbatim, scripts/demo.py) ===
+elif operation == "common_replace":
+    # h'_p = h_p + C (P_d d_p − P_s h_p), per active position p.
+    spec = common_specs[residual_layer]
+    if hidden.shape[1] > 1:
+        src, dproj = spec["src"], spec["donor_proj"]
+    else:
+        src, dproj = spec["decode_src"], spec["decode_proj"]
+    coords = torch.einsum("khr,bkh->bkr", src, h)
+    span = torch.einsum("bkr,khr->bkh", coords, src)
+    patched = h + strength * (dproj.unsqueeze(0) - span)
+
+=== PRIMARY EVIDENCE 2: basis/projector construction (verbatim, scripts/oat_sweep.py) ===
+src_bases, src_sel = suppressed_activation_subspace(
+    source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+    early_layer=cfg.detector_layers[0], peak_layer=cfg.detector_layers[1],
+    output_layer=cfg.detector_layers[2], rank=cfg.rank, normalize_unembedding_rows=True)
+# (same for target/donor); per-position rank-8 orthonormal bases
+def union_basis(win):
+    m = win.permute(1, 0, 2).reshape(win.shape[1], -1)  # (hidden, r*W)
+    u, s_vals, _ = torch.linalg.svd(m, full_matrices=False)
+    tol = max(m.shape) * torch.finfo(s_vals.dtype).eps * s_vals[0]
+    support = int((s_vals > tol).sum())
+    u = u[:, :support]
+    ...
+    return u, s_vals, support
+# top8_union arm: U_s, U_d = U_s[:, :8], U_d[:, :8] (declared applied projector)
+# donor states: d_o = donor residual at the SAME intervention layer, end-aligned
+#   offset o (1..3); decode uses frozen final-prefill donor state and the SAME
+#   common projector (per_token arm alone uses the last-position per-token basis)
+# selector (verbatim, suppressed_activation_subspace.py):
+rise = logits[:, 1] - logits[:, 0]; fall = logits[:, 1] - logits[:, 2]
+rise = rise - rise.mean(-1, keepdim=True); fall = fall - fall.mean(-1, keepdim=True)
+return torch.minimum(rise.clamp_min(0), fall.clamp_min(0))
+# running task1130: (early,peak,output) = (23,25,32); approved follow-up: (29,30,32)
+
+=== PRIMARY EVIDENCE 3: measured results (12 dev questions per batch) ===
+Condition = replacement equation at C=1.5, last-3 prefill + every decode call.
+swap = donor-vs-source next-token log-odds shift (nats), means over 12 cells:
+  L20 (bank-selector bases): per_token +0.20, full_union +0.25 (support-corrected
+    replay; the unguarded full_union +0.60 was invalid: 1-8 null columns), top8 +0.25
+  L20 randoms (seeded Haar rank-8/32 projectors, real donor states): +0.06/-0.03/-0.06
+  C0 exact identity everywhere.
+  L25 (same bases, same equation): per_token +1.95, full_union +2.85, top8 +2.22;
+    naming-dog split (4 cells): +5.40 / +6.30 / +6.23; largest cells +11.4 to +13.9
+  L25 randoms: -0.01 / +0.27 / +0.12 (their captured donor components are smaller:
+    total applied norms 184-417 vs constructions 533-787)
+  Historical recovered reference (DIFFERENT equation h + C(delta - P_ref h), additive
+    template-attenuation delta, L20): swap +10.01, primary semantic success 6/12 on
+    a fresh 12-question set (random control 1/12). Why it differs is NOT established.
+Observed L25 behavior (verbatim excerpt, full_union name-N1-dog, swap +11.36):
+    '狗 (Dog)\n\nWait, that is incorrect. The animal known for spinning webs to catch
+    insects is the **spider**.\n\nThe spider is a small, eight-legged arachnid ...'
+  First answer token flips to the donor answer, then the continuation self-corrects
+  to spider. Ant cells and property cells unmoved at both layers. Coherence preserved
+  (repetition r2 <= 0.12); 1-2 of 12 cells cap at 128 tokens.
+
+=== PRIMARY EVIDENCE 4: late-block energy table (fixed projector, 12 dev questions,
+24 prompts, window = last-4 positions; decomposition identity verified, max err 1.3e-4) ===
+Layer l holds h_l = residual ENTERING block l (h_0 embeddings, h_32 final). Blocks 29/30/31
+are the last three; block l writes h_(l+1) - h_l.
+Union-projected fraction E_l/||h_l||^2 by layer (means):
+  h0 0.148 (small-denominator artifact) | h20 0.0126 | h25 0.0190 | h28 0.0264
+  h29 0.0240 | h30 0.0394 (peak) | h31 0.0316 | h32 0.0240
+Block writes of absolute projected energy change: block 27 +11.3, block 28 +9.5,
+  block 29 +45.0 (largest), block 30 +6.4, block 31 +36.4 (POSITIVE on dev questions).
+Selected-token readout decomposition (n=768 = 24 prompts x 4 positions x 8 tokens;
+  signed numerators, zeros included; defined as (mean n32 - mean n30)/mean n30):
+  numerator <h_l, u_i*g> (raw): h30 5.45 -> h32 0.87, change -84%; 753/768 pairs lose
+  RMS denominator: 0.93 -> 1.46, +57%
+  total absolute E in the union span RISES h30->h32 (86.9 -> 129.7; 23/24 prompts rise)
+On the 4 canonical short Fact prompts (different format): block 31 REMOVES absolute span
+  energy on source (-20.7) and control (-3.2); dog grows (+11.6).
+Caveat: the selection favors readout rise-then-fall, so the fall of selected tokens is
+  not independent validation of the criterion.

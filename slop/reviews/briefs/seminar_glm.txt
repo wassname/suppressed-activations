@@ -1,0 +1,153 @@
+These are other researchers' notes from an independent exploration pass on the same attached method/evidence (location OAT for common per-token subspace replacement: sites L3/L25/L30/L32, equation h' = h + 1.5(P_d d - P_s h), fixed top8-union readout-selected projector; measured: L20 ~0, L25 +2-2.9 with dog-naming first-token flips then self-correction; late-block table: block 29 builds +45, selected numerators -84% h30->h32, denominator +57%, total span E rises).
+What connections, objections, extensions, or different framings occur to you?
+
+=== OTHER RESEARCHER'S NOTES (family: deepseek) ===
+[deepseek's section truncated to its final ~9.5KB to fit the input cap; the full unedited report is in the repo]
+- **Assumption:** the finite-samples table (12 dev questions) generalizes. The energy table means are over 24 prompts and show large variance across condition types (Fact vs dev, source vs control vs dog).
+
+---
+
+## Possible failure modes (by site)
+
+**At layer 3:**
+- The projector targets near-zero energy: projected fraction at h0 is 0.148 only due to a small-denominator artifact; at h20 it is 0.0126. The edit adds donor signal on top of an embedding-space direction that has not yet been integrated into the component.
+- The component is built later (block 29) from scratch, so the removed direction is not the one that will later matter.
+- The L20 result (+0.20 to +0.25) is consistent with a small or null effect from this kind of early site.
+
+**At layer 25:**
+- The component is still rising (selection peak layer is 25); editing at h25 removes a partially built component and inserts a fully built donor component, creating a competitor that wins the first token but loses the continuation as blocks 30–31 rebuild the original.
+- The L25 flip-then-correct is the primary evidence for this failure: first token flips (狗) then self-corrects to spider. This suggests the intervention is strong enough to affect the next-token predictor but not strong enough to suppress the later re-assertion.
+
+**At layer 30:**
+- The component is built (post-block-29), but the suppression mechanism may have already begun. Editing here replaces a direction just before its readout falls, which may be the optimal site if the suppression is a readout-time operation in blocks 30–31.
+- Failure mode: if block 31 rotates or replaces directions inside the span, the edit may be overwritten one block later.
+
+**At layer 32 (final readout):**
+- Editing at h32 is equivalent to steering the readout directly, bypassing the suppression mechanism. This should produce the largest per-call readout shift but leaves any downstream generation mechanism (self-correction, repetition) untouched; it does not remove the suppressed component from the model's internal processing, so continuations may still self-correct.
+
+**Multi-site intervention (most justified):**
+- Remove at h30 (post-build) and re-assert at h31 or h32 to counter the block-31 write. This addresses the observed two-phase energy write (block 29 build, block 31 second write) and the flip-then-correct at L25.
+- Failure mode: if the suppression is a distributed rotation across blocks 29–31 rather than a single block-31 operation, a two-site edit may not cover all directions.
+
+---
+
+## Alternative formulations
+
+1. **Cross-layer basis correspondence edit:** instead of applying the same projector at different sites, track the component through the residual stream using a causal tracing or patching procedure that identifies at which layer the source and donor components occupy the same readout-relevant directions. Then apply the replacement where the donor component is strongest relative to the source.
+
+2. **Post-hoc projection onto readout directions at the final layer:** since the observed suppression is readout fall, one could define the intervention as a constraint on the final-layer readout rather than on residual directions: enforce \(\Phi_{\text{edited}} = \Phi_{\text{donor}}\) at the answer position by adding a correction only at layer 32. This tests whether the residual-level operation is necessary at all.
+
+3. **Counterfactual erase-and-rebuild:** instead of the common_replace equation \(h' = h + C(P_d d_o - P_s h)\), use a two-step version: first remove the source span (\(h_{\text{clean}} = h - P_s h\)), then add the donor span. This disentangles the remove and add coefficients and allows testing whether the suppression mechanism reacts to the removed residue or to the added donor.
+
+4. **Layer-specific projection:** rather than one fixed P, recalculate P per layer from the same tokens' readout directions at that layer. This addresses the cross-layer correspondence issue explicitly.
+
+---
+
+## Experiments that matter
+
+### 1. Same-procedure location sweep (already running, essential)
+Run the same common_replace equation at L3, L20, L25, L29, L30, L31, L32 with the same projectors. Compare swap, prefill persistence, and continuation coherence. If swap increases monotonically toward L30/L31, early is wrong; if it peaks at L25 and falls, the suppression is already fixing things downstream; if it peaks at L30, the post-build site is correct.
+
+**Expression:** for each site L and each condition arm, compute
+\[
+\text{swap}(L) = \log \frac{p_{\text{donor}}(\text{next token } | \text{ edited prompt})}{p_{\text{source}}(\text{next token } | \text{ edited prompt})} - \log \frac{p_{\text{donor}}(\text{next token } | \text{ clean prompt})}{p_{\text{source}}(\text{next token } | \text{ clean prompt})}
+\]
+and compare to the measured baseline: L20 ≈ +0.2, L25 ≈ +1.95 to +2.85.
+
+### 2. Late-block temporal decomposition (the planned (29,30,32) selector)
+This tests whether the suppression is specifically a late-block phenomenon. If the same procedure on (29,30,32) selectors produces a much larger swap at L30 than at L25, it confirms the post-build site; if it produces a smaller swap, the original (23,25,32) selection is capturing a different component than the one blocked by blocks 29–31.
+
+### 3. Cross-layer basis tracking (to resolve confidentiality of direction)
+For each pair (l, l') in {25, 30, 31, 32}, compute the subspace similarity between the selected source bases:
+\[
+S_{ll'} = \| P_{ll'} \|^2_F / \min(d, r)
+\]
+where \(P_{ll'}\) is the projector overlap between the rank-8 bases at l and l'. If \(S_{30,31} \gg 0\), the component persists; if \(S_{30,32} \approx 0\), the suppression is a rotation rather than a removal. This directly tests the "direction change is a labeled hypothesis, not measured" caveat.
+
+### 4. Block-31 ablation (causal test)
+Run the model with block 31's output replaced by its input (or by a clean prompt's block-31 output) and measure whether the selected-token readout fall from h30 to h32 is eliminated. If yes, block 31 is the active suppressor; if not, the suppression is distributed across 29–31.
+
+### 5. Intervention-after-suppression test
+Apply the common_replace at L32 (final readout) only. If swap is large and stable (continuation stays on donor), the suppression is readout-time; if swap is large but continuation flips back, the suppression is internal and cannot be bypassed at readout alone.
+
+### 6. Magnitude-matched random control
+The L25 experiment already suggests randoms ≈ 0 with smaller applied norms; a magnitude-matched random with the same norm as the applied edit would cleanly separate "subspace specificity" from "norm injection."
+
+### 7. Cross-format test
+The energy table already shows Fact vs dev differences at block 31. Run the same experiment on naming-dog, ant, property, and control cells separately to see whether block 31's suppression is specific to the naming-dog component.
+
+---
+
+## Missing evidence / uncertainties
+
+- **Why the historical recovered reference (additive template-attenuation, L20) produced +10.01 swap and 6/12 primary success while the current projector-replacement at the same layer produced ≈ +0.25 is not established.** The current evidence does not support concluding that the projector form is the cause; the difference could be due to donor state, equation form, or data split. Until this is resolved, the absolute swap magnitudes are incomparable across methods, and the location conclusion is only valid within the current equation family.
+- **Cross-layer basis correspondence is unmeasured.** The decomposition table shows energy in the union span, not whether the span direction at h30 is preserved at h32. The claim "suppression rotates direction" is a hypothesis.
+- **The (29,30,32) selector is not yet run.** The location conclusion is currently based on the energy table and the h30→h32 numerator fall from the (23,25,32) selector. The planned late-selector variant would confirm or refute.
+- **No causal manipulation of blocks 29–31 is reported** (only descriptive energy tables). Without a block ablation, the inference "block 31 suppresses" is correlational from a construction that selects falling readouts.
+- **The norm comparisons (L25 randoms with smaller applied norms: 184–417 vs 533–787) mean the random control is not fully controlled**; a magnitude-matched random is missing.
+- **The L25 first-token flip then continuation self-corrects to spider is strong but anecdotal (one named cell).** We lack continuation-level success rates across all 12 cells.
+
+---
+
+## Bottom line
+
+The last three blocks build (29), then remodel (30–31) the selected component. The buildup is directly supported by the energy table; the remodeling is supported by the numerator collapse with span-energy rise. The intervention should act after the build and in a way that counters the remodel: a post-block-30 site with a second correction near block 31 or at the final readout. Early layer 3 is mechanistically wrong for this component: the projected fraction is near zero, the component is built much later, and the historical L20 result confirms weak effect. The decisive test is the same-procedure location sweep; the decisive missing evidence is whether blocks 30–31 rotate directions inside the span or causally reduce them, and whether a late intervention produces stable donor continuations rather than the flip-then-correct seen at L25.
+
+
+=== OTHER RESEARCHER'S NOTES (family: kimi) ===
+## First call answer
+
+## Decision
+
+**Intervene at L30 (post-build), not early.** If the running task1130 yields any site-ordering at all, L30 is the justified site; L25 is the defensible fallback. Early (L3) should not be run as a serious arm. And "identify what blocks 29–31 suppress" is, on the supplied evidence, **not yet answerable as stated** — the evidence shows suppression of *selected-token readout numerators*, not removal of a semantic component. Conflating those two is the main risk in the whole analysis.
+
+## What the material directly shows vs. my inference
+
+**Directly shown:**
+- Blocks 29 and 31 make the largest *positive* absolute writes into the fixed union span on dev questions (+45.0, +36.4); the span's total energy **rises** h30→h32 (87→130, 23/24 prompts).
+- Meanwhile the *signed readout numerators* of the 8 selected tokens collapse −84% (753/768 pairs), and the RMS denominator rises +57%.
+- L25 replacement produces large donor-logit shifts (mean +1.95–2.85, up to +13.9) with donor-token flips that then self-correct; L20 does ~nothing (+0.2); Haar-random controls ≈ 0 at both.
+- On the 4 short Fact prompts, block 31 *removes* absolute span energy on source/control but grows it on dog.
+
+**Inference (not shown):**
+- The −84% numerator fall with +57% denominator growth means roughly half the "suppression" is normalization, not removal: ϕ falls because RMS(h) grows as other directions are written. Calling blocks 29–31 "suppressors" overstates it. They are **redirectors within the span** (energy moves from selected-readout directions to other span directions) plus global norm growth. The hypothesis that this is a *direction change* is explicitly labeled unmeasured — no cross-layer basis correspondence exists.
+- The L25 success most plausibly means the donor-relevant content is *present and steerable* at h25 in this span, and downstream blocks do not fully rebuild the source content — so the edit need not wait for "the component to be built." But the self-correction (狗 → "Wait, … spider") shows the edit is **overwritten downstream**: later blocks re-inject the source answer from untouched context/attention pathways. This is the strongest evidence about site choice: an edit at L25 competes with ~7 blocks of reconstruction; an edit at L30 competes with 2.
+
+## Strongest objection to my recommendation
+
+The L25-vs-L30 comparison is confounded by **donor-state offset mismatch and positional drift**: at L30 the donor state is taken at the same layer, but "same layer" is not "same computational stage" if the donor prompt's content peaks at a different depth (the selector itself was tuned to peak at 25 for these prompts). If L30 underperforms L25, it may be donor-misalignment, not site. The running same-procedure comparison partially controls this; a layer-matched donor-alignment sweep (donor state from L25 vs L30 at intervention site L30) would be needed to deconfound.
+
+Second objection: the −84% is **not independent validation** (selection favored rise-then-fall), as the material itself flags. So "blocks 29–31 suppress" is partly true by construction of the selector.
+
+## Assumptions and failure modes
+
+1. **Rank-8 truncation**: the applied projector is U[:, :8] of the union, not the union. What gets replaced at L30 is the top-8 singular directions of a window-union; energy outside them (the union had support up to 32) is untouched. The "other P directions" where energy grows may be exactly the discarded union columns — i.e., blocks 29–31 may be moving content *within the union but outside top8*, which the edit can't reach.
+2. **Per-position vs. shared projector asymmetry at decode**: only per_token uses the last-position basis at decode; top8_union reuses the prefill common projector. Cross-arm comparisons at decode conflate basis freshness with projector type.
+3. **Numerator-denominator confound** (above): readout fall ≠ removal. Any claim of "suppression" requires a fixed-basis tracked quantity, not ϕ.
+4. **Historical +10.01 reference uses a different equation** (additive delta, template attenuation). Treating it as evidence that "L20 can work if done right" is unsupported; the difference is unexplained and could be the delta term doing free-form injection rather than subspace replacement.
+5. **12 dev questions, dog-heavy**: naming-dog split drives the means (ant/property unmoved). Site conclusions may be entity-type-specific.
+
+## Alternative formulations
+
+- Replace at the **pre-suppression peak per prompt** rather than a fixed layer: site = argmax_l ‖P h_l‖² per cell (here ~h30). Fixed-site sweeps average away per-prompt peak jitter.
+- **Denominator-controlled criterion**: re-run the selector on unnormalized logits ⟨h, u·g⟩ instead of ϕ; check how much of the top8 survives. This tests whether the "suppressed subspace" is an artifact of RMS growth.
+- **Multi-site edit** (L25 + L30, split strength) directly addresses the observed self-correction: hit the content where it's steerable and again after reconstruction. Cheap, and the failure/success pattern is diagnostic: if L25+L30 >> L30 alone, reconstruction between 25 and 30 is the locus of resistance.
+
+## Experiments that matter, in order
+
+1. **Track selected directions across layers with a fixed basis** (already partially done): report ⟨h_l, u_i·g⟩ for *all* l, not just 30/32, to localize which block does the numerator collapse. Prediction from the table: block 31 does it; block 29 builds. If block 30 already collapses numerators, L30-as-post-build is wrong and the site should be L29.
+2. **Within-union direction rotation test**: project h32 onto the *complement* of top8 inside the full union. If the risen energy (87→130) lives there, "suppression = rotation within union" is confirmed, and the top8 arm is editing the wrong 8 directions at late sites.
+3. **Late-selector arm (29,30,32) already approved** — the key comparison is whether late-selected bases at L30 beat mid-selected bases at L30. If yes, selector-site match matters more than intervention site.
+4. **Persistence-to-decay curve**: measure ρ, ρ_P at h32 as a function of site (already instrumented). If L25 edits show high ρ_P at h32 yet behavior self-corrects, the correction comes from *outside* P — arguing for wider rank at late sites, not earlier sites.
+5. **Magnitude-matched randoms**: current randoms have smaller applied norms (184–417 vs 533–787); the L25 construction-vs-random gap is real but the control is underpowered. Match ‖P d‖ before concluding specificity.
+
+## What would change my mind
+
+- If task1130 shows L3 ≈ L25 > L30, the "late suppression" framing is wrong and the span content is a mid-network transient that late blocks ignore — I'd switch to early-plus-mid multi-site.
+- If the fixed-basis trace shows the numerator collapse happens *before* block 29, then "last three blocks suppress" is false and the whole late-site rationale collapses.
+- If unnormalized-logit selection recovers a disjoint top8, I'd treat the current subspace as a normalization artifact and restart selection.
+
+**Uncertainties**: no cross-layer basis correspondence; donor-offset alignment untested; n=12 with skewed cell types; the historical +10.01 mechanism unexplained; decode-time frozen-donor validity for long generations untested.
+
+**Next single check**: per-block fixed-basis numerator trace (experiment 1) — it's computable from existing residuals at near-zero cost and directly decides between "block 31 suppresses → edit at L30" and "collapse starts at 29/30 → edit earlier."
+
