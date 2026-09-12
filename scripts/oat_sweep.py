@@ -103,6 +103,9 @@ class Config:
     # stays the FULL joint8) - the one-factor rank test
     common_temporal_full: bool = False  # use the FULL supported temporal bases (not top8)
     common_source_rank: int = 8  # the SOURCE basis slice (complete-edit: source+donor both)
+    complete_edit_mode: bool = False  # the DECLARED complete-edit ladder mode: BOTH bases
+    # truncated before the joint support; scoping prevents silently changing the OLD
+    # injection-only rankinj family's removal
     xdepth_anchor_layer: int = -1  # if >=0: inject the donor residual from THIS layer
     # (projected on the SAME fixed span) instead of the site layer - cross-depth donor
     xdepth_norm_from_layer: int = -1  # if >=0: rescale the anchor projection to the norm of
@@ -858,8 +861,9 @@ def complete_rank_configs():
     bases for source AND donor, BOTH truncated at k in {1,2,4,8,full}; Pjoint(k) =
     orthonormal support-filtered union(Us_k, Ud_k); injection Pd_k d25; site h1
     PREDECLARED; C1.5; window4; last3+decode; frozen donor. 'full' = the ACTUAL support.
-    Actual joint ranks recorded. k-full at h1 replays earlyloc imported-h1 (projector/
-    vector equality required, tolerance-labeled). -- PI[glm-5p3-flash]"""
+    Actual joint ranks recorded. k8 at h1 replays the earlyloc imported-h1 arm (projector/
+    vector equality required, tolerance-labeled); kfull is NOT a replay (its span may
+    exceed 8; the joint support may reach 44). -- PI[glm-5p3-flash]"""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
                    detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
                    rank=8, readout_positions=4, intervention_layer=(1,),
@@ -867,15 +871,15 @@ def complete_rank_configs():
                    restore_residual_norm=False, continue_generation=True, common_window=4,
                    common_basis="top8_union", common_selector="increment",
                    common_removal="joint", strength=1.5, xdepth_anchor_layer=25,
-                   common_temporal_full=True)
+                   common_temporal_full=True, complete_edit_mode=True)
     rows = []
     for k in (1, 2, 4, 8, "full"):
+        # kfull = the integer sentinel 0 (full supported temporal basis), schema-consistent
+        kk = 0 if k == "full" else k
         rows.append(("complete_rank", f"k{k}_C1.5",
-                     replace(base, common_donor_rank=(8 if k == "full" else k),
-                             common_temporal_full=(k == "full"),
-                             common_source_rank=k)))
+                     replace(base, common_donor_rank=kk, common_source_rank=kk)))
     rows.append(("complete_rank", "C0", replace(base, strength=0.0)))
-    return rows
+    # 6 conditions x 12 = 72 cells (k1/k2/k4/k8/kfull + C0)
 
 
 def smoke_complete_rank_configs():
@@ -887,12 +891,12 @@ def smoke_complete_rank_configs():
                    restore_residual_norm=False, continue_generation=True, common_window=2,
                    common_basis="top8_union", common_selector="increment",
                    common_removal="joint", strength=1.5, xdepth_anchor_layer=3,
-                   common_temporal_full=False, common_source_rank=2)
+                   common_temporal_full=False, common_source_rank=2, complete_edit_mode=True)
     return [("smoke_complete_rank", "k1_C1.5", replace(base, common_donor_rank=1,
                                                         common_source_rank=1)),
             ("smoke_complete_rank", "kfull_C1.5", replace(base, common_temporal_full=True,
-                                                          common_donor_rank=2,
-                                                          common_source_rank=2)),
+                                                          common_donor_rank=0,
+                                                          common_source_rank=0)),
             ("smoke_complete_rank", "C0", replace(base, strength=0.0))]
 
 
@@ -3017,12 +3021,14 @@ def run_with_bundle(
             # (numerical support, shared tolerance; v = Pd d must lie in the joint span)
             Us8 = src_by_offset(1).float()
             Ud8 = don_by_offset(1).float()
-            # the complete-edit arms: BOTH bases truncated at k BEFORE the joint support
-            if cfg.common_temporal_full:
-                Us_k = U_s.float(); Ud_k = U_d.float()
+            if cfg.complete_edit_mode:
+                # BOTH bases truncated at k BEFORE the joint support (0 = FULL supported)
+                Us_k = (U_s.float() if cfg.common_temporal_full
+                        else U_s[:, :cfg.common_source_rank].float())
+                Ud_k = (U_d.float() if cfg.common_temporal_full
+                        else U_d[:, :cfg.common_donor_rank].float())
             else:
-                Us_k = U_s[:, :cfg.common_source_rank].float() if hasattr(cfg, 'common_source_rank') else Us8
-                Ud_k = U_d[:, :cfg.common_donor_rank].float()
+                Us_k, Ud_k = Us8, Ud8  # the old paths: unchanged
             Pj_cols_all, pj_sv, _ = torch.linalg.svd(torch.cat([Us_k, Ud_k], dim=1), full_matrices=False)
             pj_keep = int((pj_sv > max(Pj_cols_all.shape) * torch.finfo(pj_sv.dtype).eps * pj_sv[0]).sum())
             Pj = Pj_cols_all[:, :pj_keep]
@@ -3033,9 +3039,7 @@ def run_with_bundle(
             Pu = Pu_cols[:, :pu_keep]
             torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep, device=Pu.device), rtol=1e-4, atol=1e-4)
             Ps = Ps_rm  # alias for the restricted-injection branch below
-            complete_rank_active = (cfg.common_temporal_full
-                                    or cfg.common_source_rank != 8
-                                    or cfg.common_donor_rank != 8)
+            complete_rank_active = cfg.complete_edit_mode
             if cfg.common_removal == "joint":
                 assert not cfg.common_inject_restricted, "restricted injection pairs with source removal"
                 rem_cols = Pj if complete_rank_active else Pu

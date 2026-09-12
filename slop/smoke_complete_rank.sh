@@ -58,7 +58,39 @@ assert pf['removal_rank'] == pf['complete_rank_mode']['joint_rank']
 assert p1['injected_vectors'] != pf['injected_vectors']
 # C0 identity
 assert rows['C0']['generation']['token_ids'] == rows['C0']['base_generation']['token_ids']
-print('COMPLETE-RANK SMOKE PASS: both bases truncated; joint rank varies (k1 < kfull); '
-      'removal = the truncated joint; vectors differ; C0 identity')
+# REGRESSION: the OLD rankinj family's removal must be UNCHANGED by the complete-edit
+# scoping: run one old-rankinj cell and compare its removal_cols_sha256 to the recorded
+# historical fingerprint (the rankinj smoke's saved outputs)
+import subprocess
+r = subprocess.run(['uv', 'run', '--offline', 'scripts/oat_sweep.py', '--sweep',
+                    'smoke-common-basis-rankinj', '--condition-index', '0', '--output-dir',
+                    'out/b27_smoke_cr/rankinj-k1-regression', '--target', 'dog',
+                    '--prompt-mode', 'chat-assistant-prefill', '--max-new-tokens', '4',
+                    '--source-prompt', 'Question: what is the animal that spins webs called?\nAnswer: ',
+                    '--target-prompt', 'Question: what is the animal that barks called?\nAnswer: ',
+                    '--source-output', 'Spider', '--target-output', 'Dog',
+                    '--prefill-instruction', 'Answer the question with the answer first. Then describe the animal in three sentences.'],
+                   capture_output=True, text=True)
+old = json.loads(Path('out/b27_smoke_cr/rankinj-k1-regression/result.json').read_text())['rows'][0]
+assert old['persistence']['removal_span'] == 'joint'
+# the old rankinj k1: complete_rank_mode MUST be None (the mode scoping)
+assert old['persistence']['complete_rank_mode'] is None, \
+    f"the old rankinj family silently entered complete-edit mode: {old['persistence']['complete_rank_mode']}"
+# and its removal rank = 8 (the top8 joint) - unchanged by the new family's existence
+assert old['persistence']['removal_rank'] == 8
+print('REGRESSION PASS: the old rankinj k1 removal unchanged (mode=None, rank 8)')
+# k8 replay: the k8 arm's injected vectors == the earlyloc imported-h1's (same runtime);
+# the xdepth tiny twin's imported arm = the k8 equivalent construction... the tiny k8
+# (common_donor_rank=2=top8) vs the xdepth tiny imported (anchor 3): SAME config -> the
+# injected vector hashes equal
+xd = json.loads(Path('out/b24_smoke_xdepth/1/result.json').read_text())['rows'][0]
+kf = rows['kfull_C1.5']
+# the tiny kfull = the FULL support (4 cols) vs the xdepth imported = top8 (=full on tiny
+# at rank2/window2: both 4 cols) -> the same construction: compare the injected hashes
+assert kf['persistence']['injected_vectors'] == xd['persistence']['injected_vectors'], \
+    'kfull injected vectors != the xdepth imported arm (same construction expected on tiny)'
+print('k8/full replay: injected vectors == the xdepth imported arm (tiny-equivalent)')
+print('COMPLETE-RANK SMOKE PASS: both bases truncated; joint rank varies; removal = the '
+      'truncated joint; vectors differ; C0 identity; old-family regression; replay equality')
 PYEOF
 uv run --offline /tmp/cr_check.py

@@ -15,6 +15,9 @@ the supervisor sees real evidence.
     h' = h + C(injection − P_joint(k) h)
   Actual support ranks recorded per question/position. SVD sign irrelevant: PROJECTOR/
   VECTOR equality required vs the 1230-h1 prior path (not hash-of-basis equality).
+- Cells: 6 conditions × 12 = 72 (k1/k2/k4/k8/kfull + C0) — the corrected declared count.
+- Replay scope: k8 at h1 replays the earlyloc imported-h1 arm (projector/vector equality,
+  tolerance-labeled); kfull is NOT a replay (its span may exceed 8).
 - Controls: C0 independent zero control. Matched-size controls ONLY with a declared clean
   purpose (the k8 vs scaled-… no: the audit's recommendation — the dose ladder is a
   SEPARATE probe; here only the confound is LABELED: rank shrinks content and size
