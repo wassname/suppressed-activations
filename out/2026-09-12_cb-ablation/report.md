@@ -25,7 +25,7 @@ vector, per the protocol.
 - injection-only retains A's successes: name-N1-dog `狗 (Dog)` + persistent dog identity
   (pass); legs-L1-ant `6` + `The red ant is a tiny, hardy insect…` — the DONOR DIGIT and
   ant IDENTITY together (pass-level); legs-L1-dog `2` + dog identity (identity moved,
-  digit wrong — same partial as 1149's B arm); property spider-bound.
+  digit wrong — same partial as 1149's B condition); property spider-bound.
 - removal-only: NOTHING — clean spider/8, correct predicates, no digit change, no identity
   change in any cell.
 
