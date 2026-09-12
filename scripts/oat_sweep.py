@@ -3057,6 +3057,9 @@ def run_with_bundle(
                 "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
                 "random_rank": random_rank if cfg.common_basis.startswith("random") else None,
                 "removal_span": cfg.common_removal,
+                "removal_cols_sha256": hashlib.sha256(
+                    rem_cols.detach().cpu().contiguous().float().numpy().tobytes()
+                ).hexdigest(),
                 "bank_layers_for_common_bases": list(cfg.common_bank_layers),
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
