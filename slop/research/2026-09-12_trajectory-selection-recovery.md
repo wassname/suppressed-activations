@@ -19,10 +19,14 @@ reused without the exact-input checks required by the plan.
    L27** (held-out 53 prompts; different-prompt control 0.040/−0.015; 42/53 held-out
    prompts' top-32 rows contain the English answer token).
 
-The user's percentages map to this curve: the English token builds from ~40% to ~70% depth
-(layers ~13–23 of 32) and is deleted in the last 3 blocks. **The FIGURE is computed from
-the whole layer trajectory; the SELECTOR is not** (below) — that is the gap the new plan
-targets.
+The user's percentages (build ~40–70% depth, removed in the last 3 blocks) are a HYPOTHESIS
+to verify on the current model/prompts — stated as such in the plan. They originate from the
+Wendler curve as QUOTED IN main `README.md` (the original paper wording was not re-checked
+against the arXiv source here); the README's own figure numbers (0.947@L27, 42/53, 0.040/
+−0.015) come from `scripts/figure.py` + the held-out run recorded in the main repo. On
+Qwen3.5-4B (32 blocks), 40–70% depth ≈ h13–h23 and the last-3 blocks are b29–b31 — a
+hypothesis to measure, not a mapping to assume. **The FIGURE is computed from the whole
+layer trajectory; the SELECTOR is not** (below) — that is the gap the new plan targets.
 
 ## 2. Detector history (git, main repo)
 
@@ -45,7 +49,10 @@ final), RMS+gain readout ϕ_i(l) = ⟨ĥ_l, u_i⟩/‖u_i g‖ (row-normalized),
     rise_i  = ϕ_i(25) − ϕ_i(23)          # two points only
     fall_i  = ϕ_i(25) − ϕ_i(32)
     score_i = min(rise_i⁺, fall_i⁺)      # ⁺ = clamp_min(0)
-    tokens_i = top-8 argmin... topk(score);  B_i = QR(center(u_tokens))   # per position
+    tokens_i = topk(score_i, 8).indices  # LARGEST scores (the actual code), per position
+    B_i = QR((u[tokens_i]·g − mean_v(u·g)))   # exact order: gain-scale rows, CENTER over
+    #   vocab, THEN QR (subspace_from_scores); row-normalized variant divides ϕ by ||u·g||
+    #   before differencing when normalize_unembedding_rows=True
     temporal union = SVD of [B_t1|…|B_tW], support-filtered; top-k truncation optional
 
 The selector sees the trajectory ONLY at l ∈ {23, 25, 32} — a 3-sample sketch of the
@@ -60,8 +67,15 @@ anchor a = h at the window start (l = 13 or the earliest available).
 
     # (a) area version of the current score (integrates the same sign structure)
     rise_area_i  = Σ_{l∈W_build} relu(ϕ_i(l) − ϕ_i(13))     # build-up mass
-    fall_area_i  = Σ_{l∈W_sup}  relu(ϕ_i(30) − ϕ_i(l))      # removal mass (signed base = h30)
+    fall_area_i  = Σ_{l∈W_sup}  relu(ϕ_i(30) − ϕ_i(l))      # POST-PEAK fall (base = h30):
+    #   omits the FIRST last-three write (b29's h29→h30, measured POSITIVE on dev inputs)
+    fall_area_3_i = Σ_{b∈{29,30,31}} relu(−Δϕ_i(b))         # WHOLE last-3 variant: includes b29
     score_i = min(rise_area_i, fall_area_i)                  # both-phases requirement kept
+    # LIMITATIONS (why only ONE candidate is carried forward, and neither (a)-variant is
+    # 'the' selector): (i) area sums and increment sums are DIFFERENT functionals — areas
+    # credit sustained elevation, increments credit local changes; (ii) min() over windows
+    # of unequal length biases toward the shorter window; (iii) positive-increment sums
+    # credit oscillation (up-down-up counts twice). A chosen variant must declare these.
 
     # (b) shape match: correlate each token's readout curve with the canonical rise-fall
     t_l = the mean normalized English-curve template from the motivating figure (or the
@@ -69,8 +83,11 @@ anchor a = h at the window start (l = 13 or the earliest available).
     score_i = corr(ϕ_i(·), t) over l∈[13,32], clipped at 0
 
     # (c) per-block increment form (localizes WHERE build/removal happens)
-    Δϕ_i(l) = ϕ_i(l+1) − ϕ_i(l)
-    build_i  = Σ_{l∈W_build} relu(Δϕ_i(l));  cut_i = Σ_{l∈W_sup} relu(−Δϕ_i(l))
+    # block indexing: blocks b0..b31; block b writes Δh_b = h_{b+1} − h_b; the LAST-THREE
+    # writes are: b29: h30−h29, b30: h31−h30, b31: h32−h31 (h33 does not exist).
+    Δϕ_i(b) = ϕ_i(h_{b+1}) − ϕ_i(h_b)     # the readout change across block b's write
+    build_i  = Σ_{b∈B_build} relu(Δϕ_i(b))          # B_build = b13..b23 (per the hypothesis)
+    cut_i    = Σ_{b∈{29,30,31}} relu(−Δϕ_i(b))      # exactly the last-3 writes
     score_i = min(build_i, cut_i)
 
 Each keeps the user's multi-token union + SVD top-k downstream construction unchanged
