@@ -90,3 +90,40 @@ permitting the exact successful-baseline cell.
 L20 only; 12 dev pairs; the reference reconstruction reproduces the sweep's code path
 (attenuation_basis verbatim; fit split; rescale) but was run on CPU from the template bank —
 exact-tensor identity with the historical GPU runs is not bit-verified.
+
+## Recovered historical ablations (injection-only / removal-only; actual configs+results)
+
+From the migrated main-repo artifacts (`/workspace/2026/suppressed-activations/out/
+2026-09-07_190240_svd-ant-parts/result.json`, job 500 — the journal's linked source for
+"Token-persistent SVD changes digits mainly through source removal"; token-persistent SVD
+era, L24, different delta construction):
+
+| condition | swap | first token |
+|---|---:|---|
+| svd_parts_difference (removal + injection) | +5.375 | `6` (donor digit) |
+| **svd_parts_source_remove (REMOVAL ONLY)** | **+6.125** | `6` |
+| **svd_parts_target_add (INJECTION ONLY)** | **+0.000** | `8` (unchanged) |
+
+Historical reading (journal, quoted): "source removal probably explains the apparent ant
+transfer at the selected setting, because removal alone is stronger and donor addition
+alone has no log-odds effect."
+
+## Synthesis with the current map (both eras' evidence)
+
+- Historical era (token-persistent donor delta): removal-only carried the digit change;
+  injection-only did nothing.
+- Current era (template-label delta): injection direction carries naming/identity transfer
+  (B: δ_ref′ + Ps removal = 3/12 full passes); removal span barely matters for it.
+- Common structure across eras: the EFFECTIVE component is the one aligned with the
+  removal span's construction (historical: the removed source component; current: the
+  δ-ref label direction in its own span). Injection effectiveness is direction-dependent.
+
+## Proposed next smallest distinguishing test (NOT queued)
+
+At the CURRENT operating point (L20, C1.5, same 12 questions): the ONE ablation never run
+in the template era — **δ_ref′ injection WITHOUT removal** (h + C·δ_ref′, the runner's
+existing fixed_delta op; the sweep computes δ_ref′ already) vs **removal WITHOUT
+injection** (remove op with source_basis = P_ref) vs A (both). 24–36 cells. This separates
+whether δ_ref′ alone transfers (injection-sufficient) or needs the matched removal
+(synergy), directly on the successful baseline — the smallest test that discriminates the
+two readings of the 2×2.
