@@ -99,6 +99,8 @@ class Config:
     # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
     # detector_layers drives the reference/template path)
     common_selector: str = "snapshot"  # "snapshot" (existing 3-depth) | "increment"
+    common_donor_rank: int = 8  # injection-basis slice of the donor top8 (removal span
+    # stays the FULL joint8) - the one-factor rank test
     xdepth_anchor_layer: int = -1  # if >=0: inject the donor residual from THIS layer
     # (projected on the SAME fixed span) instead of the site layer - cross-depth donor
     xdepth_norm_from_layer: int = -1  # if >=0: rescale the anchor projection to the norm of
@@ -759,6 +761,40 @@ def smoke_common_basis_xdepth_configs():
             ("smoke_common_basis_xdepth", "v25_imported_C1.5", replace(base, xdepth_anchor_layer=3)),
             ("smoke_common_basis_xdepth", "v8_rescaled_C1.5", replace(base, xdepth_norm_from_layer=3)),
             ("smoke_common_basis_xdepth", "C0", replace(base, strength=0.0))]
+
+
+def common_basis_rankinj_configs():
+    """Approved one-factor injection-rank design (supervisor 2026-09-12): FIXED P_joint8
+    removal in every condition (no removal shrinkage); vary ONLY the injection basis slice
+    v_k = Ud_k Ud_k^T d25 (k in {1,2,4,8}) - all contained; h8 site, C1.5, increment
+    selector, frozen donor anchor 25 at decode offset-1. 60 cells with C0. -- PI[glm-5p3-flash]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+                   rank=8, readout_positions=4, intervention_layer=(8,),
+                   intervention_positions=3, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True, common_window=4,
+                   common_basis="top8_union", common_selector="increment",
+                   common_removal="joint", strength=1.5, xdepth_anchor_layer=25)
+    rows = []
+    for k in (1, 2, 4, 8):
+        rows.append(("common_basis_rankinj", f"k{k}_C1.5",
+                     replace(base, common_donor_rank=k)))
+    rows.append(("common_basis_rankinj", "C0", replace(base, strength=0.0)))
+    return rows
+
+
+def smoke_common_basis_rankinj_configs():
+    """Tiny twin of the injection-rank design: site h1, anchor h3, ranks {1, 2} + C0."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+                   rank=2, readout_positions=2, intervention_layer=(1,),
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True, common_window=2,
+                   common_basis="top8_union", common_selector="increment",
+                   common_removal="joint", strength=1.5, xdepth_anchor_layer=3)
+    return [("smoke_common_basis_rankinj", "k1_C1.5", replace(base, common_donor_rank=1)),
+            ("smoke_common_basis_rankinj", "k2_C1.5", replace(base, common_donor_rank=2)),
+            ("smoke_common_basis_rankinj", "C0", replace(base, strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -2087,6 +2123,8 @@ SWEEP_CONFIGS = {
     "common-basis-joint": common_basis_joint_configs,
     "common-basis-fulljoint": common_basis_fulljoint_configs,
     "common-basis-selsite": common_basis_selsite_configs,
+    "common-basis-rankinj": common_basis_rankinj_configs,
+    "smoke-common-basis-rankinj": smoke_common_basis_rankinj_configs,
     "common-basis-xdepth": common_basis_xdepth_configs,
     "smoke-common-basis-xdepth": smoke_common_basis_xdepth_configs,
     "smoke-common-basis-selsite": smoke_common_basis_selsite_configs,
@@ -2927,7 +2965,12 @@ def run_with_bundle(
                 donor_states = {o: target["residuals"][La, t_end - o].float() for o in offsets}
                 # anchor projection (the injected direction) and norm-source projection
                 # (the injected size): both through the SAME fixed donor columns
-                v_anchor = {o: don_by_offset(o) @ (don_by_offset(o).T @ donor_states[o])
+                if cfg.common_donor_rank < 8:
+                    # injection-basis slice ONLY (removal stays the full joint8)
+                    inj_by_offset = (lambda o: Ud8[:, :cfg.common_donor_rank])
+                else:
+                    inj_by_offset = don_by_offset
+                v_anchor = {o: inj_by_offset(o) @ (inj_by_offset(o).T @ donor_states[o])
                             for o in offsets}
                 v_normsrc = {o: don_by_offset(o) @ (don_by_offset(o).T @
                                                       (target["residuals"][Ln, t_end - o].float()))
@@ -2954,10 +2997,10 @@ def run_with_bundle(
                     donor_proj = v_anchor  # imported anchor projection (own norm)
                 elif cfg.common_inject_restricted:
                     # v := Ps(Pd d): the injection's outside-source part is dropped
-                    donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(don_by_offset(o), donor_states[o])
+                    donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(inj_by_offset(o), donor_states[o])
                                   for o in offsets}
                 else:
-                    donor_proj = {o: (lambda D, d: D @ (D.T @ d))(don_by_offset(o), donor_states[o])
+                    donor_proj = {o: (lambda D, d: D @ (D.T @ d))(inj_by_offset(o), donor_states[o])
                                   for o in offsets}
                 if cfg.common_removal == "joint":
                     for o in offsets:
@@ -3018,6 +3061,7 @@ def run_with_bundle(
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
+                "common_donor_rank": cfg.common_donor_rank,
                 "selector_windows": ({"build_blocks": list(range(
                                           int(0.40 * source["residuals"].shape[0]),
                                           int(0.70 * source["residuals"].shape[0]) + 1)),
