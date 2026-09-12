@@ -99,6 +99,10 @@ class Config:
     # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
     # detector_layers drives the reference/template path)
     common_selector: str = "snapshot"  # "snapshot" (existing 3-depth) | "increment"
+    xdepth_anchor_layer: int = -1  # if >=0: inject the donor residual from THIS layer
+    # (projected on the SAME fixed span) instead of the site layer - cross-depth donor
+    xdepth_norm_from_layer: int = -1  # if >=0: rescale the anchor projection to the norm of
+    # the projection from THIS layer (the direction/size discriminator arm)
     # (whole-trajectory positive-increment sum, windows b13..b23 / writes b29..b31)
     common_removal: str = "source"  # "source" (Ps) | "joint" | "pref" (reference attenuation span)
     removal_only: bool = False  # ablation: h - C*P_ref h alone (matches A's removal component)
@@ -702,6 +706,14 @@ def smoke_common_basis_selsite_configs():
                 restore_residual_norm=False, continue_generation=True, common_window=2,
                 common_basis="top8_union", common_selector=sel, common_removal="joint",
                 strength=1.5)))
+    rows.append(("smoke_common_basis_selsite", "random_h1_C1.5", replace(
+        DEFAULT, template_contrast=True, template_state_span="none",
+        detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+        rank=2, readout_positions=2, intervention_layer=(1,),
+        intervention_positions=2, match_component_norm=False,
+        restore_residual_norm=False, continue_generation=True, common_window=2,
+        common_basis="random_shared", common_random_rank=2, common_removal="joint",
+        strength=1.5)))
     rows.append(("smoke_common_basis_selsite", "C0", replace(
         DEFAULT, template_contrast=True, template_state_span="none",
         detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
@@ -711,6 +723,42 @@ def smoke_common_basis_selsite_configs():
         common_basis="top8_union", common_selector="snapshot", common_removal="joint",
         strength=0.0)))
     return rows
+
+
+def common_basis_xdepth_configs():
+    """Bounded cross-depth donor comparison (supervisor 2026-09-12): INCREMENT selector,
+    h8 site, joint removal, C1.5 - ONLY the donor vector construction changes:
+    v8 replay / imported v25 (later-build reference anchor, predeclared not proven peak) /
+    v8 rescaled per-offset to ||v25|| (direction/size discriminator) / C0. 48 cells.
+    -- PI[glm-5p3-flash]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+                   rank=8, readout_positions=4, intervention_layer=(8,),
+                   intervention_positions=3, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True, common_window=4,
+                   common_basis="top8_union", common_selector="increment",
+                   common_removal="joint", strength=1.5)
+    return [("common_basis_xdepth", "v8_replay_C1.5", base),
+            ("common_basis_xdepth", "v25_imported_C1.5", replace(base, xdepth_anchor_layer=25)),
+            ("common_basis_xdepth", "v8_rescaled_to_v25_C1.5",
+             replace(base, xdepth_norm_from_layer=25)),
+            ("common_basis_xdepth", "C0", replace(base, strength=0.0))]
+
+
+def smoke_common_basis_xdepth_configs():
+    """Tiny twin of the cross-depth comparison: site h1, anchors h1 (replay) / h3 (import
+    + norm-source), C0; increment selector; joint removal."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+                   rank=2, readout_positions=2, intervention_layer=(1,),
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True, common_window=2,
+                   common_basis="top8_union", common_selector="increment",
+                   common_removal="joint", strength=1.5)
+    return [("smoke_common_basis_xdepth", "v8_replay_C1.5", base),
+            ("smoke_common_basis_xdepth", "v25_imported_C1.5", replace(base, xdepth_anchor_layer=3)),
+            ("smoke_common_basis_xdepth", "v8_rescaled_C1.5", replace(base, xdepth_norm_from_layer=3)),
+            ("smoke_common_basis_xdepth", "C0", replace(base, strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -2039,6 +2087,8 @@ SWEEP_CONFIGS = {
     "common-basis-joint": common_basis_joint_configs,
     "common-basis-fulljoint": common_basis_fulljoint_configs,
     "common-basis-selsite": common_basis_selsite_configs,
+    "common-basis-xdepth": common_basis_xdepth_configs,
+    "smoke-common-basis-xdepth": smoke_common_basis_xdepth_configs,
     "smoke-common-basis-selsite": smoke_common_basis_selsite_configs,
     "common-basis-ablation": common_basis_ablation_configs,
     "smoke-common-basis-ablation": smoke_common_basis_ablation_configs,
@@ -2231,7 +2281,12 @@ def validate_specs(specs: list[dict], registry: dict) -> None:
             got = getattr(cfg_res, field)
             got = list(got) if isinstance(got, tuple) else got
             want_cmp = list(want) if isinstance(want, (tuple, list)) else want
-            assert got == want_cmp, \
+            # scalar-vs-singleton tolerance: intervention_layer=20 and [20] agree
+            if isinstance(want_cmp, list) and not isinstance(got, list) and len(want_cmp) == 1:
+                got_cmp = [got]
+            else:
+                got_cmp = got
+            assert got_cmp == want_cmp, \
                 f"spec[{position}]: config.{field} = {got!r} != expected {want_cmp!r}"
 
 
@@ -2867,8 +2922,11 @@ def run_with_bundle(
                 assert cfg.common_removal in ("pref", "source")
                 delta_ref = fixed_deltas[layer].float()
             common_specs, layer_norms = {}, {}
-            for L in intervention_layers:
-                donor_states = {o: target["residuals"][L, t_end - o].float() for o in offsets}
+            anchor = cfg.xdepth_anchor_layer if cfg.xdepth_anchor_layer >= 0 else None
+            anchor_layers = ([anchor] * len(intervention_layers) if anchor is not None
+                             else intervention_layers)
+            for L, La in zip(intervention_layers, anchor_layers):
+                donor_states = {o: target["residuals"][La, t_end - o].float() for o in offsets}
                 if cfg.common_inject == "ref_delta" and cfg.common_inject_norm == "own":
                     donor_proj = {o: delta_ref.clone() for o in offsets}  # fixed vector, all positions
                 elif cfg.common_inject == "ref_delta":  # common_inject_norm == "cross_v"
@@ -2940,6 +2998,10 @@ def run_with_bundle(
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
+                "selector_windows": ({"build_blocks": list(range(int(0.40 * 33),
+                                                                 int(0.70 * 33) + 1)),
+                                      "cut_blocks": [29, 30, 31]}
+                                     if cfg.common_selector == "increment" else None),
                 "inject_norm_axis": cfg.common_inject_norm,
                 "norm_target_check": norm_check,
                 "delta_ref_prime": ({"norm": float(delta_ref.norm()),
