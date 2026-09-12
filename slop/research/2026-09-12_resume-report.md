@@ -114,3 +114,28 @@ Commits 70f950e (protocol), 08f71a8 (H5 aggregation code), 7a18992 (CPU precompu
   matched-size degradation; 'full-rank' terminology).
 
 Family/spec/code ready on the supervisor's go; not queued.
+
+## Complete-rank IMPLEMENTATION done (report 5 — intercom absent; awaiting code verification + queue approval)
+
+Commits ffd04ca (family/slicing fixes + smoke), 72(9?)94c2 lineage. WHAT WAS WRONG AND
+FIXED: (1) the complete-rank family sliced only the DONOR (source stayed 8/full) — the
+design truncates BOTH (fixed: tiny twin + real family, common_source_rank=k); (2) the
+removal routing: the complete-rank arms' removal = the TRUNCATED joint Pj (routing +
+the persistence removal_rank field); (3) the increment_scores 'axis bug' claim WITHDRAWN
+(fa79cdd added the function with the correct axis; the bug was my own transient
+uncommitted tree; 1182 unaffected); (4) the resurfaced noncontainment comment deleted.
+
+SMOKE PROOF (real tiny dispatch): k1 {source 1, donor 1, joint 2}; kfull {source 4, donor
+4, joint 8 = the tiny FULL support}; removal_rank == the joint rank; vectors differ; C0
+identity; contracts validated pre-dispatch.
+
+PRODUCTION: complete_rank_configs — k ∈ {1,2,4,8,full} × 12 + C0 = 60 cells at h1
+(predeclared), anchor 25, C1.5, increment selector; full = the ACTUAL supported rank
+(recorded per cell).
+
+CPU PRECOMPUTATION (rank_ladder_cpu.json, corrected to the h1 SITE — the prior h8 version
+preserved+relabeled): k1 edit frac 1.08, k2 1.56, k4 2.05, k8 2.50, kfull 3.58 — the h1
+ladder SPANS the collapse threshold (~1.8–2.0 from 1230): k1/k2 below, k4+ above — a clean
+trade-off ladder.
+
+NOT queued — awaiting the supervisor's code verification + queue approval.
