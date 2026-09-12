@@ -24,7 +24,9 @@ def test_mutations():
             oat.validate_specs(bad, oat.SWEEP_CONFIGS)
             raise AssertionError(f"mutation {name} NOT caught")
         except AssertionError as e:
-            assert "!= expected" in str(e) or "condition" in str(e), e
+            # caught either as a config mismatch or a spec-vs-independent conflict
+            assert ("!= expected" in str(e) or "condition" in str(e)
+                    or "expectation conflict" in str(e)), e
     print("MUTATION TEST PASS: 5/5 wrong expectations caught")
 
 if __name__ == "__main__":
