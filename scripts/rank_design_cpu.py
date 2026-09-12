@@ -10,9 +10,19 @@ import json, torch, sys, statistics as st
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from suppressed_activation_subspace import increment_scores, subspace_from_scores
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 BANK = Path(__file__).resolve().parents[1] / "out/2026-09-12_exact-input-bank-att3"
 OUT = Path(__file__).resolve().parents[1] / "out/2026-09-12_cb-selsite/rank_design_cpu.json"
 C = 1.5
+
+
+def runner_union_basis_cols(m):
+    """VERBATIM runner joint construction (scripts/oat_sweep.py union_basis body)."""
+    u, s_vals, _ = torch.linalg.svd(m, full_matrices=False)
+    tol = max(m.shape) * torch.finfo(s_vals.dtype).eps * s_vals[0]
+    support = int((s_vals > tol).sum())
+    u = u[:, :support]
+    return u, s_vals, support
 
 def main():
     unembed = torch.load(BANK/'unembedding.pt', weights_only=False).float()
@@ -33,16 +43,25 @@ def main():
             return u[:, :8]
         Ud8 = top8(res_d, ad)
         Us8 = top8(res_s, asr)
-        Pj = torch.cat([Us8, Ud8], dim=1)  # removal columns (fixed across conditions)
+        # JOINT support exactly as the runner: SVD of the concatenation, support-filtered
+        # (the raw cat columns are NOT jointly orthonormal - cat+apply sums two projectors)
+        Pj, svj, supj = runner_union_basis_cols(torch.cat([Us8, Ud8], dim=1))
+        ortho_err = float((Pj.T @ Pj - torch.eye(Pj.shape[1], dtype=Pj.dtype)).norm())
+        assert ortho_err < 1e-5, f"joint not orthonormal: {ortho_err}"
+        x = torch.randn(Pj.shape[0], dtype=Pj.dtype)
+        idem = float((Pj @ (Pj.T @ (Pj @ (Pj.T @ x))) - Pj @ (Pj.T @ x)).norm())
+        assert idem < 1e-5 * x.norm(), f"joint projector not idempotent: {idem}"
         for o in (1,2,3):
             d25 = res_d[25, seq_d-o]
             h8 = res_s[8, seq_s-o]
             v8 = Ud8 @ (Ud8.T @ d25)
-            rec = {'cell': cid, 'offset': o, 'h8_norm': round(float(h8.norm()), 3)}
+            removal = Pj @ (Pj.T @ h8)
+            rec = {'cell': cid, 'offset': o, 'h8_norm': round(float(h8.norm()), 3),
+                   'removal_norm_frac': round(float(removal.norm()/h8.norm()), 4)}
             for k in (1,2,4,8):
                 Uk = Ud8[:, :k]
                 v_k = Uk @ (Uk.T @ d25)
-                edit = C * (v_k - Pj @ (Pj.T @ h8))   # column-form projection
+                edit = C * (v_k - removal)   # the same joint removal for every k
                 rec[f'k{k}'] = {'inj_energy_frac_vs_k8': round(float(v_k.square().sum()/v8.square().sum()), 4),
                                 'edit_norm_frac_of_h8': round(float(edit.norm()/h8.norm()), 4)}
             rows.append(rec)
