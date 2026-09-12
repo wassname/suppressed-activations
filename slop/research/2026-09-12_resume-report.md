@@ -66,3 +66,28 @@ DELIVERED (commit e53ede5):
 
 NO GPU until the queue review of protocol/spec/smoke. The rank design NOT bundled (Part 2
 awaits the algebra check).
+
+## 1230 results (report 3 — intercom unavailable)
+
+Task 1230 COMPLETE (Success, ~27 min, 144/144). Commits 5cff707 + 989e0ae/91fcbcc lineage.
+Report: out/2026-09-12_cb-earlyloc/report.md; summary.json; raw per-cell in the same tree.
+
+RESULTS (the site axis at C1.5, increment selector, anchor h25):
+- v25imported at h1/h2/h3/h8: swap +1.14/+0.79/+0.53/+0.13; CAPS 9/10/4/2; LOOPS 10/11/7/1;
+  edit fracs 2.52/2.12/2.19/0.91.
+- siterescaled (size controls) h1/h2/h3: +0.40/+1.09/+0.16; loops 11/10/7; edits 2.45/2.06/2.14.
+- v8replay-h8: +0.02, edit 0.07 — 12/12 hashes identical to 1194 v8-replay (baseline verified).
+- C0 ×4: exact identity.
+- SEMANTIC: ZERO donor-identity mentions in 132 nonzero continuations (word-boundary);
+  h1/h2 = LOOP COLLAPSE, not transfer.
+
+READING (labeled): the early sites cannot host the imported late component at C1.5 — the
+injected vector EXCEEDS the residual norm (edit frac 2.1–2.5 = injection ~2× h-residual)
+and generation collapses at MATCHED size for both directions — a SIZE-driven degradation;
+the loop gradient tracks the declining injected norm.
+
+NEXT (proposed, NOT queued — the supervisor's corrected algebra): the COMPLETE-EDIT rank
+narrowing at the PREDECLARED h1 (both U_s/U_d truncated at k ∈ {1,2,4,8,full};
+P_joint(k) = span([U_s^k | U_d^k]); injection U_d^k d25): the h1 edit fraction shrinks
+with k — may re-enter the non-degenerate range while testing the early idea; k=full
+replays earlyloc imported-h1. CPU pre-computation on request.
