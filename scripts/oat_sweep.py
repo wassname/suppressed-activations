@@ -871,7 +871,7 @@ def complete_rank_configs():
                    restore_residual_norm=False, continue_generation=True, common_window=4,
                    common_basis="top8_union", common_selector="increment",
                    common_removal="joint", strength=1.5, xdepth_anchor_layer=25,
-                   common_temporal_full=True, complete_edit_mode=True)
+                   complete_edit_mode=True)
     rows = []
     for k in (1, 2, 4, 8, "full"):
         # kfull = the integer sentinel 0 (full supported temporal basis), schema-consistent
@@ -880,6 +880,7 @@ def complete_rank_configs():
                      replace(base, common_donor_rank=kk, common_source_rank=kk)))
     rows.append(("complete_rank", "C0", replace(base, strength=0.0)))
     # 6 conditions x 12 = 72 cells (k1/k2/k4/k8/kfull + C0)
+    return rows
 
 
 def smoke_complete_rank_configs():
@@ -3023,9 +3024,9 @@ def run_with_bundle(
             Ud8 = don_by_offset(1).float()
             if cfg.complete_edit_mode:
                 # BOTH bases truncated at k BEFORE the joint support (0 = FULL supported)
-                Us_k = (U_s.float() if cfg.common_temporal_full
+                Us_k = (U_s.float() if cfg.common_source_rank == 0
                         else U_s[:, :cfg.common_source_rank].float())
-                Ud_k = (U_d.float() if cfg.common_temporal_full
+                Ud_k = (U_d.float() if cfg.common_donor_rank == 0
                         else U_d[:, :cfg.common_donor_rank].float())
             else:
                 Us_k, Ud_k = Us8, Ud8  # the old paths: unchanged
