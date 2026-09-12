@@ -490,6 +490,41 @@ def common_basis_joint_configs():
             ("common_basis_joint", "joint_C0", replace(base, common_removal="joint", strength=0.0))]
 
 
+def common_basis_fulljoint_configs():
+    """Authorized full-temporal vs top8 joint removal (supervisor 2026-09-12): ONE axis
+    (temporal truncation) under the accumulation-safe joint-removal equation. Full U_s/U_d
+    support (<=32 each) then joint support over [U_s|U_d]; same v = Pd d; interval
+    h25..h30; C1.5; frozen donor. Random full-joint = descriptive, not norm-matched.
+    Prior full-union tests used a DIFFERENT removal operator (Ps-only) - labeled. -- PI[claude]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+                   intervention_positions=3, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=4, common_removal="joint", strength=1.5,
+                   intervention_layer=(25, 26, 27, 28, 29, 30))
+    return [("common_basis_fulljoint", "fulljoint_C1.5", replace(base, common_basis="full_union")),
+            ("common_basis_fulljoint", "top8joint_C1.5", replace(base, common_basis="top8_union")),
+            ("common_basis_fulljoint", "fulljoint_random_C1.5", replace(base, common_basis="random_shared",
+                                                                         common_random_rank=32)),
+            ("common_basis_fulljoint", "fulljoint_C0", replace(base, common_basis="full_union", strength=0.0))]
+
+
+def smoke_common_basis_fulljoint_configs():
+    """Tiny twin of the full-joint comparison: tiny interval h1..h5, full temporal support
+    (== union at rank2/window2), joint removal, C1.5 + C0 + random."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True,
+                   common_window=2, common_removal="joint", strength=1.5,
+                   intervention_layer=(1, 2, 3, 4, 5))
+    return [("smoke_common_basis_fulljoint", "fulljoint_C1.5", replace(base, common_basis="full_union")),
+            ("smoke_common_basis_fulljoint", "top8joint_C1.5", replace(base, common_basis="top8_union")),
+            ("smoke_common_basis_fulljoint", "fulljoint_random_C1.5", replace(base, common_basis="random_shared",
+                                                                               common_random_rank=2)),
+            ("smoke_common_basis_fulljoint", "fulljoint_C0", replace(base, common_basis="full_union", strength=0.0))]
+
+
 def smoke_common_basis_configs():
     """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
@@ -1919,6 +1954,8 @@ def run_with_bundle(
         "common-basis-sync": common_basis_sync_configs,
         "common-basis-interval": common_basis_interval_configs,
         "common-basis-joint": common_basis_joint_configs,
+        "common-basis-fulljoint": common_basis_fulljoint_configs,
+        "smoke-common-basis-fulljoint": smoke_common_basis_fulljoint_configs,
         "smoke-common-basis-joint": smoke_common_basis_joint_configs,
         "smoke-common-basis-sync": smoke_common_basis_sync_configs,
         "smoke-common-basis-interval": smoke_common_basis_interval_configs,
@@ -2981,6 +3018,8 @@ if __name__ == "__main__":
             "common-basis-sync",
             "common-basis-interval",
             "common-basis-joint",
+            "common-basis-fulljoint",
+            "smoke-common-basis-fulljoint",
             "smoke-common-basis-joint",
             "smoke-common-basis-sync",
             "smoke-common-basis-interval",
