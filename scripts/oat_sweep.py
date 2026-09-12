@@ -2596,7 +2596,9 @@ def run_with_bundle(
                     for o in offsets:
                         cont = float((donor_proj[o] - Pu @ (Pu.T @ donor_proj[o])).norm()
                                      / donor_proj[o].norm())
-                        assert cont < 1e-5, f"injection v not in joint span: {cont}"
+                        # 1e-4: float32 SVD accumulation with ~2x joint columns measured
+                        # 1.002e-5 on real data; a real non-containment would be ~0.1+
+                        assert cont < 1e-4, f"injection v not in joint span: {cont}""
                 else:
                     for o in offsets:
                         assert don_by_offset(o).dtype == torch.float32
