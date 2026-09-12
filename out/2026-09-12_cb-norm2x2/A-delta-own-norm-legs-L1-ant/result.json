@@ -1,0 +1,5536 @@
+{
+  "model": "Qwen/Qwen3.5-4B",
+  "elapsed_seconds": 8.990845200954936,
+  "peak_gpu_memory_bytes": 14171380736,
+  "argv": [
+    "scripts/oat_sweep.py",
+    "--batch-spec",
+    "slop/common_basis_norm2x2_batch.json"
+  ],
+  "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+  "model_load_seconds": 5.418340806965716,
+  "extraction_cache": {
+    "hits": [
+      "Question: How many legs does the animal known fo",
+      "A photograph is labeled 'spider'. The animal is ",
+      "A photograph is labeled 'ant'. The animal is ",
+      "A photograph is labeled 'bee'. The animal is ",
+      "I noticed something labeled 'spider' nearby. Tha",
+      "I noticed something labeled 'ant' nearby. That a",
+      "I noticed something labeled 'bee' nearby. That a",
+      "Someone wrote 'spider' as the creature's name. T",
+      "Someone wrote 'ant' as the creature's name. The ",
+      "Someone wrote 'bee' as the creature's name. The ",
+      "The story mentions an animal called 'spider'. Th",
+      "The story mentions an animal called 'ant'. That ",
+      "The story mentions an animal called 'bee'. That ",
+      "Imagine an animal identified as 'spider'. This a",
+      "Imagine an animal identified as 'ant'. This anim",
+      "Imagine an animal identified as 'bee'. This anim",
+      "We are discussing the animal 'spider'. The creat",
+      "We are discussing the animal 'ant'. The creature",
+      "We are discussing the animal 'bee'. The creature",
+      "A drawing depicts an animal labeled 'spider'. Th",
+      "A drawing depicts an animal labeled 'ant'. This ",
+      "A drawing depicts an animal labeled 'bee'. This ",
+      "I read about the animal 'spider' yesterday. That",
+      "I read about the animal 'ant' yesterday. That cr",
+      "I read about the animal 'bee' yesterday. That cr"
+    ],
+    "misses": [
+      "Question: How many legs does the animal known fo"
+    ]
+  },
+  "batch_spec": {
+    "batch_file": "slop/common_basis_norm2x2_batch.json",
+    "index": 25,
+    "spec": {
+      "output_dir": "out/2026-09-12_cb-norm2x2/A-delta-own-norm-legs-L1-ant",
+      "sweep": "span-correction-sweep",
+      "condition_index": 3,
+      "prompt_mode": "chat-assistant-prefill",
+      "source_prompt": "Question: How many legs does the animal known for spinning webs to catch insects have?\nAnswer: ",
+      "target_prompt": "Question: How many legs does the animal known for living in colonies and following pheromone trails have?\nAnswer: ",
+      "source_output": "8",
+      "target_output": "6",
+      "max_new_tokens": 128,
+      "lens_corpus_arrow": null,
+      "target_concept": "ant",
+      "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "extraction_instruction": null,
+      "selector_audit": false
+    }
+  },
+  "git": "v0.1.1-459-g6e4fcfd-dirty",
+  "code_sha256": {
+    "scripts/oat_sweep.py": "bffdb169feef7d427c5dfd9bd75a9a93b364f2a8ead7268189eea8716f594f1d",
+    "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727",
+    "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+    "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+    "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+    "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+  },
+  "package_versions": {
+    "torch": "2.13.0",
+    "transformers": "5.16.1",
+    "accelerate": "1.14.0",
+    "pyarrow": "25.0.1"
+  },
+  "default": {
+    "aggregation": "union",
+    "detector_layers": [
+      23,
+      25,
+      32
+    ],
+    "readout_positions": 4,
+    "rank": 8,
+    "intervention_layer": [
+      24
+    ],
+    "intervention_positions": 3,
+    "strength": 2.5,
+    "match_component_norm": true,
+    "restore_residual_norm": true,
+    "donor_position_offset": 0,
+    "lexical_forms": "detector",
+    "lexical_divisor": 1,
+    "continue_generation": true,
+    "persistent_rank": 0,
+    "random_delta_seed": -1,
+    "delta_component": "difference",
+    "coordinate_swap": false,
+    "shared_replacement": "none",
+    "source_dominant_only": false,
+    "template_contrast": false,
+    "contrastive_suppression": false,
+    "template_state_span": "none",
+    "discarded_fraction": 0.0,
+    "normalize_selector_residuals": false,
+    "bee_correction": 0.0,
+    "bee_correction_seed": -1,
+    "bee_correction_only": false,
+    "project_bee_correction": false,
+    "transport_readout": false,
+    "template_clamp": false,
+    "future_coordinate": false,
+    "future_clamp": false,
+    "future_lexical_union": false,
+    "span_correction": false,
+    "random_in_span": false,
+    "extra_prefill_positions": null,
+    "answer_patch_layer": null,
+    "answer_patch_strength": null,
+    "common_basis": "none",
+    "common_window": 4,
+    "common_random_rank": 8,
+    "common_seed": 0,
+    "common_bank_layers": [
+      23,
+      25,
+      32
+    ],
+    "common_removal": "source",
+    "common_inject_norm": "own",
+    "common_inject": "pd_d",
+    "common_inject_restricted": false,
+    "sync_donor": false
+  },
+  "prompt_mode": "chat-assistant-prefill",
+  "prompt_boundaries": {
+    "source": {
+      "content_start": 28,
+      "content_end": 49
+    },
+    "donor": {
+      "content_start": 28,
+      "content_end": 54
+    },
+    "extraction_source": {
+      "content_start": 28,
+      "content_end": 49
+    },
+    "extraction_donor": {
+      "content_start": 28,
+      "content_end": 54
+    }
+  },
+  "source_prompt": "Question: How many legs does the animal known for spinning webs to catch insects have?\nAnswer: ",
+  "target_prompt": "Question: How many legs does the animal known for living in colonies and following pheromone trails have?\nAnswer: ",
+  "rendered_inputs": {
+    "source": {
+      "input_ids": [
+        248045,
+        846,
+        198,
+        15666,
+        279,
+        3296,
+        440,
+        279,
+        4087,
+        1118,
+        13,
+        4844,
+        7276,
+        279,
+        9572,
+        303,
+        2250,
+        22157,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271,
+        14162,
+        25,
+        2500,
+        1599,
+        13795,
+        1503,
+        279,
+        9572,
+        3750,
+        364,
+        36609,
+        78129,
+        310,
+        2213,
+        39465,
+        599,
+        30,
+        198,
+        15666,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal known for spinning webs to catch insects have?\nAnswer: "
+    },
+    "donor": {
+      "input_ids": [
+        248045,
+        846,
+        198,
+        15666,
+        279,
+        3296,
+        440,
+        279,
+        4087,
+        1118,
+        13,
+        4844,
+        7276,
+        279,
+        9572,
+        303,
+        2250,
+        22157,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271,
+        14162,
+        25,
+        2500,
+        1599,
+        13795,
+        1503,
+        279,
+        9572,
+        3750,
+        364,
+        5214,
+        303,
+        46328,
+        321,
+        2614,
+        1273,
+        261,
+        315,
+        588,
+        31777,
+        599,
+        30,
+        198,
+        15666,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal known for living in colonies and following pheromone trails have?\nAnswer: "
+    },
+    "extraction_source": {
+      "input_ids": [
+        248045,
+        846,
+        198,
+        15666,
+        279,
+        3296,
+        440,
+        279,
+        4087,
+        1118,
+        13,
+        4844,
+        7276,
+        279,
+        9572,
+        303,
+        2250,
+        22157,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271,
+        14162,
+        25,
+        2500,
+        1599,
+        13795,
+        1503,
+        279,
+        9572,
+        3750,
+        364,
+        36609,
+        78129,
+        310,
+        2213,
+        39465,
+        599,
+        30,
+        198,
+        15666,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal known for spinning webs to catch insects have?\nAnswer: "
+    },
+    "extraction_donor": {
+      "input_ids": [
+        248045,
+        846,
+        198,
+        15666,
+        279,
+        3296,
+        440,
+        279,
+        4087,
+        1118,
+        13,
+        4844,
+        7276,
+        279,
+        9572,
+        303,
+        2250,
+        22157,
+        13,
+        248046,
+        198,
+        248045,
+        74455,
+        198,
+        248068,
+        271,
+        248069,
+        271,
+        14162,
+        25,
+        2500,
+        1599,
+        13795,
+        1503,
+        279,
+        9572,
+        3750,
+        364,
+        5214,
+        303,
+        46328,
+        321,
+        2614,
+        1273,
+        261,
+        315,
+        588,
+        31777,
+        599,
+        30,
+        198,
+        15666,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal known for living in colonies and following pheromone trails have?\nAnswer: "
+    }
+  },
+  "target_concept": "ant",
+  "lexical_pairs": null,
+  "selector_audit": null,
+  "base": {
+    "source_output": "8",
+    "target_output": "6",
+    "p_target": 0.03627442941069603,
+    "p_source": 0.9355297684669495,
+    "generation": {
+      "token_ids": [
+        23,
+        271,
+        760,
+        33213,
+        369,
+        449,
+        771,
+        595,
+        55425,
+        421,
+        10813,
+        682,
+        7810,
+        13795,
+        11,
+        82024,
+        424,
+        494,
+        39465,
+        864,
+        599,
+        4590,
+        13,
+        4081,
+        8472,
+        1098,
+        513,
+        1429,
+        364,
+        11107,
+        11,
+        57101,
+        74610,
+        11,
+        321,
+        60408,
+        38620,
+        14145,
+        310,
+        1870,
+        54231,
+        78129,
+        13,
+        17187,
+        836,
+        2526,
+        1331,
+        11,
+        60041,
+        513,
+        7737,
+        53267,
+        12506,
+        314,
+        84274,
+        71203,
+        310,
+        1146,
+        22906,
+        836,
+        35383,
+        13,
+        248046
+      ],
+      "text": "8\n\nThe spider is an arachnid that typically has eight legs, distinguishing it from insects which have six. These appendages are used for walking, sensing vibrations, and manipulating silk threads to build intricate webs. Despite their small size, spiders are powerful predators capable of injecting venom to subdue their prey.<|im_end|>",
+      "attention_capture": null
+    }
+  },
+  "donor_base": {
+    "target_output": "6",
+    "p_target": 0.9496665000915527,
+    "generation": {
+      "token_ids": [
+        21,
+        271,
+        760,
+        9572,
+        369,
+        449,
+        3094,
+        11,
+        264,
+        2526,
+        25158,
+        421,
+        6107,
+        303,
+        6150,
+        3471,
+        46328,
+        13,
+        4081,
+        39465,
+        18459,
+        15048,
+        1472,
+        11153,
+        16779,
+        2512,
+        1273,
+        261,
+        315,
+        3053,
+        310,
+        15707,
+        836,
+        7253,
+        13,
+        17187,
+        836,
+        13280,
+        1331,
+        11,
+        781,
+        513,
+        16323,
+        3619,
+        321,
+        628,
+        6564,
+        5978,
+        1599,
+        2942,
+        836,
+        1765,
+        4528,
+        13,
+        248046
+      ],
+      "text": "6\n\nThe animal is an ant, a small insect that lives in complex social colonies. These insects communicate primarily through chemical signals called pheromones to coordinate their activities. Despite their tiny size, they are incredibly strong and can carry objects many times their own weight.<|im_end|>",
+      "attention_capture": null
+    }
+  },
+  "rows": [
+    {
+      "model": "Qwen/Qwen3.5-4B",
+      "target_concept": "ant",
+      "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+      "git": "v0.1.1-459-g6e4fcfd-dirty",
+      "code_sha256": {
+        "scripts/oat_sweep.py": "bffdb169feef7d427c5dfd9bd75a9a93b364f2a8ead7268189eea8716f594f1d",
+        "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727",
+        "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+        "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+        "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+        "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+      },
+      "condition_id": "003_span_correction_sweep_C1.5",
+      "axis": "span_correction_sweep",
+      "value": "C1.5",
+      "is_default": false,
+      "readout_from_generation": true,
+      "attention_mask_policy": "all ones: prompts are unpadded",
+      "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "extraction_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "expected_base_answer": "8",
+      "expected_steered_answer": "6",
+      "persistence": {
+        "direction_estimator": "span_corrected_template_delta",
+        "rendered_template_pairs": [
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'spider'. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'ant'. The animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'spider' nearby. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'ant' nearby. That animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'spider' as the creature's name. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'ant' as the creature's name. The animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'spider'. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'ant'. That animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'spider'. This animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'ant'. This animal is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'spider'. The creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'ant'. The creature is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'spider'. This creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'ant'. This creature is "
+          ],
+          [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'spider' yesterday. That creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'ant' yesterday. That creature is "
+          ]
+        ],
+        "projected_norm_fraction": {
+          "20": 0.9303854703903198
+        },
+        "discarded_fraction_before_norm_matching": 0.0,
+        "per_token_component_norms_after_strength": {
+          "20": {
+            "selected": 8.556547164916992,
+            "discarded": 1.321611853200011e-05
+          }
+        },
+        "selector": "raw_template_contrast_attenuation",
+        "selector_contrast": [
+          "ant",
+          "spider"
+        ],
+        "selector_residual_geometry": "raw",
+        "spectrum": [
+          -1063.3314208984375,
+          -188.14151000976562,
+          -85.995361328125,
+          -52.41212463378906,
+          -26.75722885131836,
+          -17.29628562927246,
+          -14.764269828796387,
+          -9.106795310974121,
+          -8.738903045654297,
+          -7.458494186401367,
+          -3.7066702842712402,
+          -3.6279213428497314,
+          0.0946338102221489,
+          0.1456483155488968,
+          0.2392846792936325,
+          0.30303525924682617,
+          0.3565506637096405,
+          0.6323099732398987,
+          0.8111959099769592,
+          0.9066317081451416,
+          1.242728590965271,
+          1.4941062927246094,
+          5.654269695281982,
+          28.7364559173584
+        ],
+        "fit_template_indices": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "peak_projected_contrast_norm": 6.053598403930664,
+        "output_projected_contrast_norm": 0.9494516253471375,
+        "fit_peak_mean_square": [
+          29.17806625366211,
+          5.67364501953125,
+          1.4989628791809082,
+          1.2446712255477905
+        ],
+        "fit_peak_signed_mean": [
+          -5.344115257263184,
+          -0.14732380211353302,
+          -0.14214113354682922,
+          -0.009759858250617981
+        ],
+        "fit_output_mean_square": [
+          0.44164416193962097,
+          0.019379613921046257,
+          0.004858013708144426,
+          0.0019431279506534338
+        ],
+        "fit_output_signed_mean": [
+          -0.37130221724510193,
+          0.029726453125476837,
+          -0.006228258367627859,
+          0.001275375485420227
+        ],
+        "heldout_peak_mean_square": [
+          28.566070556640625,
+          6.557859420776367,
+          0.4437939524650574,
+          1.1773324012756348
+        ],
+        "heldout_peak_signed_mean": [
+          -5.2594990730285645,
+          -0.06948614120483398,
+          0.41986721754074097,
+          -0.318028062582016
+        ],
+        "heldout_output_mean_square": [
+          1.1046555042266846,
+          0.46086519956588745,
+          0.16312038898468018,
+          0.3043832778930664
+        ],
+        "heldout_output_signed_mean": [
+          -0.9328033328056335,
+          0.5201941132545471,
+          0.3107326030731201,
+          0.02926400862634182
+        ],
+        "clean_identity_separation": {
+          "method": "signed distance from midpoint of first-four-template centroids; positive is target; not independent steering evidence",
+          "template_scores_source_target_position": [
+            [
+              [
+                -2.7385470867156982,
+                -2.446692705154419,
+                -3.0303664207458496
+              ],
+              [
+                1.0174658298492432,
+                2.967438220977783,
+                1.344773292541504
+              ]
+            ],
+            [
+              [
+                -2.68487548828125,
+                -2.557291030883789,
+                -2.767049789428711
+              ],
+              [
+                3.0645923614501953,
+                2.9887070655822754,
+                2.463296890258789
+              ]
+            ],
+            [
+              [
+                -2.049551248550415,
+                -2.6839640140533447,
+                -2.2860405445098877
+              ],
+              [
+                3.6196646690368652,
+                3.2596826553344727,
+                2.503086566925049
+              ]
+            ],
+            [
+              [
+                -2.7636559009552,
+                -2.9751226902008057,
+                -3.1051037311553955
+              ],
+              [
+                3.822690963745117,
+                3.000415802001953,
+                2.0364439487457275
+              ]
+            ],
+            [
+              [
+                -3.1220598220825195,
+                -3.1211776733398438,
+                -3.544208288192749
+              ],
+              [
+                3.2836849689483643,
+                3.4448790550231934,
+                2.4107208251953125
+              ]
+            ],
+            [
+              [
+                -2.210777521133423,
+                -2.5387916564941406,
+                -2.752476453781128
+              ],
+              [
+                2.612839698791504,
+                3.326256275177002,
+                1.2522742748260498
+              ]
+            ],
+            [
+              [
+                -2.832434892654419,
+                -3.1233720779418945,
+                -3.0061583518981934
+              ],
+              [
+                2.8360722064971924,
+                2.5665228366851807,
+                0.6622658967971802
+              ]
+            ],
+            [
+              [
+                -2.7777698040008545,
+                -2.6849148273468018,
+                -2.8645224571228027
+              ],
+              [
+                2.244568109512329,
+                2.475482940673828,
+                1.2694162130355835
+              ]
+            ]
+          ],
+          "bee_template_prompts": [
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA photograph is labeled 'bee'. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI noticed something labeled 'bee' nearby. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nSomeone wrote 'bee' as the creature's name. The animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThe story mentions an animal called 'bee'. That animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nImagine an animal identified as 'bee'. This animal is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nWe are discussing the animal 'bee'. The creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nA drawing depicts an animal labeled 'bee'. This creature is ",
+            "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nI read about the animal 'bee' yesterday. That creature is "
+          ],
+          "bee_template_scores": [
+            [
+              -0.5668762922286987,
+              0.869023859500885,
+              -0.2937731444835663
+            ],
+            [
+              0.4105127453804016,
+              0.6489742994308472,
+              0.7501530051231384
+            ],
+            [
+              1.4384307861328125,
+              0.8924388885498047,
+              0.4272005558013916
+            ],
+            [
+              1.143515706062317,
+              0.4750547707080841,
+              -0.1768525093793869
+            ],
+            [
+              1.1781907081604004,
+              1.142064094543457,
+              0.8333276510238647
+            ],
+            [
+              1.3092366456985474,
+              1.0583858489990234,
+              0.8737192153930664
+            ],
+            [
+              0.9307039976119995,
+              0.38987693190574646,
+              -1.6338257789611816
+            ],
+            [
+              0.627446711063385,
+              0.5317703485488892,
+              0.8425320982933044
+            ]
+          ],
+          "heldout_template_indices": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "implicit_scores": {
+            "source": [
+              -1.7408312559127808,
+              -2.1397039890289307,
+              -1.4815375804901123
+            ],
+            "donor": [
+              -1.5626988410949707,
+              -0.4176482856273651,
+              -0.10678357630968094
+            ]
+          },
+          "implicit_extraction_instruction_scores": {
+            "source": [
+              -1.7408312559127808,
+              -2.1397039890289307,
+              -1.4815375804901123
+            ],
+            "donor": [
+              -1.5626988410949707,
+              -0.4176482856273651,
+              -0.10678357630968094
+            ]
+          }
+        },
+        "edit_equation": "h + C * (Δ - U U^T h)",
+        "applied_delta_sha256": "7e34ed5087039d0065da7f7c55e34d778df86601264cfd5576fbafcc4dd988fa",
+        "applied_delta_norm": 5.70436954498291,
+        "span_readout": {
+          "method": "RMS-scaled fitted-span coordinates, optionally transported by mean-J to raw L32, then gain-weighted unembedding; not probabilities",
+          "transported_to_layer32": false,
+          "layer": 20,
+          "base": {
+            "tokens": [
+              "茧",
+              "输出",
+              "羔",
+              " Ant",
+              "?>",
+              "心跳",
+              " antenn",
+              "的通"
+            ],
+            "scores": [
+              1.0499253273010254,
+              1.0068237781524658,
+              1.005788803100586,
+              1.0018937587738037,
+              0.9779097437858582,
+              0.9695647358894348,
+              0.9615557193756104,
+              0.9541136026382446
+            ]
+          },
+          "donor": {
+            "tokens": [
+              "wick",
+              "ww",
+              "虽小",
+              "e",
+              "Home",
+              "和二",
+              "nay",
+              " Catania"
+            ],
+            "scores": [
+              0.915300190448761,
+              0.8681865930557251,
+              0.8268502950668335,
+              0.8175649642944336,
+              0.8059297204017639,
+              0.8050863146781921,
+              0.8024308085441589,
+              0.7987432479858398
+            ]
+          },
+          "intervened": {
+            "tokens": [
+              "微小",
+              "微小的",
+              "小到",
+              "点小",
+              "ceria",
+              "党",
+              "illet",
+              "微观"
+            ],
+            "scores": [
+              6.054135799407959,
+              5.949091911315918,
+              5.565439701080322,
+              5.356268882751465,
+              5.300212860107422,
+              5.226808547973633,
+              5.199636459350586,
+              5.180492401123047
+            ]
+          },
+          "last_decode": {
+            "tokens": [
+              "微小",
+              "微小的",
+              "小到",
+              "tiny",
+              "点小",
+              "米粒",
+              "ceria",
+              " tiny"
+            ],
+            "scores": [
+              5.847347259521484,
+              5.743906021118164,
+              5.353213310241699,
+              5.337221622467041,
+              5.170865058898926,
+              5.155226230621338,
+              5.114548683166504,
+              5.068635940551758
+            ]
+          }
+        }
+      },
+      "swap_log_odds_shift": 9.625,
+      "bare_answer_mass": 0.9886491894721985,
+      "source_output": "8",
+      "target_output": "6",
+      "donor_p_target": 0.9496665000915527,
+      "donor_first_answer": "6",
+      "donor_generation_tokens": 55,
+      "p_target": 0.9869677424430847,
+      "p_source": 0.0016814179252833128,
+      "first_logits_sha256": {
+        "base": "2973d67df11a211a4fa625d5493b79e8f5c91c266e76b455d56868bf0b743696",
+        "donor": "340ecb1084898f146eec088eeb9b3aa48b8b01467d206c2054cc7a2f5e34def6",
+        "steered": "e731bff215f9b7156cd1f327de3b66943a68efea87b83887818a0375b7e38810"
+      },
+      "repeated_bigram_fraction": 0.0,
+      "generation_tokens": 78,
+      "first_token": "6",
+      "first_answer": "6",
+      "mentions_spins_webs": false,
+      "readout_overlap": 0.375,
+      "readout_status": "computed; semantic validity not established",
+      "intervention_record": {
+        "20": {
+          "prefill_positions": [
+            46,
+            47,
+            48
+          ],
+          "decode_steps": 77,
+          "residual_norm": 26.27669334411621,
+          "perturbation_norm": 18.927692413330078,
+          "relative_perturbation_by_position": [
+            0.6985136270523071,
+            0.7200815677642822,
+            0.7477747797966003
+          ],
+          "total_applied_norm": 568.1226534843445,
+          "replacement_trace": [
+            {
+              "applied_norm_after_dtype": 18.92751693725586,
+              "before": [
+                [
+                  1.3274856805801392,
+                  2.07108211517334,
+                  0.5010581612586975,
+                  -0.016743294894695282
+                ],
+                [
+                  1.8120262622833252,
+                  -0.3945123553276062,
+                  -0.15686362981796265,
+                  0.03520582243800163
+                ],
+                [
+                  1.1727113723754883,
+                  -1.036506175994873,
+                  -0.1786743402481079,
+                  -0.5436722040176392
+                ]
+              ],
+              "target": [
+                [
+                  -0.19893582165241241,
+                  -1.4350236654281616,
+                  0.07508864998817444,
+                  -0.4784138798713684
+                ],
+                [
+                  -0.19893582165241241,
+                  -1.4350236654281616,
+                  0.07508864998817444,
+                  -0.4784138798713684
+                ],
+                [
+                  -0.19893582165241241,
+                  -1.4350236654281616,
+                  0.07508864998817444,
+                  -0.4784138798713684
+                ]
+              ],
+              "after": [
+                [
+                  -9.211493492126465,
+                  -1.2103102207183838,
+                  -0.026644006371498108,
+                  -0.25586646795272827
+                ],
+                [
+                  -9.453763008117676,
+                  0.02247881144285202,
+                  0.3023260831832886,
+                  -0.28184473514556885
+                ],
+                [
+                  -9.13410472869873,
+                  0.34347349405288696,
+                  0.3132284879684448,
+                  0.007593914866447449
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -9.21015739440918,
+                  -1.207926630973816,
+                  -0.026879489421844482,
+                  -0.25567930936813354
+                ],
+                [
+                  -9.45395278930664,
+                  0.022568494081497192,
+                  0.3029292821884155,
+                  -0.28355348110198975
+                ],
+                [
+                  -9.135594367980957,
+                  0.34326666593551636,
+                  0.3128882944583893,
+                  0.006166785955429077
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.707817077636719,
+              "before": [
+                [
+                  0.5395010709762573,
+                  1.091973900794983,
+                  0.692136287689209,
+                  -1.2740885019302368
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.817500114440918,
+                  -0.7207595109939575,
+                  -0.12219230830669403,
+                  0.37280529737472534
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.818777084350586,
+                  -0.7211766242980957,
+                  -0.12258324027061462,
+                  0.3727709949016571
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 11.311135292053223,
+              "before": [
+                [
+                  1.341789960861206,
+                  2.4890387058258057,
+                  -0.02445363998413086,
+                  -0.8669640421867371
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -9.218645095825195,
+                  -1.4192869663238525,
+                  0.23611348867416382,
+                  0.16923993825912476
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -9.218551635742188,
+                  -1.419589638710022,
+                  0.23513734340667725,
+                  0.16993677616119385
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.83413314819336,
+              "before": [
+                [
+                  0.7746480703353882,
+                  0.36142444610595703,
+                  -0.772338330745697,
+                  -0.11822408437728882
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.935076713562012,
+                  -0.35548636317253113,
+                  0.6100683808326721,
+                  -0.20513257384300232
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.934959411621094,
+                  -0.35528671741485596,
+                  0.6101779341697693,
+                  -0.20614300668239594
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.0645432472229,
+              "before": [
+                [
+                  -1.0662548542022705,
+                  -0.6747759580612183,
+                  0.5204914808273315,
+                  -0.7017371654510498
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.014623641967773,
+                  0.1626102328300476,
+                  -0.03636649250984192,
+                  0.08663095533847809
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.014387130737305,
+                  0.16222617030143738,
+                  -0.035709112882614136,
+                  0.08603613078594208
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.270108222961426,
+              "before": [
+                [
+                  -3.020284652709961,
+                  -2.2428576946258545,
+                  0.12844888865947723,
+                  -0.9825382232666016
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.0376129150390625,
+                  0.9466458559036255,
+                  0.15965592861175537,
+                  0.22703024744987488
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.03691291809082,
+                  0.9470677375793457,
+                  0.16017088294029236,
+                  0.227067768573761
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.611734867095947,
+              "before": [
+                [
+                  -2.6367387771606445,
+                  -2.2576026916503906,
+                  0.24642902612686157,
+                  -0.32786300778388977
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.229384422302246,
+                  0.9540183544158936,
+                  0.10066819190979004,
+                  -0.10030600428581238
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.231661796569824,
+                  0.9524494409561157,
+                  0.10048279166221619,
+                  -0.10072243213653564
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.483589172363281,
+              "before": [
+                [
+                  -3.037341833114624,
+                  -2.595925807952881,
+                  0.302123486995697,
+                  0.15643247961997986
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.029084205627441,
+                  1.1231787204742432,
+                  0.07282261550426483,
+                  -0.3424522876739502
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.029592990875244,
+                  1.122812032699585,
+                  0.07223501801490784,
+                  -0.34243738651275635
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.603549003601074,
+              "before": [
+                [
+                  -2.6588845252990723,
+                  -3.2103731632232666,
+                  0.8144421577453613,
+                  -0.5334392189979553
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.218310832977295,
+                  1.4304002523422241,
+                  -0.1833454817533493,
+                  0.0024849027395248413
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.218788146972656,
+                  1.4295750856399536,
+                  -0.18331950902938843,
+                  0.003810107707977295
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.560456275939941,
+              "before": [
+                [
+                  -1.1352797746658325,
+                  -2.2359354496002197,
+                  0.4251643419265747,
+                  -0.2723252475261688
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.980112552642822,
+                  0.9431842565536499,
+                  0.011300787329673767,
+                  -0.1280747652053833
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.980404853820801,
+                  0.9439629316329956,
+                  0.011126421391963959,
+                  -0.1277935653924942
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 4.745846748352051,
+              "before": [
+                [
+                  -3.038043260574341,
+                  -1.7452270984649658,
+                  -0.09566192328929901,
+                  -0.640601396560669
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.028733730316162,
+                  0.6978330612182617,
+                  0.27171528339385986,
+                  0.05606114864349365
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.028383731842041,
+                  0.6996406316757202,
+                  0.270725280046463,
+                  0.05758735537528992
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.158616065979004,
+              "before": [
+                [
+                  -2.720266580581665,
+                  -2.91369891166687,
+                  -0.1453450620174408,
+                  -0.43977969884872437
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.187621116638184,
+                  1.2820641994476318,
+                  0.29655933380126953,
+                  -0.04435005784034729
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.187769889831543,
+                  1.2837200164794922,
+                  0.2952333688735962,
+                  -0.044155657291412354
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.042605400085449,
+              "before": [
+                [
+                  -3.212688446044922,
+                  -2.9839420318603516,
+                  1.1267096996307373,
+                  -1.1094768047332764
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.941408634185791,
+                  1.3171855211257935,
+                  -0.33948662877082825,
+                  0.2905043959617615
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.941502094268799,
+                  1.3173414468765259,
+                  -0.3397289216518402,
+                  0.28934210538864136
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.912423133850098,
+              "before": [
+                [
+                  -2.836292266845703,
+                  -2.6776583194732666,
+                  1.0303095579147339,
+                  -0.29655128717422485
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.129607677459717,
+                  1.16404390335083,
+                  -0.29128098487854004,
+                  -0.1159576028585434
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.129267692565918,
+                  1.1627161502838135,
+                  -0.29074203968048096,
+                  -0.11611488461494446
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.968339443206787,
+              "before": [
+                [
+                  -2.995453119277954,
+                  -2.724087715148926,
+                  1.4495902061462402,
+                  -0.3688139021396637
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.050026893615723,
+                  1.1872589588165283,
+                  -0.5009266138076782,
+                  -0.07982414215803146
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.049234390258789,
+                  1.1865557432174683,
+                  -0.5024542808532715,
+                  -0.0799197405576706
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.531271934509277,
+              "before": [
+                [
+                  -2.9446001052856445,
+                  -2.3934993743896484,
+                  0.9994905591011047,
+                  -0.5045287013053894
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.075453758239746,
+                  1.021965742111206,
+                  -0.2758724093437195,
+                  -0.01196928322315216
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.074716567993164,
+                  1.022064208984375,
+                  -0.2759881019592285,
+                  -0.01132403314113617
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.764653205871582,
+              "before": [
+                [
+                  -3.985593318939209,
+                  -3.0277414321899414,
+                  1.5641953945159912,
+                  -1.3398336172103882
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.554956436157227,
+                  1.339085340499878,
+                  -0.5582363605499268,
+                  0.405685156583786
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.554165363311768,
+                  1.3405506610870361,
+                  -0.5581051111221313,
+                  0.40564462542533875
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.319285869598389,
+              "before": [
+                [
+                  -3.0033884048461914,
+                  -2.268164873123169,
+                  0.4225420653820038,
+                  -0.9578633904457092
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.046059608459473,
+                  0.9592993259429932,
+                  0.012605980038642883,
+                  0.2146943211555481
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.044748306274414,
+                  0.9594508409500122,
+                  0.01216597855091095,
+                  0.21489933133125305
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.661614894866943,
+              "before": [
+                [
+                  -2.1980485916137695,
+                  -1.4800825119018555,
+                  0.44143226742744446,
+                  -0.3801751732826233
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.44873046875,
+                  0.5652605891227722,
+                  0.0031646788120269775,
+                  -0.0741492509841919
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.449810028076172,
+                  0.5657342076301575,
+                  0.0017626434564590454,
+                  -0.07470472157001495
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.766458511352539,
+              "before": [
+                [
+                  -4.086623191833496,
+                  -3.044814109802246,
+                  1.8753111362457275,
+                  -0.9695965647697449
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.50444221496582,
+                  1.3476215600967407,
+                  -0.7137961983680725,
+                  0.2205691784620285
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.504667282104492,
+                  1.3467953205108643,
+                  -0.7133564949035645,
+                  0.2207483947277069
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.934844493865967,
+              "before": [
+                [
+                  -3.3528058528900146,
+                  -2.778733968734741,
+                  1.7290093898773193,
+                  -0.93108069896698
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.871350288391113,
+                  1.2145822048187256,
+                  -0.6406427621841431,
+                  0.20130985975265503
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.870339393615723,
+                  1.2148690223693848,
+                  -0.6401201486587524,
+                  0.20324312150478363
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 4.724118709564209,
+              "before": [
+                [
+                  -3.7075014114379883,
+                  -2.1490111351013184,
+                  1.3612632751464844,
+                  -0.7725161910057068
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.694003105163574,
+                  0.8997231721878052,
+                  -0.45676541328430176,
+                  0.12202616035938263
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.694289207458496,
+                  0.8981531858444214,
+                  -0.45778214931488037,
+                  0.1226099282503128
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.74122953414917,
+              "before": [
+                [
+                  -3.746638059616089,
+                  -2.761648654937744,
+                  1.8780953884124756,
+                  -1.0998079776763916
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -6.674434185028076,
+                  1.2060399055480957,
+                  -0.7151888608932495,
+                  0.28567421436309814
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -6.672179698944092,
+                  1.2084218263626099,
+                  -0.7144390344619751,
+                  0.2856036424636841
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.325708866119385,
+              "before": [
+                [
+                  -2.1506614685058594,
+                  -3.297590732574463,
+                  1.0280311107635498,
+                  0.4289056062698364
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.472422122955322,
+                  1.4740080833435059,
+                  -0.29013675451278687,
+                  -0.47868525981903076
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.472846984863281,
+                  1.4749537706375122,
+                  -0.2902255356311798,
+                  -0.4790318012237549
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.190833568572998,
+              "before": [
+                [
+                  -1.56308913230896,
+                  -2.411139965057373,
+                  0.8763587474822998,
+                  0.12450668215751648
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.766207695007324,
+                  1.0307859182357788,
+                  -0.21430009603500366,
+                  -0.3264874517917633
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.7657470703125,
+                  1.030137538909912,
+                  -0.2136814296245575,
+                  -0.3266831338405609
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.533220291137695,
+              "before": [
+                [
+                  -2.484626293182373,
+                  -2.8101305961608887,
+                  1.1281309127807617,
+                  -0.8246349096298218
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.305439472198486,
+                  1.2302800416946411,
+                  -0.34019482135772705,
+                  0.14808353781700134
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.306195259094238,
+                  1.231116533279419,
+                  -0.34057408571243286,
+                  0.1477571427822113
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.407068252563477,
+              "before": [
+                [
+                  -1.310524344444275,
+                  -1.7844526767730713,
+                  0.08105595409870148,
+                  -1.705088496208191
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.892489910125732,
+                  0.717444896697998,
+                  0.1833515614271164,
+                  0.5883026123046875
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.893108367919922,
+                  0.7171869277954102,
+                  0.18360373377799988,
+                  0.5893367528915405
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.617530345916748,
+              "before": [
+                [
+                  -2.797938823699951,
+                  -3.0102691650390625,
+                  1.0159090757369995,
+                  -1.5642714500427246
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.148782730102539,
+                  1.3303484916687012,
+                  -0.2840866446495056,
+                  0.5179000496864319
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.149279594421387,
+                  1.329757809638977,
+                  -0.2833116054534912,
+                  0.5172444581985474
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.242851257324219,
+              "before": [
+                [
+                  -0.749209463596344,
+                  -2.492448329925537,
+                  0.2883949279785156,
+                  -0.34234607219696045
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.173148155212402,
+                  1.0714404582977295,
+                  0.07968732714653015,
+                  -0.0930653065443039
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.17544174194336,
+                  1.0696624517440796,
+                  0.07980653643608093,
+                  -0.09202782809734344
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.734189510345459,
+              "before": [
+                [
+                  -1.7778232097625732,
+                  -3.33127760887146,
+                  0.9672826528549194,
+                  -0.6330134868621826
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.658839702606201,
+                  1.4908506870269775,
+                  -0.2597666382789612,
+                  0.05227188020944595
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.658033847808838,
+                  1.4921960830688477,
+                  -0.25971052050590515,
+                  0.051483459770679474
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.657787322998047,
+              "before": [
+                [
+                  -1.3963793516159058,
+                  -2.7807576656341553,
+                  0.8028325438499451,
+                  0.011202111840248108
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.84956169128418,
+                  1.2155940532684326,
+                  -0.17753605544567108,
+                  -0.26983559131622314
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.849007606506348,
+                  1.2149337530136108,
+                  -0.17705292999744415,
+                  -0.26926061511039734
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.277411460876465,
+              "before": [
+                [
+                  -0.4700523912906647,
+                  -1.8084595203399658,
+                  -0.10441610217094421,
+                  0.2566632032394409
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.312726020812988,
+                  0.7294479608535767,
+                  0.2761005759239197,
+                  -0.39257118105888367
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.312026977539062,
+                  0.7314106225967407,
+                  0.27673977613449097,
+                  -0.3928085267543793
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.089982986450195,
+              "before": [
+                [
+                  -0.47479483485221863,
+                  -1.4432320594787598,
+                  -0.02710801362991333,
+                  -0.08554300665855408
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.310355186462402,
+                  0.5468354225158691,
+                  0.2374434769153595,
+                  -0.22146844863891602
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.310613632202148,
+                  0.5462575554847717,
+                  0.23812851309776306,
+                  -0.2204514741897583
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.973641872406006,
+              "before": [
+                [
+                  -0.6139283776283264,
+                  -1.555945634841919,
+                  0.2708088159561157,
+                  0.38173073530197144
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.240788459777832,
+                  0.6031914353370667,
+                  0.08848421275615692,
+                  -0.4551028907299042
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.241266250610352,
+                  0.6039401292800903,
+                  0.08766758441925049,
+                  -0.4568198025226593
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.55427360534668,
+              "before": [
+                [
+                  -1.2653968334197998,
+                  -2.436020851135254,
+                  0.709762454032898,
+                  -0.06442999839782715
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.915053844451904,
+                  1.043226718902588,
+                  -0.13100038468837738,
+                  -0.23202036321163177
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.91586446762085,
+                  1.0427954196929932,
+                  -0.13122695684432983,
+                  -0.23212099075317383
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.7471418380737305,
+              "before": [
+                [
+                  -1.0776309967041016,
+                  -2.341075897216797,
+                  0.6544118523597717,
+                  0.15998105704784393
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.008935928344727,
+                  0.9957541227340698,
+                  -0.10332351922988892,
+                  -0.34422600269317627
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.008896827697754,
+                  0.9976633787155151,
+                  -0.10253012180328369,
+                  -0.3447442650794983
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.118805885314941,
+              "before": [
+                [
+                  -0.6118890643119812,
+                  -1.9567114114761353,
+                  0.08022704720497131,
+                  -0.012965187430381775
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.24180793762207,
+                  0.8035733699798584,
+                  0.18377533555030823,
+                  -0.2577563524246216
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.242151260375977,
+                  0.804271399974823,
+                  0.1826174557209015,
+                  -0.25717464089393616
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.382636070251465,
+              "before": [
+                [
+                  -0.5467255711555481,
+                  -2.2104361057281494,
+                  0.5664955377578735,
+                  0.17795784771442413
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.274389266967773,
+                  0.9304348230361938,
+                  -0.05936349928379059,
+                  -0.3532153367996216
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.275012969970703,
+                  0.930629312992096,
+                  -0.05956263095140457,
+                  -0.35405075550079346
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.392701148986816,
+              "before": [
+                [
+                  -0.23605184257030487,
+                  -1.2750153541564941,
+                  0.426594078540802,
+                  -0.3779981732368469
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.429725646972656,
+                  0.4627271294593811,
+                  0.010586082935333252,
+                  -0.07523897290229797
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.430521965026855,
+                  0.46356940269470215,
+                  0.010510176420211792,
+                  -0.07581073045730591
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.960000038146973,
+              "before": [
+                [
+                  0.18991470336914062,
+                  -1.038185954093933,
+                  0.45712384581565857,
+                  -0.4336196780204773
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.642707824707031,
+                  0.3443133234977722,
+                  -0.004678994417190552,
+                  -0.04742886871099472
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.64210319519043,
+                  0.3449433743953705,
+                  -0.004907190799713135,
+                  -0.04679857939481735
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.80735969543457,
+              "before": [
+                [
+                  -2.636549949645996,
+                  -3.074622869491577,
+                  1.6483217477798462,
+                  -0.6539371609687805
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.2294769287109375,
+                  1.3625249862670898,
+                  -0.6002956628799438,
+                  0.06273764371871948
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.229335784912109,
+                  1.36151123046875,
+                  -0.5998138189315796,
+                  0.061851680278778076
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.479555130004883,
+              "before": [
+                [
+                  -0.38826289772987366,
+                  -1.8930786848068237,
+                  0.9248380064964294,
+                  -0.2553219199180603
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.353618621826172,
+                  0.7717568874359131,
+                  -0.23854029178619385,
+                  -0.13657444715499878
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.351984977722168,
+                  0.7738449573516846,
+                  -0.2390928566455841,
+                  -0.13786709308624268
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.05884075164795,
+              "before": [
+                [
+                  -0.039258167147636414,
+                  -1.8885717391967773,
+                  0.9116080403327942,
+                  -1.0183197259902954
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.528120994567871,
+                  0.7695033550262451,
+                  -0.2319289743900299,
+                  0.244922935962677
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.529640197753906,
+                  0.7701050043106079,
+                  -0.23263263702392578,
+                  0.24537478387355804
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.564275741577148,
+              "before": [
+                [
+                  0.4896945357322693,
+                  -1.5624847412109375,
+                  0.10014396905899048,
+                  -0.6945092082023621
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.792598724365234,
+                  0.6064608693122864,
+                  0.17381465435028076,
+                  0.08301392197608948
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.792293548583984,
+                  0.6078993678092957,
+                  0.17357036471366882,
+                  0.08204582333564758
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.447646141052246,
+              "before": [
+                [
+                  0.373468279838562,
+                  -1.785917043685913,
+                  0.13313984870910645,
+                  -0.3392220139503479
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.73448371887207,
+                  0.7181764841079712,
+                  0.1573178470134735,
+                  -0.09462901949882507
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.732865333557129,
+                  0.7183443307876587,
+                  0.15716707706451416,
+                  -0.09449300169944763
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 9.340279579162598,
+              "before": [
+                [
+                  0.20276789367198944,
+                  -2.0757479667663574,
+                  0.4518987536430359,
+                  -0.26890361309051514
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.64913558959961,
+                  0.8630908727645874,
+                  -0.0020649582147598267,
+                  -0.12978661060333252
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.650259017944336,
+                  0.8634008169174194,
+                  -0.0021920353174209595,
+                  -0.13125306367874146
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.875611305236816,
+              "before": [
+                [
+                  -0.021467573940753937,
+                  -1.7683532238006592,
+                  0.3796542286872864,
+                  -0.1369735300540924
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.537017822265625,
+                  0.7093944549560547,
+                  0.034058406949043274,
+                  -0.1957511305809021
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.536885261535645,
+                  0.70970618724823,
+                  0.03508761525154114,
+                  -0.19704702496528625
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.159219264984131,
+              "before": [
+                [
+                  -1.3603233098983765,
+                  -2.0138742923736572,
+                  0.753271758556366,
+                  -0.14251413941383362
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.867590427398682,
+                  0.832154393196106,
+                  -0.15275615453720093,
+                  -0.1929781436920166
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.866237640380859,
+                  0.8327888250350952,
+                  -0.15251055359840393,
+                  -0.19374443590641022
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.71431827545166,
+              "before": [
+                [
+                  -1.2128502130508423,
+                  -2.3453192710876465,
+                  1.2735060453414917,
+                  -0.4797561764717102
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.941326141357422,
+                  0.9978760480880737,
+                  -0.41288092732429504,
+                  -0.024355202913284302
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.942367076873779,
+                  0.9966651797294617,
+                  -0.4140191376209259,
+                  -0.02506318688392639
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.387050628662109,
+              "before": [
+                [
+                  -1.207128882408142,
+                  -1.7843451499938965,
+                  1.1201756000518799,
+                  -0.7708691954612732
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.944186210632324,
+                  0.7173904180526733,
+                  -0.3362155854701996,
+                  0.12119996547698975
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.944417953491211,
+                  0.7171419858932495,
+                  -0.33751407265663147,
+                  0.12021458148956299
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 8.125807762145996,
+              "before": [
+                [
+                  -0.8873112201690674,
+                  -2.067415714263916,
+                  1.136663794517517,
+                  -1.3733941316604614
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.104094505310059,
+                  0.8589251041412354,
+                  -0.3444623649120331,
+                  0.42246127128601074
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.101411819458008,
+                  0.8596924543380737,
+                  -0.3446052074432373,
+                  0.4216761291027069
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.943918704986572,
+              "before": [
+                [
+                  -0.8033663034439087,
+                  -1.9136266708374023,
+                  0.7513753175735474,
+                  -0.875641942024231
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.14606761932373,
+                  0.7820307016372681,
+                  -0.15181106328964233,
+                  0.1735839545726776
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.147018432617188,
+                  0.7808458805084229,
+                  -0.15132582187652588,
+                  0.17348694801330566
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.486232757568359,
+              "before": [
+                [
+                  -1.8558049201965332,
+                  -1.3132505416870117,
+                  1.2493098974227905,
+                  -1.3140928745269775
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.619848251342773,
+                  0.48184531927108765,
+                  -0.40078800916671753,
+                  0.39281177520751953
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.618783950805664,
+                  0.4800195097923279,
+                  -0.40148985385894775,
+                  0.39391469955444336
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.6761698722839355,
+              "before": [
+                [
+                  -2.376546859741211,
+                  -1.2441290616989136,
+                  0.47982603311538696,
+                  -1.554769515991211
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.359479904174805,
+                  0.44728484749794006,
+                  -0.01603907346725464,
+                  0.513146162033081
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.360771179199219,
+                  0.4462727904319763,
+                  -0.016811281442642212,
+                  0.5118860602378845
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.948414325714111,
+              "before": [
+                [
+                  -2.3864002227783203,
+                  -3.2704286575317383,
+                  0.8846662044525146,
+                  -0.2272549569606781
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.354552745819092,
+                  1.4604277610778809,
+                  -0.2184564173221588,
+                  -0.15060655772686005
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.354866981506348,
+                  1.45937979221344,
+                  -0.2183995246887207,
+                  -0.15110893547534943
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.117784023284912,
+              "before": [
+                [
+                  -2.0991835594177246,
+                  -3.1075751781463623,
+                  0.93569016456604,
+                  -0.19770070910453796
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.498161315917969,
+                  1.379002332687378,
+                  -0.24396851658821106,
+                  -0.16538353264331818
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.499629974365234,
+                  1.3762624263763428,
+                  -0.2437559962272644,
+                  -0.1645268350839615
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.479452610015869,
+              "before": [
+                [
+                  -2.3438594341278076,
+                  -2.7849032878875732,
+                  0.6528581380844116,
+                  0.011610612273216248
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.375823974609375,
+                  1.2176663875579834,
+                  -0.1025484949350357,
+                  -0.2700403034687042
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.375075340270996,
+                  1.2174484729766846,
+                  -0.10297910869121552,
+                  -0.26946941018104553
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.3033833503723145,
+              "before": [
+                [
+                  -2.569265127182007,
+                  -1.6725506782531738,
+                  0.04663056135177612,
+                  -0.7028915882110596
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.263122081756592,
+                  0.6614949107170105,
+                  0.20056763291358948,
+                  0.08720672130584717
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.262650489807129,
+                  0.6615505814552307,
+                  0.20012056827545166,
+                  0.08790431171655655
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.742767333984375,
+              "before": [
+                [
+                  -2.9441452026367188,
+                  -3.3483898639678955,
+                  0.8860275745391846,
+                  -1.451879858970642
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.075680732727051,
+                  1.4994075298309326,
+                  -0.21914367377758026,
+                  0.461703896522522
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.076218605041504,
+                  1.4999138116836548,
+                  -0.21971014142036438,
+                  0.4615297317504883
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.773214340209961,
+              "before": [
+                [
+                  -1.7853903770446777,
+                  -2.1323561668395996,
+                  0.2654399573802948,
+                  -1.1770541667938232
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.655057430267334,
+                  0.8913955688476562,
+                  0.09115926176309586,
+                  0.3242875337600708
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.654354572296143,
+                  0.8919963836669922,
+                  0.09126800298690796,
+                  0.3241885006427765
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.670768737792969,
+              "before": [
+                [
+                  -2.1996893882751465,
+                  -2.665689468383789,
+                  0.773422122001648,
+                  -0.9778738021850586
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.447907447814941,
+                  1.158060073852539,
+                  -0.16283676028251648,
+                  0.2247009128332138
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.450131416320801,
+                  1.1561115980148315,
+                  -0.16305038332939148,
+                  0.2253480851650238
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.912605285644531,
+              "before": [
+                [
+                  -2.1574831008911133,
+                  -1.6479592323303223,
+                  0.3321934938430786,
+                  -0.9619966149330139
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.469011306762695,
+                  0.6491987109184265,
+                  0.05778223276138306,
+                  0.21676018834114075
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.468940734863281,
+                  0.6493690013885498,
+                  0.05758988857269287,
+                  0.21831786632537842
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.906479835510254,
+              "before": [
+                [
+                  -1.9868087768554688,
+                  -2.3275794982910156,
+                  0.8827347755432129,
+                  -1.591964840888977
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.554347991943359,
+                  0.9890059232711792,
+                  -0.21749743819236755,
+                  0.5317455530166626
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.552255630493164,
+                  0.9897958040237427,
+                  -0.21722888946533203,
+                  0.5315300226211548
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.973051071166992,
+              "before": [
+                [
+                  -2.2637128829956055,
+                  -2.080216884613037,
+                  0.33891379833221436,
+                  0.23752984404563904
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.415898323059082,
+                  0.8653258681297302,
+                  0.05442829430103302,
+                  -0.3830011785030365
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.415829658508301,
+                  0.8639931678771973,
+                  0.05464853346347809,
+                  -0.3812061548233032
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.331076145172119,
+              "before": [
+                [
+                  -1.781754970550537,
+                  -1.5906349420547485,
+                  0.6163117289543152,
+                  0.12087655067443848
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.656876087188721,
+                  0.6205366253852844,
+                  -0.08427432179450989,
+                  -0.3246735632419586
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.656229019165039,
+                  0.6188900470733643,
+                  -0.08483615517616272,
+                  -0.3248410224914551
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.137280464172363,
+              "before": [
+                [
+                  -1.178009033203125,
+                  -1.588545799255371,
+                  0.32372626662254333,
+                  -0.22076743841171265
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.958747863769531,
+                  0.6194921731948853,
+                  0.062020957469940186,
+                  -0.15385404229164124
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.959486484527588,
+                  0.6201420426368713,
+                  0.061631619930267334,
+                  -0.1539059281349182
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.512290000915527,
+              "before": [
+                [
+                  -2.026754140853882,
+                  -2.3330798149108887,
+                  0.6692012548446655,
+                  -0.611395001411438
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.53437614440918,
+                  0.9917566180229187,
+                  -0.11072322726249695,
+                  0.041461288928985596
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.533811569213867,
+                  0.990594208240509,
+                  -0.11017730832099915,
+                  0.04209023714065552
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 5.964264869689941,
+              "before": [
+                [
+                  -2.492847204208374,
+                  -2.371506690979004,
+                  0.7336726188659668,
+                  0.14112912118434906
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.301329612731934,
+                  1.0109703540802002,
+                  -0.1429562270641327,
+                  -0.33479857444763184
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.303765296936035,
+                  1.0095818042755127,
+                  -0.14257240295410156,
+                  -0.3352550268173218
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.97962760925293,
+              "before": [
+                [
+                  -0.4600996971130371,
+                  -0.9149174690246582,
+                  0.24286988377571106,
+                  0.2769501507282257
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.317703247070312,
+                  0.28267985582351685,
+                  0.10245329141616821,
+                  -0.4027128517627716
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.319032669067383,
+                  0.2809598445892334,
+                  0.10275256633758545,
+                  -0.40215617418289185
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.933558464050293,
+              "before": [
+                [
+                  -1.2410686016082764,
+                  -1.319738745689392,
+                  0.31526392698287964,
+                  -0.021929442882537842
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.927217960357666,
+                  0.4850894808769226,
+                  0.06625315546989441,
+                  -0.2532727122306824
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.926994323730469,
+                  0.484855055809021,
+                  0.06646460294723511,
+                  -0.25284117460250854
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.093022346496582,
+              "before": [
+                [
+                  -1.944677472114563,
+                  -1.5927367210388184,
+                  0.557074785232544,
+                  -0.4267006814479828
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.575414180755615,
+                  0.6215877532958984,
+                  -0.05465783178806305,
+                  -0.05088585615158081
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.575045585632324,
+                  0.6225618124008179,
+                  -0.05559512972831726,
+                  -0.05259314179420471
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.418473720550537,
+              "before": [
+                [
+                  -1.7798815965652466,
+                  -1.2578513622283936,
+                  0.8238616585731506,
+                  -1.2687339782714844
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.657811164855957,
+                  0.4541459381580353,
+                  -0.1880585253238678,
+                  0.37013041973114014
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.657731056213379,
+                  0.45560312271118164,
+                  -0.188794806599617,
+                  0.36990779638290405
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.497039318084717,
+              "before": [
+                [
+                  -2.003324031829834,
+                  -1.7536420822143555,
+                  1.6491482257843018,
+                  -0.5942542552947998
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.5460896492004395,
+                  0.7020392417907715,
+                  -0.6007080078125,
+                  0.03289598226547241
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.547150611877441,
+                  0.7001275420188904,
+                  -0.6006778478622437,
+                  0.03320285677909851
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.994279861450195,
+              "before": [
+                [
+                  -1.2844916582107544,
+                  -1.234770655632019,
+                  1.14851713180542,
+                  -0.282670259475708
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.905506134033203,
+                  0.44260483980178833,
+                  -0.35038450360298157,
+                  -0.1228986382484436
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.9051833152771,
+                  0.44241464138031006,
+                  -0.3504863679409027,
+                  -0.12295004725456238
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.647737979888916,
+              "before": [
+                [
+                  -1.6734278202056885,
+                  -1.5876858234405518,
+                  1.276643991470337,
+                  -0.16264969110488892
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.711038112640381,
+                  0.6190617084503174,
+                  -0.4144490957260132,
+                  -0.18290747702121735
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.712231636047363,
+                  0.6178986430168152,
+                  -0.4142795503139496,
+                  -0.18323656916618347
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 6.160911560058594,
+              "before": [
+                [
+                  -1.949364423751831,
+                  -1.6293396949768066,
+                  0.8467972278594971,
+                  -0.4020320773124695
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -7.573071002960205,
+                  0.6398890614509583,
+                  -0.19952242076396942,
+                  -0.06321883201599121
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -7.570148468017578,
+                  0.6403038501739502,
+                  -0.2001911699771881,
+                  -0.06299252808094025
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 7.822144985198975,
+              "before": [
+                [
+                  -0.7846065759658813,
+                  -0.28644639253616333,
+                  0.37043148279190063,
+                  -1.8983166217803955
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -8.155447959899902,
+                  -0.0315532311797142,
+                  0.03865939378738403,
+                  0.6849175691604614
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -8.156100273132324,
+                  -0.031682901084423065,
+                  0.039316326379776,
+                  0.6846156120300293
+                ]
+              ]
+            },
+            {
+              "applied_norm_after_dtype": 10.885064125061035,
+              "before": [
+                [
+                  1.090739369392395,
+                  1.9268882274627686,
+                  0.8163143992424011,
+                  -1.578476071357727
+                ]
+              ],
+              "target": [
+                [
+                  -0.1989355981349945,
+                  -1.435023546218872,
+                  0.07508838176727295,
+                  -0.47841382026672363
+                ]
+              ],
+              "after": [
+                [
+                  -9.093118667602539,
+                  -1.138213872909546,
+                  -0.1842837929725647,
+                  0.5249988436698914
+                ]
+              ],
+              "after_model_dtype": [
+                [
+                  -9.09111499786377,
+                  -1.1364630460739136,
+                  -0.1836968958377838,
+                  0.5261155962944031
+                ]
+              ]
+            }
+          ]
+        }
+      },
+      "answer_position_attention": null,
+      "log": "conditions/003_span_correction_sweep_C1.5/run.md",
+      "config": {
+        "aggregation": "union",
+        "detector_layers": [
+          18,
+          20,
+          32
+        ],
+        "readout_positions": 4,
+        "rank": 8,
+        "intervention_layer": [
+          20
+        ],
+        "intervention_positions": 3,
+        "strength": 1.5,
+        "match_component_norm": true,
+        "restore_residual_norm": false,
+        "donor_position_offset": 0,
+        "lexical_forms": "detector",
+        "lexical_divisor": 1,
+        "continue_generation": true,
+        "persistent_rank": 4,
+        "random_delta_seed": -1,
+        "delta_component": "difference",
+        "coordinate_swap": false,
+        "shared_replacement": "none",
+        "source_dominant_only": false,
+        "template_contrast": true,
+        "contrastive_suppression": false,
+        "template_state_span": "attenuation",
+        "discarded_fraction": 0.0,
+        "normalize_selector_residuals": false,
+        "bee_correction": 0.0,
+        "bee_correction_seed": -1,
+        "bee_correction_only": false,
+        "project_bee_correction": false,
+        "transport_readout": false,
+        "template_clamp": false,
+        "future_coordinate": false,
+        "future_clamp": false,
+        "future_lexical_union": false,
+        "span_correction": true,
+        "random_in_span": false,
+        "extra_prefill_positions": null,
+        "answer_patch_layer": null,
+        "answer_patch_strength": null,
+        "common_basis": "none",
+        "common_window": 4,
+        "common_random_rank": 8,
+        "common_seed": 0,
+        "common_bank_layers": [
+          23,
+          25,
+          32
+        ],
+        "common_removal": "source",
+        "common_inject_norm": "own",
+        "common_inject": "pd_d",
+        "common_inject_restricted": false,
+        "sync_donor": false
+      },
+      "readout": [
+        " respuesta",
+        "梦想的",
+        " piccolo",
+        " risposta",
+        "\":@\"",
+        " الصغيرة",
+        "getResponse",
+        " favicon"
+      ],
+      "readout_by_position": [
+        {
+          "position": 45,
+          "patched": false,
+          "tokens": [
+            " respuesta",
+            " risposta",
+            "getResponse",
+            " jawaban",
+            " resposta",
+            "_response",
+            "responses",
+            "returnValue"
+          ],
+          "scores": [
+            3.384227752685547,
+            3.2411279678344727,
+            3.045666456222534,
+            2.8579788208007812,
+            2.822141647338867,
+            2.758591651916504,
+            2.7405762672424316,
+            2.7134993076324463
+          ]
+        },
+        {
+          "position": 46,
+          "patched": true,
+          "tokens": [
+            "\":@\"",
+            "getAttribute",
+            "غليف",
+            "ِيم",
+            "､",
+            " jobject",
+            "考究",
+            "จม"
+          ],
+          "scores": [
+            3.219075918197632,
+            2.8640871047973633,
+            2.8617680072784424,
+            2.8474574089050293,
+            2.833080530166626,
+            2.825674057006836,
+            2.8052268028259277,
+            2.7711267471313477
+          ]
+        },
+        {
+          "position": 47,
+          "patched": true,
+          "tokens": [
+            "梦想的",
+            " favicon",
+            " μικ",
+            " вкусно",
+            " deficits",
+            "كونات",
+            " persistence",
+            " đẩy"
+          ],
+          "scores": [
+            3.3526976108551025,
+            3.0256717205047607,
+            2.868537187576294,
+            2.862100839614868,
+            2.8381667137145996,
+            2.8127338886260986,
+            2.746173858642578,
+            2.7326552867889404
+          ]
+        },
+        {
+          "position": 48,
+          "patched": true,
+          "tokens": [
+            " piccolo",
+            " الصغيرة",
+            " tett",
+            " quyết",
+            " piccoli",
+            "报刊",
+            "_refs",
+            "getAttribute"
+          ],
+          "scores": [
+            3.3179831504821777,
+            3.0556509494781494,
+            2.9654383659362793,
+            2.9484264850616455,
+            2.942741632461548,
+            2.8493306636810303,
+            2.813660144805908,
+            2.781721353530884
+          ]
+        }
+      ],
+      "named_suppression_diagnostics": {
+        "detector_layers": [
+          18,
+          20,
+          32
+        ],
+        "base": [
+          {
+            "position": 45,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -0.9633411169052124,
+                  -0.5956015586853027,
+                  2.7675347328186035
+                ],
+                "centered_logits_by_residual_layer": [
+                  6.3386335372924805,
+                  -0.1318472921848297,
+                  -0.0013337135314941406,
+                  -0.22564789652824402,
+                  -0.3966728150844574,
+                  -1.8062385320663452,
+                  -0.9709509015083313,
+                  -0.9606214761734009,
+                  -0.21119996905326843,
+                  0.12473279237747192,
+                  -0.0627526342868805,
+                  -0.4692450165748596,
+                  -0.42984259128570557,
+                  -0.03683364391326904,
+                  -0.38494396209716797,
+                  0.15686792135238647,
+                  -0.6800433397293091,
+                  -0.7821640968322754,
+                  -0.9633411169052124,
+                  -0.7821980714797974,
+                  -0.5956015586853027,
+                  -0.6184242367744446,
+                  -0.9185200929641724,
+                  -1.2691454887390137,
+                  -1.0671470165252686,
+                  -1.0836291313171387,
+                  -1.1091057062149048,
+                  -0.9614484310150146,
+                  -1.0693773031234741,
+                  -1.2192254066467285,
+                  -0.6282027959823608,
+                  0.45614752173423767,
+                  2.7675347328186035
+                ],
+                "rise": 0.36773955821990967,
+                "fall": -3.3631362915039062,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  0.9902745485305786,
+                  1.0902332067489624,
+                  2.10740065574646
+                ],
+                "centered_logits_by_residual_layer": [
+                  13.244485855102539,
+                  0.39014872908592224,
+                  0.5782436728477478,
+                  0.16636666655540466,
+                  0.7250877618789673,
+                  -0.16925550997257233,
+                  0.9331143498420715,
+                  0.9928414821624756,
+                  1.367445945739746,
+                  1.1036279201507568,
+                  0.9227060079574585,
+                  1.628706932067871,
+                  0.6323541402816772,
+                  0.10962578654289246,
+                  0.6961654424667358,
+                  0.5817239284515381,
+                  0.09649622440338135,
+                  0.3525761365890503,
+                  0.9902745485305786,
+                  0.4412991404533386,
+                  1.0902332067489624,
+                  1.0664390325546265,
+                  1.1377463340759277,
+                  0.857657790184021,
+                  0.7999751567840576,
+                  0.7934489846229553,
+                  0.3702952265739441,
+                  0.2295600026845932,
+                  0.03837063908576965,
+                  0.2988828718662262,
+                  0.6392393112182617,
+                  1.1490037441253662,
+                  2.10740065574646
+                ],
+                "rise": 0.09995865821838379,
+                "fall": -1.0171674489974976,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -1.3065353631973267,
+                  0.07968485355377197,
+                  0.5121317505836487
+                ],
+                "centered_logits_by_residual_layer": [
+                  15.586913108825684,
+                  0.1167794018983841,
+                  -0.15410107374191284,
+                  0.2604489326477051,
+                  0.881003737449646,
+                  0.3441814184188843,
+                  0.4684756398200989,
+                  0.3566085994243622,
+                  0.7888903021812439,
+                  1.0740115642547607,
+                  0.6082855463027954,
+                  1.0406867265701294,
+                  -0.011638045310974121,
+                  0.29383933544158936,
+                  0.17633815109729767,
+                  0.46712926030158997,
+                  -0.31375715136528015,
+                  -0.5979399681091309,
+                  -1.3065353631973267,
+                  -0.5723934173583984,
+                  0.07968485355377197,
+                  -0.48472073674201965,
+                  -0.6618906855583191,
+                  -0.43836694955825806,
+                  -1.0559961795806885,
+                  -1.2384332418441772,
+                  -0.8227440714836121,
+                  -0.5871766805648804,
+                  -0.5004956126213074,
+                  -0.17093950510025024,
+                  -0.8153836727142334,
+                  -0.8985040187835693,
+                  0.5121317505836487
+                ],
+                "rise": 1.3862202167510986,
+                "fall": -0.4324468970298767,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              }
+            }
+          },
+          {
+            "position": 46,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -2.674916982650757,
+                  -2.1970558166503906,
+                  4.982444763183594
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.22108608484268188,
+                  -0.5224350094795227,
+                  -0.6560582518577576,
+                  -0.5146211981773376,
+                  -0.8095521926879883,
+                  -1.303621768951416,
+                  -0.33444881439208984,
+                  -0.5972888469696045,
+                  -0.5348753929138184,
+                  -0.6770005226135254,
+                  -0.4361840486526489,
+                  -0.9478816986083984,
+                  -0.8659231662750244,
+                  -1.2921955585479736,
+                  -1.5159357786178589,
+                  -0.8472716808319092,
+                  -0.9229819774627686,
+                  -1.629477620124817,
+                  -2.674916982650757,
+                  -2.1537344455718994,
+                  -2.1970558166503906,
+                  -1.5537797212600708,
+                  -1.3397879600524902,
+                  -0.009140372276306152,
+                  1.0241632461547852,
+                  1.2391451597213745,
+                  1.6094145774841309,
+                  1.8153644800186157,
+                  1.6961708068847656,
+                  2.5429253578186035,
+                  3.0057477951049805,
+                  3.4637913703918457,
+                  4.982444763183594
+                ],
+                "rise": 0.4778611660003662,
+                "fall": -7.179500579833984,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 77830
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -1.1774821281433105,
+                  -1.0859284400939941,
+                  3.5689711570739746
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.16411438584327698,
+                  -0.21671931445598602,
+                  -0.15244624018669128,
+                  -0.20823535323143005,
+                  -0.6027958393096924,
+                  -0.7293241620063782,
+                  -0.6997556686401367,
+                  -0.09891808032989502,
+                  1.3339672088623047,
+                  0.2105158120393753,
+                  -0.19371771812438965,
+                  0.04231974482536316,
+                  -0.26286518573760986,
+                  -0.6442657709121704,
+                  -0.5779397487640381,
+                  -0.45046597719192505,
+                  -0.670482873916626,
+                  -0.6361125707626343,
+                  -1.1774821281433105,
+                  -1.2151739597320557,
+                  -1.0859284400939941,
+                  -1.3298923969268799,
+                  -0.9668042063713074,
+                  -1.5287413597106934,
+                  -1.8163738250732422,
+                  -2.181406021118164,
+                  -1.274613380432129,
+                  -1.229722499847412,
+                  -0.7620455622673035,
+                  0.18239817023277283,
+                  -0.11586326360702515,
+                  1.0830957889556885,
+                  3.5689711570739746
+                ],
+                "rise": 0.0915536880493164,
+                "fall": -4.654899597167969,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 77830
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -2.564542531967163,
+                  -2.0929315090179443,
+                  3.217428207397461
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.06441943347454071,
+                  0.3915367126464844,
+                  0.24786482751369476,
+                  0.6209017038345337,
+                  0.31431764364242554,
+                  0.9334896802902222,
+                  0.4336206018924713,
+                  0.2444029301404953,
+                  1.1565544605255127,
+                  0.29806870222091675,
+                  0.0025041401386260986,
+                  0.5306472182273865,
+                  -1.563754916191101,
+                  -1.749219536781311,
+                  -1.5161975622177124,
+                  -0.14394411444664001,
+                  -0.5886529684066772,
+                  -1.1117162704467773,
+                  -2.564542531967163,
+                  -2.6278305053710938,
+                  -2.0929315090179443,
+                  -1.6558361053466797,
+                  -1.7612065076828003,
+                  -1.5501855611801147,
+                  -1.6493855714797974,
+                  -1.539031744003296,
+                  -1.6090717315673828,
+                  -1.7867522239685059,
+                  -1.3507564067840576,
+                  -0.5762405395507812,
+                  -0.5301494598388672,
+                  0.6528018712997437,
+                  3.217428207397461
+                ],
+                "rise": 0.47161102294921875,
+                "fall": -5.310359954833984,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 77830
+              }
+            }
+          },
+          {
+            "position": 47,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -1.5907647609710693,
+                  -0.2640892565250397,
+                  6.632862567901611
+                ],
+                "centered_logits_by_residual_layer": [
+                  7.290226936340332,
+                  0.38432347774505615,
+                  0.5690722465515137,
+                  0.069864422082901,
+                  0.1378888040781021,
+                  -0.1274307817220688,
+                  -0.5703059434890747,
+                  -0.6303366422653198,
+                  -0.7301338911056519,
+                  -0.5627719759941101,
+                  -0.7609925270080566,
+                  -1.0260229110717773,
+                  -1.2130467891693115,
+                  -1.123997688293457,
+                  -1.2707970142364502,
+                  -0.721013069152832,
+                  -0.2424669861793518,
+                  -0.5994795560836792,
+                  -1.5907647609710693,
+                  -0.4886569380760193,
+                  -0.2640892565250397,
+                  0.6632851362228394,
+                  1.5272700786590576,
+                  3.1064541339874268,
+                  5.2103400230407715,
+                  6.08522367477417,
+                  5.343211650848389,
+                  5.375899314880371,
+                  5.698853969573975,
+                  5.142794609069824,
+                  6.019679546356201,
+                  5.154654502868652,
+                  6.632862567901611
+                ],
+                "rise": 1.326675534248352,
+                "fall": -6.896951675415039,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 73340
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -1.219651460647583,
+                  -1.523531198501587,
+                  1.63494873046875
+                ],
+                "centered_logits_by_residual_layer": [
+                  14.196470260620117,
+                  0.23387835919857025,
+                  -0.40687185525894165,
+                  -0.9374843835830688,
+                  -0.37485405802726746,
+                  -0.2217714637517929,
+                  -0.26125115156173706,
+                  -0.0762137770652771,
+                  -0.5417913794517517,
+                  -0.6879574060440063,
+                  -0.4706204831600189,
+                  -0.48068302869796753,
+                  -0.4527322053909302,
+                  -1.0405147075653076,
+                  -1.1623404026031494,
+                  -1.4094746112823486,
+                  -1.1923195123672485,
+                  -1.1900330781936646,
+                  -1.219651460647583,
+                  -0.6437785625457764,
+                  -1.523531198501587,
+                  -2.068715810775757,
+                  -2.152333974838257,
+                  -2.839271068572998,
+                  -3.1808652877807617,
+                  -3.3990609645843506,
+                  -2.4618802070617676,
+                  -2.2366063594818115,
+                  -2.342937707901001,
+                  -2.3559677600860596,
+                  -1.6698962450027466,
+                  -0.7169560194015503,
+                  1.63494873046875
+                ],
+                "rise": -0.3038797378540039,
+                "fall": -3.158479928970337,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 73340
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -2.1892659664154053,
+                  -1.1203105449676514,
+                  2.263207197189331
+                ],
+                "centered_logits_by_residual_layer": [
+                  16.7764949798584,
+                  0.3666989505290985,
+                  0.020732522010803223,
+                  -0.4477524757385254,
+                  -0.01753447949886322,
+                  -0.2558033764362335,
+                  -0.4583688974380493,
+                  -0.6949971318244934,
+                  -0.385235071182251,
+                  0.060878172516822815,
+                  -0.3987845182418823,
+                  -0.20768636465072632,
+                  -1.096996545791626,
+                  -0.99790358543396,
+                  -1.5935691595077515,
+                  -1.0054402351379395,
+                  -1.0305312871932983,
+                  -2.3445184230804443,
+                  -2.1892659664154053,
+                  -2.06463623046875,
+                  -1.1203105449676514,
+                  -1.5526132583618164,
+                  -1.0502890348434448,
+                  -0.389365553855896,
+                  -0.8107297420501709,
+                  -0.5475136041641235,
+                  -0.5139613747596741,
+                  -1.0899802446365356,
+                  -1.099151849746704,
+                  -0.4259192943572998,
+                  -0.13783609867095947,
+                  0.6150599718093872,
+                  2.263207197189331
+                ],
+                "rise": 1.068955421447754,
+                "fall": -3.3835177421569824,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 73340
+              }
+            }
+          },
+          {
+            "position": 48,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  0.4272063970565796,
+                  0.525275468826294,
+                  5.294085502624512
+                ],
+                "centered_logits_by_residual_layer": [
+                  7.989502429962158,
+                  0.5797293186187744,
+                  0.309243381023407,
+                  -0.0048825740814208984,
+                  0.2868086099624634,
+                  -0.29369544982910156,
+                  0.04300287365913391,
+                  0.059575945138931274,
+                  0.20074462890625,
+                  0.6513274908065796,
+                  0.2229807823896408,
+                  0.15690524876117706,
+                  0.29935184121131897,
+                  0.672382652759552,
+                  0.34362801909446716,
+                  0.07992345094680786,
+                  0.3040424585342407,
+                  0.4411124885082245,
+                  0.4272063970565796,
+                  1.147905707359314,
+                  0.525275468826294,
+                  1.0891883373260498,
+                  1.3247994184494019,
+                  1.8540432453155518,
+                  3.8868348598480225,
+                  4.452208518981934,
+                  3.170894145965576,
+                  2.7472012042999268,
+                  3.765714168548584,
+                  3.6306991577148438,
+                  4.2462944984436035,
+                  4.757562160491943,
+                  5.294085502624512
+                ],
+                "rise": 0.09806907176971436,
+                "fall": -4.768810272216797,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 74757
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -0.5636979341506958,
+                  -1.452028512954712,
+                  1.0944710969924927
+                ],
+                "centered_logits_by_residual_layer": [
+                  16.144371032714844,
+                  0.8796977400779724,
+                  0.16493767499923706,
+                  -0.7375051975250244,
+                  -0.5735341310501099,
+                  0.22859621047973633,
+                  0.4467547535896301,
+                  -0.575687825679779,
+                  -1.637707233428955,
+                  -1.9389281272888184,
+                  -1.8034238815307617,
+                  -1.7995038032531738,
+                  -0.7102971076965332,
+                  -0.6048328280448914,
+                  -0.6592822074890137,
+                  -1.1217460632324219,
+                  -1.177339792251587,
+                  -1.3655190467834473,
+                  -0.5636979341506958,
+                  -1.0342496633529663,
+                  -1.452028512954712,
+                  -0.8025184273719788,
+                  -0.9656595587730408,
+                  -1.6398029327392578,
+                  -2.1879420280456543,
+                  -2.2685365676879883,
+                  -1.5092542171478271,
+                  -0.9664075374603271,
+                  -1.1058393716812134,
+                  -1.4083410501480103,
+                  -1.2611119747161865,
+                  -0.20598618686199188,
+                  1.0944710969924927
+                ],
+                "rise": -0.8883305788040161,
+                "fall": -2.546499729156494,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 74757
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -0.14706507325172424,
+                  0.24415135383605957,
+                  1.4469685554504395
+                ],
+                "centered_logits_by_residual_layer": [
+                  19.198442459106445,
+                  0.4840598702430725,
+                  -0.1591103971004486,
+                  -1.010655403137207,
+                  -0.5961452722549438,
+                  -0.2797178030014038,
+                  0.5313896536827087,
+                  0.30740806460380554,
+                  0.6748001575469971,
+                  0.36905622482299805,
+                  -1.1990705728530884,
+                  -1.771405816078186,
+                  -0.8114957809448242,
+                  -0.3685145974159241,
+                  -0.7942923307418823,
+                  -0.8582964539527893,
+                  -0.5927894711494446,
+                  -1.0048266649246216,
+                  -0.14706507325172424,
+                  0.051478177309036255,
+                  0.24415135383605957,
+                  0.047126591205596924,
+                  0.3201030194759369,
+                  0.6328237056732178,
+                  0.3331074118614197,
+                  0.6414107084274292,
+                  0.34270772337913513,
+                  -0.06686285138130188,
+                  -0.09677030146121979,
+                  0.35151052474975586,
+                  0.5439761877059937,
+                  0.7876458168029785,
+                  1.4469685554504395
+                ],
+                "rise": 0.3912164270877838,
+                "fall": -1.2028172016143799,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 74757
+              }
+            }
+          }
+        ],
+        "post_edit": [
+          {
+            "position": 45,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -0.9633411169052124,
+                  -0.5956015586853027,
+                  2.7675347328186035
+                ],
+                "centered_logits_by_residual_layer": [
+                  6.3386335372924805,
+                  -0.1318472921848297,
+                  -0.0013337135314941406,
+                  -0.22564789652824402,
+                  -0.3966728150844574,
+                  -1.8062385320663452,
+                  -0.9709509015083313,
+                  -0.9606214761734009,
+                  -0.21119996905326843,
+                  0.12473279237747192,
+                  -0.0627526342868805,
+                  -0.4692450165748596,
+                  -0.42984259128570557,
+                  -0.03683364391326904,
+                  -0.38494396209716797,
+                  0.15686792135238647,
+                  -0.6800433397293091,
+                  -0.7821640968322754,
+                  -0.9633411169052124,
+                  -0.7821980714797974,
+                  -0.5956015586853027,
+                  -0.6184242367744446,
+                  -0.9185200929641724,
+                  -1.2691454887390137,
+                  -1.0671470165252686,
+                  -1.0836291313171387,
+                  -1.1091057062149048,
+                  -0.9614484310150146,
+                  -1.0693773031234741,
+                  -1.2192254066467285,
+                  -0.6282027959823608,
+                  0.45614752173423767,
+                  2.7675347328186035
+                ],
+                "rise": 0.36773955821990967,
+                "fall": -3.3631362915039062,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  0.9902745485305786,
+                  1.0902332067489624,
+                  2.10740065574646
+                ],
+                "centered_logits_by_residual_layer": [
+                  13.244485855102539,
+                  0.39014872908592224,
+                  0.5782436728477478,
+                  0.16636666655540466,
+                  0.7250877618789673,
+                  -0.16925550997257233,
+                  0.9331143498420715,
+                  0.9928414821624756,
+                  1.367445945739746,
+                  1.1036279201507568,
+                  0.9227060079574585,
+                  1.628706932067871,
+                  0.6323541402816772,
+                  0.10962578654289246,
+                  0.6961654424667358,
+                  0.5817239284515381,
+                  0.09649622440338135,
+                  0.3525761365890503,
+                  0.9902745485305786,
+                  0.4412991404533386,
+                  1.0902332067489624,
+                  1.0664390325546265,
+                  1.1377463340759277,
+                  0.857657790184021,
+                  0.7999751567840576,
+                  0.7934489846229553,
+                  0.3702952265739441,
+                  0.2295600026845932,
+                  0.03837063908576965,
+                  0.2988828718662262,
+                  0.6392393112182617,
+                  1.1490037441253662,
+                  2.10740065574646
+                ],
+                "rise": 0.09995865821838379,
+                "fall": -1.0171674489974976,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -1.3065353631973267,
+                  0.07968485355377197,
+                  0.5121317505836487
+                ],
+                "centered_logits_by_residual_layer": [
+                  15.586913108825684,
+                  0.1167794018983841,
+                  -0.15410107374191284,
+                  0.2604489326477051,
+                  0.881003737449646,
+                  0.3441814184188843,
+                  0.4684756398200989,
+                  0.3566085994243622,
+                  0.7888903021812439,
+                  1.0740115642547607,
+                  0.6082855463027954,
+                  1.0406867265701294,
+                  -0.011638045310974121,
+                  0.29383933544158936,
+                  0.17633815109729767,
+                  0.46712926030158997,
+                  -0.31375715136528015,
+                  -0.5979399681091309,
+                  -1.3065353631973267,
+                  -0.5723934173583984,
+                  0.07968485355377197,
+                  -0.48472073674201965,
+                  -0.6618906855583191,
+                  -0.43836694955825806,
+                  -1.0559961795806885,
+                  -1.2384332418441772,
+                  -0.8227440714836121,
+                  -0.5871766805648804,
+                  -0.5004956126213074,
+                  -0.17093950510025024,
+                  -0.8153836727142334,
+                  -0.8985040187835693,
+                  0.5121317505836487
+                ],
+                "rise": 1.3862202167510986,
+                "fall": -0.4324468970298767,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 79840
+              }
+            }
+          },
+          {
+            "position": 46,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -2.674916982650757,
+                  -3.2219631671905518,
+                  3.2494561672210693
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.22108608484268188,
+                  -0.5224350094795227,
+                  -0.6560582518577576,
+                  -0.5146211981773376,
+                  -0.8095521926879883,
+                  -1.303621768951416,
+                  -0.33444881439208984,
+                  -0.5972888469696045,
+                  -0.5348753929138184,
+                  -0.6770005226135254,
+                  -0.4361840486526489,
+                  -0.9478816986083984,
+                  -0.8659231662750244,
+                  -1.2921955585479736,
+                  -1.5159357786178589,
+                  -0.8472716808319092,
+                  -0.9229819774627686,
+                  -1.629477620124817,
+                  -2.674916982650757,
+                  -2.1537344455718994,
+                  -3.2219631671905518,
+                  -2.976362705230713,
+                  -2.232771396636963,
+                  -1.4102504253387451,
+                  -0.7464017868041992,
+                  -0.936859130859375,
+                  -0.8355811834335327,
+                  -0.6744861006736755,
+                  -0.17079955339431763,
+                  0.4264458417892456,
+                  0.868131160736084,
+                  1.5172758102416992,
+                  3.2494561672210693
+                ],
+                "rise": -0.5470461845397949,
+                "fall": -6.471419334411621,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 82107
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -1.1774821281433105,
+                  -1.6834348440170288,
+                  3.5323400497436523
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.16411438584327698,
+                  -0.21671931445598602,
+                  -0.15244624018669128,
+                  -0.20823535323143005,
+                  -0.6027958393096924,
+                  -0.7293241620063782,
+                  -0.6997556686401367,
+                  -0.09891808032989502,
+                  1.3339672088623047,
+                  0.2105158120393753,
+                  -0.19371771812438965,
+                  0.04231974482536316,
+                  -0.26286518573760986,
+                  -0.6442657709121704,
+                  -0.5779397487640381,
+                  -0.45046597719192505,
+                  -0.670482873916626,
+                  -0.6361125707626343,
+                  -1.1774821281433105,
+                  -1.2151739597320557,
+                  -1.6834348440170288,
+                  -2.0555710792541504,
+                  -1.3555374145507812,
+                  -1.7842848300933838,
+                  -2.1967408657073975,
+                  -3.197605609893799,
+                  -1.928368330001831,
+                  -1.8128647804260254,
+                  -1.355085849761963,
+                  -0.33009493350982666,
+                  -0.3326549530029297,
+                  1.1661503314971924,
+                  3.5323400497436523
+                ],
+                "rise": -0.5059527158737183,
+                "fall": -5.215775012969971,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 82107
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -2.564542531967163,
+                  -3.002242088317871,
+                  3.6885361671447754
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.06441943347454071,
+                  0.3915367126464844,
+                  0.24786482751369476,
+                  0.6209017038345337,
+                  0.31431764364242554,
+                  0.9334896802902222,
+                  0.4336206018924713,
+                  0.2444029301404953,
+                  1.1565544605255127,
+                  0.29806870222091675,
+                  0.0025041401386260986,
+                  0.5306472182273865,
+                  -1.563754916191101,
+                  -1.749219536781311,
+                  -1.5161975622177124,
+                  -0.14394411444664001,
+                  -0.5886529684066772,
+                  -1.1117162704467773,
+                  -2.564542531967163,
+                  -2.6278305053710938,
+                  -3.002242088317871,
+                  -2.6394474506378174,
+                  -2.6784133911132812,
+                  -2.416515350341797,
+                  -2.073239803314209,
+                  -1.8712949752807617,
+                  -1.7191638946533203,
+                  -1.495957851409912,
+                  -1.0417718887329102,
+                  -0.3137191832065582,
+                  -0.1737944483757019,
+                  1.201530933380127,
+                  3.6885361671447754
+                ],
+                "rise": -0.437699556350708,
+                "fall": -6.6907782554626465,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 82107
+              }
+            }
+          },
+          {
+            "position": 47,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  -1.5907647609710693,
+                  -1.8710607290267944,
+                  4.622978687286377
+                ],
+                "centered_logits_by_residual_layer": [
+                  7.290226936340332,
+                  0.38432347774505615,
+                  0.5690722465515137,
+                  0.069864422082901,
+                  0.1378888040781021,
+                  -0.1274307817220688,
+                  -0.5703059434890747,
+                  -0.6303366422653198,
+                  -0.7301338911056519,
+                  -0.5627719759941101,
+                  -0.7609925270080566,
+                  -1.0260229110717773,
+                  -1.2130467891693115,
+                  -1.123997688293457,
+                  -1.2707970142364502,
+                  -0.721013069152832,
+                  -0.2424669861793518,
+                  -0.5994795560836792,
+                  -1.5907647609710693,
+                  -0.4886569380760193,
+                  -1.8710607290267944,
+                  -1.7065283060073853,
+                  -0.492798775434494,
+                  0.9734066724777222,
+                  1.8677012920379639,
+                  1.8806147575378418,
+                  1.1675673723220825,
+                  0.5233026742935181,
+                  1.81632399559021,
+                  1.8223292827606201,
+                  2.8831377029418945,
+                  2.743504047393799,
+                  4.622978687286377
+                ],
+                "rise": -0.2802959680557251,
+                "fall": -6.494039535522461,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 78642
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -1.219651460647583,
+                  -1.6566505432128906,
+                  1.8013523817062378
+                ],
+                "centered_logits_by_residual_layer": [
+                  14.196470260620117,
+                  0.23387835919857025,
+                  -0.40687185525894165,
+                  -0.9374843835830688,
+                  -0.37485405802726746,
+                  -0.2217714637517929,
+                  -0.26125115156173706,
+                  -0.0762137770652771,
+                  -0.5417913794517517,
+                  -0.6879574060440063,
+                  -0.4706204831600189,
+                  -0.48068302869796753,
+                  -0.4527322053909302,
+                  -1.0405147075653076,
+                  -1.1623404026031494,
+                  -1.4094746112823486,
+                  -1.1923195123672485,
+                  -1.1900330781936646,
+                  -1.219651460647583,
+                  -0.6437785625457764,
+                  -1.6566505432128906,
+                  -2.121311664581299,
+                  -1.7741808891296387,
+                  -2.63940691947937,
+                  -2.971829414367676,
+                  -2.471686363220215,
+                  -1.4790118932724,
+                  -1.0871185064315796,
+                  -1.7828075885772705,
+                  -2.339974880218506,
+                  -1.4889582395553589,
+                  -0.3660861551761627,
+                  1.8013523817062378
+                ],
+                "rise": -0.4369990825653076,
+                "fall": -3.458003044128418,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 78642
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -2.1892659664154053,
+                  -2.571411609649658,
+                  4.988729476928711
+                ],
+                "centered_logits_by_residual_layer": [
+                  16.7764949798584,
+                  0.3666989505290985,
+                  0.020732522010803223,
+                  -0.4477524757385254,
+                  -0.01753447949886322,
+                  -0.2558033764362335,
+                  -0.4583688974380493,
+                  -0.6949971318244934,
+                  -0.385235071182251,
+                  0.060878172516822815,
+                  -0.3987845182418823,
+                  -0.20768636465072632,
+                  -1.096996545791626,
+                  -0.99790358543396,
+                  -1.5935691595077515,
+                  -1.0054402351379395,
+                  -1.0305312871932983,
+                  -2.3445184230804443,
+                  -2.1892659664154053,
+                  -2.06463623046875,
+                  -2.571411609649658,
+                  -2.7263197898864746,
+                  -2.401430606842041,
+                  -1.9282174110412598,
+                  -0.4665253460407257,
+                  0.9905524253845215,
+                  1.1243559122085571,
+                  0.6763267517089844,
+                  0.8441900610923767,
+                  2.270681381225586,
+                  2.2728352546691895,
+                  3.2695796489715576,
+                  4.988729476928711
+                ],
+                "rise": -0.38214564323425293,
+                "fall": -7.560141086578369,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 78642
+              }
+            }
+          },
+          {
+            "position": 48,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 33213,
+                "centered_logits_early_peak_output": [
+                  0.4272063970565796,
+                  -1.2135701179504395,
+                  2.508817195892334
+                ],
+                "centered_logits_by_residual_layer": [
+                  7.989502429962158,
+                  0.5797293186187744,
+                  0.309243381023407,
+                  -0.0048825740814208984,
+                  0.2868086099624634,
+                  -0.29369544982910156,
+                  0.04300287365913391,
+                  0.059575945138931274,
+                  0.20074462890625,
+                  0.6513274908065796,
+                  0.2229807823896408,
+                  0.15690524876117706,
+                  0.29935184121131897,
+                  0.672382652759552,
+                  0.34362801909446716,
+                  0.07992345094680786,
+                  0.3040424585342407,
+                  0.4411124885082245,
+                  0.4272063970565796,
+                  1.147905707359314,
+                  -1.2135701179504395,
+                  -1.0567201375961304,
+                  -0.1356344223022461,
+                  0.14776432514190674,
+                  -0.14785070717334747,
+                  -0.07112100720405579,
+                  -1.2460452318191528,
+                  -3.0733041763305664,
+                  -1.5659377574920654,
+                  -0.9523050785064697,
+                  0.7556427717208862,
+                  1.5021767616271973,
+                  2.508817195892334
+                ],
+                "rise": -1.640776515007019,
+                "fall": -3.7223873138427734,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 81348
+              },
+              " dog": {
+                "token_id": 5388,
+                "centered_logits_early_peak_output": [
+                  -0.5636979341506958,
+                  -1.4450706243515015,
+                  0.24790643155574799
+                ],
+                "centered_logits_by_residual_layer": [
+                  16.144371032714844,
+                  0.8796977400779724,
+                  0.16493767499923706,
+                  -0.7375051975250244,
+                  -0.5735341310501099,
+                  0.22859621047973633,
+                  0.4467547535896301,
+                  -0.575687825679779,
+                  -1.637707233428955,
+                  -1.9389281272888184,
+                  -1.8034238815307617,
+                  -1.7995038032531738,
+                  -0.7102971076965332,
+                  -0.6048328280448914,
+                  -0.6592822074890137,
+                  -1.1217460632324219,
+                  -1.177339792251587,
+                  -1.3655190467834473,
+                  -0.5636979341506958,
+                  -1.0342496633529663,
+                  -1.4450706243515015,
+                  -1.1867907047271729,
+                  -0.7992068529129028,
+                  -1.6834001541137695,
+                  -2.503530263900757,
+                  -1.1340205669403076,
+                  -0.6717445850372314,
+                  -1.019299030303955,
+                  -1.4155772924423218,
+                  -1.8580341339111328,
+                  -1.386549472808838,
+                  -0.6211971044540405,
+                  0.24790643155574799
+                ],
+                "rise": -0.8813726902008057,
+                "fall": -1.6929770708084106,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 81348
+              },
+              " ant": {
+                "token_id": 3094,
+                "centered_logits_early_peak_output": [
+                  -0.14706507325172424,
+                  -1.4933812618255615,
+                  2.7253899574279785
+                ],
+                "centered_logits_by_residual_layer": [
+                  19.198442459106445,
+                  0.4840598702430725,
+                  -0.1591103971004486,
+                  -1.010655403137207,
+                  -0.5961452722549438,
+                  -0.2797178030014038,
+                  0.5313896536827087,
+                  0.30740806460380554,
+                  0.6748001575469971,
+                  0.36905622482299805,
+                  -1.1990705728530884,
+                  -1.771405816078186,
+                  -0.8114957809448242,
+                  -0.3685145974159241,
+                  -0.7942923307418823,
+                  -0.8582964539527893,
+                  -0.5927894711494446,
+                  -1.0048266649246216,
+                  -0.14706507325172424,
+                  0.051478177309036255,
+                  -1.4933812618255615,
+                  -1.3279311656951904,
+                  -0.7629213333129883,
+                  -0.6517693996429443,
+                  0.9994982481002808,
+                  2.3594107627868652,
+                  2.177473783493042,
+                  1.321657419204712,
+                  0.7841799259185791,
+                  0.4441922605037689,
+                  1.2172541618347168,
+                  1.8293776512145996,
+                  2.7253899574279785
+                ],
+                "rise": -1.3463162183761597,
+                "fall": -4.218770980834961,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 81348
+              }
+            }
+          }
+        ]
+      },
+      "clamped_donor": null,
+      "base_readout": [
+        " respuesta",
+        " risposta",
+        "getResponse",
+        "拥有着",
+        " jawaban",
+        " resposta",
+        "_response",
+        "responses"
+      ],
+      "last_decode_readout": [
+        " pequeños",
+        " cari",
+        " کوچک",
+        "Proxy",
+        "_tb",
+        " мелкие",
+        " pequeño",
+        "してた"
+      ],
+      "target_readout": [
+        " respuesta",
+        " risposta",
+        "_response",
+        "getResponse",
+        " response",
+        " resposta",
+        "responses",
+        " respond"
+      ],
+      "generation": {
+        "token_ids": [
+          21,
+          271,
+          760,
+          3094,
+          369,
+          264,
+          2526,
+          11,
+          2503,
+          20503,
+          25158,
+          421,
+          6107,
+          303,
+          46328,
+          321,
+          369,
+          3750,
+          364,
+          1141,
+          5548,
+          310,
+          6564,
+          8545,
+          20269,
+          13,
+          1049,
+          682,
+          264,
+          12103,
+          2407,
+          5759,
+          29607,
+          314,
+          264,
+          1901,
+          11,
+          70261,
+          686,
+          11,
+          321,
+          61523,
+          11,
+          440,
+          4590,
+          13795,
+          1429,
+          364,
+          11107,
+          321,
+          364,
+          3982,
+          13,
+          17187,
+          1602,
+          13280,
+          11,
+          58359,
+          513,
+          16323,
+          23739,
+          321,
+          18459,
+          440,
+          1754,
+          975,
+          1608,
+          1273,
+          261,
+          315,
+          3053,
+          310,
+          20239,
+          836,
+          6150,
+          32559,
+          13,
+          248046
+        ],
+        "text": "6\n\nThe ant is a small, hardworking insect that lives in colonies and is known for its ability to carry heavy loads. It has a distinct body structure consisting of a head, thorax, and abdomen, with six legs used for walking and foraging. Despite being tiny, ants are incredibly intelligent and communicate with each other using pheromones to navigate their complex societies.<|im_end|>",
+        "attention_capture": null
+      },
+      "base_generation": {
+        "token_ids": [
+          23,
+          271,
+          760,
+          33213,
+          369,
+          449,
+          771,
+          595,
+          55425,
+          421,
+          10813,
+          682,
+          7810,
+          13795,
+          11,
+          82024,
+          424,
+          494,
+          39465,
+          864,
+          599,
+          4590,
+          13,
+          4081,
+          8472,
+          1098,
+          513,
+          1429,
+          364,
+          11107,
+          11,
+          57101,
+          74610,
+          11,
+          321,
+          60408,
+          38620,
+          14145,
+          310,
+          1870,
+          54231,
+          78129,
+          13,
+          17187,
+          836,
+          2526,
+          1331,
+          11,
+          60041,
+          513,
+          7737,
+          53267,
+          12506,
+          314,
+          84274,
+          71203,
+          310,
+          1146,
+          22906,
+          836,
+          35383,
+          13,
+          248046
+        ],
+        "text": "8\n\nThe spider is an arachnid that typically has eight legs, distinguishing it from insects which have six. These appendages are used for walking, sensing vibrations, and manipulating silk threads to build intricate webs. Despite their small size, spiders are powerful predators capable of injecting venom to subdue their prey.<|im_end|>",
+        "attention_capture": null
+      },
+      "base_top_tokens": [
+        {
+          "token_id": 23,
+          "token": "8",
+          "logp": -0.06664233654737473,
+          "p": 0.9355297684669495,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 21,
+          "token": "6",
+          "logp": -3.3166422843933105,
+          "p": 0.03627442941069603,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 19,
+          "token": "4",
+          "logp": -3.8166422843933105,
+          "p": 0.02200155146420002,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 16,
+          "token": "1",
+          "logp": -6.1916422843933105,
+          "p": 0.002046463079750538,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 18,
+          "token": "3",
+          "logp": -6.6916422843933105,
+          "p": 0.0012412426294758916,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 17,
+          "token": "2",
+          "logp": -6.9416422843933105,
+          "p": 0.0009666807600297034,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 15,
+          "token": "0",
+          "logp": -7.8166422843933105,
+          "p": 0.0004029724805150181,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 20,
+          "token": "5",
+          "logp": -8.066642761230469,
+          "p": 0.00031383513123728335,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 57087,
+          "token": "Eight",
+          "logp": -8.191642761230469,
+          "p": 0.0002769585407804698,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 96702,
+          "token": "八",
+          "logp": -8.504142761230469,
+          "p": 0.00020262718317098916,
+          "delta_logp": 0.0
+        }
+      ],
+      "donor_generation": {
+        "token_ids": [
+          21,
+          271,
+          760,
+          9572,
+          369,
+          449,
+          3094,
+          11,
+          264,
+          2526,
+          25158,
+          421,
+          6107,
+          303,
+          6150,
+          3471,
+          46328,
+          13,
+          4081,
+          39465,
+          18459,
+          15048,
+          1472,
+          11153,
+          16779,
+          2512,
+          1273,
+          261,
+          315,
+          3053,
+          310,
+          15707,
+          836,
+          7253,
+          13,
+          17187,
+          836,
+          13280,
+          1331,
+          11,
+          781,
+          513,
+          16323,
+          3619,
+          321,
+          628,
+          6564,
+          5978,
+          1599,
+          2942,
+          836,
+          1765,
+          4528,
+          13,
+          248046
+        ],
+        "text": "6\n\nThe animal is an ant, a small insect that lives in complex social colonies. These insects communicate primarily through chemical signals called pheromones to coordinate their activities. Despite their tiny size, they are incredibly strong and can carry objects many times their own weight.<|im_end|>",
+        "attention_capture": null
+      },
+      "top_tokens": [
+        {
+          "token_id": 21,
+          "token": "6",
+          "logp": -0.013117918744683266,
+          "p": 0.9869677424430847,
+          "delta_logp": 3.3035242557525635
+        },
+        {
+          "token_id": 18,
+          "token": "3",
+          "logp": -5.013117790222168,
+          "p": 0.00665013724938035,
+          "delta_logp": 1.6785244941711426
+        },
+        {
+          "token_id": 16,
+          "token": "1",
+          "logp": -6.138117790222168,
+          "p": 0.002158983377739787,
+          "delta_logp": 0.05352449417114258
+        },
+        {
+          "token_id": 23,
+          "token": "8",
+          "logp": -6.388117790222168,
+          "p": 0.0016814179252833128,
+          "delta_logp": -6.321475505828857
+        },
+        {
+          "token_id": 19,
+          "token": "4",
+          "logp": -6.638117790222168,
+          "p": 0.0013094897149130702,
+          "delta_logp": -2.8214755058288574
+        },
+        {
+          "token_id": 17,
+          "token": "2",
+          "logp": -8.138117790222168,
+          "p": 0.0002921866544056684,
+          "delta_logp": -1.1964755058288574
+        },
+        {
+          "token_id": 96752,
+          "token": "六",
+          "logp": -8.700617790222168,
+          "p": 0.00016648291784804314,
+          "delta_logp": 3.303524971008301
+        },
+        {
+          "token_id": 15,
+          "token": "0",
+          "logp": -8.763117790222168,
+          "p": 0.00015639624325558543,
+          "delta_logp": -0.9464755058288574
+        },
+        {
+          "token_id": 22,
+          "token": "7",
+          "logp": -8.888117790222168,
+          "p": 0.0001380191824864596,
+          "delta_logp": -0.3214750289916992
+        },
+        {
+          "token_id": 18117,
+          "token": " Six",
+          "logp": -8.950617790222168,
+          "p": 0.00012965704081580043,
+          "delta_logp": 1.7410249710083008
+        }
+      ]
+    }
+  ]
+}
