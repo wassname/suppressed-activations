@@ -2439,6 +2439,29 @@ def strip_spec_metadata(spec: dict) -> dict:
             if k != "output_dir" and not k.startswith("expected_")}
 
 
+
+
+def complete_edit_bases(U_s, U_d, Us8, Ud8, cfg):
+    """The complete-edit ladder's construction (FACTORED from run_with_bundle; the same
+    code path invoked there): both bases truncated at k before the joint support
+    (0 = FULL); returns (Us_k, Ud_k, Pj, complete_rank_active). -- PI[glm-5p3-flash]"""
+    if not cfg.complete_edit_mode:
+        return Us8, Ud8, None, False
+    Us_k = (U_s.float() if cfg.common_source_rank == 0
+            else U_s[:, :cfg.common_source_rank].float())
+    Ud_k = (U_d.float() if cfg.common_donor_rank == 0
+            else U_d[:, :cfg.common_donor_rank].float())
+    assert Us_k.shape[1] > 0 and Ud_k.shape[1] > 0, \
+        f"complete-edit sentinel slicing produced an empty basis: " \
+        f"src {Us_k.shape}, don {Ud_k.shape} (ranks {cfg.common_source_rank}/" \
+        f"{cfg.common_donor_rank})"
+    Pj_cols_all, pj_sv, _ = torch.linalg.svd(torch.cat([Us_k, Ud_k], dim=1), full_matrices=False)
+    pj_keep = int((pj_sv > max(Pj_cols_all.shape) * torch.finfo(pj_sv.dtype).eps * pj_sv[0]).sum())
+    Pj = Pj_cols_all[:, :pj_keep]
+    torch.testing.assert_close(Pj.T @ Pj, torch.eye(pj_keep, device=Pj.device), rtol=1e-4, atol=1e-4)
+    return Us_k, Ud_k, Pj, True
+
+
 def run_with_bundle(
     bundle: dict,
     output_dir: Path,
@@ -3024,29 +3047,7 @@ def run_with_bundle(
             # (numerical support, shared tolerance; v = Pd d must lie in the joint span)
             Us8 = src_by_offset(1).float()
             Ud8 = don_by_offset(1).float()
-            if cfg.complete_edit_mode:
-                # BOTH bases truncated at k BEFORE the joint support (0 = FULL supported)
-                Us_k = (U_s.float() if cfg.common_source_rank == 0
-                        else U_s[:, :cfg.common_source_rank].float())
-                Ud_k = (U_d.float() if cfg.common_donor_rank == 0
-                        else U_d[:, :cfg.common_donor_rank].float())
-                assert Us_k.shape[1] > 0 and Ud_k.shape[1] > 0, \
-                    f"complete-edit sentinel slicing produced an empty basis: " \
-                    f"src {Us_k.shape}, don {Ud_k.shape} (ranks {cfg.common_source_rank}/" \
-                    f"{cfg.common_donor_rank})"
-            else:
-                Us_k, Ud_k = Us8, Ud8  # the old paths: unchanged
-            Pj_cols_all, pj_sv, _ = torch.linalg.svd(torch.cat([Us_k, Ud_k], dim=1), full_matrices=False)
-            pj_keep = int((pj_sv > max(Pj_cols_all.shape) * torch.finfo(pj_sv.dtype).eps * pj_sv[0]).sum())
-            Pj = Pj_cols_all[:, :pj_keep]
-            torch.testing.assert_close(Pj.T @ Pj, torch.eye(pj_keep, device=Pj.device), rtol=1e-4, atol=1e-4)
-            Ps_rm = Us8 @ Us8.T  # source-removal projector (rank 8)
-            Pu_cols, pu_s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
-            pu_keep = int((pu_s > max(Pu_cols.shape) * torch.finfo(torch.float32).eps * pu_s[0]).sum())
-            Pu = Pu_cols[:, :pu_keep]
-            torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep, device=Pu.device), rtol=1e-4, atol=1e-4)
-            Ps = Ps_rm  # alias for the restricted-injection branch below
-            complete_rank_active = cfg.complete_edit_mode
+            Us_k, Ud_k, Pj, complete_rank_active = complete_edit_bases(U_s, U_d, Us8, Ud8, cfg)
             if cfg.common_removal == "joint":
                 assert not cfg.common_inject_restricted, "restricted injection pairs with source removal"
                 rem_cols = Pj if complete_rank_active else Pu
