@@ -33,7 +33,13 @@ followed by spider/eight-leg correction fails semantic transfer"; loops fail coh
   flip then self-correction; L32 name-N1-dog `狗 dog dog dog …` loop; L30 both pure spider).
 
 **Combined verdict across BOTH selectors and all four sites: the top8-union projector
-replacement under this equation never produces persistent coherent identity transfer.**
+replacement under this equation never produces persistent coherent identity transfer**
+(naming 0/4 persistent at every site/selector; legs digit flips degenerate into loops or
+incoherent corrections; property rows audited row-level in
+`../2026-09-12_cb-loc/property_adjudication.json` — donor-direction answers occur (No for
+spinnerets) but always with spider identity retained plus false factual claims about
+spiders, source-bound Yes at L30, or degenerate loops at L32; liveyoung-ant is the
+fact-preserving control (No correct for both animals); no coherent target behavior).
 Observed behavioral ceiling: transient first-token effects (bank selector, L25 naming),
 degenerate digit/word loops (late selector, L30/L32 legs), or nothing (L3 everywhere,
 L20 everywhere). Randoms ≈ 0 at every site/selector (descriptive controls, norms not
@@ -44,7 +50,7 @@ matched). C0 exact identity everywhere; coverage asserted.
 Aggregate site ordering is similar (both peak by L25–L32 within ±0.7); the late selector
 shifts movement toward legs (at L30/L32) and makes property NEGATIVE (−1.78/−4.76), with
 more caps (5/12 at L32 vs 4/12). Consistent with the normalization-sensitivity result:
-the specific basis is selector-sensitive while the phenomenon (late readout fall) is not.
+the specific basis is selector-sensitive; the fall-magnitude invariance across the two selectors is a NORMALIZATION-sensitivity result only (both selectors are fall-conditioned), not evidence of a selection-independent phenomenon.
 No selector/site combination passed semantic transfer, so the selector question does not
 change the behavioral conclusion.
 

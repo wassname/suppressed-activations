@@ -75,7 +75,7 @@
 | H5 | L32 readout edit can bypass suppression | stable donor answers at L32 | REJECTED: flips + repetition loops, no persistence; readout-level effect only |
 | H6 | Selector circularity inflates "suppression" | independent-selection or unnormalized-logit selection changes the top8 / removes the fall | RAN (CPU): an unnormalized-numerator selector picks a largely DIFFERENT set (Jaccard 16%) with the SAME-magnitude late fall (≈8.7). WORDING (supervisor): BOTH selectors are fall-conditioned, so this is a sensitivity-to-normalization check, NOT independent replication of a selection-independent phenomenon; no further H6 runs |
 | H7 | Frozen-prefill donor state at decode causes self-correction mechanically | per-decode donor-state variant reduces self-correction | OPEN — distinct candidate (supervisor: not bundled, not queued) |
-| H8 | Historical +10.01 reference is inflated/less specific rather than better | matched measurement shows its effect is non-subspace | OPEN — flagged as serious anomaly by GLM; re-read proposed by Kimi |
+| H8 | Historical +10.01 reference is inflated/less specific rather than better | matched measurement shows its effect is non-subspace | OPEN as a mechanism question but NOT an evidence gap: audited 6/12 semantic outcomes + raw generations already exist (fresh set, random control 1/12); reviewer "missing evidence" reflects the brief, not the record; do not reopen an inflation hunt |
 | H9 | Specificity of the L25 effect is real | magnitude-matched random still ≈ 0 | OPEN — randoms currently norm-mismatched (descriptive only) |
 
 ## Parent decisions (separate from reviewer claims)
