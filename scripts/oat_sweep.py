@@ -3028,6 +3028,10 @@ def run_with_bundle(
                         else U_s[:, :cfg.common_source_rank].float())
                 Ud_k = (U_d.float() if cfg.common_donor_rank == 0
                         else U_d[:, :cfg.common_donor_rank].float())
+                assert Us_k.shape[1] > 0 and Ud_k.shape[1] > 0, \
+                    f"complete-edit sentinel slicing produced an empty basis: " \
+                    f"src {Us_k.shape}, don {Ud_k.shape} (ranks {cfg.common_source_rank}/" \
+                    f"{cfg.common_donor_rank})"
             else:
                 Us_k, Ud_k = Us8, Ud8  # the old paths: unchanged
             Pj_cols_all, pj_sv, _ = torch.linalg.svd(torch.cat([Us_k, Ud_k], dim=1), full_matrices=False)
@@ -3129,8 +3133,10 @@ def run_with_bundle(
                                   for o in offsets}
                 if cfg.common_removal == "joint":
                     for o in offsets:
-                        cont = float((donor_proj[o] - Pu @ (Pu.T @ donor_proj[o])).norm()
-                                     / donor_proj[o].norm())
+                        # containment vs the arm's ACTUAL removal span (rem_cols; Pu would
+                        # be the wrong span for the complete-rank arms)
+                        cont = float((donor_proj[o] - rem_cols @ (rem_cols.T @ donor_proj[o])).norm()
+                                     / (donor_proj[o].norm() + 1e-9))
                         # 1e-4: float32 SVD accumulation measured 1.002e-5 on real data
                         assert cont < 1e-4, f"injection v not in joint span: {cont}"
                 else:
