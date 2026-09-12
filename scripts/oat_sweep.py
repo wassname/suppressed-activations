@@ -874,10 +874,12 @@ def complete_rank_configs():
                    complete_edit_mode=True)
     rows = []
     for k in (1, 2, 4, 8, "full"):
-        # kfull = the integer sentinel 0 (full supported temporal basis), schema-consistent
+        # kfull: the FULL supported temporal bases (common_temporal_full=True; the sentinel
+        # 0 = 'use all supported columns' within that mode)
         kk = 0 if k == "full" else k
         rows.append(("complete_rank", f"k{k}_C1.5",
-                     replace(base, common_donor_rank=kk, common_source_rank=kk)))
+                     replace(base, common_donor_rank=kk, common_source_rank=kk,
+                             common_temporal_full=(k == "full"))))
     rows.append(("complete_rank", "C0", replace(base, strength=0.0)))
     # 6 conditions x 12 = 72 cells (k1/k2/k4/k8/kfull + C0)
     return rows
