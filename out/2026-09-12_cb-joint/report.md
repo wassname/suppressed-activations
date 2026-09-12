@@ -3,8 +3,7 @@
 2026-09-12, PI[claude]. Run: pueue 1138, `slop/common_basis_joint_batch.json`, one model
 load, 684 s; protocol saved before execution (`slop/joint_removal_protocol.md`). Interval
 h25..h30 (six sites per call, blocks 24..29), C=1.5, frozen donor, bank selector (23/25/32)
-asserted per cell, top8 temporal bases then joint support. Same injection vector v = Pd d
-in all C=1.5 conditions; only the removal span / injection projection differ. 48 cells.
+asserted per cell, top8 temporal bases then joint support. Same injection vector v = Pd d in the ORIGINAL and JOINT conditions (the restricted condition differs by design: v → Ps(Pd d)). 48 cells.
 Raw: `out/2026-09-12_cb-joint/{condition}-{cell}/result.json`.
 
 ## Results (swap means over 12; splits 4 cells)
@@ -20,20 +19,25 @@ Raw: `out/2026-09-12_cb-joint/{condition}-{cell}/result.json`.
 
 - **Original**: replicates 1136's degeneration — all 12 continuations are repetition loops
   (`ogs ogs…`, `vaya vaya…`).
-- **Joint removal**: LOOPS GONE (r2 0.00–0.10, 1/12 capped vs 12/12). Continuations are
-  coherent — but SPIDER: name-N1-dog pure spider (swap +10.05 never entered the text);
+- **Joint removal**: LOOPS GONE (r2 0.00–0.10, 1/12 capped vs 12/12). The lone capped cell
+  (prop-P1-spinneret-dog, r2 0.102) is a LONG COHERENT ramble about a missing question — NOT
+  a repetition loop; looping vs length-cap are recorded separately (loops: 0). Continuations
+  are coherent — but SPIDER: name-N1-dog pure spider (swap +10.05 never entered the text);
   name-N2-dog transient `狗 (Dog)` flip then self-correction (`**Corrected Answer:**
   Spider`); ant/property spider-bound (one property cell has a "Wait, I misunderstood…
   Let me re-read" reset, still spider).
 - **Restricted injection**: ≈ nothing (+0.09; the donor signal was largely in the discarded
-  outside-Ps part — consistent with the 80%/70% outside measurements).
+  outside-Ps part — consistent with the outside measurements: exact paired per-row means
+  give RETAINED energy 0.297 (h25) / 0.314 (h30) — i.e. ~30% retained, not 36%; the 36%
+  figure was the square-of-mean-norm aggregate, a different statistic).
 
 ## Verdict (registered prediction, both branches)
 
 1. **"Joint removes the toy accumulation; if transformer loops also drop it supports
-   utility"** — REALIZED: removing the accumulation stopped the degeneration (12/12 loops →
-   1/12; r2 0.84–0.99 → 0.00–0.10). The accumulation mechanism behind the interval loops is
-   now supported by an INTERVENTION, not just algebra.
+   utility"** — SUPPORTED, not confirmed: with the same injection, joint removal stops the
+   degeneration (12/12 → 1/12 capped; r2 0.84–0.99 → 0.00–0.10). The removal-rank/content
+   confound remains (16 dims vs 8 changes what else is removed and the feedback the model
+   sees), so this supports the accumulation hypothesis without isolating it as THE cause.
 2. **"Only coherent donor identities improve the goal"** — NOT met: joint removal is
    behaviorally STABLE but shows no persistent donor identity (one transient flip, same as
    single-site arms). **Stability improvement distinguished from transfer** — the loops
