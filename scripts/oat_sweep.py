@@ -3092,7 +3092,11 @@ def run_with_bundle(
                 donor_states = {o: target["residuals"][La, t_end - o].float() for o in offsets}
                 # anchor projection (the injected direction) and norm-source projection
                 # (the injected size): both through the SAME fixed donor columns
-                if cfg.common_temporal_full:
+                if cfg.complete_edit_mode:
+                    # the complete-rank arms: the injection slice = the SAME truncated
+                    # donor basis as the removal (the sentinel 0 = FULL supported)
+                    inj_by_offset = (lambda o: Ud_k)
+                elif cfg.common_temporal_full:
                     inj_by_offset = (lambda o: U_d.float())  # the FULL supported donor basis
                 elif cfg.common_donor_rank < 8:
                     # injection-basis slice ONLY (removal stays the full joint8)
