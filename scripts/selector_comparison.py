@@ -8,6 +8,7 @@ sum candidate (whole-last-3), per the recovery report's unit tests. CPU only. --
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -32,16 +33,36 @@ def readout(res: torch.Tensor, unembed: torch.Tensor, gain: torch.Tensor) -> tor
     return hn @ unembed.T / row_norm  # (33, seq, V)
 
 
+REGRESSION_LOG = {"max_abs_residual": 0.0, "n_prompts": 0}
+
+def _make_decoder():
+    try:
+        from tokenizers import Tokenizer
+        t = Tokenizer.from_file(os.environ.get(
+            "TOKENIZER_JSON",
+            str(ROOT / "tokenizer.json")) if (ROOT / "tokenizer.json").exists() else
+            "/home/code/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/"
+            "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer.json")
+        return lambda i: t.decode([i])
+    except Exception as e:
+        print(f"decoder unavailable ({e}); labels omitted")
+        return lambda i: ""
+DECODER = _make_decoder()
+
 def regression_check(phi: torch.Tensor, res: torch.Tensor, unembed: torch.Tensor,
                      gain: torch.Tensor) -> None:
-    """Executed regression: my snapshot scores == canonical suppressed_activation_scores
-    (normalize_unembedding_rows=True) on the same saved tensors."""
+    """Executed regression: my snapshot scores agree with canonical
+    suppressed_activation_scores (normalize_unembedding_rows=True) within tolerance
+    (rtol=atol=1e-4) on the same saved tensors; residual maxima recorded."""
     canonical = suppressed_activation_scores(
         res.permute(1, 0, 2), unembed, gain, early_layer=23, peak_layer=25,
         output_layer=32, normalize_unembedding_rows=True)  # (seq, V)
     mine = selectors(phi)[0]  # snapshot scores (seq, V)
     torch.testing.assert_close(mine, canonical, rtol=1e-4, atol=1e-4,
                                msg="snapshot scores diverge from canonical scores")
+    REGRESSION_LOG["max_abs_residual"] = max(REGRESSION_LOG["max_abs_residual"],
+                                             float((mine - canonical).abs().max()))
+    REGRESSION_LOG["n_prompts"] += 1
 
 
 def selectors(phi: torch.Tensor):
@@ -89,10 +110,24 @@ def main() -> None:
         set_s = {t for rowt in r["snapshot3_ids"] for t in rowt}
         set_c = {t for rowt in r["increment_cand_ids"] for t in rowt}
         r["jaccard_snapshot_vs_candidate"] = len(set_s & set_c) / len(set_s | set_c)
+        # ACTUALLY SAVED traces: per-layer numerator / RMS / centered-readout for the
+        # candidate-selected tokens (small arrays; the buildup evidence)
+        sel = sorted(set_c)
+        num = torch.einsum("lph,vh->lpv", res[:, a:].float() * gain, unembed * gain)[:, :, sel]
+        rms = res[:, a:].float().square().mean(-1).sqrt()
+        r["selected_traces"] = {
+            "token_ids": sel,
+            "decoded_labels": [DECODER(t) for t in sel],
+            "numerator_by_layer": [[[round(float(x), 3) for x in num[:, p, i]]
+                                    for p in range(res[:, a:].shape[1])] for i in range(len(sel))],
+            "rms_by_layer": [round(float(x), 4) for x in rms.mean(0)],
+        }
         result["per_cell"][name] = r
     # aggregate jaccard
     js = [v["jaccard_snapshot_vs_candidate"] for v in result["per_cell"].values()]
     result["jaccard_summary"] = {"mean": sum(js)/len(js), "min": min(js), "max": max(js)}
+    result["regression"] = {**REGRESSION_LOG,
+                            "note": "tolerance agreement (rtol=atol=1e-4), not exact equality"}
     json.dump(result, open(OUT / "selector_comparison.json", "w"), indent=1)
     print(f"wrote {OUT/'selector_comparison.json'}; Jaccard mean {result['jaccard_summary']['mean']:.3f} "
           f"min {result['jaccard_summary']['min']:.3f} max {result['jaccard_summary']['max']:.3f}")
