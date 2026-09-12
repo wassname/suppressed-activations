@@ -20,8 +20,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from scripts.prompt import assistant_prefill_input_ids
 from scripts.demo import trajectory
 from suppressed_activation_subspace import increment_scores, subspace_from_scores
-tok = AutoTokenizer.from_pretrained(os.environ['SUPPRESSED_MODEL'], revision=os.environ['SUPPRESSED_REVISION'])
-model = AutoModelForCausalLM.from_pretrained(os.environ['SUPPRESSED_MODEL'], revision=os.environ['SUPPRESSED_REVISION'],
+tok = AutoTokenizer.from_pretrained(os.environ.get("SUPPRESSED_MODEL", "wassname/qwen3-5lyr-tiny-random"), revision=os.environ.get("SUPPRESSED_REVISION", "main"))
+model = AutoModelForCausalLM.from_pretrained(os.environ.get("SUPPRESSED_MODEL", "wassname/qwen3-5lyr-tiny-random"), revision=os.environ.get("SUPPRESSED_REVISION", "main"),
                                              dtype=torch.bfloat16).to('cpu').eval()
 unembed = model.lm_head.weight.float()
 gain = (1.0 + model.model.norm.weight).float()
