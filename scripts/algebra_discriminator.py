@@ -4,17 +4,11 @@
 # ///
 """CPU algebra discriminator for the interval re-correction degeneration.
 
-Operator identity: T(h) = (I - C Ps) h + C v, v = Pd d (both projectors fixed, Ps != Pd).
-Left-multiplying by (I - Ps): (I-Ps)T(h) = (I-Ps)h + C (I-Ps)v — with a fixed donor the
-outside-source component accumulates LINEARLY in the number of applications; within Ps the
-coefficient is 1-C = -0.5 at C=1.5 (not idempotent replacement). Measured here on the saved
-dev-bank bases/states:
-  1. r_l = ||(I-Ps) Pd d_l|| / ||Pd d_l|| per layer/position (outside fraction of the injection),
-  2. signed cross-layer agreement of the outside components (no alignment assumed),
-  3. toy simulations (identity between sites — NOT transformer evidence): repeated frozen-state
-     operator 1..6 vs the real per-layer donor sequence, logging full/source-span/outside norms,
-  4. same for the candidate variants: shared P_union removal (h' = h + C(v - P_union h)),
-     restricted injection (h' = h + C(Ps Pd d - Ps h)), at C=1 and C=1.5. -- PI[claude]"""
+T(h) = (I - C Ps)h + C v, v = Pd d, Ps != Pd: (I-Ps)T(h) = (I-Ps)h + C(I-Ps)v, so the
+outside-source component accumulates linearly (within Ps: coefficient 1-C). Measures the
+outside fraction, cross-layer agreement, and toy operator iterations (identity between
+sites -- toy algebra, NOT transformer evidence) on the saved dev-bank bases/states.
+-- PI[claude]"""
 
 from __future__ import annotations
 
