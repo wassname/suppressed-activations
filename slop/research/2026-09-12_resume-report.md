@@ -182,3 +182,23 @@ STANDING: the early-intervention idea at h1 is not reachable by rank narrowing; 
 trade-off has no tested point with both low degradation and donor movement. Open axes
 per the audit's scope note: trajectory-selected SUBRANKS, later anchors, position
 policies. Decision yours.
+
+## Full-support contract bug fixed (report 8)
+
+The supervisor's finding CONFIRMED and FIXED: complete_rank_configs left
+common_temporal_full=False while the kfull sentinel 0 meant 'all remaining columns' — the
+top8 truncation happened FIRST, so full == 8 (the 12/12 identical k8 logits/texts). THE
+FIX: the kfull arm sets common_temporal_full=True (the full supported bases — the intended
+method); the spec's expectations agree with the INTENDED method.
+
+THE MAINTAINED REGRESSION (tests/test_full_support.py, executed, PASS): (1) the full
+arm's actual support > 8 on a nondegenerate fixture (donor 32/source 31); (2) nesting
+(the same-state full projection energy >= k8's); (3) the full projector contains k8
+(the residual 2.5e-6 float32 noise); (4) the k8 arm's config/vector unchanged.
+
+The old injection-only rankinj regression: still passing (the removal unchanged). The
+smoke: passing. The spec: validated.
+
+NOT QUEUED — the supervisor coordinates the GPU timing (the Astra recommendation pending).
+The 1254 'kfull' results stand as C2.5... no: as the TOP8-in-disguise evidence (invalid
+as full-support results; preserved).
