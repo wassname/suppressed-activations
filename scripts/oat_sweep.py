@@ -797,6 +797,57 @@ def smoke_common_basis_rankinj_configs():
             ("smoke_common_basis_rankinj", "C0", replace(base, strength=0.0))]
 
 
+def common_basis_earlyloc_configs():
+    """Declared early-location comparison (protocol slop/earlyloc_protocol.md): increment
+    selector, temporal top8, joint removal, anchor h25 frozen; sites h1/h2/h3/h8.
+    Conditions: imported-v25 at each site; site-rescaled size controls at h1/h2/h3;
+    v8-replay at h8; C0 at each site. 144 cells. -- PI[glm-5p3-flash]"""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+                   rank=8, readout_positions=4, intervention_positions=3,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=4, common_basis="top8_union",
+                   common_selector="increment", common_removal="joint", strength=1.5,
+                   xdepth_anchor_layer=25)
+    rows = []
+    for site in (1, 2, 3, 8):
+        rows.append(("common_basis_earlyloc", f"v25imported_h{site}_C1.5",
+                     replace(base, intervention_layer=(site,))))
+    for site in (1, 2, 3):
+        rows.append(("common_basis_earlyloc", f"siterescaled_h{site}_C1.5",
+                     replace(base, intervention_layer=(site,), xdepth_anchor_layer=-1,
+                             xdepth_norm_from_layer=25)))
+    rows.append(("common_basis_earlyloc", "v8replay_h8_C1.5",
+                 replace(base, intervention_layer=(8,), xdepth_anchor_layer=-1)))
+    for site in (1, 2, 3, 8):
+        rows.append(("common_basis_earlyloc", f"C0_h{site}",
+                     replace(base, intervention_layer=(site,), strength=0.0,
+                             xdepth_anchor_layer=-1)))
+    return rows
+
+
+def smoke_common_basis_earlyloc_configs():
+    """Tiny twin: sites h1/h2 (tiny 5-layer), anchor h3; imported/rescaled/C0/v-replay."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+                   rank=2, readout_positions=2, intervention_positions=2,
+                   match_component_norm=False, restore_residual_norm=False,
+                   continue_generation=True, common_window=2, common_basis="top8_union",
+                   common_selector="increment", common_removal="joint", strength=1.5,
+                   xdepth_anchor_layer=3)
+    rows = []
+    for site in (1, 2):
+        rows.append(("smoke_common_basis_earlyloc", f"v25imported_h{site}_C1.5",
+                     replace(base, intervention_layer=(site,))))
+        rows.append(("smoke_common_basis_earlyloc", f"siterescaled_h{site}_C1.5",
+                     replace(base, intervention_layer=(site,), xdepth_norm_from_layer=3)))
+    rows.append(("smoke_common_basis_earlyloc", "v8replay_h2_C1.5",
+                 replace(base, intervention_layer=(2,), xdepth_anchor_layer=-1)))
+    rows.append(("smoke_common_basis_earlyloc", "C0_h1",
+                 replace(base, intervention_layer=(1,), strength=0.0)))
+    return rows
+
+
 def smoke_common_basis_configs():
     """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
@@ -2124,6 +2175,8 @@ SWEEP_CONFIGS = {
     "common-basis-fulljoint": common_basis_fulljoint_configs,
     "common-basis-selsite": common_basis_selsite_configs,
     "common-basis-rankinj": common_basis_rankinj_configs,
+    "common-basis-earlyloc": common_basis_earlyloc_configs,
+    "smoke-common-basis-earlyloc": smoke_common_basis_earlyloc_configs,
     "smoke-common-basis-rankinj": smoke_common_basis_rankinj_configs,
     "common-basis-xdepth": common_basis_xdepth_configs,
     "smoke-common-basis-xdepth": smoke_common_basis_xdepth_configs,
