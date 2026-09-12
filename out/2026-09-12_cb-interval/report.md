@@ -50,5 +50,5 @@ the fresh set) remains the best measured intervention.
 ## Scope notes carried forward
 
 Random intervals are descriptive, not dose-matched; smaller/larger projected norms are not
-total-edit or semantic-strength claims; ρ/ρ_P are residual-based. Open: H8 (anomaly
-framing), H9 (magnitude-matched randoms), matched-dose interval, other adaptive policies.
+total-edit or semantic-strength claims; ρ/ρ_P are residual-based. Open: H9 (magnitude-matched randoms), matched-dose interval, other adaptive policies. H8
+is a mechanism question, not an evidence gap (audited 6/12 + raw generations exist).
