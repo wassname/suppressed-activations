@@ -11,9 +11,13 @@ h_l = residual ENTERING block l: h_0 = embeddings, h_l = output of block l−1 (
 final residual before the final norm/tied head. Block l writes Δh_l = h_{l+1} − h_l.
 **Last three blocks = 29, 30, 31 (outputs h_30, h_31, h_32).**
 
-Late selector (same construction family as the bank detector, moved to the tail):
-score_i = min( clampmax(logit_i(h_30) − logit_i(h_29), 0), clampmax(logit_i(h_30) − logit_i(h_32), 0) ),
-mean-centred over vocab, RMS+gain readout with row-normalized unembedding. Per-token rank-8
+Late selector — actual code (`suppressed_activation_scores` at early=29, peak=30, output=32):
+`rise = logit_i(h_30) − logit_i(h_29)`, `fall = logit_i(h_30) − logit_i(h_32)`, both
+vocab-mean-centered, then `score_i = torch.minimum(rise.clamp_min(0), fall.clamp_min(0))`,
+with RMS+gain readout and row-normalized unembedding. Scope: this selects components that
+RISE at block 29 (h_29→h_30) and then fall in readout across blocks 30 and 31 — it is NOT a
+detector of all forms of last-three suppression (e.g. components built earlier and only
+removed later, or written by block 31 itself, are not selected). Per-token rank-8
 bases = QR of centered gain-scaled unembedding rows (top-8 scores per position); window =
 end-aligned last-4; combined by support-filtered temporal union (SVD left vectors) and top8.
 Union support on dev: 29–32/32 (three prompts at 29–31, rest 32) — all within-support for top8.
@@ -79,11 +83,14 @@ residuals[layer]`); C0 once; descriptive random_shared8 per location.
 | A | L3 | user's explicit early site |
 | B | L25 | mid-rise reference (previous batch's layer) |
 | C | L30 | post-build / pre-fall (peak h_30, written by block 29) |
-| D | L32 | late reference (after suppression) |
+| D | L32 | late reference; an edit here is an IMMEDIATE FINAL-READOUT edit (h_32 feeds the final norm/head), NOT evidence of downstream propagation |
 
 Cells: 4 locations × 12 questions (construction) + 4 × 12 (random_shared8) + 12 (C0) =
-108 cells, one model load ≈ 17 min. Diagnostics per call: edit/residual norm fraction
-(descriptive only — total norms across trajectories do not establish magnitude matching);
-downstream persistence: ‖P(h_32^edited − h_32^clean)‖ at the answer position on the same
-token history (small runner addition), so a vanishing P-component is not conflated with a
-vanishing effect. Both animals; full 128-token continuations.
+108 cells, one model load ≈ 17 min. Diagnostics per call: per-call edit/residual norm
+fraction (descriptive only — total norms across trajectories do not establish magnitude
+matching, and no binding-blocker claim is made from them); downstream persistence at the
+answer position reports BOTH ‖edited−clean‖ AND ‖P(edited−clean)‖, each relative to the
+clean norm — P-only cannot establish persistence outside P. The diagnostic is PREFILL ONLY:
+token histories are identical before the first generated token; decode histories diverge
+after sampling and no cached edited-vs-clean state comparison is implied. Both animals;
+full 128-token continuations.
