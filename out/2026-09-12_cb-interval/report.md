@@ -1,14 +1,14 @@
 # Interval-wise re-correction results (task 1136, 60 cells)
 
 2026-09-12, PI[claude]. Run: pueue 1136, `slop/common_basis_interval_batch.json`, one model
-load, 587 s; protocol saved before execution (`slop/interval_protocol.md`). Interval arm:
+load, 587 s; protocol saved before execution (`slop/interval_protocol.md`). Interval condition:
 common_replace at EVERY residual boundary h25..h30 (six sites per call, blocks 24..29),
 fixed shared top8 projectors (bank selector 23/25/32), per-layer donor residuals, frozen
 decode policy, C1.5. Raw: `out/2026-09-12_cb-interval/{arm}-{cell}/result.json`.
 
 ## Aggregate (swap means over 12; splits 4 cells)
 
-| arm | swap ↑ | legs | naming | property | capped | r2 |
+| condition | swap ↑ | legs | naming | property | capped | r2 |
 |---|---:|---:|---:|---:|---:|---:|
 | interval h25..h30 | +4.14 | +1.28 | +10.69 | +0.45 | **12/12** | ~0.99 |
 | L25-only (replay) | +2.22 | +0.25 | +6.23 | +0.18 | 2/12 | |
@@ -30,7 +30,7 @@ debris, not semantic carry.
 
 Per-layer per-call edit norms (interval, one cell): total applied 594/476/426/516/546/613
 across L25..L30 — cumulative ≈ 3170, ~4.2× the single-site total (~759). The random
-interval (same six-site structure, random projectors) does NOT degenerate (−0.10, 0 caps),
+interval condition (same six-site structure, random projectors) does NOT degenerate (−0.10, 0 caps),
 so the specific bases' cumulative edit is what breaks generation — but with cumulative
 intervention ~4× larger, this is NOT a pure timing effect and cannot show whether
 maintaining through the interval would help at matched total edit.
