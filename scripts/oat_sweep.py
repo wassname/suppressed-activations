@@ -99,6 +99,8 @@ class Config:
     # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
     # detector_layers drives the reference/template path)
     common_removal: str = "source"  # "source" (Ps) | "joint" | "pref" (reference attenuation span)
+    common_inject_norm: str = "own"  # "own" | "cross_v" (delta_ref' scaled per-position to ||v_o||) |
+    # "cross_delta" (v scaled to ||delta_ref'||); rescaling preserves direction (no reprojection)
     common_inject: str = "pd_d"  # "pd_d" (current) | "ref_delta" (the successful branch's
     # norm-matched projection delta'=P_ref delta rescaled to ||delta||, computed by the SAME
     # runtime sweep code and kept EXACTLY fixed when the removal span changes)
@@ -570,6 +572,24 @@ def smoke_common_basis_2x2_configs():
             ("smoke_common_basis_2x2", "injref_remPref_C1.5", replace(base, common_inject="ref_delta", common_removal="pref")),
             ("smoke_common_basis_2x2", "injv_remPref_C1.5", replace(base, common_inject="pd_d", common_removal="pref")),
             ("smoke_common_basis_2x2", "C0_remPs", replace(base, common_inject="pd_d", common_removal="source", strength=0.0))]
+
+
+def smoke_common_basis_norm2x2_configs():
+    """Tiny twin of the norm factorial: delta_ref' scaled to ||v||, v scaled to ||delta||,
+    C0; pref removal; single site L2 on the tiny model."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="attenuation",
+                   persistent_rank=2, detector_layers=(0, 2, 4), match_component_norm=True,
+                   rank=2, readout_positions=2, intervention_layer=(2,),
+                   intervention_positions=2, restore_residual_norm=False,
+                   continue_generation=True, common_window=2, common_basis="top8_union",
+                   span_correction=False, common_bank_layers=(0, 2, 4),
+                   common_removal="pref")
+    return [("smoke_common_basis_norm2x2", "delta_scaled_to_v_C1.5",
+             replace(base, common_inject="ref_delta", common_inject_norm="cross_v")),
+            ("smoke_common_basis_norm2x2", "v_scaled_to_delta_C1.5",
+             replace(base, common_inject="pd_d", common_inject_norm="cross_delta")),
+            ("smoke_common_basis_norm2x2", "C0",
+             replace(base, common_inject="pd_d", strength=0.0))]
 
 
 def smoke_common_basis_configs():
@@ -2003,6 +2023,7 @@ def run_with_bundle(
         "common-basis-joint": common_basis_joint_configs,
         "common-basis-fulljoint": common_basis_fulljoint_configs,
         "common-basis-2x2": common_basis_2x2_configs,
+        "smoke-common-basis-norm2x2": smoke_common_basis_norm2x2_configs,
         "smoke-common-basis-2x2": smoke_common_basis_2x2_configs,
         "smoke-common-basis-fulljoint": smoke_common_basis_fulljoint_configs,
         "smoke-common-basis-joint": smoke_common_basis_joint_configs,
@@ -2438,6 +2459,10 @@ def run_with_bundle(
                     source_basis = target_basis = shared
                     persistence["direction_estimator"] = "span_corrected_template_delta"
                     persistence["edit_equation"] = "h + C * (Δ - U U^T h)"
+                    persistence["applied_delta_sha256"] = hashlib.sha256(
+                        fixed_deltas[intervention_layers[0]].detach().cpu().contiguous().float().numpy().tobytes()
+                    ).hexdigest()
+                    persistence["applied_delta_norm"] = float(fixed_deltas[intervention_layers[0]].norm())
             if cfg.bee_correction:
                 assert target_concept == "ant" and cfg.template_state_span != "none"
                 persistence["base_component_norms_before_correction"] = persistence.pop("per_token_component_norms_after_strength")
@@ -2639,6 +2664,18 @@ def run_with_bundle(
             # per-layer specs: the projectors are FIXED and shared across the interval; the
             # donor residual comes from EACH actual layer (end-aligned), per the design.
             delta_ref = None
+            # the norm factorial needs BOTH reference quantities: delta_ref' (direction and
+            # norm target) and the per-position v; build delta_ref whenever the axis is used
+            if cfg.common_inject == "ref_delta" or cfg.common_inject_norm != "own":
+                delta_ref = fixed_deltas[layer].float()
+            else:
+                delta_ref = None
+            if cfg.common_inject_norm != "own":
+                # factorial norm arm: compute BOTH vectors, then rescale (direction preserved,
+                # no reprojection). Per matched prefill position; decode uses offset-1 policy.
+                assert cfg.common_removal == "pref" and len(intervention_layers) == 1
+                v_raw = {o: don_by_offset(o) @ (don_by_offset(o).T @ target["residuals"][layer, t_end - o].float())
+                         for o in offsets}
             if cfg.common_inject == "ref_delta":
                 # the successful branch's applied vector: the sweep computed template_deltas,
                 # projected them on the shared (attenuation) basis and norm-matched upstream
@@ -2649,8 +2686,13 @@ def run_with_bundle(
             common_specs, layer_norms = {}, {}
             for L in intervention_layers:
                 donor_states = {o: target["residuals"][L, t_end - o].float() for o in offsets}
-                if cfg.common_inject == "ref_delta":
+                if cfg.common_inject == "ref_delta" and cfg.common_inject_norm == "own":
                     donor_proj = {o: delta_ref.clone() for o in offsets}  # fixed vector, all positions
+                elif cfg.common_inject == "ref_delta":  # common_inject_norm == "cross_v"
+                    # delta direction scaled DOWN to each position's ||v_o||
+                    donor_proj = {o: delta_ref * (v_raw[o].norm() / delta_ref.norm()) for o in offsets}
+                elif cfg.common_inject_norm == "cross_delta":  # v direction scaled UP to ||delta||
+                    donor_proj = {o: v_raw[o] * (delta_ref.norm() / v_raw[o].norm()) for o in offsets}
                 elif cfg.common_inject_restricted:
                     # v := Ps(Pd d): the injection's outside-source part is dropped
                     donor_proj = {o: (lambda D, d: Ps @ (D @ (D.T @ d)))(don_by_offset(o), donor_states[o])
@@ -2668,6 +2710,17 @@ def run_with_bundle(
                 else:
                     for o in offsets:
                         assert don_by_offset(o).dtype == torch.float32
+                norm_check = {"max_rel_err": 0.0, "min_cos": 1.0}
+                if cfg.common_inject_norm != "own":
+                    for o in offsets:
+                        orig = delta_ref if cfg.common_inject == "ref_delta" else v_raw[o]
+                        c = float(donor_proj[o] @ orig / (donor_proj[o].norm() * orig.norm() + 1e-9))
+                        assert abs(c - 1.0) < 1e-6, f"rescale changed direction: cos {c}"
+                        tn = float(v_raw[o].norm()) if cfg.common_inject == "ref_delta" else float(delta_ref.norm())
+                        rel = abs(float(donor_proj[o].norm()) - tn) / tn
+                        assert rel < 1e-4 + 1e-6, f"target norm mismatch: {donor_proj[o].norm()} vs {tn}"
+                        norm_check["max_rel_err"] = max(norm_check["max_rel_err"], rel)
+                        norm_check["min_cos"] = min(norm_check["min_cos"], c)
                 common_specs[L] = {
                     "src": torch.stack([rem_by_offset(o) for o in pos_order]),
                     "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
@@ -2704,6 +2757,8 @@ def run_with_bundle(
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
+                "inject_norm_axis": cfg.common_inject_norm,
+                "norm_target_check": norm_check,
                 "delta_ref_prime": ({"norm": float(delta_ref.norm()),
                                      "sha256": hashlib.sha256(
                                          delta_ref.detach().cpu().contiguous().float().numpy().tobytes()
@@ -3100,6 +3155,7 @@ if __name__ == "__main__":
             "common-basis-joint",
             "common-basis-fulljoint",
             "common-basis-2x2",
+            "smoke-common-basis-norm2x2",
             "smoke-common-basis-2x2",
             "smoke-common-basis-fulljoint",
             "smoke-common-basis-joint",
