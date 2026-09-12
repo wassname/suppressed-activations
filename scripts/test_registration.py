@@ -42,28 +42,66 @@ EXPECTED = {  # independent expected values (hand-written, not read from the fam
 }
 
 
-# config-field mapping for the independent expectations (selector/site are not Config
-# fields: selector routes the score fn; site = intervention_layer)
-CONFIG_FIELD = {"expected_selector": "common_selector", "expected_site": "intervention_layer"}
+# independent expectations, keyed by output-dir condition prefix. All keys are Config
+# fields with the expected_ prefix (validate_specs resolves them via getattr(cfg, field)):
+# selector/site/basis/removal/rank/window/positions are all real Config fields.
+EXPECTED = {
+    "snapshot-h8": {"expected_strength": 1.5, "expected_condition": "snapshot_h8_C1.5",
+                    "expected_common_selector": "snapshot", "expected_intervention_layer": [8],
+                    "expected_common_basis": "top8_union", "expected_common_removal": "joint",
+                    "expected_rank": 8, "expected_common_window": 4,
+                    "expected_intervention_positions": 3,
+                    "expected_detector_layers": [23, 25, 32]},
+    "increment-h8": {"expected_strength": 1.5, "expected_condition": "increment_h8_C1.5",
+                     "expected_common_selector": "increment", "expected_intervention_layer": [8],
+                     "expected_common_basis": "top8_union", "expected_common_removal": "joint",
+                     "expected_rank": 8, "expected_common_window": 4,
+                     "expected_intervention_positions": 3,
+                     "expected_detector_layers": [23, 25, 32]},
+    "snapshot-h20": {"expected_strength": 1.5, "expected_condition": "snapshot_h20_C1.5",
+                     "expected_common_selector": "snapshot", "expected_intervention_layer": [20],
+                     "expected_common_basis": "top8_union", "expected_common_removal": "joint",
+                     "expected_rank": 8, "expected_common_window": 4,
+                     "expected_intervention_positions": 3,
+                     "expected_detector_layers": [23, 25, 32]},
+    "increment-h20": {"expected_strength": 1.5, "expected_condition": "increment_h20_C1.5",
+                      "expected_common_selector": "increment", "expected_intervention_layer": [20],
+                      "expected_common_basis": "top8_union", "expected_common_removal": "joint",
+                      "expected_rank": 8, "expected_common_window": 4,
+                      "expected_intervention_positions": 3,
+                      "expected_detector_layers": [23, 25, 32]},
+    "random-h8": {"expected_strength": 1.5, "expected_condition": "random_h8_C1.5",
+                  "expected_common_selector": "snapshot", "expected_intervention_layer": [8],
+                  "expected_common_basis": "random_shared", "expected_common_removal": "joint",
+                  "expected_common_random_rank": 8, "expected_common_window": 4,
+                  "expected_intervention_positions": 3,
+                  "expected_detector_layers": [23, 25, 32]},
+    "random-h20": {"expected_strength": 1.5, "expected_condition": "random_h20_C1.5",
+                   "expected_common_selector": "snapshot", "expected_intervention_layer": [20],
+                   "expected_common_basis": "random_shared", "expected_common_removal": "joint",
+                   "expected_common_random_rank": 8, "expected_common_window": 4,
+                   "expected_intervention_positions": 3,
+                   "expected_detector_layers": [23, 25, 32]},
+    "C0": {"expected_strength": 0.0, "expected_condition": "C0",
+           "expected_common_selector": "snapshot", "expected_intervention_layer": [8],
+           "expected_common_basis": "top8_union", "expected_common_removal": "joint",
+           "expected_rank": 8, "expected_common_window": 4,
+           "expected_intervention_positions": 3,
+           "expected_detector_layers": [23, 25, 32]},
+}
 
 
 def enrich_specs(specs: list[dict]) -> list[dict]:
-    """Attach the independent expected values by output-dir condition prefix, renamed to
-    the actual config fields they assert."""
+    """Attach the independent expected values by output-dir condition prefix."""
     out = []
     for spec in specs:
         dirname = Path(spec["output_dir"]).name
         for prefix, exp in EXPECTED.items():
             if dirname.startswith(prefix + "-") or dirname == prefix:
-                merged = {**spec}
-                for k, v in exp.items():
-                    merged[CONFIG_FIELD.get(k, k)] = v
-                merged.pop("expected_selector", None)
-                merged.pop("expected_site", None)
-                out.append(merged)
+                out.append({**exp, **spec})
                 break
         else:
-            out.append(spec)
+            out.append({**spec, "expected_condition": "UNMATCHED-PREFIX"})  # forces a failure
     return out
 
 
