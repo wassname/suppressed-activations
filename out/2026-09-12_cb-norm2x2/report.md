@@ -26,17 +26,20 @@ Norm-target checks: max rel err 0.0, min cos 1.0 (both scaled arms). C0 exact id
   `1. A dog is a loyal and intelligent animal…` (the description moved to dog) — not a
   coherent answer to the naming question.
 
-## Verdict (registered prediction: branch (c) with a direction-quality residual)
+## Verdict (observed outcomes at the TESTED two norm levels; durable per-row table:
+`per_row_adjudications.json` — answer/identity/coherence/format judged separately)
 
-Direction and magnitude are JOINTLY needed, and the δ direction is additionally special:
-- (a) δ direction at low norm: no transfer — direction alone insufficient at ‖v‖.
-- (b) v at high norm: no COHERENT transfer (degradation + one partial identity bleed) —
-  magnitude alone with the v direction produces instability, not transfer.
-- (c) only high-norm δ_ref′ transfers coherently — direction × sufficient magnitude joint
-  requirement; AND at matched high norm, δ_ref′ (+10.01) still exceeds v (+3.54, mostly
-  degenerate) ~2.8× — a direction-quality advantage that magnitude alone does not explain.
-Caveats: equalized injection magnitude at matched site/position only — total edits still
-depend on direction+source state; per-position rescale; single site/selector.
+- δ direction: 0/12 semantic passes at v-norm → 6/12 at own norm (A: legs 4/4 digits +
+  naming-dog 2/2).
+- v direction: 0/12 at own norm → **1/12 at δ-norm** (name-N2-dog: a numbered DOG
+  description with persistent dog identity, coherent, format compliant — a SEMANTIC PASS;
+  the numbered description is an answer, per the same rubric as the earlier leading-0
+  correction). Other v rows degrade (loops r2 0.87/0.93, incoherent water-fetching spider,
+  broken `arthrop虫`).
+- Observed: magnitude improved at least one donor-vector case to a semantic pass; the
+  δ direction has the larger tested-level outcome counts. No general necessity claim and
+  no log-odds-ratio-as-direction-quality measure: the +10.01-vs-+3.54 swap gap is an
+  aggregate log-odds observation, not a validated quality measure.
 
 ## 1149 B per-row adjudications (pending item; saved `B_per_row_verdicts.json`)
 
@@ -48,8 +51,9 @@ colonies") — identity-without-digit. name-N1-ant: honey bee (wrong insect). A:
 WHICH content survives: A (P_ref removal) transfers digits; B (Ps removal) transfers
 naming/leg identity without digits — hypothesis-grade, one comparison.
 
-## Standing
+## Standing (tested settings)
 
-The template-label direction at sufficient norm through the reference removal span remains
-the only coherent-transfer construction (audited 6/12 on the fresh set). Magnitude and
-direction are jointly necessary; neither alone suffices at this operating point.
+Tested constructions with coherent-transfer outcomes: the reference (δ_ref′ + P_ref
+removal; audited 6/12 fresh) and B (δ_ref′ + Ps removal; 3/12 dev). The v direction
+produced 1/12 at high norm in the tested settings. No claim that other constructions
+cannot transfer — only these were tested at these two norm levels.
