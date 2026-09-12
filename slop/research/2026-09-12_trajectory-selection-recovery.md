@@ -147,18 +147,19 @@ intervention survives/transfers or is overwritten; which rank gives the on/off-t
 trade-off. The extraction spec for exact-input traces is drafted separately for supervisor
 review.
 
-## 9. The one defensible whole-trajectory candidate
+## 9. The one candidate carried forward: POSITIVE-INCREMENT SUM over declared windows
 
-**Whole-last-3 area form** (variant (a) with `fall_area_3`): 
+(NOT an 'area' over the whole trajectory: it sums rectified per-block increments over two
+DECLARED windows — build b13..b23 and writes b29..b31; depths outside those windows are
+unused. 
 
     score_i = min( Σ_{b∈B_build} relu(Δϕ_i(b)),  Σ_{b∈{29,30,31}} relu(−Δϕ_i(b)) )
 
 Why this one: it keeps the existing selector's min-of-positive-parts structure and the
 exact same downstream construction (per-token top-k → QR → temporal union → SVD top-k);
-it integrates the whole trajectory as the motivating figure shows; its windows are the
-hypothesis's own (build b13–b23 — declared as the hypothesis window, sensitivity to the
-window edges reported); and it makes the post-peak-vs-whole-last3 distinction a measured
-choice rather than an accident of anchoring (both fall variants are computed and compared).
+its windows are the hypothesis's own (build b13–b23 — declared as the hypothesis window,
+edge sensitivity reported); and it makes the post-peak-vs-whole-last3 distinction a
+measured choice rather than an accident of anchoring (both fall variants computed).
 
 ## 10. Exact indexing + unit tests (CPU, no model)
 
@@ -169,9 +170,17 @@ choice rather than an accident of anchoring (both fall variants are computed and
       1. indexing: ϕ has 33 depth entries; ϕ(b) for b in 0..32 defined; Δϕ(b) for b in 0..31
       2. last-3 writes are exactly (29,30,31); no index 33 anywhere
       3. build window B_build = range(13,24); edges sensitivity ±3 reported
-      4. relu/min structure identical to the existing selector when W_build={23} and the
-         fall window = {25→32}: reduces to the 3-snapshot score (regression identity test
-         up to the anchor choice)
+      4. REGRESSION to the 3-snapshot score defined by EXPLICIT ENDPOINT PAIRS: the
+         existing rise = ϕ(25)−ϕ(23) and fall = ϕ(25)−ϕ(32). NOTE this is NOT the increment
+         sum: Δϕ(23) = ϕ(24)−ϕ(23) ≠ ϕ(25)−ϕ(23), and Σ relu(Δϕ) ≠ relu(Σ Δϕ) under
+         oscillation. SAWTOOTH COUNTEREXAMPLE: ϕ = (0, 1, 0, 1) over b22..b25 — increments
+         (+1, −1, +1) give build-mass 2 (relu at b22..b23), while the endpoint rise
+         ϕ(25)−ϕ(23) = 0. The two selectors genuinely differ; the test ASSERTS the
+         difference (not an identity) and asserts the endpoint-pair reduction holds only
+         for monotone single-rise trajectories.
+      4b. VOCABULARY CENTERING ORDER: rise/fall (and each Δϕ where used) are centered over
+         vocab BEFORE rectification — matching the existing convention
+         (rise = rise − rise.mean(-1) BEFORE clamp_min(0)) — stated explicitly per variant
       5. orthonormal bases after QR; support-filtered union; top-k = largest scores
       6. selected token IDs are integers in vocab range; no NaN scores
 
