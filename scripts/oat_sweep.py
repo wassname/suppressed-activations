@@ -311,6 +311,42 @@ def common_basis_l25_configs():
     return rows
 
 
+def common_basis_location_configs():
+    """Approved 108-cell location OAT: ONE construction (top8_union from FIXED late-
+    selected per-token bases, criterion 29/30/32, window last-4, support-corrected),
+    C1.5, positions 3 + continuous decode; the only varied axis is the intervention
+    LAYER: L3 (user's early site), L25 (mid-rise), L30 (post-build peak, h_30 written
+    by block 29), L32 (late reference - immediate final-readout edit, NOT downstream
+    propagation evidence). Donor residual taken at the ACTUAL intervention layer
+    (runner behavior). L3/L25/L30/L32 map to blocks 2/24/29/31 (h_l = output of
+    block l-1). Randoms are rank-matched Gaussian projectors, descriptive only.
+    -- PI[claude]"""
+    rows = []
+    for layer in (3, 25, 30, 32):
+        rows.append(("common_basis_location", f"L{layer}_top8_C1.5", replace(
+            DEFAULT, template_contrast=True, template_state_span="none",
+            detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+            intervention_layer=(layer,), intervention_positions=3,
+            match_component_norm=False, restore_residual_norm=False,
+            continue_generation=True, common_window=4,
+            common_basis="top8_union", strength=1.5)))
+        rows.append(("common_basis_location", f"L{layer}_randshared8_seed0_C1.5", replace(
+            DEFAULT, template_contrast=True, template_state_span="none",
+            detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+            intervention_layer=(layer,), intervention_positions=3,
+            match_component_norm=False, restore_residual_norm=False,
+            continue_generation=True, common_window=4,
+            common_basis="random_shared", common_random_rank=8, strength=1.5)))
+    rows.append(("common_basis_location", "C0_L30", replace(
+        DEFAULT, template_contrast=True, template_state_span="none",
+        detector_layers=(23, 25, 32), rank=8, readout_positions=4,
+        intervention_layer=(30,), intervention_positions=3,
+        match_component_norm=False, restore_residual_norm=False,
+        continue_generation=True, common_window=4,
+        common_basis="per_token", strength=0.0)))
+    return rows
+
+
 def smoke_common_basis_configs():
     """Tiny-model real path for h' = h + C (P_d d_p − P_s h_p). C=0 is identity."""
     base = replace(DEFAULT, template_contrast=True, template_state_span="none",
@@ -324,6 +360,25 @@ def smoke_common_basis_configs():
                                   ("top8_union_C1.5", "top8_union", 1.5),
                                   ("random_shared8_seed0_C1.5", "random_shared", 1.5),
                                   ("C0", "per_token", 0.0))]
+
+
+def smoke_common_basis_location_configs():
+    """Tiny twin of the location family: layers (1,) early and (5,) final on the 5-layer
+    tiny model (maps the real L3/L32 arms); rank2/window2 makes top8 == full union."""
+    base = replace(DEFAULT, template_contrast=True, template_state_span="none",
+                   detector_layers=(0, 2, 4), rank=2, readout_positions=2,
+                   intervention_positions=2, match_component_norm=False,
+                   restore_residual_norm=False, continue_generation=True, common_window=2)
+    rows = []
+    for layer in (1, 5):
+        rows.append(("smoke_common_basis_location", f"L{layer}_top8_C1.5",
+                     replace(base, intervention_layer=(layer,), common_basis="top8_union", strength=1.5)))
+        rows.append(("smoke_common_basis_location", f"L{layer}_randshared8_seed0_C1.5",
+                     replace(base, intervention_layer=(layer,), common_basis="random_shared",
+                             common_random_rank=2, strength=1.5)))
+    rows.append(("smoke_common_basis_location", "C0_L5",
+                 replace(base, intervention_layer=(5,), common_basis="per_token", strength=0.0)))
+    return rows
 
 
 def smoke_common_basis_l25_configs():
@@ -1648,6 +1703,8 @@ def run_with_bundle(
         "span-correction-sweep": span_correction_sweep_configs,
         "common-basis": common_basis_configs,
         "common-basis-l25": common_basis_l25_configs,
+        "common-basis-location": common_basis_location_configs,
+        "smoke-common-basis-loc": smoke_common_basis_location_configs,
         "smoke-common-basis": smoke_common_basis_configs,
         "smoke-common-basis-l25": smoke_common_basis_l25_configs,
         "h5-extended-positions": h5_extended_positions_configs,
@@ -2320,6 +2377,28 @@ def run_with_bundle(
                 capture_attention=capture_attention,
             )
         changed_residuals = captured[0]
+        if cfg.common_basis != "none":
+            # Downstream persistence at the answer position, PREFILL ONLY: token
+            # histories are identical before the first generated token; decode
+            # histories diverge after sampling, so no cached edited-vs-clean
+            # comparison is implied. Reports BOTH raw and P-projected deltas,
+            # relative to the clean norm. -- PI[claude]
+            layer0 = intervention_layers[0]
+            spec0 = common_specs[layer0]
+            U = spec0["decode_src"][0]  # the applied source projector columns (top8 for top8_union)
+            pos = source["content_end"] - 1
+            final_l = source["residuals"].shape[0] - 1  # final residual (32 on the real model)
+            h_clean = source["residuals"][final_l, pos].float()
+            h_edit = changed_residuals[final_l, pos].float()
+            dh = h_edit - h_clean
+            persistence["downstream_persistence_prefill"] = {
+                "definition": "answer-position prefill residual, identical token history (before the first generated token); decode histories diverge and are not compared",
+                "answer_pos": pos, "final_residual_layer": final_l,
+                "edited_minus_clean_rel": float(dh.norm() / h_clean.norm()),
+                "P_edited_minus_clean_rel": float((U @ (U.T @ dh)).norm() / h_clean.norm()),
+                "clean_norm": float(h_clean.norm()),
+                "note": "P-only persistence does not establish persistence outside P; both norms reported",
+            }
         if cfg.shared_replacement != "none":
             if cfg.random_delta_seed >= 0:
                 persistence["control"] = "fixed seeded random span per layer; per-position norm matched to semantic edit on control trajectory, before model dtype rounding"
@@ -2622,6 +2701,8 @@ if __name__ == "__main__":
             "span-correction-sweep",
             "common-basis",
             "common-basis-l25",
+            "common-basis-location",
+            "smoke-common-basis-loc",
             "smoke-common-basis",
             "smoke-common-basis-l25",
             "h5-extended-positions",

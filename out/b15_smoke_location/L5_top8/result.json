@@ -1,0 +1,1440 @@
+{
+  "model": "wassname/qwen3-5lyr-tiny-random",
+  "elapsed_seconds": 2.4962728229584172,
+  "peak_gpu_memory_bytes": 0,
+  "argv": [
+    "scripts/oat_sweep.py",
+    "--sweep",
+    "smoke-common-basis-loc",
+    "--condition-index",
+    "2",
+    "--output-dir",
+    "out/b15_smoke_location/L5_top8",
+    "--target",
+    "dog",
+    "--prompt-mode",
+    "chat-assistant-prefill",
+    "--max-new-tokens",
+    "4",
+    "--source-prompt",
+    "Question: what is the animal that spins webs called?\nAnswer: ",
+    "--target-prompt",
+    "Question: what is the animal that barks and is called man's best friend called?\\nAnswer: ",
+    "--source-output",
+    "Spider",
+    "--target-output",
+    "Dog",
+    "--prefill-instruction",
+    "Answer the question with the answer first. Then describe the animal in three sentences."
+  ],
+  "revision": "main",
+  "model_load_seconds": 0.46735795901622623,
+  "extraction_cache": null,
+  "batch_spec": null,
+  "git": "v0.1.1-418-g327b023-dirty",
+  "code_sha256": {
+    "scripts/oat_sweep.py": "3309806c2f8fb89e7afb2efdd83cc6b1efafe8abe3e50b1157b0dead89fc063e",
+    "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727",
+    "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+    "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+    "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+    "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+  },
+  "package_versions": {
+    "torch": "2.13.0",
+    "transformers": "5.16.1",
+    "accelerate": "1.14.0",
+    "pyarrow": "25.0.1"
+  },
+  "default": {
+    "aggregation": "union",
+    "detector_layers": [
+      23,
+      25,
+      32
+    ],
+    "readout_positions": 4,
+    "rank": 8,
+    "intervention_layer": [
+      24
+    ],
+    "intervention_positions": 3,
+    "strength": 2.5,
+    "match_component_norm": true,
+    "restore_residual_norm": true,
+    "donor_position_offset": 0,
+    "lexical_forms": "detector",
+    "lexical_divisor": 1,
+    "continue_generation": true,
+    "persistent_rank": 0,
+    "random_delta_seed": -1,
+    "delta_component": "difference",
+    "coordinate_swap": false,
+    "shared_replacement": "none",
+    "source_dominant_only": false,
+    "template_contrast": false,
+    "contrastive_suppression": false,
+    "template_state_span": "none",
+    "discarded_fraction": 0.0,
+    "normalize_selector_residuals": false,
+    "bee_correction": 0.0,
+    "bee_correction_seed": -1,
+    "bee_correction_only": false,
+    "project_bee_correction": false,
+    "transport_readout": false,
+    "template_clamp": false,
+    "future_coordinate": false,
+    "future_clamp": false,
+    "future_lexical_union": false,
+    "span_correction": false,
+    "random_in_span": false,
+    "extra_prefill_positions": null,
+    "answer_patch_layer": null,
+    "answer_patch_strength": null,
+    "common_basis": "none",
+    "common_window": 4,
+    "common_random_rank": 8,
+    "common_seed": 0
+  },
+  "prompt_mode": "chat-assistant-prefill",
+  "prompt_boundaries": {
+    "source": {
+      "content_start": 28,
+      "content_end": 42
+    },
+    "donor": {
+      "content_start": 28,
+      "content_end": 50
+    },
+    "extraction_source": {
+      "content_start": 28,
+      "content_end": 42
+    },
+    "extraction_donor": {
+      "content_start": 28,
+      "content_end": 50
+    }
+  },
+  "source_prompt": "Question: what is the animal that spins webs called?\nAnswer: ",
+  "target_prompt": "Question: what is the animal that barks and is called man's best friend called?\\nAnswer: ",
+  "rendered_inputs": {
+    "source": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        44758,
+        80920,
+        2598,
+        5267,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that spins webs called?\nAnswer: "
+    },
+    "donor": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        293,
+        7193,
+        323,
+        374,
+        2598,
+        883,
+        594,
+        1850,
+        4238,
+        2598,
+        32620,
+        77,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that barks and is called man's best friend called?\\nAnswer: "
+    },
+    "extraction_source": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        44758,
+        80920,
+        2598,
+        5267,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that spins webs called?\nAnswer: "
+    },
+    "extraction_donor": {
+      "input_ids": [
+        151644,
+        872,
+        198,
+        16141,
+        279,
+        3405,
+        448,
+        279,
+        4226,
+        1156,
+        13,
+        5005,
+        7512,
+        279,
+        9864,
+        304,
+        2326,
+        22870,
+        13,
+        151645,
+        198,
+        151644,
+        77091,
+        198,
+        151667,
+        271,
+        151668,
+        271,
+        14582,
+        25,
+        1128,
+        374,
+        279,
+        9864,
+        429,
+        293,
+        7193,
+        323,
+        374,
+        2598,
+        883,
+        594,
+        1850,
+        4238,
+        2598,
+        32620,
+        77,
+        16141,
+        25,
+        220
+      ],
+      "rendered": "<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: what is the animal that barks and is called man's best friend called?\\nAnswer: "
+    }
+  },
+  "target_concept": "dog",
+  "lexical_pairs": null,
+  "selector_audit": null,
+  "base": {
+    "source_output": "Spider",
+    "target_output": "Dog",
+    "p_target": 9.425384632777423e-07,
+    "p_source": 9.735533240018412e-06,
+    "generation": {
+      "token_ids": [
+        121503,
+        10029,
+        120917,
+        83622
+      ],
+      "text": "滹iated跖quia",
+      "attention_capture": null
+    }
+  },
+  "donor_base": {
+    "target_output": "Dog",
+    "p_target": 8.384078000744921e-07,
+    "generation": {
+      "token_ids": [
+        25238,
+        133688,
+        60470,
+        24223
+      ],
+      "text": "campביטחarer neces",
+      "attention_capture": null
+    }
+  },
+  "rows": [
+    {
+      "model": "wassname/qwen3-5lyr-tiny-random",
+      "target_concept": "dog",
+      "revision": "main",
+      "git": "v0.1.1-418-g327b023-dirty",
+      "code_sha256": {
+        "scripts/oat_sweep.py": "3309806c2f8fb89e7afb2efdd83cc6b1efafe8abe3e50b1157b0dead89fc063e",
+        "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727",
+        "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8",
+        "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0",
+        "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374",
+        "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+      },
+      "condition_id": "002_smoke_common_basis_location_L5_top8_C1.5",
+      "axis": "smoke_common_basis_location",
+      "value": "L5_top8_C1.5",
+      "is_default": false,
+      "readout_from_generation": true,
+      "attention_mask_policy": "all ones: prompts are unpadded",
+      "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "extraction_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+      "expected_base_answer": "Spider",
+      "expected_steered_answer": "Dog",
+      "persistence": {
+        "direction_estimator": "common_top8_union",
+        "edit_equation": "h' = h + C (P_d d_p - P_s h_p); per position, decode fixed last-position",
+        "detector_layers": [
+          0,
+          2,
+          4
+        ],
+        "basis_rank": 2,
+        "window": 2,
+        "intervention_layer": 5,
+        "end_aligned_offsets": [
+          1,
+          2
+        ],
+        "union_singular_values": {
+          "source": [
+            1.256328821182251,
+            1.0424926280975342,
+            0.9556196928024292,
+            0.6493369936943054
+          ],
+          "target": [
+            1.2386468648910522,
+            1.1083146333694458,
+            0.8784294724464417,
+            0.6824623346328735
+          ]
+        },
+        "union_support": {
+          "source": 4,
+          "target": 4,
+          "columns": 4,
+          "note": "support-filtered SVD left vectors; rank changes are recorded, not concealed"
+        },
+        "donor_state_norms": {
+          "1": 234.47862243652344,
+          "2": 221.41714477539062
+        },
+        "donor_proj_norms": {
+          "1": 86.80380249023438,
+          "2": 55.36453628540039
+        },
+        "selected_ids": {
+          "source": [
+            [
+              72587,
+              32619
+            ],
+            [
+              129119,
+              75058
+            ],
+            [
+              94635,
+              115843
+            ],
+            [
+              24650,
+              109505
+            ],
+            [
+              83570,
+              49606
+            ],
+            [
+              49606,
+              38030
+            ],
+            [
+              106912,
+              127084
+            ],
+            [
+              21707,
+              55119
+            ],
+            [
+              85558,
+              144534
+            ],
+            [
+              21743,
+              41582
+            ],
+            [
+              102539,
+              52664
+            ],
+            [
+              37148,
+              84137
+            ],
+            [
+              70424,
+              61044
+            ],
+            [
+              113390,
+              65922
+            ],
+            [
+              102539,
+              32676
+            ],
+            [
+              70424,
+              81314
+            ],
+            [
+              25366,
+              70424
+            ],
+            [
+              21390,
+              128629
+            ],
+            [
+              32311,
+              18125
+            ],
+            [
+              75338,
+              21993
+            ],
+            [
+              109901,
+              63039
+            ],
+            [
+              15205,
+              140312
+            ],
+            [
+              100903,
+              104009
+            ],
+            [
+              65205,
+              87004
+            ],
+            [
+              30012,
+              70424
+            ],
+            [
+              84815,
+              28844
+            ],
+            [
+              118878,
+              122274
+            ],
+            [
+              40715,
+              16897
+            ],
+            [
+              5781,
+              64808
+            ],
+            [
+              134784,
+              49419
+            ],
+            [
+              120014,
+              44261
+            ],
+            [
+              99626,
+              13224
+            ],
+            [
+              25130,
+              85796
+            ],
+            [
+              135804,
+              61410
+            ],
+            [
+              32286,
+              150209
+            ],
+            [
+              8837,
+              86787
+            ],
+            [
+              68823,
+              123661
+            ],
+            [
+              97287,
+              88706
+            ],
+            [
+              25653,
+              143851
+            ],
+            [
+              11915,
+              65311
+            ],
+            [
+              140831,
+              5202
+            ],
+            [
+              89840,
+              58808
+            ]
+          ],
+          "target": [
+            [
+              72587,
+              32619
+            ],
+            [
+              129119,
+              75058
+            ],
+            [
+              94635,
+              115843
+            ],
+            [
+              24650,
+              109505
+            ],
+            [
+              83570,
+              49606
+            ],
+            [
+              49606,
+              38030
+            ],
+            [
+              106912,
+              127084
+            ],
+            [
+              21707,
+              55119
+            ],
+            [
+              85558,
+              144534
+            ],
+            [
+              21743,
+              41582
+            ],
+            [
+              102539,
+              52664
+            ],
+            [
+              37148,
+              84137
+            ],
+            [
+              70424,
+              61044
+            ],
+            [
+              113390,
+              65922
+            ],
+            [
+              102539,
+              32676
+            ],
+            [
+              70424,
+              81314
+            ],
+            [
+              25366,
+              70424
+            ],
+            [
+              21390,
+              128629
+            ],
+            [
+              32311,
+              18125
+            ],
+            [
+              75338,
+              21993
+            ],
+            [
+              109901,
+              63039
+            ],
+            [
+              15205,
+              140312
+            ],
+            [
+              100903,
+              104009
+            ],
+            [
+              65205,
+              87004
+            ],
+            [
+              30012,
+              70424
+            ],
+            [
+              84815,
+              28844
+            ],
+            [
+              118878,
+              122274
+            ],
+            [
+              40715,
+              16897
+            ],
+            [
+              5781,
+              64808
+            ],
+            [
+              134784,
+              49419
+            ],
+            [
+              120014,
+              44261
+            ],
+            [
+              99626,
+              13224
+            ],
+            [
+              25130,
+              85796
+            ],
+            [
+              135804,
+              61410
+            ],
+            [
+              32286,
+              150209
+            ],
+            [
+              100142,
+              61888
+            ],
+            [
+              139896,
+              111994
+            ],
+            [
+              148137,
+              9808
+            ],
+            [
+              149975,
+              143325
+            ],
+            [
+              104849,
+              46435
+            ],
+            [
+              75709,
+              5143
+            ],
+            [
+              76187,
+              52041
+            ],
+            [
+              123565,
+              64113
+            ],
+            [
+              55851,
+              51454
+            ],
+            [
+              10565,
+              148211
+            ],
+            [
+              59396,
+              66511
+            ],
+            [
+              117549,
+              41030
+            ],
+            [
+              17998,
+              126186
+            ],
+            [
+              100982,
+              138620
+            ],
+            [
+              72311,
+              8341
+            ]
+          ]
+        },
+        "decode_policy": "fixed last-position source basis; frozen final prefill donor state",
+        "random_rank": null,
+        "state_norms_L20_L25": {},
+        "downstream_persistence_prefill": {
+          "definition": "answer-position prefill residual, identical token history (before the first generated token); decode histories diverge and are not compared",
+          "answer_pos": 41,
+          "final_residual_layer": 5,
+          "edited_minus_clean_rel": 0.4073643684387207,
+          "P_edited_minus_clean_rel": 0.17334403097629547,
+          "clean_norm": 279.8641662597656,
+          "note": "P-only persistence does not establish persistence outside P; both norms reported"
+        }
+      },
+      "swap_log_odds_shift": 0.5302734375,
+      "bare_answer_mass": 1.438169419998303e-05,
+      "source_output": "Spider",
+      "target_output": "Dog",
+      "donor_p_target": 8.384078000744921e-07,
+      "donor_first_answer": null,
+      "donor_generation_tokens": 4,
+      "p_target": 2.031866188190179e-06,
+      "p_source": 1.23498275570455e-05,
+      "first_logits_sha256": {
+        "base": "d31cea1f4173f5fecf17207af60c33325c71c6cc42557d7fc865ceb2663b6ea8",
+        "donor": "d27d64f75ad0854e728cb5f7edf8739c7ac0fcd20d883cf10970bfa651f6760f",
+        "steered": "4784fa371ba3dd3a94d32daddcbafd1da701267378c7d31838adbd6fd13139f6"
+      },
+      "repeated_bigram_fraction": 0.0,
+      "generation_tokens": 4,
+      "first_token": " textView",
+      "first_answer": null,
+      "mentions_spins_webs": false,
+      "readout_overlap": 0.0,
+      "readout_status": "computed; semantic validity not established",
+      "intervention_record": {
+        "5": {
+          "prefill_positions": [
+            40,
+            41
+          ],
+          "decode_steps": 3,
+          "residual_norm": 363.8512878417969,
+          "perturbation_norm": 142.62982177734375,
+          "relative_perturbation_by_position": [
+            0.36797386407852173,
+            0.4077598750591278
+          ],
+          "total_applied_norm": 637.2374877929688,
+          "replacement_trace": [
+            {
+              "applied_norm_after_dtype": 142.52252197265625,
+              "span_norm_by_position": [
+                34.743080139160156,
+                52.96128463745117
+              ],
+              "donor_proj_norm_by_position": [
+                55.36453628540039,
+                86.80380249023438
+              ],
+              "phase": "prefill"
+            },
+            {
+              "applied_norm_after_dtype": 119.75460815429688,
+              "span_norm_by_position": [
+                52.54773712158203
+              ],
+              "donor_proj_norm_by_position": [
+                86.80380249023438
+              ],
+              "phase": "decode"
+            },
+            {
+              "applied_norm_after_dtype": 171.46144104003906,
+              "span_norm_by_position": [
+                48.41572189331055
+              ],
+              "donor_proj_norm_by_position": [
+                86.80380249023438
+              ],
+              "phase": "decode"
+            },
+            {
+              "applied_norm_after_dtype": 203.49891662597656,
+              "span_norm_by_position": [
+                66.70426940917969
+              ],
+              "donor_proj_norm_by_position": [
+                86.80380249023438
+              ],
+              "phase": "decode"
+            }
+          ]
+        }
+      },
+      "answer_position_attention": null,
+      "log": "conditions/002_smoke_common_basis_location_L5_top8_C1.5/run.md",
+      "config": {
+        "aggregation": "union",
+        "detector_layers": [
+          0,
+          2,
+          4
+        ],
+        "readout_positions": 2,
+        "rank": 2,
+        "intervention_layer": [
+          5
+        ],
+        "intervention_positions": 2,
+        "strength": 1.5,
+        "match_component_norm": false,
+        "restore_residual_norm": false,
+        "donor_position_offset": 0,
+        "lexical_forms": "detector",
+        "lexical_divisor": 1,
+        "continue_generation": true,
+        "persistent_rank": 0,
+        "random_delta_seed": -1,
+        "delta_component": "difference",
+        "coordinate_swap": false,
+        "shared_replacement": "none",
+        "source_dominant_only": false,
+        "template_contrast": true,
+        "contrastive_suppression": false,
+        "template_state_span": "none",
+        "discarded_fraction": 0.0,
+        "normalize_selector_residuals": false,
+        "bee_correction": 0.0,
+        "bee_correction_seed": -1,
+        "bee_correction_only": false,
+        "project_bee_correction": false,
+        "transport_readout": false,
+        "template_clamp": false,
+        "future_coordinate": false,
+        "future_clamp": false,
+        "future_lexical_union": false,
+        "span_correction": false,
+        "random_in_span": false,
+        "extra_prefill_positions": null,
+        "answer_patch_layer": null,
+        "answer_patch_strength": null,
+        "common_basis": "top8_union",
+        "common_window": 2,
+        "common_random_rank": 8,
+        "common_seed": 0
+      },
+      "readout": [
+        " студент",
+        ".k"
+      ],
+      "readout_by_position": [
+        {
+          "position": 40,
+          "patched": true,
+          "tokens": [
+            " студент",
+            ".k"
+          ],
+          "scores": [
+            3.0772829055786133,
+            2.8100898265838623
+          ]
+        },
+        {
+          "position": 41,
+          "patched": true,
+          "tokens": [
+            " Wikimedia",
+            ".KeyEvent"
+          ],
+          "scores": [
+            2.798119306564331,
+            2.779158353805542
+          ]
+        }
+      ],
+      "named_suppression_diagnostics": {
+        "detector_layers": [
+          0,
+          2,
+          4
+        ],
+        "base": [
+          {
+            "position": 40,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  0.5266903638839722,
+                  -0.14770853519439697,
+                  -1.0334739685058594
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.5266903638839722,
+                  1.4409809112548828,
+                  -0.14770853519439697,
+                  -1.2824904918670654,
+                  -1.0334739685058594,
+                  -0.7399123311042786
+                ],
+                "rise": -0.6743988990783691,
+                "fall": 0.8857654333114624,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.40141406655311584,
+                  -0.061824411153793335,
+                  1.628591537475586
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.40141406655311584,
+                  -1.0992130041122437,
+                  -0.061824411153793335,
+                  2.057432174682617,
+                  1.628591537475586,
+                  1.8192293643951416
+                ],
+                "rise": 0.3395896553993225,
+                "fall": -1.6904159784317017,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.19564032554626465,
+                  0.5233863592147827,
+                  0.06304728984832764
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.19564032554626465,
+                  0.42050352692604065,
+                  0.5233863592147827,
+                  0.3071812391281128,
+                  0.06304728984832764,
+                  -0.0988311767578125
+                ],
+                "rise": 0.32774603366851807,
+                "fall": 0.4603390693664551,
+                "suppression_score": 0.3277459442615509,
+                "suppression_rank_min_ties": 29571
+              }
+            }
+          },
+          {
+            "position": 41,
+            "patched": false,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  1.121016025543213,
+                  0.6562101244926453,
+                  -0.32281485199928284
+                ],
+                "centered_logits_by_residual_layer": [
+                  1.121016025543213,
+                  0.5192925333976746,
+                  0.6562101244926453,
+                  -0.39579951763153076,
+                  -0.32281485199928284,
+                  -0.1032145619392395
+                ],
+                "rise": -0.4648059010505676,
+                "fall": 0.9790250062942505,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.7297919988632202,
+                  0.5996756553649902,
+                  1.733537197113037
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.7297919988632202,
+                  -0.6040075421333313,
+                  0.5996756553649902,
+                  1.992681622505188,
+                  1.733537197113037,
+                  1.661672592163086
+                ],
+                "rise": 1.3294676542282104,
+                "fall": -1.1338615417480469,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.868182897567749,
+                  -0.765163779258728,
+                  -0.637926459312439
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.868182897567749,
+                  -0.44820868968963623,
+                  -0.765163779258728,
+                  -0.979804277420044,
+                  -0.637926459312439,
+                  -0.14976471662521362
+                ],
+                "rise": -1.633346676826477,
+                "fall": -0.12723731994628906,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              }
+            }
+          }
+        ],
+        "post_edit": [
+          {
+            "position": 40,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  0.5266903638839722,
+                  -0.14770853519439697,
+                  -1.0334739685058594
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.5266903638839722,
+                  1.4409809112548828,
+                  -0.14770853519439697,
+                  -1.2824904918670654,
+                  -1.0334739685058594,
+                  -0.9082503914833069
+                ],
+                "rise": -0.6743988990783691,
+                "fall": 0.8857654333114624,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.40141406655311584,
+                  -0.061824411153793335,
+                  1.628591537475586
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.40141406655311584,
+                  -1.0992130041122437,
+                  -0.061824411153793335,
+                  2.057432174682617,
+                  1.628591537475586,
+                  1.458946704864502
+                ],
+                "rise": 0.3395896553993225,
+                "fall": -1.6904159784317017,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 46150
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.19564032554626465,
+                  0.5233863592147827,
+                  0.06304728984832764
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.19564032554626465,
+                  0.42050352692604065,
+                  0.5233863592147827,
+                  0.3071812391281128,
+                  0.06304728984832764,
+                  -0.4532397389411926
+                ],
+                "rise": 0.32774603366851807,
+                "fall": 0.4603390693664551,
+                "suppression_score": 0.3277459442615509,
+                "suppression_rank_min_ties": 29571
+              }
+            }
+          },
+          {
+            "position": 41,
+            "patched": true,
+            "concepts": {
+              " spider": {
+                "token_id": 34354,
+                "centered_logits_early_peak_output": [
+                  1.121016025543213,
+                  0.6562101244926453,
+                  -0.32281485199928284
+                ],
+                "centered_logits_by_residual_layer": [
+                  1.121016025543213,
+                  0.5192925333976746,
+                  0.6562101244926453,
+                  -0.39579951763153076,
+                  -0.32281485199928284,
+                  -0.7609595656394958
+                ],
+                "rise": -0.4648059010505676,
+                "fall": 0.9790250062942505,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " dog": {
+                "token_id": 5562,
+                "centered_logits_early_peak_output": [
+                  -0.7297919988632202,
+                  0.5996756553649902,
+                  1.733537197113037
+                ],
+                "centered_logits_by_residual_layer": [
+                  -0.7297919988632202,
+                  -0.6040075421333313,
+                  0.5996756553649902,
+                  1.992681622505188,
+                  1.733537197113037,
+                  1.4753342866897583
+                ],
+                "rise": 1.3294676542282104,
+                "fall": -1.1338615417480469,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              },
+              " ant": {
+                "token_id": 3196,
+                "centered_logits_early_peak_output": [
+                  0.868182897567749,
+                  -0.765163779258728,
+                  -0.637926459312439
+                ],
+                "centered_logits_by_residual_layer": [
+                  0.868182897567749,
+                  -0.44820868968963623,
+                  -0.765163779258728,
+                  -0.979804277420044,
+                  -0.637926459312439,
+                  -0.035978615283966064
+                ],
+                "rise": -1.633346676826477,
+                "fall": -0.12723731994628906,
+                "suppression_score": 0.0,
+                "suppression_rank_min_ties": 43439
+              }
+            }
+          }
+        ]
+      },
+      "clamped_donor": null,
+      "base_readout": [
+        " студент",
+        ".k"
+      ],
+      "last_decode_readout": [
+        " pea",
+        "蝘"
+      ],
+      "target_readout": [
+        "悄",
+        " Braz"
+      ],
+      "generation": {
+        "token_ids": [
+          31189,
+          131534,
+          10375,
+          77838
+        ],
+        "text": " textView الاتحاد@gmail\tSchema",
+        "attention_capture": null
+      },
+      "base_generation": {
+        "token_ids": [
+          121503,
+          10029,
+          120917,
+          83622
+        ],
+        "text": "滹iated跖quia",
+        "attention_capture": null
+      },
+      "base_top_tokens": [
+        {
+          "token_id": 121503,
+          "token": "滹",
+          "logp": -5.242852687835693,
+          "p": 0.005285158287733793,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 31189,
+          "token": " textView",
+          "logp": -5.367852687835693,
+          "p": 0.004664136096835136,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 137036,
+          "token": " קיש",
+          "logp": -5.742852687835693,
+          "p": 0.0032056106720119715,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 11191,
+          "token": "acked",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 68258,
+          "token": "(samples",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 64748,
+          "token": "acr",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 67836,
+          "token": " Lans",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 116790,
+          "token": "战士来说",
+          "logp": -5.992852687835693,
+          "p": 0.002496532164514065,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 104339,
+          "token": "的方法",
+          "logp": -6.149102687835693,
+          "p": 0.002135396935045719,
+          "delta_logp": 0.0
+        },
+        {
+          "token_id": 59890,
+          "token": "атель",
+          "logp": -6.180352687835693,
+          "p": 0.002069697715342045,
+          "delta_logp": 0.0
+        }
+      ],
+      "donor_generation": {
+        "token_ids": [
+          25238,
+          133688,
+          60470,
+          24223
+        ],
+        "text": "campביטחarer neces",
+        "attention_capture": null
+      },
+      "top_tokens": [
+        {
+          "token_id": 31189,
+          "token": " textView",
+          "logp": -4.989367961883545,
+          "p": 0.00680996710434556,
+          "delta_logp": 0.37848472595214844
+        },
+        {
+          "token_id": 64705,
+          "token": "aac",
+          "logp": -5.489367961883545,
+          "p": 0.0041304538026452065,
+          "delta_logp": 0.8159847259521484
+        },
+        {
+          "token_id": 40824,
+          "token": "_MATCH",
+          "logp": -5.801867961883545,
+          "p": 0.003021904733031988,
+          "delta_logp": 0.6597347259521484
+        },
+        {
+          "token_id": 93997,
+          "token": "ipelines",
+          "logp": -5.864367961883545,
+          "p": 0.002838816726580262,
+          "delta_logp": 0.5347347259521484
+        },
+        {
+          "token_id": 68258,
+          "token": "(samples",
+          "logp": -5.864367961883545,
+          "p": 0.002838816726580262,
+          "delta_logp": 0.12848472595214844
+        },
+        {
+          "token_id": 26781,
+          "token": "\tpath",
+          "logp": -5.926867961883545,
+          "p": 0.0026668214704841375,
+          "delta_logp": 1.6284847259521484
+        },
+        {
+          "token_id": 59890,
+          "token": "атель",
+          "logp": -5.989367961883545,
+          "p": 0.002505247015506029,
+          "delta_logp": 0.19098472595214844
+        },
+        {
+          "token_id": 93548,
+          "token": "iphery",
+          "logp": -6.145617961883545,
+          "p": 0.0021428512409329414,
+          "delta_logp": 1.0659847259521484
+        },
+        {
+          "token_id": 69311,
+          "token": " Kobe",
+          "logp": -6.176867961883545,
+          "p": 0.002076922683045268,
+          "delta_logp": 0.8784847259521484
+        },
+        {
+          "token_id": 473,
+          "token": "ack",
+          "logp": -6.176867961883545,
+          "p": 0.002076922683045268,
+          "delta_logp": 1.5659847259521484
+        }
+      ]
+    }
+  ]
+}
