@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import hashlib
 import torch
 
 MODEL = os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B")
@@ -28,7 +29,7 @@ DEVICE = os.environ.get("SUPPRESSED_DEVICE", "cuda")
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts.oat_sweep import CONCEPT_TEMPLATES
-from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids
+from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids  # NOTE: PREFILL_INSTRUCTION is the runner DEFAULT; the eval batches passed a DIFFERENT explicit instruction - pass it via --instruction / the spec
 from scripts.demo import trajectory
 
 

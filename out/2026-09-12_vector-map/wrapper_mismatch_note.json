@@ -1,0 +1,14 @@
+{
+ "finding": "Astra (independent): devbank/templatebank manifests record wrapper 'Complete the following fact, then explain your answer.' (scripts/prompt.py PREFILL_INSTRUCTION default) while the actual intervention batches used the EXPLICIT spec instruction 'Answer the question with the answer first. Then describe the animal in three sentences.' (source render 42 vs 48 tokens).",
+ "consequences": [
+  "vector_map same-rendered-input/provenance claims INVALID despite pinned model (reconstructed P_ref not proven the actual one); vector_map edits held pending Astra's read-only findings",
+  "bank-based late-energy/algebra analyses (late-blocks tables, algebra discriminator, diagnostics) describe ALTERNATE-WRAPPER inputs, not the exact dev intervention states - preserved as labeled alternate-wrapper diagnostics",
+  "causal batches through the actual runner (1072/1073/1130/1132/1136/1138/1149/1152) are NOT blanket invalidated: they rendered inputs from the explicit spec instruction at runtime"
+ ],
+ "fixes": [
+  "capture scripts now take the spec's instruction + record rendered_input_sha256 per entry",
+  "all future saved-bank reuse requires rendered-input hash equality (not model revision alone)",
+  "smallest exact-input tensor capture through the actual runner path: prepared, only if Astra's findings require it"
+ ],
+ "status": "banks NOT rerun; vector_map untouched; 1158 continues"
+}
