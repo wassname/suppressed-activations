@@ -16,26 +16,40 @@ decode. Raw: `out/2026-09-12_cb-rankinj/{condition}-{cell}/result.json`.
 | 8 | 1.0 | +0.13 | −0.16 | +0.22 | +0.33 | 2/12 | 1/12 |
 | C0 | — | 0.00 exact | | | | 0/12 | |
 
-## Per-row changes vs own base and k8 (no automatic labels)
+## Mechanical counts (from all48_adjudication.json; per-condition denominators = 12)
 
-- NO condition produces any donor answer or donor identity: every continuation is
-  spider-bound (name-N1-dog `蜘蛛 (Spider)…`, legs `8 … spider … eight legs` at every k).
-- Token-ID identical to base: 0/12 for every k — each rank's edit changes the output
-  slightly, but the changes are small token-level drift, not semantic movement.
-- Token-ID identical to k8: 0/12 — the rank slice changes the outputs (k1 ≠ k8 behaviorally)
-  without producing transfer at any rank.
-- Off-target effects at low k: k1 legs-L1-ant swap −1.75 with clean spider prose (no
-  incoherence: r2 ≤ 0.05 across all k).
+| k | initial answer donor-direction ↑ | explicit final answer-flip | spider mentioned | loops (r2>0.5) | token-ID = base | token-ID = k8 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 | 2 | 0 | 12 | 0 | 0/12 | — |
+| 2 | 2 | 1 | 12 | 0 | 0/12 | 0/12 |
+| 4 | 2 | 0 | 12 | 1 | 0/12 | 0/12 |
+| 8 | 2 | 0 | 12 | 1 | 0/12 | 0/12 (k8 vs ITSELF: 12/12, trivially) |
 
-## Verdict (observed, tested settings)
+The paired k8-vs-k8 comparison is 12/12 by definition — the "0/12 identical to k8" claim
+applied to k8 itself was an error; the nontrivial comparisons: k1/k2/k4 vs k8 = 0/12 each.
 
-**No injection rank (1/2/4/8) of the donor-projected vector produces donor transfer at h8
-with fixed removal** — the rank axis is exhausted at this operating point: the
-donor-projection direction family (across ranks 1–8, norms ~0.4–0.9 of h8) does not carry
-the transfer-relevant content. Small output changes exist everywhere (never identical to
-base), none on-target. The registered Pareto question ("some k yields correct fact +
-identity with fewer unwanted effects") — answer: none at h8 with this construction.
+The 2 initial-donor-direction rows per k = the SPINNERET conditions: the initial answer is
+the donor-correct "No" at EVERY rank, followed by spider reversion + FALSE factual claims.
 
+## Representative contradictions (exact quotes, substring-verified in all48_adjudication.json)
+
+1. k1 spinneret-dog: initial `1. No.` (donor-correct) → `"Spiders do not possess
+   spinnerets; instead, they have specialized silk glands"` — spider identity + FALSE
+   fact (spiders DO have spinnerets).
+2. k2 spinneret-ant: initial `1. No.` → `"**Corrected Answer:** Yes, spiders have
+   spinnerets."` — an explicit answer flip WITHIN one continuation (No → Yes).
+3. k8 = 1194's imported arm EXACTLY (12/12 steered-hash + 12/12 text equal) — including its
+   known self-contradictions; the k8 replay reproduces the documented problematic outputs.
+
+## Corrected claims (scope)
+
+- FALSE (withdrawn): "NO donor answer", "small token drift", "none on-target",
+  "off-target minimal" — every k's spinneret rows give the donor-direction answer initially;
+  on-target answer movement exists and then reverts/contradicts.
+- SUPPORTED (narrower): lack of COHERENT DONOR TRANSFER — the donor-direction answer
+  never persists with donor identity + correct facts in any k at this setting.
+- k8 replay vs 1194: 12/12 hashes + 12/12 texts identical (the known contradiction pattern
+  reproduces exactly — no recurrence surprise).
 ## Standing (tested settings)
 
 The template-label δ_ref′ injection remains the only construction with coherent-transfer
