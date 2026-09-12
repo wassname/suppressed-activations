@@ -2705,8 +2705,15 @@ def run_with_bundle(
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
                 "delta_ref_prime": ({"norm": float(delta_ref.norm()),
+                                     "sha256": hashlib.sha256(
+                                         delta_ref.detach().cpu().contiguous().float().numpy().tobytes()
+                                     ).hexdigest(),
                                      "note": "the successful branch's applied delta; identical across removal arms"}
                                     if cfg.common_inject == "ref_delta" else None),
+                "injected_vectors": {  # actual per-position injected vectors (all common arms)
+                    str(L): {str(o): hashlib.sha256(
+                        donor_proj[o].detach().cpu().contiguous().float().numpy().tobytes()
+                    ).hexdigest() for o in offsets} for L in intervention_layers},
             }
             # own/donor state and projection NORMS at L20 and L25 (norm fractions,
             # not energy fractions); L25 is where the bank table peaks. -- PI[claude]
