@@ -2917,6 +2917,7 @@ def run_with_bundle(
                 assert cfg.common_removal in ("pref", "source")
                 delta_ref = fixed_deltas[layer].float()
             common_specs, layer_norms = {}, {}
+            norm_check = {"max_rel_err": 0.0, "min_cos": 1.0, "per_layer": {}}
             anchor = cfg.xdepth_anchor_layer if cfg.xdepth_anchor_layer >= 0 else None
             anchor_layers = ([anchor] * len(intervention_layers) if anchor is not None
                              else intervention_layers)
@@ -2967,7 +2968,7 @@ def run_with_bundle(
                 else:
                     for o in offsets:
                         assert don_by_offset(o).dtype == torch.float32
-                norm_check = {"max_rel_err": 0.0, "min_cos": 1.0}
+                layer_nc = {"max_rel_err": 0.0, "min_cos": 1.0}
                 if cfg.common_inject_norm != "own":
                     for o in offsets:
                         orig = delta_ref if cfg.common_inject == "ref_delta" else v_raw[o]
@@ -2976,18 +2977,21 @@ def run_with_bundle(
                         tn = float(v_raw[o].norm()) if cfg.common_inject == "ref_delta" else float(delta_ref.norm())
                         rel = abs(float(donor_proj[o].norm()) - tn) / tn
                         assert rel < 1e-4 + 1e-6, f"target norm mismatch: {donor_proj[o].norm()} vs {tn}"
-                        norm_check["max_rel_err"] = max(norm_check["max_rel_err"], rel)
-                        norm_check["min_cos"] = min(norm_check["min_cos"], c)
+                        layer_nc["max_rel_err"] = max(layer_nc["max_rel_err"], rel)
+                        layer_nc["min_cos"] = min(layer_nc["min_cos"], c)
                 common_specs[L] = {
                     "src": torch.stack([rem_by_offset(o) for o in pos_order]),
                     "donor_proj": torch.stack([donor_proj[o] for o in pos_order]),
                     "decode_src": rem_by_offset(1)[None], "decode_proj": donor_proj[1][None],
                     "donor_U": donor_U,
                 }
+                norm_check["per_layer"][str(L)] = layer_nc
+                norm_check["max_rel_err"] = max(norm_check["max_rel_err"], layer_nc["max_rel_err"])
+                norm_check["min_cos"] = min(norm_check["min_cos"], layer_nc["min_cos"])
                 layer_norms[L] = {
                     "donor_state_norms": {o: float(d.norm()) for o, d in donor_states.items()},
                     "donor_proj_norms": {o: float(p.norm()) for o, p in donor_proj.items()},
-                }
+                    "xdepth": {"anchor_layer": La, "norm_source_layer": Ln}}
             layer = intervention_layers[0]  # persistence keys use the first interval layer
             source_basis = target_basis = src_by_offset(1)  # unused by the op; shapes only
             persistence = {
@@ -3014,9 +3018,12 @@ def run_with_bundle(
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1]),
                 "inject_restricted": cfg.common_inject_restricted,
-                "selector_windows": ({"build_blocks": list(range(int(0.40 * 33),
-                                                                 int(0.70 * 33) + 1)),
-                                      "cut_blocks": [29, 30, 31]}
+                "selector_windows": ({"build_blocks": list(range(
+                                          int(0.40 * source["residuals"].shape[0]),
+                                          int(0.70 * source["residuals"].shape[0]) + 1)),
+                                      "cut_blocks": [source["residuals"].shape[0] - 4,
+                                                     source["residuals"].shape[0] - 3,
+                                                     source["residuals"].shape[0] - 2]}
                                      if cfg.common_selector == "increment" else None),
                 "inject_norm_axis": cfg.common_inject_norm,
                 "norm_target_check": norm_check,
