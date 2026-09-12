@@ -105,10 +105,12 @@ the existing selector is only which tokens/directions the trajectory evidence se
 
 ## 6. Specificity and the two fall-interpretations (distinguished, not assumed)
 
-- **Specificity vs unrelated vocabulary**: the original demo's different-prompt control
-  (0.040/−0.015 signed shares) is the template; for the dog/ant selector the analog is
-  (i) does the selected vocab contain the donor's answer token more than chance, (ii) do
-  cross-prompt unions score near zero, (iii) the matched-random behavioral controls.
+- **Specificity vs unrelated vocabulary**: controls to DESCRIBE (no assumed chance
+  baseline — what 'near zero' means for same-concept cross-prompt unions is itself
+  unknown): (i) whether the selected vocabulary contains the donor's answer token (its
+  presence is NOT independent concept specificity — the readout search favors answer-like
+  tokens by construction); (ii) cross-prompt same-concept vs cross-concept union overlap
+  and score distributions (descriptive); (iii) matched-random behavioral controls.
   Selection's own criterion never counts as proof (the plan's rule).
 - **Normalized-readout fall vs geometric removal**: a falling ϕ_i can be numerator loss
   (⟨h_l, u_i g⟩ down), denominator growth (RMS(h_l) up), or within-span rotation. The
@@ -129,14 +131,12 @@ first (not yet queued).
 
 ## 8. Falsifiable expectations for trajectory vs 3-snapshot selection (proposed, not results)
 
-- If the trajectory selectors (a)/(c) select materially different top-8 sets than the
-  3-snapshot selector (Jaccard on selected tokens; principal angles between unions), the
-  3-snapshot version was losing build-phase information — visible CPU-only on exact-input
-  traces.
-- If the selected sets coincide (Jaccard ≈ 1), the 3-snapshot selector already captured the
-  trajectory and the user's "you might have forgotten the whole-trajectory idea" would be
-  answered: it was the motivation, and the 3 samples were a sufficient sketch — testable
-  before any intervention.
+- DIFFERENT selected sets under a trajectory selector would show SELECTOR SENSITIVITY to
+  the added trajectory evidence — NOT that the 3-snapshot version 'lost useful build
+  information' (that requires held-out descriptive specificity differences or eventual
+  behavioral differences to establish).
+- SAME/near-same sets would NOT prove the 3 samples sufficient either — only that these
+  selectors agree on these inputs; sufficiency is a claim about downstream behavior.
 - Either outcome is a usable result; neither requires new hypotheses about intervention.
 
 ## Unresolved questions (carried, not decided here)
