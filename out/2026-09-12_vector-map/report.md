@@ -27,7 +27,7 @@ bank criterion 23/25/32); g = donor − source residual difference at L20.
 (cos ≈ 0.005).** Both are also nearly orthogonal to the plain donor−source residual
 difference — the template-mean delta is NOT the donor−source direction.
 
-## Where each vector lives (norm fraction / energy fraction)
+## Fraction of each vector inside each span (norm fraction / energy fraction)
 
 | span | δ′ norm/energy | v norm/energy |
 |---|---|---|
@@ -36,7 +36,7 @@ difference — the template-mean delta is NOT the donor−source direction.
 | joint [top8s] | 0.17 / 0.030 | 1.000 / 1.000 |
 | **ref span (rank 4)** | **1.000 / 1.000** | 0.04 / 0.002 |
 
-The two interventions operate in (near-)DISJOINT subspaces: the replacements write into the
+The two interventions act in (near-)DISJOINT subspaces: the replacements write into the
 suppression-score top8 temporal-union spans; the reference delta writes into the rank-4
 template-contrast attenuation span, orthogonal to them.
 
