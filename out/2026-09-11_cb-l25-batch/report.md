@@ -38,9 +38,10 @@ The suppressed subspaces hold ~2.7× more of the donor state at L25 and the appl
 (top8 fraction peaks at L25–28). Site and magnitude changed together in this OAT; they are
 not separated by it.
 
-## Observed continuations at L25 (complete excerpts, verbatim)
+## Observed continuations at L25 (labeled EXCERPTS of the saved verbatim text; full strings in the linked result.json)
 
-full_union name-N1-dog (91 tokens; swap +11.36):
+full_union name-N1-dog (91 tokens; swap +11.36; excerpt, first 3 sentences — FULL text:
+`full_union_C1.5-name-N1-dog/result.json`):
 
 ```text
 狗 (Dog)
@@ -50,7 +51,8 @@ Wait, that is incorrect. The animal known for spinning webs to catch insects is 
 The spider is a small, eight-legged arachnid that lives in various environments ...
 ```
 
-per_token name-N2-dog (94 tokens; swap +12.22):
+per_token name-N2-dog (94 tokens; swap +12.22; excerpt, first 3 sentences — FULL text:
+`per_token_C1.5-name-N2-dog/result.json`):
 
 ```text
 狗 (Dog)
@@ -60,7 +62,8 @@ Wait, the description "spinning webs to catch insects" does not match a dog. The
 **Corrected Answer:** Spider
 ```
 
-full_union legs-L1-dog (swap +3.75, p_tgt 0.263):
+full_union legs-L1-dog (swap +3.75, p_tgt 0.263; excerpt, first sentence — FULL text:
+`full_union_C1.5-legs-L1-dog/result.json`):
 
 ```text
 6
@@ -114,13 +117,14 @@ cell's movement was carried by the invalid null columns, not the union.
 
 ## Is per-call magnitude normalization still informative? (assessment, labelled)
 
-Partially answered, not decided: at L25 the construction norms (533–787) are already
-comparable to the L20 reference's total (778) and behavior moves — so magnitude alone is no
-longer the obvious blocker. What the L25 failure mode shows is instability (self-correcting
-continuations) and dog-only scope, which per-call norm matching at L20 would not address.
-A norm-matched L20 run would still cleanly separate site from magnitude at fixed layer, but
-the evidence now points more toward persistence/coverage or donor-state policy as the
-binding constraint. Decision deferred to review.
+WITHDRAWN (supervisor review): the earlier claim that L25 norms matching the reference
+total means "magnitude is no longer the obvious blocker", and the earlier pointer to
+persistence/coverage as "the binding constraint". Raw/total norm similarity across different
+layers and operators does not establish comparable semantic strength, and verified continuous
+coverage does not establish that persistence is or is not binding. What stands: at L25 the
+constructions move dog-naming answers (first-token flips with self-correction) while randoms
+stay near zero with smaller captured components; magnitude, direction, and site co-vary and
+remain unseparated. Decision on a per-call-magnitude-normalized comparison deferred to review.
 
 ## Provenance
 

@@ -16,19 +16,24 @@ DESCRIPTIVE controls, NOT applied-norm matched. Raw rows: `analysis.json`; per-c
 |---|---:|---:|---:|---:|---:|---:|---:|
 | recovered-ref C1.5 | +10.31 | 0.971 | 539.0 | +20.05 | 891.9 | −0.34 | 904.7 |
 | per_token C1.5 | +0.22 | 0.023 | 98.9 | +0.20 | 108.8 | +0.19 | 177.4 |
-| full_union C1.5 *(invalid, see below)* | +0.22 | 0.026 | 241.9 | +1.36 | 376.4 | +0.20 | 711.0 |
+| full_union C1.5 — INVALID as union (null columns), superseded | (+0.22) | (0.026) | (241.9) | (+1.36) | (376.4) | (+0.20) | (711.0) |
 | top8_union C1.5 | +0.38 | 0.032 | 108.1 | +0.32 | 123.8 | +0.06 | 224.5 |
 | random_shared8 | +0.12 | 0.022 | 94.1 | +0.04 | 124.0 | +0.02 | 96.7 |
 | C0 | 0.00 | 0.020 | 0.0 | 0.00 | 0.0 | 0.00 | 0.0 |
 
 Overall means (all 12 cells): recovered-ref +10.01 (p_tgt 0.327, total norm 778.5, prefill
-19.8 / decode 758.8); per_token +0.20 (128.4; 2.7/125.6); full_union +0.60 (443.1; 8.8/434.2);
-top8_union +0.25 (152.1; 3.1/149.0); randoms +0.06/−0.03/−0.06; C0 0.00 exact identity.
-Per-cell swap, per-call norms (total/prefill/decode/calls), first_answer: `analysis.json`.
+19.8 / decode 758.8); per_token +0.20 (128.4; 2.7/125.6); top8_union +0.25 (152.1; 3.1/149.0);
+randoms +0.06/−0.03/−0.06; C0 0.00 exact identity. The full_union overall mean is NOT valid
+as a union result (every cell included 1–8 arbitrary null columns); the support-corrected
+replay (task 1073, `out/2026-09-11_cb-l25-batch/L20-fullunion-support-*`) gives
+**+0.25 mean swap** (legs +0.22, naming +0.26, property +0.28) — use that as the L20
+full_union baseline. Per-cell swap, per-call norms (total/prefill/decode/calls),
+first_answer: `analysis.json`.
 
 ## Observed continuations (complete, verbatim)
 
-recovered-ref C1.5, legs-L1-dog (66 tokens):
+recovered-ref C1.5, legs-L1-dog (66 tokens, COMPLETE generation; full text also at
+`../2026-09-11_cb-batch/recovered-ref_C1.5-legs-L1-dog/result.json`):
 
 ```text
 4
