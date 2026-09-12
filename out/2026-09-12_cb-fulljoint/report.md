@@ -33,22 +33,22 @@ top8-joint 16.
 
 ## Verdict (registered prediction)
 
-At matched operator/injection/site, TEMPORAL TRUNCATION DOES NOT CHANGE THE SEMANTIC
-OUTCOME: full support (which retains the ~70% of donor-injection energy the top8 discards —
-descriptive capture ~30%) does NOT improve persistent identity, does not loop, and leaves
-spider unchanged apart from one transient legs-digit flip. The user's full-union-vs-top8
-question is answered at this operating point: the truncation was not the binding
-constraint for transfer. Rank/removal-rank/donor-content/norm co-varied (declared confound):
-removal rank 33–64 vs 16; the random full-joint control (+0.76, naming +1.09) is slightly
-above earlier site-randoms — descriptive only, not norm-matched, and still far below the
-semantic arms. Prior full-union tests used a DIFFERENT removal operator (Ps-only) — labeled;
-this comparison is operator-matched.
+At the same equation/injection-formula/site, TEMPORAL TRUNCATION DID NOT IMPROVE
+PERSISTENT IDENTITY in the tested settings (the actual injected VECTOR also differs when
+Pd changes — v = Pd d with different Pd is a different vector; not 'same injection').
+Full support did not loop and left spider unchanged apart from one transient legs-digit
+flip. Bounded reading: expanding temporal support did not help HERE; other constraints
+could mask a benefit of the discarded directions, so 'the discarded directions cannot
+matter' is NOT claimed. Rank/removal-rank/donor-content/norm co-varied (declared confound):
+removal rank 33–64 vs 16. The random full-joint condition (+0.76, naming +1.09) has NO
+semantic successes either — like every non-reference condition. Prior full-union tests
+used a DIFFERENT removal operator (Ps-only) — labeled; this comparison is operator-matched.
 
-## Standing summary (all tested settings)
+## Standing summary (tested settings)
 
-No tested construction achieves persistent coherent donor-identity transfer: transient
-first-token effects (single-site/interval, both temporal truncations), degeneration at
-unmatched cumulative dose (original interval operator), stability without transfer (joint
-removal, both temporal supports). The recovered reference (different equation, audited 6/12
-fresh) remains the best measured intervention. Bet table: H10 supported-with-confound;
-temporal-truncation arm now closed at this operating point.
+In the TESTED settings, no construction produced persistent coherent donor-identity
+transfer: transient first-token effects (single-site/interval, both temporal truncations),
+degeneration at unmatched cumulative dose (original interval operator), stability without
+transfer (joint removal, both temporal supports). The recovered reference (different
+equation, audited 6/12 fresh) remains the best measured intervention. Bet table: H10
+supported-with-confound; temporal-truncation arm closed at this operating point.

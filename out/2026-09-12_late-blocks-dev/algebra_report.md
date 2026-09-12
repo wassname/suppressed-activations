@@ -1,3 +1,4 @@
+# [ALTERNATE-WRAPPER DIAGNOSTIC: captured with the runner-default wrapper, NOT the exact dev-batch instruction — see ../vector-map/wrapper_mismatch_note.json]
 # Algebra discriminator: why the interval degenerated, and the correction candidates
 
 2026-09-12, PI[claude]. CPU only; measured on the saved dev-bank bases/states

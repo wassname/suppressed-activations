@@ -1,3 +1,4 @@
+# [ALTERNATE-WRAPPER DIAGNOSTIC: captured with the runner-default wrapper, NOT the exact dev-batch instruction — see ../vector-map/wrapper_mismatch_note.json]
 # Late-blocks table on the 12 development questions (CPU from extracted residuals)
 
 Written 2026-09-12 by PI[claude]. Residuals: task 1127 (`scripts/dev_residual_bank.py`, 24

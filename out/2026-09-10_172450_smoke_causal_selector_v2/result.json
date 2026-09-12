@@ -1,0 +1,3513 @@
+{
+  "metadata": {
+    "model": "wassname/qwen3-5lyr-tiny-random",
+    "revision": "main",
+    "device": "cpu",
+    "detector_layers": [
+      0,
+      2,
+      5
+    ],
+    "intervention_layer": 2,
+    "rank": 2,
+    "prefix_end": 10,
+    "last3": 3,
+    "strengths": [
+      1.0,
+      2.0
+    ],
+    "max_new_tokens": 6,
+    "prompts": {
+      "source": "Fact: The number of legs on the animal that spins webs is ",
+      "dog": "Fact: The number of legs on the animal that barks and is called man's best friend is ",
+      "ant": "Fact: The number of legs on the animal that lives in colonies and follows pheromone trails is "
+    },
+    "answers": {
+      "source": "8",
+      "dog": "4",
+      "ant": "6"
+    },
+    "equation": "h' = h + C*((t.u_don)u_don - (h.u_src)u_src); no norm matching",
+    "git_describe": "v0.1.1-384-g597d9fe-dirty"
+  },
+  "selections": {
+    "source": {
+      "pair": {
+        "i": 10,
+        "j": 13,
+        "cosine": 0.3448541760444641,
+        "tokens": [
+          " spins",
+          " "
+        ],
+        "post_prefix_indices": [
+          10,
+          11,
+          12,
+          13
+        ]
+      },
+      "tokens_with_positions": [
+        {
+          "position": 10,
+          "token": " spins"
+        },
+        {
+          "position": 13,
+          "token": " "
+        }
+      ]
+    },
+    "dog": {
+      "pair": {
+        "i": 13,
+        "j": 16,
+        "cosine": 0.6883881688117981,
+        "tokens": [
+          " is",
+          "'s"
+        ],
+        "post_prefix_indices": [
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ]
+      },
+      "tokens_with_positions": [
+        {
+          "position": 13,
+          "token": " is"
+        },
+        {
+          "position": 16,
+          "token": "'s"
+        }
+      ]
+    },
+    "ant": {
+      "pair": {
+        "i": 11,
+        "j": 13,
+        "cosine": 0.4780220687389374,
+        "tokens": [
+          " in",
+          " and"
+        ],
+        "post_prefix_indices": [
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ]
+      },
+      "tokens_with_positions": [
+        {
+          "position": 11,
+          "token": " in"
+        },
+        {
+          "position": 13,
+          "token": " and"
+        }
+      ]
+    }
+  },
+  "clean_answers": {
+    "source": {
+      "p_source": 1.000001072883606,
+      "p_dog": 1.000017762184143,
+      "p_ant": 1.000000238418579
+    },
+    "dog": {
+      "p_source": 1.0000120401382446,
+      "p_dog": 1.0000015497207642,
+      "p_ant": 1.0000005960464478
+    },
+    "ant": {
+      "p_source": 1.000003695487976,
+      "p_dog": 1.0000003576278687,
+      "p_ant": 1.0
+    }
+  },
+  "runs": [
+    {
+      "donor": "dog",
+      "selector": "max_agreement_pair",
+      "strength": 0.0,
+      "metrics": {
+        "p_source": 1.036325784298242e-06,
+        "p_dog": 1.7734737411956303e-05,
+        "p_ant": 1.879931517123623e-07,
+        "top_tokens": [
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.471235752105713
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.596235752105713
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.721235752105713
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.783735752105713
+          },
+          {
+            "token_id": 135444,
+            "token": "수가",
+            "logp": -6.971235752105713
+          },
+          {
+            "token_id": 112020,
+            "token": "波兰",
+            "logp": -7.096235752105713
+          },
+          {
+            "token_id": 145518,
+            "token": "✘",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 37058,
+            "token": ",string",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 22292,
+            "token": " ****************************************************************",
+            "logp": -7.189985752105713
+          },
+          {
+            "token_id": 105517,
+            "token": "公寓",
+            "logp": -7.189985752105713
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          119077,
+          82692,
+          924,
+          46898,
+          27822,
+          27822
+        ],
+        "text": "壯fffffffca\tGPIO.ic.ic"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": "logits identical to clean source",
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "max_agreement_pair",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 6.388881388375012e-07,
+        "p_dog": 5.454851361719193e-06,
+        "p_ant": 4.408195479754795e-07,
+        "top_tokens": [
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -6.20494270324707
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.51744270324707
+          },
+          {
+            "token_id": 47356,
+            "token": " MPL",
+            "logp": -6.61119270324707
+          },
+          {
+            "token_id": 11518,
+            "token": " `${",
+            "logp": -6.64244270324707
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.73619270324707
+          },
+          {
+            "token_id": 26599,
+            "token": " Maximum",
+            "logp": -6.76744270324707
+          },
+          {
+            "token_id": 2870,
+            "token": "where",
+            "logp": -6.76744270324707
+          },
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -6.79869270324707
+          },
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.89244270324707
+          },
+          {
+            "token_id": 86513,
+            "token": "*L",
+            "logp": -6.92369270324707
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          4558,
+          15378,
+          9986,
+          22975,
+          87540,
+          139258
+        ],
+        "text": " almost Kennvideoastroethylene Yüksek"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            95.36138916015625,
+            111.38824462890625,
+            105.21285247802734
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            95.36138916015625,
+            111.38824462890625,
+            105.21285247802734
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            106.18257141113281
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            117.77253723144531
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            97.20308685302734
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            82.93110656738281
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            83.05667114257812
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "max_agreement_pair",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 2.0911298292958236e-07,
+        "p_dog": 1.625638560653897e-06,
+        "p_ant": 3.2010720474318077e-07,
+        "top_tokens": [
+          {
+            "token_id": 137403,
+            "token": " источ",
+            "logp": -5.3178911209106445
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -5.9428911209106445
+          },
+          {
+            "token_id": 21731,
+            "token": "('../../",
+            "logp": -6.0053911209106445
+          },
+          {
+            "token_id": 188,
+            "token": "\u0000",
+            "logp": -6.1303911209106445
+          },
+          {
+            "token_id": 20197,
+            "token": "epoch",
+            "logp": -6.1928911209106445
+          },
+          {
+            "token_id": 75474,
+            "token": "zik",
+            "logp": -6.1928911209106445
+          },
+          {
+            "token_id": 11518,
+            "token": " `${",
+            "logp": -6.1928911209106445
+          },
+          {
+            "token_id": 57872,
+            "token": ".Named",
+            "logp": -6.2553911209106445
+          },
+          {
+            "token_id": 141418,
+            "token": " numérique",
+            "logp": -6.2553911209106445
+          },
+          {
+            "token_id": 46512,
+            "token": "_maps",
+            "logp": -6.2553911209106445
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          137403,
+          127280,
+          107289,
+          92134,
+          124639,
+          124310
+        ],
+        "text": " источפית惟 WHILEそうũ"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            190.7227783203125,
+            222.77647399902344,
+            210.4257049560547
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            190.7227783203125,
+            222.77647399902344,
+            210.4257049560547
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            167.20321655273438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            157.4230499267578
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            237.11705017089844
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            158.635986328125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            159.43109130859375
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "consensus",
+      "strength": 0.0,
+      "metrics": {
+        "p_source": 1.036325784298242e-06,
+        "p_dog": 1.7734737411956303e-05,
+        "p_ant": 1.879931517123623e-07,
+        "top_tokens": [
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.471235752105713
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.596235752105713
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.721235752105713
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.783735752105713
+          },
+          {
+            "token_id": 135444,
+            "token": "수가",
+            "logp": -6.971235752105713
+          },
+          {
+            "token_id": 112020,
+            "token": "波兰",
+            "logp": -7.096235752105713
+          },
+          {
+            "token_id": 145518,
+            "token": "✘",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 37058,
+            "token": ",string",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 22292,
+            "token": " ****************************************************************",
+            "logp": -7.189985752105713
+          },
+          {
+            "token_id": 105517,
+            "token": "公寓",
+            "logp": -7.189985752105713
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          119077,
+          82692,
+          924,
+          46898,
+          27822,
+          27822
+        ],
+        "text": "壯fffffffca\tGPIO.ic.ic"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": "logits identical to clean source",
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "consensus",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 6.353985213536362e-07,
+        "p_dog": 9.264451364288107e-06,
+        "p_ant": 2.1117558901551092e-07,
+        "top_tokens": [
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.495575904846191
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -6.683075904846191
+          },
+          {
+            "token_id": 25784,
+            "token": " Skip",
+            "logp": -6.714325904846191
+          },
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.745575904846191
+          },
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -6.808075904846191
+          },
+          {
+            "token_id": 2870,
+            "token": "where",
+            "logp": -6.870575904846191
+          },
+          {
+            "token_id": 11518,
+            "token": " `${",
+            "logp": -6.901825904846191
+          },
+          {
+            "token_id": 78922,
+            "token": ".SOCK",
+            "logp": -6.901825904846191
+          },
+          {
+            "token_id": 98303,
+            "token": ".setColumn",
+            "logp": -6.901825904846191
+          },
+          {
+            "token_id": 49426,
+            "token": " Terra",
+            "logp": -6.933075904846191
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          108330,
+          37780,
+          126347,
+          22975,
+          126977,
+          15911
+        ],
+        "text": "两条affeטלastroולים Death"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            71.67949676513672,
+            86.74762725830078,
+            80.51713562011719
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            71.67949676513672,
+            86.74762725830078,
+            80.51713562011719
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            94.92265319824219
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            66.5322036743164
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            102.62381744384766
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            82.88916778564453
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            93.09788513183594
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "consensus",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 3.52824173432964e-07,
+        "p_dog": 4.757760507345665e-06,
+        "p_ant": 2.225234112529506e-07,
+        "top_tokens": [
+          {
+            "token_id": 49426,
+            "token": " Terra",
+            "logp": -6.036983013153076
+          },
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -6.068233013153076
+          },
+          {
+            "token_id": 78922,
+            "token": ".SOCK",
+            "logp": -6.099483013153076
+          },
+          {
+            "token_id": 25784,
+            "token": " Skip",
+            "logp": -6.349483013153076
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -6.349483013153076
+          },
+          {
+            "token_id": 59383,
+            "token": " Rash",
+            "logp": -6.474483013153076
+          },
+          {
+            "token_id": 98303,
+            "token": ".setColumn",
+            "logp": -6.474483013153076
+          },
+          {
+            "token_id": 75474,
+            "token": "zik",
+            "logp": -6.536983013153076
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -6.536983013153076
+          },
+          {
+            "token_id": 11518,
+            "token": " `${",
+            "logp": -6.568233013153076
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          49426,
+          65303,
+          15378,
+          49426,
+          65303,
+          137403
+        ],
+        "text": " Terra Dia Kenn Terra Dia источ"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            143.35899353027344,
+            173.49525451660156,
+            161.03427124023438
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            143.35899353027344,
+            173.49525451660156,
+            161.03427124023438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            132.6226043701172
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            153.17910766601562
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            171.8279266357422
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            133.70993041992188
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            157.43002319335938
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "max_agreement_pair_random",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 3.3466408240201417e-06,
+        "p_dog": 2.4556384232710116e-06,
+        "p_ant": 1.2528060722161172e-07,
+        "top_tokens": [
+          {
+            "token_id": 78584,
+            "token": "_mot",
+            "logp": -6.564585208892822
+          },
+          {
+            "token_id": 28227,
+            "token": "delegate",
+            "logp": -6.939585208892822
+          },
+          {
+            "token_id": 22292,
+            "token": " ****************************************************************",
+            "logp": -6.939585208892822
+          },
+          {
+            "token_id": 16063,
+            "token": "・・",
+            "logp": -7.002085208892822
+          },
+          {
+            "token_id": 132509,
+            "token": " יכולה",
+            "logp": -7.033335208892822
+          },
+          {
+            "token_id": 125421,
+            "token": "�",
+            "logp": -7.095835208892822
+          },
+          {
+            "token_id": 131067,
+            "token": "лит",
+            "logp": -7.127085208892822
+          },
+          {
+            "token_id": 112954,
+            "token": "個人資訊",
+            "logp": -7.189585208892822
+          },
+          {
+            "token_id": 91801,
+            "token": " sildenafil",
+            "logp": -7.220835208892822
+          },
+          {
+            "token_id": 79364,
+            "token": " __________________\n\n",
+            "logp": -7.283335208892822
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          78584,
+          58209,
+          88108,
+          29502,
+          140200,
+          17524
+        ],
+        "text": "_mot_processingStickredits 주장 mere"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            95.36138916015625,
+            111.38824462890625,
+            105.21285247802734
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            95.36138916015625,
+            111.38824462890625,
+            105.21285247802734
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            106.18256378173828
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            117.77253723144531
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            97.20308685302734
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            82.93110656738281
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            83.0566635131836
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "max_agreement_pair_random",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 1.7645642458319344e-07,
+        "p_dog": 1.423841604264453e-05,
+        "p_ant": 2.393103955000697e-07,
+        "top_tokens": [
+          {
+            "token_id": 80552,
+            "token": " enr",
+            "logp": -5.581441879272461
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.143941879272461
+          },
+          {
+            "token_id": 18541,
+            "token": " kt",
+            "logp": -6.456441879272461
+          },
+          {
+            "token_id": 10765,
+            "token": " BAS",
+            "logp": -6.487691879272461
+          },
+          {
+            "token_id": 136674,
+            "token": " nhắc",
+            "logp": -6.643941879272461
+          },
+          {
+            "token_id": 127225,
+            "token": " лиш",
+            "logp": -6.675191879272461
+          },
+          {
+            "token_id": 5611,
+            "token": " stack",
+            "logp": -6.768941879272461
+          },
+          {
+            "token_id": 64776,
+            "token": " clarified",
+            "logp": -6.768941879272461
+          },
+          {
+            "token_id": 77115,
+            "token": "icho",
+            "logp": -6.800191879272461
+          },
+          {
+            "token_id": 2870,
+            "token": "where",
+            "logp": -6.893941879272461
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          80552,
+          22975,
+          33509,
+          22975,
+          80552,
+          80552
+        ],
+        "text": " enrastro으astro enr enr"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            190.7227783203125,
+            222.77647399902344,
+            210.4257049560547
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            190.7227783203125,
+            222.77647399902344,
+            210.4257049560547
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            167.20321655273438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            157.4230499267578
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            237.11705017089844
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            158.63600158691406
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            159.4310760498047
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "consensus_random",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 5.000077862860053e-07,
+        "p_dog": 5.514650547411293e-05,
+        "p_ant": 2.7829622695207945e-07,
+        "top_tokens": [
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -5.758641719818115
+          },
+          {
+            "token_id": 145518,
+            "token": "✘",
+            "logp": -6.008641719818115
+          },
+          {
+            "token_id": 6002,
+            "token": " customer",
+            "logp": -6.071141719818115
+          },
+          {
+            "token_id": 143291,
+            "token": "פופ",
+            "logp": -6.102391719818115
+          },
+          {
+            "token_id": 135444,
+            "token": "수가",
+            "logp": -6.321141719818115
+          },
+          {
+            "token_id": 111630,
+            "token": "瑜伽",
+            "logp": -6.383641719818115
+          },
+          {
+            "token_id": 24650,
+            "token": " fence",
+            "logp": -6.446141719818115
+          },
+          {
+            "token_id": 56493,
+            "token": " covert",
+            "logp": -6.477391719818115
+          },
+          {
+            "token_id": 105700,
+            "token": "夫人",
+            "logp": -6.508641719818115
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.508641719818115
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          22975,
+          108330,
+          48340,
+          111630,
+          22975,
+          116816
+        ],
+        "text": "astro两条\"]);瑜伽astro命名为"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            71.67949676513672,
+            86.74762725830078,
+            80.51712799072266
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            71.67949676513672,
+            86.74762725830078,
+            80.51712799072266
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            94.92263793945312
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            66.5322036743164
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            102.62381744384766
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            82.88916778564453
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            93.09788513183594
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "consensus_random",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 1.9612973289895308e-07,
+        "p_dog": 1.835833245422691e-05,
+        "p_ant": 2.3431350655300776e-06,
+        "top_tokens": [
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -4.905426979064941
+          },
+          {
+            "token_id": 105942,
+            "token": "宗旨",
+            "logp": -5.030426979064941
+          },
+          {
+            "token_id": 7605,
+            "token": "faces",
+            "logp": -5.655426979064941
+          },
+          {
+            "token_id": 126977,
+            "token": "ולים",
+            "logp": -6.030426979064941
+          },
+          {
+            "token_id": 123074,
+            "token": "廋",
+            "logp": -6.124176979064941
+          },
+          {
+            "token_id": 128253,
+            "token": " những",
+            "logp": -6.155426979064941
+          },
+          {
+            "token_id": 90661,
+            "token": "storybook",
+            "logp": -6.155426979064941
+          },
+          {
+            "token_id": 115869,
+            "token": "独角",
+            "logp": -6.311676979064941
+          },
+          {
+            "token_id": 73435,
+            "token": " rubble",
+            "logp": -6.374176979064941
+          },
+          {
+            "token_id": 44040,
+            "token": "pecified",
+            "logp": -6.467926979064941
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          22975,
+          33195,
+          13160,
+          128253,
+          27822,
+          120673
+        ],
+        "text": "astroOCKETuten những.ic啵"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            143.35899353027344,
+            173.49525451660156,
+            161.03427124023438
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            143.35899353027344,
+            173.49525451660156,
+            161.03427124023438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            132.6226043701172
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            153.17909240722656
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            171.82791137695312
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            133.70994567871094
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            157.43003845214844
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "max_agreement_pair",
+      "strength": 0.0,
+      "metrics": {
+        "p_source": 1.036325784298242e-06,
+        "p_dog": 1.7734737411956303e-05,
+        "p_ant": 1.879931517123623e-07,
+        "top_tokens": [
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.471235752105713
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.596235752105713
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.721235752105713
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.783735752105713
+          },
+          {
+            "token_id": 135444,
+            "token": "수가",
+            "logp": -6.971235752105713
+          },
+          {
+            "token_id": 112020,
+            "token": "波兰",
+            "logp": -7.096235752105713
+          },
+          {
+            "token_id": 145518,
+            "token": "✘",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 37058,
+            "token": ",string",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 22292,
+            "token": " ****************************************************************",
+            "logp": -7.189985752105713
+          },
+          {
+            "token_id": 105517,
+            "token": "公寓",
+            "logp": -7.189985752105713
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          119077,
+          82692,
+          924,
+          46898,
+          27822,
+          27822
+        ],
+        "text": "壯fffffffca\tGPIO.ic.ic"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": "logits identical to clean source",
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "max_agreement_pair",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 2.974590245230502e-07,
+        "p_dog": 6.485392987087835e-06,
+        "p_ant": 3.774951551349659e-07,
+        "top_tokens": [
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -4.914708137512207
+          },
+          {
+            "token_id": 2870,
+            "token": "where",
+            "logp": -5.789708137512207
+          },
+          {
+            "token_id": 141744,
+            "token": " двиг",
+            "logp": -5.914708137512207
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -5.914708137512207
+          },
+          {
+            "token_id": 26599,
+            "token": " Maximum",
+            "logp": -6.039708137512207
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -6.070958137512207
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -6.102208137512207
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.164708137512207
+          },
+          {
+            "token_id": 87887,
+            "token": " Died",
+            "logp": -6.164708137512207
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.195958137512207
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          37780,
+          17541,
+          22975,
+          37780,
+          43674,
+          4082
+        ],
+        "text": "affe abilitiesastroaffemithnumber"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            92.3033447265625,
+            104.78118133544922,
+            99.74722290039062
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            92.3033447265625,
+            104.78118133544922,
+            99.74722290039062
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            85.14030456542969
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            139.45782470703125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            95.52427673339844
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            90.10353088378906
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            113.16307067871094
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "max_agreement_pair",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 1.0331615385439363e-07,
+        "p_dog": 1.8313226064492483e-06,
+        "p_ant": 4.496623091654328e-07,
+        "top_tokens": [
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -3.937034845352173
+          },
+          {
+            "token_id": 76946,
+            "token": "ocrates",
+            "logp": -5.124534606933594
+          },
+          {
+            "token_id": 141744,
+            "token": " двиг",
+            "logp": -5.124534606933594
+          },
+          {
+            "token_id": 2870,
+            "token": "where",
+            "logp": -5.249534606933594
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -5.249534606933594
+          },
+          {
+            "token_id": 87887,
+            "token": " Died",
+            "logp": -5.499534606933594
+          },
+          {
+            "token_id": 131080,
+            "token": "eña",
+            "logp": -5.562034606933594
+          },
+          {
+            "token_id": 141418,
+            "token": " numérique",
+            "logp": -5.624534606933594
+          },
+          {
+            "token_id": 141625,
+            "token": "ช่องทาง",
+            "logp": -5.749534606933594
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -5.874534606933594
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          37780,
+          17541,
+          37780,
+          107192,
+          4082,
+          89062
+        ],
+        "text": "affe abilitiesaffe水库numberviolent"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            184.606689453125,
+            209.56236267089844,
+            199.49444580078125
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            184.606689453125,
+            209.56236267089844,
+            199.49444580078125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            170.28060913085938
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            278.9156494140625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            177.82919311523438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            288.5396728515625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            206.33383178710938
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "consensus",
+      "strength": 0.0,
+      "metrics": {
+        "p_source": 1.036325784298242e-06,
+        "p_dog": 1.7734737411956303e-05,
+        "p_ant": 1.879931517123623e-07,
+        "top_tokens": [
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.471235752105713
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.596235752105713
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.721235752105713
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.783735752105713
+          },
+          {
+            "token_id": 135444,
+            "token": "수가",
+            "logp": -6.971235752105713
+          },
+          {
+            "token_id": 112020,
+            "token": "波兰",
+            "logp": -7.096235752105713
+          },
+          {
+            "token_id": 145518,
+            "token": "✘",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 37058,
+            "token": ",string",
+            "logp": -7.158735752105713
+          },
+          {
+            "token_id": 22292,
+            "token": " ****************************************************************",
+            "logp": -7.189985752105713
+          },
+          {
+            "token_id": 105517,
+            "token": "公寓",
+            "logp": -7.189985752105713
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          119077,
+          82692,
+          924,
+          46898,
+          27822,
+          27822
+        ],
+        "text": "壯fffffffca\tGPIO.ic.ic"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": "logits identical to clean source",
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            0.0
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "consensus",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 3.9439362353732577e-07,
+        "p_dog": 1.2757976946886629e-05,
+        "p_ant": 3.0003886308804795e-07,
+        "top_tokens": [
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -5.956854343414307
+          },
+          {
+            "token_id": 95555,
+            "token": " psychologically",
+            "logp": -6.019354343414307
+          },
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.331854343414307
+          },
+          {
+            "token_id": 82143,
+            "token": " Pamela",
+            "logp": -6.488104343414307
+          },
+          {
+            "token_id": 141744,
+            "token": " двиг",
+            "logp": -6.519354343414307
+          },
+          {
+            "token_id": 43282,
+            "token": " Activities",
+            "logp": -6.519354343414307
+          },
+          {
+            "token_id": 108330,
+            "token": "两条",
+            "logp": -6.581854343414307
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -6.613104343414307
+          },
+          {
+            "token_id": 4558,
+            "token": " almost",
+            "logp": -6.613104343414307
+          },
+          {
+            "token_id": 26599,
+            "token": " Maximum",
+            "logp": -6.738104343414307
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          37780,
+          17541,
+          22975,
+          82143,
+          22975,
+          22975
+        ],
+        "text": "affe abilitiesastro Pamelaastroastro"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            68.11566162109375,
+            87.82555389404297,
+            80.157470703125
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            68.11566162109375,
+            87.82555389404297,
+            80.157470703125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            56.69881820678711
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            127.0803451538086
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            74.4625473022461
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            71.8424301147461
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            71.81603240966797
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "consensus",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 1.2923291592414898e-07,
+        "p_dog": 7.000968707870925e-06,
+        "p_ant": 2.631051643220417e-07,
+        "top_tokens": [
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -5.197587013244629
+          },
+          {
+            "token_id": 95555,
+            "token": " psychologically",
+            "logp": -5.322587013244629
+          },
+          {
+            "token_id": 141744,
+            "token": " двиг",
+            "logp": -5.385087013244629
+          },
+          {
+            "token_id": 138356,
+            "token": "れます",
+            "logp": -5.760087013244629
+          },
+          {
+            "token_id": 60957,
+            "token": " epidemi",
+            "logp": -5.822587013244629
+          },
+          {
+            "token_id": 141418,
+            "token": " numérique",
+            "logp": -5.947587013244629
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -6.010087013244629
+          },
+          {
+            "token_id": 78922,
+            "token": ".SOCK",
+            "logp": -6.135087013244629
+          },
+          {
+            "token_id": 102226,
+            "token": "成熟",
+            "logp": -6.197587013244629
+          },
+          {
+            "token_id": 75474,
+            "token": "zik",
+            "logp": -6.260087013244629
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          37780,
+          40344,
+          130245,
+          120673,
+          15378,
+          138152
+        ],
+        "text": "affeJoe الخاصة啵 Kennиндивиду"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            136.2313232421875,
+            175.65110778808594,
+            160.31494140625
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            136.2313232421875,
+            175.65110778808594,
+            160.31494140625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            113.39763641357422
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            169.50729370117188
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            142.0933074951172
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            163.86697387695312
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            123.94795989990234
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "max_agreement_pair_random",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 4.572742966502119e-07,
+        "p_dog": 1.9904893633793108e-05,
+        "p_ant": 4.163529752077011e-07,
+        "top_tokens": [
+          {
+            "token_id": 10765,
+            "token": " BAS",
+            "logp": -7.043294429779053
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -7.105794429779053
+          },
+          {
+            "token_id": 75314,
+            "token": " prefab",
+            "logp": -7.137044429779053
+          },
+          {
+            "token_id": 77514,
+            "token": " Leaves",
+            "logp": -7.168294429779053
+          },
+          {
+            "token_id": 144102,
+            "token": "뮤",
+            "logp": -7.168294429779053
+          },
+          {
+            "token_id": 146386,
+            "token": "🙅",
+            "logp": -7.168294429779053
+          },
+          {
+            "token_id": 105517,
+            "token": "公寓",
+            "logp": -7.355794429779053
+          },
+          {
+            "token_id": 8058,
+            "token": "cheme",
+            "logp": -7.355794429779053
+          },
+          {
+            "token_id": 77416,
+            "token": " Placement",
+            "logp": -7.387044429779053
+          },
+          {
+            "token_id": 48340,
+            "token": "\"]);",
+            "logp": -7.387044429779053
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          10765,
+          119,
+          65096,
+          36390,
+          10765,
+          18006
+        ],
+        "text": " BAS� experimentationCAR BAS Expl"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            92.3033447265625,
+            104.78118133544922,
+            99.74723052978516
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            92.3033447265625,
+            104.78118133544922,
+            99.74723052978516
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            85.14029693603516
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            139.4578094482422
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            95.52427673339844
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            90.1035385131836
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            113.16307067871094
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "max_agreement_pair_random",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 3.9125913531279366e-07,
+        "p_dog": 2.327901529497467e-05,
+        "p_ant": 1.1129959602840245e-06,
+        "top_tokens": [
+          {
+            "token_id": 6002,
+            "token": " customer",
+            "logp": -4.7773332595825195
+          },
+          {
+            "token_id": 93162,
+            "token": ";\\\">",
+            "logp": -5.2773332595825195
+          },
+          {
+            "token_id": 48340,
+            "token": "\"]);",
+            "logp": -6.0273332595825195
+          },
+          {
+            "token_id": 32900,
+            "token": " disse",
+            "logp": -6.0898332595825195
+          },
+          {
+            "token_id": 112060,
+            "token": "小女孩",
+            "logp": -6.0898332595825195
+          },
+          {
+            "token_id": 75418,
+            "token": " rake",
+            "logp": -6.2773332595825195
+          },
+          {
+            "token_id": 30672,
+            "token": ".chart",
+            "logp": -6.4023332595825195
+          },
+          {
+            "token_id": 95170,
+            "token": " 안",
+            "logp": -6.4023332595825195
+          },
+          {
+            "token_id": 78584,
+            "token": "_mot",
+            "logp": -6.4335832595825195
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -6.4335832595825195
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          6002,
+          32900,
+          113974,
+          113974,
+          113974,
+          113974
+        ],
+        "text": " customer disse哩哩哩哩"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            184.606689453125,
+            209.56239318847656,
+            199.49444580078125
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            184.606689453125,
+            209.56239318847656,
+            199.49444580078125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            170.28060913085938
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            278.9156494140625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            177.82919311523438
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            288.5396728515625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            206.33383178710938
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "consensus_random",
+      "strength": 1.0,
+      "metrics": {
+        "p_source": 4.6532392161680036e-07,
+        "p_dog": 1.4363151422003284e-05,
+        "p_ant": 1.64625177490052e-07,
+        "top_tokens": [
+          {
+            "token_id": 10765,
+            "token": " BAS",
+            "logp": -6.541470050811768
+          },
+          {
+            "token_id": 119077,
+            "token": "壯",
+            "logp": -6.572720050811768
+          },
+          {
+            "token_id": 95555,
+            "token": " psychologically",
+            "logp": -6.697720050811768
+          },
+          {
+            "token_id": 61126,
+            "token": " 출력",
+            "logp": -6.978970050811768
+          },
+          {
+            "token_id": 37780,
+            "token": "affe",
+            "logp": -6.978970050811768
+          },
+          {
+            "token_id": 1760,
+            "token": " count",
+            "logp": -7.041470050811768
+          },
+          {
+            "token_id": 81246,
+            "token": ")NSString",
+            "logp": -7.103970050811768
+          },
+          {
+            "token_id": 147506,
+            "token": "₣",
+            "logp": -7.103970050811768
+          },
+          {
+            "token_id": 22975,
+            "token": "astro",
+            "logp": -7.135220050811768
+          },
+          {
+            "token_id": 54450,
+            "token": " Functional",
+            "logp": -7.135220050811768
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          10765,
+          90919,
+          18203,
+          145449,
+          30948,
+          27894
+        ],
+        "text": " BAS其中.admin댕(pattern wealthy"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            68.11566162109375,
+            87.8255615234375,
+            80.157470703125
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            68.11566162109375,
+            87.8255615234375,
+            80.157470703125
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            56.69881820678711
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            127.08035278320312
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            74.4625473022461
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            71.8424301147461
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            71.81603240966797
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "ant",
+      "selector": "consensus_random",
+      "strength": 2.0,
+      "metrics": {
+        "p_source": 2.436495833535446e-06,
+        "p_dog": 3.600907575673773e-06,
+        "p_ant": 1.3907799711887492e-07,
+        "top_tokens": [
+          {
+            "token_id": 153,
+            "token": "�",
+            "logp": -6.2413554191589355
+          },
+          {
+            "token_id": 31066,
+            "token": " RoutedEventArgs",
+            "logp": -6.2726054191589355
+          },
+          {
+            "token_id": 87185,
+            "token": "=pk",
+            "logp": -6.3351054191589355
+          },
+          {
+            "token_id": 19680,
+            "token": " managers",
+            "logp": -6.5538554191589355
+          },
+          {
+            "token_id": 141565,
+            "token": "を迎え",
+            "logp": -6.6476054191589355
+          },
+          {
+            "token_id": 110396,
+            "token": "过往",
+            "logp": -6.7413554191589355
+          },
+          {
+            "token_id": 37103,
+            "token": " Segment",
+            "logp": -6.7413554191589355
+          },
+          {
+            "token_id": 22662,
+            "token": " hearts",
+            "logp": -6.8663554191589355
+          },
+          {
+            "token_id": 4689,
+            "token": "END",
+            "logp": -6.9913554191589355
+          },
+          {
+            "token_id": 124333,
+            "token": "حم",
+            "logp": -7.0226054191589355
+          }
+        ]
+      },
+      "generation": {
+        "token_ids": [
+          153,
+          31066,
+          54937,
+          31066,
+          120290,
+          44363
+        ],
+        "text": "� RoutedEventArgs puls RoutedEventArgs珞.anchor"
+      },
+      "coverage": {
+        "prefill_positions": [
+          11,
+          12,
+          13
+        ],
+        "decode_calls": 5,
+        "generated_tokens": 6,
+        "ended_at_eos": false
+      },
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": [
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            136.2313232421875,
+            175.651123046875,
+            160.31494140625
+          ]
+        },
+        {
+          "seq_len": 14,
+          "active": 3,
+          "positions": [
+            11,
+            12,
+            13
+          ],
+          "perturbation_norm_by_position": [
+            136.2313232421875,
+            175.651123046875,
+            160.31494140625
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            113.39762878417969
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            169.50729370117188
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            142.0933074951172
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            163.8669891357422
+          ]
+        },
+        {
+          "seq_len": 1,
+          "active": 1,
+          "positions": [
+            0
+          ],
+          "perturbation_norm_by_position": [
+            123.94795227050781
+          ]
+        }
+      ]
+    },
+    {
+      "donor": "dog",
+      "selector": "clean_donor",
+      "strength": null,
+      "metrics": null,
+      "generation": {
+        "token_ids": [
+          36826,
+          103890,
+          16063,
+          99307,
+          71684,
+          125852
+        ],
+        "text": " authorize淆・・校_activдж"
+      },
+      "coverage": null,
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": null
+    },
+    {
+      "donor": "ant",
+      "selector": "clean_donor",
+      "strength": null,
+      "metrics": null,
+      "generation": {
+        "token_ids": [
+          28321,
+          150171,
+          22975,
+          44363,
+          124310,
+          13186
+        ],
+        "text": "FFFFFF⊅astro.anchorũ explore"
+      },
+      "coverage": null,
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": null
+    },
+    {
+      "donor": null,
+      "selector": "clean_source",
+      "strength": null,
+      "metrics": null,
+      "generation": {
+        "token_ids": [
+          119077,
+          82692,
+          924,
+          46898,
+          27822,
+          27822
+        ],
+        "text": "壯fffffffca\tGPIO.ic.ic"
+      },
+      "coverage": null,
+      "zero_strength_identity": null,
+      "note": null,
+      "calls": null
+    }
+  ]
+}

@@ -6,7 +6,7 @@ metric: "swap_log_odds_shift"
 # Intervention sweep
 
 Model: `wassname/qwen3-5lyr-tiny-random` at revision `main`.
-Code: `v0.1.1-453-ge480310-dirty`. [Full provenance and measurements](result.json).
+Code: `v0.1.1-454-g2b31f74-dirty`. [Full provenance and measurements](result.json).
 
 Rows are sorted by target-vs-source log-odds movement, in nats. Grid axes and all resolved
 settings are in each condition log. C=0 rows are identity controls.

@@ -2,8 +2,8 @@
 model: "wassname/qwen3-5lyr-tiny-random"
 target_concept: "dog"
 revision: "main"
-git: "v0.1.1-443-g123ae74-dirty"
-code_sha256: {"scripts/oat_sweep.py": "9874c14cc433ed367881a76776d0ab6bd81b3a20d3f845eaaec4de5515e7ba3f", "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727", "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8", "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0", "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374", "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"}
+git: "v0.1.1-445-g5174cab-dirty"
+code_sha256: {"scripts/oat_sweep.py": "3c455803ca1ab9d83da7e8eface6b74713cb6760acf69f589d58a8ce3ba1cc9e", "scripts/demo.py": "7d99e0cc81239e5bde2b8f381ff05d5dd81a08d4ba64bf3e695e51825f1d9727", "scripts/prompt.py": "4e15823144d4e067db7a7cac85cbd1cecc8a659fed0998c6990e877bddb13fb8", "scripts/delayed_readout.py": "e3f47a9dcc31f09e4b00b8624f1aa3d5552b9b3f77f620c90590b229b3a44dd0", "scripts/results.py": "f6d51da891380f511dd9f80488a55b603da1a38f17c0705ac3c09bc2172d0374", "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"}
 condition_id: "001_smoke_common_basis_fulljoint_top8joint_C1.5"
 axis: "smoke_common_basis_fulljoint"
 value: "top8joint_C1.5"
