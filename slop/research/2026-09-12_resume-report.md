@@ -152,3 +152,33 @@ cell 1's kfull arm); the 4 completed arms' outputs PRESERVED.
 THE FIX (ready, one line): the containment assert uses the arm's ACTUAL removal span
 (Pj for the complete-rank arms), not Pu. Re-run the pre-model validation + smoke, then
 requeue the SAME 72-cell spec (attempt att2). Awaiting the supervisor's go.
+
+## 1245 results (report 6 — intercom absent)
+
+Task 1245 COMPLETE (Success, 814s, 72/72; att1 preserved as *-att1-preserved). Commit
+aad85a9. Report: out/2026-09-12_cb-cr/report.md; raw per-cell in cb-cr{1,2,4,8,full}/.
+
+RESULTS (swap / edit frac / loops per 12 / joint rank):
+- k1: +0.12 / 1.12 / 3 / rank 2
+- k2: +0.62 / 1.58 / 9 / rank 4
+- k4: +1.59 / 2.06 / 12 / rank 8
+- k8: +1.14 / 2.52 / 10 / rank 16
+- kfull: −0.05 / 0.09 / 0 / rank 44
+- C0: exact identity.
+- k8 REPLAY VERIFIED: 12/12 first-logit hashes + 12/12 FULL TEXTS identical to the 1230
+  h1-imported arm.
+- SEMANTIC: NO donor answers/identity at ANY rank.
+
+REGISTERED OUTCOMES: (1) the dose-response for the LOOP COLLAPSE is monotone in dose
+(edit 1.1→2.1: loops 3→12) — the ladder SPANS the collapse threshold; (2) no rank
+transfers — the complete-edit narrowing does not create transfer; (3) kfull = a NEAR-NOOP
+at h1 (edit 0.09) — removing the dose removes the effect (not a rescue). NOT a general
+impossibility claim.
+
+CPU MODEL VALIDATED: the measured k1–k8 edit fracs match the CPU predictions to ~4%; the
+kfull CPU frac was the h8-site number (label error, corrected).
+
+STANDING: the early-intervention idea at h1 is not reachable by rank narrowing; the
+trade-off has no tested point with both low degradation and donor movement. Open axes
+per the audit's scope note: trajectory-selected SUBRANKS, later anchors, position
+policies. Decision yours.
