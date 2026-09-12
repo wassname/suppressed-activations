@@ -1,0 +1,25 @@
+┌───────────────────────────────────────┐
+│ Task 1151:    failed with exit code 1 │
+└───────────────────────────────────────┘
+Command: env HF_HUB_OFFLINE=1 uv run --offline scripts/oat_sweep.py --batch-spec slop/common_basis_norm2x2_batch.json                                                                                                                                                                 
+   Path: /workspace/2026/suppressed-activations-batchwork                                                                                                                                                                                                                             
+  Label: why: requeue of 1150 (Failed: missing sweep-dict registration - KeyError before any cell; fixed + verified) - norm-vs-direction factorial, 60 cells, injection {delta_ref',v} x norm {own, cross-rescaled} at fixed L20/P_ref C1.5; protocol slop/norm_factorial_protocol.md 
+  Start: Sat, 12 Sep 2026 12:55:00 +0800                                                                                                                                                                                                                                              
+    End: Sat, 12 Sep 2026 12:55:40 +0800                                                                                                                                                                                                                                              
+
+output:
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 4515.18it/s]
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations-batchwork/scripts/oat_sweep.py", line 3209, in <module>
+    run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    batch_spec={"batch_file": str(args.batch_spec), "index": position, "spec": dict(spec)},
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    expected_detector_layers=expected,
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                    **rest)
+                    ^^^^^^^
+  File "/workspace/2026/suppressed-activations-batchwork/scripts/oat_sweep.py", line 2026, in run_with_bundle
+    "common-basis-norm2x2": common_basis_norm2x2_configs,
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+NameError: name 'common_basis_norm2x2_configs' is not defined. Did you mean: 'common_basis_2x2_configs'?
