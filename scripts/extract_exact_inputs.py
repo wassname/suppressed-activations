@@ -65,6 +65,7 @@ def preflight(batch_spec: Path) -> dict:
             run_ids = run_rendered[side]["input_ids"]
             equal = list(got["ids"]) == list(run_ids)
             checks.append({"cell": cid, "side": side, "sha": got["sha"],
+                           "ids": got["ids"].tolist(),
                            "ids_equal_actual_run": equal, "n_tokens": len(got["ids"])})
             if not equal:
                 failures.append(f"{cid}/{side}: rendered IDs differ from the actual run")
