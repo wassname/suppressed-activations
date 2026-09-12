@@ -98,6 +98,8 @@ class Config:
     common_bank_layers: tuple = (23, 25, 32)  # per-token basis criterion for the common
     # families (equals detector_layers in those families; DECOUPLED in the 2x2 where
     # detector_layers drives the reference/template path)
+    common_selector: str = "snapshot"  # "snapshot" (existing 3-depth) | "increment"
+    # (whole-trajectory positive-increment sum, windows b13..b23 / writes b29..b31)
     common_removal: str = "source"  # "source" (Ps) | "joint" | "pref" (reference attenuation span)
     removal_only: bool = False  # ablation: h - C*P_ref h alone (matches A's removal component)
     common_inject_norm: str = "own"  # "own" | "cross_v" (delta_ref' scaled per-position to ||v_o||) |
@@ -645,6 +647,70 @@ def smoke_common_basis_ablation_configs():
             ("smoke_common_basis_ablation", "removal_only_C1.5", replace(base, span_correction=False, removal_only=True)),
             ("smoke_common_basis_ablation", "A_replay_C1.5", replace(base, span_correction=True)),
             ("smoke_common_basis_ablation", "C0", replace(base, span_correction=False, strength=0.0))]
+
+
+def common_basis_selsite_configs():
+    """Approved selector-x-site comparison (supervisor 2026-09-12): 2 selectors x 2 sites
+    under ONE accumulation-safe operator. Selector = the ONLY construction difference
+    (snapshot 3-depth vs increment whole-window score); both use subspace_from_scores with
+    row-normalized vocab directions, TEMPORAL TOP8 per prompt, THEN joint support (~16);
+    injection v = Pd d per layer/position (contained, asserted); h' = h + 1.5(v - P_j h).
+    Sites h8 (early, before build window) / h20 (later reference); last3+decode; frozen
+    donor; C0 + Gaussian rank-8 random controls (descriptive). -- PI[glm-5p3-flash]"""
+    rows = []
+    for sel in ("snapshot", "increment"):
+        for site in (8, 20):
+            rows.append(("common_basis_selsite", f"{sel}_h{site}_C1.5", replace(
+                DEFAULT, template_contrast=True, template_state_span="none",
+                detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+                rank=8, readout_positions=4, intervention_layer=(site,),
+                intervention_positions=3, match_component_norm=False,
+                restore_residual_norm=False, continue_generation=True, common_window=4,
+                common_basis="top8_union", common_selector=sel, common_removal="joint",
+                strength=1.5)))
+    for site in (8, 20):
+        rows.append(("common_basis_selsite", f"random_h{site}_C1.5", replace(
+            DEFAULT, template_contrast=True, template_state_span="none",
+            detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+            rank=8, readout_positions=4, intervention_layer=(site,),
+            intervention_positions=3, match_component_norm=False,
+            restore_residual_norm=False, continue_generation=True, common_window=4,
+            common_basis="random_shared", common_random_rank=8, common_removal="joint",
+            strength=1.5)))
+    rows.append(("common_basis_selsite", "C0", replace(
+        DEFAULT, template_contrast=True, template_state_span="none",
+        detector_layers=(23, 25, 32), common_bank_layers=(23, 25, 32),
+        rank=8, readout_positions=4, intervention_layer=(8,),
+        intervention_positions=3, match_component_norm=False,
+        restore_residual_norm=False, continue_generation=True, common_window=4,
+        common_basis="top8_union", common_selector="snapshot", common_removal="joint",
+        strength=0.0)))
+    return rows
+
+
+def smoke_common_basis_selsite_configs():
+    """Tiny twin of the selector-x-site family: sites h1/h3 (tiny 5-layer), both selectors,
+    joint removal, C0; the same code path at tiny layers."""
+    rows = []
+    for sel in ("snapshot", "increment"):
+        for site in (1, 3):
+            rows.append(("smoke_common_basis_selsite", f"{sel}_h{site}_C1.5", replace(
+                DEFAULT, template_contrast=True, template_state_span="none",
+                detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+                rank=2, readout_positions=2, intervention_layer=(site,),
+                intervention_positions=2, match_component_norm=False,
+                restore_residual_norm=False, continue_generation=True, common_window=2,
+                common_basis="top8_union", common_selector=sel, common_removal="joint",
+                strength=1.5)))
+    rows.append(("smoke_common_basis_selsite", "C0", replace(
+        DEFAULT, template_contrast=True, template_state_span="none",
+        detector_layers=(0, 2, 4), common_bank_layers=(0, 2, 4),
+        rank=2, readout_positions=2, intervention_layer=(1,),
+        intervention_positions=2, match_component_norm=False,
+        restore_residual_norm=False, continue_generation=True, common_window=2,
+        common_basis="top8_union", common_selector="snapshot", common_removal="joint",
+        strength=0.0)))
+    return rows
 
 
 def smoke_common_basis_configs():
@@ -1972,6 +2038,8 @@ SWEEP_CONFIGS = {
     "common-basis-interval": common_basis_interval_configs,
     "common-basis-joint": common_basis_joint_configs,
     "common-basis-fulljoint": common_basis_fulljoint_configs,
+    "common-basis-selsite": common_basis_selsite_configs,
+    "smoke-common-basis-selsite": smoke_common_basis_selsite_configs,
     "common-basis-ablation": common_basis_ablation_configs,
     "smoke-common-basis-ablation": smoke_common_basis_ablation_configs,
     "common-basis-2x2": common_basis_2x2_configs,
@@ -2674,17 +2742,30 @@ def run_with_bundle(
                 source["input_ids"][0, s_end - positions:s_end],
                 target["input_ids"][0, t_end - positions:t_end],
             )
-            assert cfg.detector_layers != (18, 20, 32) or cfg.common_bank_layers == (23, 25, 32)
-            src_bases, src_sel = suppressed_activation_subspace(
-                source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
-                early_layer=cfg.common_bank_layers[0], peak_layer=cfg.common_bank_layers[1],
-                output_layer=cfg.common_bank_layers[2], rank=cfg.rank,
-                normalize_unembedding_rows=True)
-            tgt_bases, tgt_sel = suppressed_activation_subspace(
-                target["residuals"].permute(1, 0, 2), unembedding, norm_gain,
-                early_layer=cfg.common_bank_layers[0], peak_layer=cfg.common_bank_layers[1],
-                output_layer=cfg.common_bank_layers[2], rank=cfg.rank,
-                normalize_unembedding_rows=True)
+            from suppressed_activation_subspace import increment_scores
+            bl = cfg.common_bank_layers
+            if cfg.common_selector == "snapshot":
+                sc_s = suppressed_activation_scores(
+                    source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                    early_layer=bl[0], peak_layer=bl[1], output_layer=bl[2],
+                    normalize_unembedding_rows=True)
+                sc_d = suppressed_activation_scores(
+                    target["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                    early_layer=bl[0], peak_layer=bl[1], output_layer=bl[2],
+                    normalize_unembedding_rows=True)
+            elif cfg.common_selector == "increment":
+                sc_s = increment_scores(
+                    source["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                    normalize_unembedding_rows=True)
+                sc_d = increment_scores(
+                    target["residuals"].permute(1, 0, 2), unembedding, norm_gain,
+                    normalize_unembedding_rows=True)
+            else:
+                raise ValueError(cfg.common_selector)
+            src_bases, src_sel = subspace_from_scores(sc_s, unembedding, norm_gain, rank=cfg.rank,
+                                                      normalize_unembedding_rows=True)
+            tgt_bases, tgt_sel = subspace_from_scores(sc_d, unembedding, norm_gain, rank=cfg.rank,
+                                                      normalize_unembedding_rows=True)
             for tag, bs in (("source", src_bases), ("target", tgt_bases)):
                 torch.testing.assert_close(
                     bs.transpose(1, 2) @ bs,

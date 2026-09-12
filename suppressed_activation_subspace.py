@@ -45,6 +45,31 @@ def suppressed_activation_scores(
     return torch.minimum(rise.clamp_min(0), fall.clamp_min(0))
 
 
+def increment_scores(residuals: Tensor, unembedding: Tensor, rms_norm_gain: Tensor, *,
+                     build_blocks=None, cut_blocks=None,
+                     normalize_unembedding_rows: bool = False) -> Tensor:
+    """Whole-trajectory selector: min(build mass, cut mass) over per-block readout
+    increments, vocab-centered BEFORE rectification (same convention as
+    suppressed_activation_scores). residuals: (seq, layers, hidden). -- PI[glm-5p3-flash]"""
+    h = residuals.float()
+    h_norm = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6)
+    h_norm = h_norm * rms_norm_gain.float()
+    logits = h_norm @ unembedding.float().T
+    if normalize_unembedding_rows:
+        row_norm = (unembedding.float() * rms_norm_gain.float()).norm(dim=-1)
+        logits = logits / row_norm
+    n_layers = logits.shape[1]                            # writes: dphi[b], b in 0..n-2
+    if build_blocks is None:                              # hypothesis window ~40-70% depth
+        build_blocks = range(int(0.40 * n_layers), int(0.70 * n_layers) + 1)
+    if cut_blocks is None:                                # exactly the last-3 writes
+        cut_blocks = (n_layers - 4, n_layers - 3, n_layers - 2)
+    dphi = logits[:, 1:] - logits[:, :-1]                # across LAYERS (dim 1): dphi[b]
+    dphi = dphi - dphi.mean(-1, keepdim=True)            # center BEFORE rectification
+    build = torch.relu(dphi[:, list(build_blocks)]).sum(1)   # sum over the build writes
+    cut = torch.relu(-dphi[:, list(cut_blocks)]).sum(1)      # exactly the last-3 writes
+    return torch.minimum(build, cut)
+
+
 def subspace_from_scores(
     suppressed_score: Tensor,
     unembedding: Tensor,
