@@ -72,7 +72,11 @@ def preflight(batch_spec: Path) -> dict:
 
 
 def capture(batch_spec: Path, output_dir: Path) -> None:
+    # preflight BEFORE the model load (fail fast, no GPU seconds wasted)
+    pf = preflight(batch_spec)
+    assert not pf["failures"], f"preflight failed — not capturing: {pf['failures'][:3]}"
     torch.set_grad_enabled(False)  # no grad anywhere (the 2026-09-10 autograd OOM lesson)
+    import transformers
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from scripts.demo import trajectory
     from scripts.prompt import assistant_prefill_input_ids
@@ -83,27 +87,38 @@ def capture(batch_spec: Path, output_dir: Path) -> None:
     ).to(DEVICE).eval()
     final_norm = model.model.norm
     output_dir.mkdir(parents=True, exist_ok=True)
+    # weights saved once for CPU selector calculation (no repeated GPU capture)
+    torch.save(final_norm.weight.detach().float().cpu(), output_dir / "final_norm_weight.pt")
+    torch.save((1.0 + final_norm.weight).detach().float().cpu(), output_dir / "norm_gain.pt")
+    torch.save(model.lm_head.weight.detach().float().cpu(), output_dir / "unembedding.pt")
     manifest = {"model": MODEL, "revision": REVISION, "wrapper": WRAPPER,
                 "hook_boundary": "h_b = residual entering block b: hidden_states[b] for b in "
                                  "0..31 + final pre-norm hidden as h32 (scripts/demo.trajectory)",
                 "dtype": "float32 saved (bf16 compute)", "grad": "disabled",
+                "versions": {"torch": torch.__version__, "transformers": transformers.__version__},
+                "spec_source_sha256": hashlib.sha256(batch_spec.read_bytes()).hexdigest(),
+                "this_script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
                                                check=True, text=True,
                                                capture_output=True).stdout.strip(),
-                "preflight": preflight(batch_spec), "entries": {}}
-    assert not manifest["preflight"]["failures"], "preflight failed — not capturing"
+                "preflight": pf, "entries": {}}
     for cell in json.loads(batch_spec.read_text()):
         cid = cell["id"]
         for side, key in (("source", "source_prompt"), ("donor", "target_prompt")):
             name = f"{cid}-{side}"
             chat = assistant_prefill_input_ids(tokenizer, cell[key], device=DEVICE,
                                                instruction=WRAPPER)
+            ids = chat["input_ids"][0].cpu()
+            # CAPTURE ID EQUALITY against the preflight reference arrays (asserted per entry)
+            ref = next(x for x in pf["checks"] if x["cell"] == cid and x["side"] == side)
+            assert list(ids) == list(ref["ids"]) and ref["ids_equal_actual_run"], \
+                f"{name}: capture IDs != preflight/actual-run reference"
             residuals, _ = trajectory(model, chat["input_ids"], final_norm)
             assert residuals.shape == (33, chat["input_ids"].shape[1], 2560)
             torch.save(residuals.float().cpu(), output_dir / f"{name}_residuals.pt")
-            ids = chat["input_ids"][0].cpu()
             manifest["entries"][name] = {
                 "rendered_input_sha256": hashlib.sha256(ids.numpy().tobytes()).hexdigest(),
+                "input_ids": ids.tolist(),
                 "token_labels": [tokenizer.decode([int(t)]) for t in ids],
                 "seq_len": int(residuals.shape[1]), "cell_id": cid, "side": side,
             }
