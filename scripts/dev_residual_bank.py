@@ -4,7 +4,7 @@
 # ///
 """Residual bank for the 12 development questions (no generation).
 
-Saves clean prefill residuals (33 layers x seq x 2560), token labels, the (tied) unembedding
+Saves no-intervention prefill residuals (33 layers x seq x 2560), token labels, the (tied) unembedding
 and final-norm gain for: each dev cell's source and donor prompt, rendered in
 chat-assistant-prefill mode with the standard wrapper instruction. Feeds
 late_blocks_table.py so the block-by-block table covers the actual development questions.

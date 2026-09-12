@@ -1,7 +1,7 @@
 # Late-blocks table on the 12 development questions (CPU from extracted residuals)
 
 Written 2026-09-12 by PI[claude]. Residuals: task 1127 (`scripts/dev_residual_bank.py`, 24
-clean prefill forwards, no generation), table: `scripts/late_blocks_table.py` →
+no-intervention prefill forwards, no generation), table: `scripts/late_blocks_table.py` →
 `late_blocks_table.json` (72 prompt:projector groups = 24 prompts × union/top8/per_token).
 
 ## Indexing (exact)
