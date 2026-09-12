@@ -32,16 +32,26 @@ Union support on dev: 29–32/32 (three prompts at 29–31, rest 32) — all wit
 - Selected tokens' readouts (per position, n=768): rise h29→h30 mean **+4.58**, fall
   h30→h32 mean **−8.57** (readout drops for 768/768 positions).
 
-## Absolute removal vs denominator growth (the distinction the user asked for)
+## Numerator loss vs denominator growth vs span energy (the distinctions the user asked for)
 
-On the dev questions the last three blocks DO NOT geometrically remove these components:
-absolute E in P rises h30→h32 (86.9 → 129.7 mean; **23 of 24 prompts rise**, 1 falls) while
-the fraction falls (0.0394 → 0.0240) because ‖h‖² grows ~2.4× faster. Block 31's mean ΔE is
-POSITIVE (+36.4). So the readout suppression (−8.6) on dev questions is a RELATIVE/dilution
-effect under RMS normalization, not geometric attenuation.
+Raw gain-weighted numerator n_i(l) = ⟨h_l, u_i·gain⟩ and RMS denominator rms(l) for the
+selected (position, token) pairs (n = 768 = 24 prompts × 4 positions × 8 tokens):
 
-On the canonical bank Fact prompts the regime differs: block 31 REMOVES absolute energy
-(source −20.7, control −3.2) with fraction dropping to 24–38% of peak, but dog grows (+11.6).
+| quantity | h29 | h30 | h32 |
+|---|---:|---:|---:|
+| numerator (mean) | 2.47 | 5.45 | **0.87** |
+| RMS denominator (mean) | 0.84 | 0.93 | 1.46 |
+
+The readout fall h30→h32 is dominated by NUMERATOR LOSS (−84%; 753/768 pairs lose), not
+denominator growth (+57%). So the earlier "dilution" reading is WITHDRAWN: the selected
+coordinates genuinely lose their readout component. At the same time total absolute energy in
+the union span RISES (E: 86.9 → 129.7; 23/24 prompts) — i.e. energy in OTHER directions of P
+grows while the selected coordinates fall: the span content rotates/rebuilds rather than the
+span being diluted or emptied. (Caveat: selection favors readout rise/fall, so the 768/768
+fall is not independent validation of the criterion.)
+
+On the canonical bank Fact prompts the regime differs: block 31 removes absolute span energy
+(source −20.7, control −3.2; fraction to 24–38% of peak) while dog grows (+11.6).
 Prompt-format-dependent regimes; both are the operating regimes of the respective experiments.
 
 Verification: exact decomposition E_{l+1} − E_l = 2⟨Ph_l, PΔh_l⟩ + ‖PΔh_l‖² holds on all
