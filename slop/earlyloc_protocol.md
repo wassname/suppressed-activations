@@ -25,22 +25,21 @@ before interpreting differences). Success = correct facts + persistent identity 
 coherence; off-target/false facts/repetition counted separately; a wrong fact with spider
 identity is an EFFECT (not "inert"). Actual normalized edit sizes measured per condition.
 
-## Part 2: the next comparison's exact algebra (complete-edit rank; written for check)
+## Part 2: the next comparison's exact algebra (CORRECTED per supervisor: complete-edit
+## narrowing = BOTH source and donor temporal bases truncated)
 
-At ONE predeclared fixed early site (h8), for donor rank k ∈ {1,2,4,8,full}:
+At ONE predeclared fixed early site (h1 — predeclared, not chosen per rank):
 
-    U_d^k = first k columns of the donor temporal top8 union (support-filtered)
-    P_joint(k) = support-filtered span([U_s8 | U_d^k])   # rank ≈ 8 + k
-    v_k = U_d^k (U_d^kᵀ d25)                             # injection (norm shrinks with k)
+    U_s^k, U_d^k = the FULL supported source/donor temporal SVD bases truncated at
+                   k in {1, 2, 4, 8, full}   # 'full' = the actual support (not 8)
+    P_joint(k) = support-filtered span([U_s^k | U_d^k])  # BOTH sides narrow
+    v_k = U_d^k (U_d^kᵀ d25)
     h' = h + C(v_k − P_joint(k) h)                       # C = 1.5 fixed
 
-"Rank" = the DONOR rank in BOTH the removal and the injection (both narrow together — the
-declared design); the SOURCE removal component (Us8) is unchanged; CONTAINMENT holds for
-every k (v_k ∈ span(U_d^k) ⊂ span(P_joint(k)) — no accumulation mode). k=full(8) = 1194's
-imported-v25 arm (replay). Size/content confounds explicit: injection norm and removal
-donor-rank co-vary by design; NOT a pure timing/rank isolation. Containment answer: rank
-means the DONOR rank jointly in removal+injection (the source rank fixed at 8; the joint
-rank 8+k).
+'k' = the PER-SIDE TEMPORAL rank (the actual joint rank measured per cell, not total rank
+k). Both the removal and the injection narrow together; containment holds (v_k in the
+joint span). k8-at-h1 REPLAYS the earlyloc imported-h1 arm (not 1194's h8). This is a
+complete-edit content/size comparison — no isolated-rank causality claim. NOT queued.
 
 ## Checks (real-path, before queue)
 
