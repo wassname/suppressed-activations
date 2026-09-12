@@ -28,10 +28,10 @@ coefficient is 1 − C = −0.5. Not idempotent replacement.
 
 | operator (6 steps) | outside: k1→k6 | source-span: k1→k6 | behavior |
 |---|---|---|---|
-| current, frozen v | 27.9 → 42.9 | 2.90 → 2.29 (→ \|1−C\| fixed point) | linear outside accumulation |
+| current, frozen v | 27.9 → 42.9 | 2.90 → 2.29 (→ |1−C| fixed point) | linear outside accumulation |
 | current, actual per-layer v_l | 27.9 → 45.3 | 2.90 → 3.15 | ≈ frozen (cross-layer cos ≈ 0.95) |
-| **shared P_union removal, C=1.5** | **27.04 constant** | 2.90 → 3.15 oscillating-converging (\|1−C\|<1) | stable fixed point |
-| **shared P_union removal, C=1** | 27.04 constant | k2 ≈ k1 (2.28 → 2.25) | **fixed-v idempotence ASSERTED numerically**: max \|T(T(h))−T(h)\| = 7.5e-6 over 36 (cell, position) pairs, saved in algebra.json; C=1.5 fixed-point distances shrink 2.17 → 1.13 → 0.68 → 0.63 (convergent, ratio ≈ −0.5) |
+| **shared P_union removal, C=1.5** | **27.04 constant** | 2.90 → 3.15 oscillating-converging (|1−C|<1) | stable fixed point |
+| **shared P_union removal, C=1** | 27.04 constant | k2 ≈ k1 (2.28 → 2.25) | **fixed-v idempotence ASSERTED numerically**: max |T(T(h))−T(h)| = 7.5e-6 over 36 (cell, position) pairs, saved in algebra.json; C=1.5 fixed-point distances shrink 2.17 → 1.13 → 0.68 → 0.63 (convergent, ratio ≈ −0.5) |
 | restricted injection Ps·Pd d, C=1.5 | 27.12 constant | 2.90 → 3.15 | no accumulation, drops the outside 80% of v |
 
 The toy matches the algebra exactly. Union support is 16 = 8+8 at every cell: the source
