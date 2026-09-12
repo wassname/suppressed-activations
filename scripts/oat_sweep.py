@@ -2023,6 +2023,7 @@ def run_with_bundle(
         "common-basis-joint": common_basis_joint_configs,
         "common-basis-fulljoint": common_basis_fulljoint_configs,
         "common-basis-2x2": common_basis_2x2_configs,
+        "common-basis-norm2x2": common_basis_norm2x2_configs,
         "smoke-common-basis-norm2x2": smoke_common_basis_norm2x2_configs,
         "smoke-common-basis-2x2": smoke_common_basis_2x2_configs,
         "smoke-common-basis-fulljoint": smoke_common_basis_fulljoint_configs,
