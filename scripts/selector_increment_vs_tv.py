@@ -156,7 +156,7 @@ def per_position_selection_counts():
                 cls[k] += 1
                 n_sel += 1
                 e_prev, e_last = prev ** 2, last ** 2
-                e_start3 = float(signed[-3]) ** 2
+                e_start3 = float(signed[-4]) ** 2   # last-3 writes start at h29
                 if e_last < e_prev:
                     e_cmp["energy_last<prev"] += 1
                 if e_last < e_start3:
