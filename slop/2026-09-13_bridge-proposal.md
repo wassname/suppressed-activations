@@ -1,63 +1,62 @@
-# Bridge proposal: historical operator × selector × site (proposal, no GPU queued)
+# Bridge proposal v2: corrected historical formula + code-change map (CPU only)
 
-Author: PI/glm-5p3-flash, 2026-09-13. CPU preparation only; GPU waits for supervisor
-review. Historical 6/12 stays frozen; the reused dog/ant pairs are development data.
+Author: PI/glm-5p3-flash, 2026-09-13. Supersedes the v1 feasibility errors (fixed_deltas
+is NOT None; the delta is NOT a raw donor residual). No GPU; tiny tests with NONZERO C.
 
-## Source-level feasibility (read from current code, cited)
+## The ACTUAL historical formula (traced end-to-end, current code lines cited)
 
-1. The historical successful operator EXISTS in current code:
-   `span_correction_configs` (scripts/oat_sweep.py:245) = template-contrast +
-   template_state_span="attenuation" + persistent_rank=4 + match_component_norm=True
-   (ACTIVE) + span_correction=True (h' = h + C(Δ − UUᵀh)), detector (18,20,32),
-   intervention (20,), 3 positions, continue_generation=True — the replay recipe.
-2. The basis is built from the TEMPLATE-CONTRAST contrasts at detector_layers
-   (oat_sweep.py:2760-2768: peak/output = contrasts[:, detector_layers[1/2]];
-   attenuation_basis(peak, output, persistent_rank)) — the SELECTOR coordinates are
-   the detector layers; with a single edit layer the shared basis is site-INDEPENDENT
-   (oat_sweep.py:2764 runs once; the per-layer local selectors only activate for
-   multiple intervention layers, oat_sweep.py:2923).
-3. The DONOR STATE is SITE-TIED in this family: the injected delta is the donor's
-   residual at the intervention layer (fixed_deltas=None path); there is NO explicit
-   anchor parameter here (xdepth_anchor_layer belongs to the increment families).
-   So "fixed donor anchor 20 across sites" is NOT expressible without a code change —
-   the honest site move sets intervention_layer=(8,) and the donor state moves to
-   layer 8 with it (faithful historical semantics; site and donor depth confounded
-   BY THE OPERATOR, recorded as such).
-4. Crossing the increment selector INTO this operator = a new framework (the
-   operator's basis IS the template contrast) — NOT built. The selector axis is
-   covered by existing runs instead (see overlap check).
+1. `template_deltas` (scripts/oat_sweep.py:2632-2655): for each template in
+   CONCEPT_TEMPLATES, render spider vs donor template pairs (generate=False,
+   extraction_instruction); take the last-3-position suffix residuals
+   `(donor − spider)` at every layer; **average over the 3 positions** (`.mean(1)`)
+   then **average over templates** (`torch.stack(differences).mean(0)`) →
+   `template_deltas[layer] = (hidden,)` per layer. Template provenance (the exact
+   rendered pairs) is recorded in persistence ("matched_template_mean_difference",
+   "rendered_template_pairs"). The legs-donor PROMPT is not an input to this delta.
+2. `shared` (U): the attenuation basis (persistent_rank=4) from the template
+   contrasts at detector_layers peak=20/output=32 (oat_sweep.py:2741-2768),
+   orthonormal.
+3. `projected = component(delta, shared)` per layer; **norm matching SCALAR per
+   layer**: `projected * delta.norm() / projected.norm()` +
+   `assert_close(projected.norm(), delta.norm())` (oat_sweep.py:2849-2852).
+4. `span_correction=True` → `source_basis = target_basis = shared`
+   (oat_sweep.py:2858-2861); edit `h' = h + C(Δ̃ − U Uᵀh)` with Δ̃ = the norm-matched
+   projected template delta at the edit layer; `applied_delta_sha256`/norm recorded
+   (oat_sweep.py:2865-2872) for exact cross-arm equality.
 
-## Existing-runs overlap check (no equivalent cells missing except one)
+Norm axes: the delta and its norm are PER-LAYER SCALARS over the hidden dim
+(position-averaged); no per-position axis in the historical delta.
 
-- selsite/complete-rank families: selector {snapshot?, increment} × site {h8, h20}
-  with the CURRENT (top8_union/joint) operator — already run (1182/1230-era).
-- span_correction replay: the HISTORICAL operator at h20 only (the success).
-- MISSING and proposed: the historical operator at h8 (+ C0) — the one cell that
-  tests whether the successful operator survives an earlier site.
+## The 2×2×2 = 8-row matrix (dog, ant × selector × site)
 
-## Proposed compact matrix (per donor: dog, ant — 2 reused development pairs)
+- U ∈ {attenuation-4 (historical), increment-selected joint (trajectory-selected,
+  multi-token union/SVD — same orthonormal-U interface)}
+- edit site ∈ {20, 8}; delta = `template_deltas[20]` FIXED (explicit anchor; norm
+  matching computed at layer 20) in all rows — reads template_deltas[20], keyed by
+  edit site
+- donor ∈ {dog, ant} — via the template pairs (the template machinery already takes
+  the donor concept); the reused legs pairs are development data
+- All rows: C1.5, 3 positions, continuous decode policy, same replacement hook.
 
-| cell | operator | selector coords | edit site | donor state | C |
-|---|---|---|---|---|---|
-| replay-h20 | span_correction (template-contrast attenuation, rank 4, norm-matched) | detector 18/20/32 | 20 | layer 20 (site-tied) | 1.5 + C0 |
-| early-h8 | SAME operator/coords | detector 18/20/32 (unchanged) | 8 | layer 8 (site-tied) | 1.5 + C0 |
+## Code-change map (minimal; no framework)
 
-6 rows total (2 cells × 2 donors × {C1.5, C0}) + the historical h20 snapshot replay
-requirement: the replay-h20 cell must first reproduce the saved 2026-09-10
-full continuations (byte/token comparison against the snapshot JSONs) before the
-h8 cell is interpreted — if the current code does not replay the historical rows,
-the drift is the first finding and the h8 cell is not comparable.
+1. `delta_anchor_layer` cfg field (default None = current site-tied behavior):
+   in the template branch, `fixed_deltas = {site: template_deltas[anchor]}` when set
+   (oat_sweep.py:2721) — one line + the cfg field.
+2. `basis_selector` routing: when `common_selector == "increment"`, set
+   `shared = joint_support(Us_k, Ud_k)`-style trajectory-selected U (the SAME
+   orthonormal-U interface the hook already consumes) instead of the attenuation
+   basis — a branch at the `shared` assignment (~6 lines), reusing the existing
+   increment/union construction.
+3. Everything downstream (projection, norm matching, span_correction hook, applied
+   delta hash) UNCHANGED.
 
-## Equation (both cells, the operator's own)
+## Tiny tests (historical replay with NONZERO C — C0 cannot validate the intervention)
 
-h' = h + C(Δ − U Uᵀ h) with Δ = the donor residual at the edit site, U = the
-template-contrast attenuation basis (4-dim, persistent template retained),
-component-norm matching ACTIVE (upstream), no residual renormalization.
-
-## Tiny real-path tests (already runnable, CPU)
-
-- smoke_span_correction family = the tiny real path for this exact operator
-  (oat_sweep.py:250-260); a dispatch test running one tiny condition through
-  run_with_bundle (same pattern as test_real_noncomplete_joint_smoke) — to add.
-- Persist full replacement traces at source before asserts (done for future batches
-  in anchor_control.py; apply the same to the runner when queued).
+a. historical replay (tiny, C1.5): the applied delta hash == the norm-matched
+   projected template delta hash; `assert_close(projected.norm(), delta.norm())`.
+b. projector independence: the template U identical across edit sites (site does not
+   enter the basis).
+c. anchor consumption: with delta_anchor=20 at site 8, the applied delta hash equals
+   the layer-20 delta hash (not the layer-8 one).
+d. C0 inert (already covered elsewhere; kept as the cheap sanity row).
