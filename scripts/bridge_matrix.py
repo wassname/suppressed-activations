@@ -62,6 +62,11 @@ def main():
             selection_end_offset=4)
     variant("bridge-inc-h8-q4", delta_anchor_layer=20, basis_selector="increment",
             selection_end_offset=4, intervention_layer=(8,))
+    # the FULL-support variants (persistent_rank=-1 = the SVD-tolerance support)
+    variant("bridge-full-h20", delta_anchor_layer=20, basis_selector="increment",
+            persistent_rank=-1)
+    variant("bridge-full-h8", delta_anchor_layer=20, basis_selector="increment",
+            persistent_rank=-1, intervention_layer=(8,))
 
     frozen = json.load(open(ROOT / "slop" / "replay_frozen_candidate_batch.json"))
     bundle = oat.load_bundle()
@@ -88,6 +93,13 @@ def main():
                      "hist": hist})
         rows.append({"donor": donor, "sel": "inc-q4", "site": 8, "sweep": "bridge-inc-h8-q4",
                      "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h8-q4"),
+                     "hist": hist})
+        # the 4 FULL-support experimental rows (rank = the SVD-tolerance support 49/47)
+        rows.append({"donor": donor, "sel": "full", "site": 20, "sweep": "bridge-full-h20",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-full-h20"),
+                     "hist": hist})
+        rows.append({"donor": donor, "sel": "full", "site": 8, "sweep": "bridge-full-h8",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-full-h8"),
                      "hist": hist})
     for sel in ("att", "inc"):
         for site in (20, 8):
@@ -151,6 +163,10 @@ def main():
             assert cfg["intervention_layer"] == [r["site"]], (r["donor"], r["sel"], r["site"], "site")
             assert cfg["basis_selector"] == ("increment" if r["sel"].startswith("inc") else "attenuation"), \
                 (r["donor"], r["sel"], r["site"], "selector")
+            if r["sel"] == "full":  # the RUNTIME rank record must equal the support 49/47
+                sup = {"dog": 49, "ant": 47}[r["donor"]]
+                rec = row_res["intervention_record"][str(row_res["config"]["intervention_layer"][0])]
+                assert rec.get("basis_support") == sup, (tag, rec.get("basis_support"), sup)
             assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}")
         # REPLAY GATE: the attenuation h20 rows must match the historical continuations
         if r.get("gate"):
