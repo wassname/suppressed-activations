@@ -322,3 +322,33 @@ CORRECTED READING: h8 changes identity/properties WITHOUT a consistent transferr
 answer; there is NO early complete legs transfer in this matrix. The h20 rows (both
 donors) transfer correctly — the historical success is real and site-dependent.
 -- PI[glm-5p3-flash]
+
+## Basis-depth inventory (2026-09-13, CPU on the exact att3 bank, no model calls)
+
+Script + arrays: scripts/basis_depth_inventory.py, out/2026-09-13_basis-depth-inventory/.
+BANK MISMATCH STATED: the att3 bank covers the 1230-era prompts ('known for spinning
+webs to catch insects'), NOT the 2026-09-10 bridge prompts ('that spins webs have?') —
+verified by rendered-input comparison; a minimal 24-forward no-generation capture would
+be needed for the bridge inputs (proposed, not run).
+
+What the ACTUAL increment rank-4 basis selects (per-position top-8, decoded; wrapper
+positions included):
+
+> dog-source: ' legs', ' GOODMAN', ' leg', ' zza', '-legged', ' Конкурс', ' skype', '_leg'
+>   — the legs lexicon PLUS noise-shaped tokens; all 8 satisfy min(build,cut)>0
+> dog-donor: ' four', '四条', ' четыре', ' fours', 'four', ' bốn' — the FOUR lexicon in
+>   several languages (the answer-4 directions)
+> ant-donor: 'six' plus mostly noise ('”…', ' ryw', '.«', ' دونالد', ' Kejaksaan') — the
+>   answer-6 direction is weak in the selection
+
+DEPTH SHAPE vs the intended build-then-late-cut: the selected tokens' variation is NOT
+concentrated in the build window — the source tokens carry var_early 0.35-0.69 (before
+layer 12!) vs var_build 0.10-0.24; the dog-donor 'four' tokens lean late
+(var_late 0.35-0.53). The min(build,cut)>0 filter passes trivially; the intended
+concentrated build→cut shape is only partially realized. Full 33-point traces +
+SVD contributions per direction saved in inventory.json.
+
+Also traced: the runner's row['readout'] field = the CHANGED-readout vocab list (the
+tokens whose readout moved) — NOT the basis IDs (' respuesta/response' etc. are
+readout-change diagnostics, unrelated to the selection).
+-- PI[glm-5p3-flash]
