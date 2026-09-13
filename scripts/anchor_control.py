@@ -34,7 +34,7 @@ TINY_MAX = 4
 
 
 import ast as _ast
-_src_sas = (ROOT / "suppressed_activation_subspace.py").read_text()
+_src_sas = (ROOT / "scripts" / "oat_sweep.py").read_text()
 _fn = next(n for n in _ast.parse(_src_sas).body
            if isinstance(n, _ast.FunctionDef) and n.name == "repetition_bigram_fraction")
 exec(compile(_ast.Module(body=[_fn], type_ignores=[]), "suppressed_activation_subspace.py", "exec"))
@@ -91,7 +91,7 @@ def run_arm(model, tok, ids, blocks, capture, prefill_only, max_new):
 
 
 def main():
-    tiny = os.environ.get("SUPPRESSED_DEVICE", "cuda") == "cpu"
+    tiny = "tiny" in os.environ.get("SUPPRESSED_MODEL", "Qwen/Qwen3.5-4B").lower()
     out_dir = ROOT / "out" / f"2026-09-13_anchor-control-{'tiny' if tiny else 'gpu'}-{time.strftime('%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=False)
     result = {"tiny": {"enabled": tiny}, "rows": {}}
@@ -174,7 +174,9 @@ def main():
     assert not torch.allclose(s25["donor_proj"], s1["donor_proj"]), \
         "donor vectors identical; anchor change ineffective"
     assert torch.equal(s25["decode_src"], s1["decode_src"]), "decode_src differs across anchors"
-    assert torch.equal(s25["decode_proj"], s1["decode_proj"]), "decode_proj differs across anchors"
+    # decode_proj IS the donor-state projection at the anchor layer: anchor-dependent
+    assert not torch.equal(s25["decode_proj"], s1["decode_proj"]), \
+        "decode_proj identical across anchors; anchor change did not flow to decode"
 
     saved = json.load(open(ROOT / "out" / "2026-09-12_cb-cr8" / "k8-legs-L1-dog" /
                            "result.json"))["rendered_inputs"]
