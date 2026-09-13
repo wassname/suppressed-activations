@@ -3,14 +3,10 @@
 # dependencies = ["loguru>=0.7", "pyarrow>=21", "tabulate>=0.9", "torch>=2.8",
 #                 "transformers>=5.5"]
 # ///
-"""Approved bounded capture (supervisor seq 21): THREE unique bridge inputs — spider
-source (shared by both pairs), dog donor, ant donor — via the EXISTING extractor
-machinery, NO generation, NO templates. Manifest prepared FIRST from the ACTUAL saved
-bridge rendered_inputs with the dedup + exact-ID-equality asserts BEFORE model load.
-After the capture: the ACTUAL production paired-builder (the increment-routed
-span-correction construction through run_with_bundle, spy-captured) — its U/deltas
-saved for the CPU analysis (33-point centered readout traces etc.). No new score/rank.
--- PI[glm-5p3-flash]"""
+"""Approved bounded capture: THREE unique bridge inputs (spider source shared by
+both pairs, dog donor, ant donor) via the existing extractor machinery; NO generation,
+NO templates, NO model-based construction after the capture. Manifest first
+(pre-model): dedup + exact-ID-equality asserts + tokenizer validation. -- PI[glm-5p3-flash]"""
 import hashlib
 import json
 import os
@@ -27,12 +23,11 @@ from scripts.extract_exact_inputs import rendered_input_ids, WRAPPER, MODEL, REA
 
 ROOT = Path(__file__).resolve().parents[1]
 BRIDGE = ROOT / "out" / "2026-09-13_bridge-matrix-193115"
-BASIS_DIR = ROOT / "out" / "2026-09-13_cpu-basis-check-131429"
 OUT = ROOT / "out" / f"2026-09-13_bridge-capture-{time.strftime('%H%M%S')}"
-PROMPTS = {  # exact historical prompts (verified against the saved bridge runs)
-    "source": "Question: How many legs does the animal that spins webs have?\nAnswer: ",
-    "dog": "Question: How many legs does the animal that barks and is called man's best friend have?\nAnswer: ",
-    "ant": "Question: How many legs does the animal that lives in colonies and follows pheromone trails have?\nAnswer: "}
+_frozen = json.loads((ROOT / "slop" / "replay_frozen_candidate_batch.json").read_text())
+PROMPTS = {"source": _frozen[4]["source_prompt"],          # the exact historical strings
+           "dog": _frozen[4]["target_prompt"],
+           "ant": _frozen[6]["target_prompt"]}
 
 
 def main():
@@ -50,7 +45,16 @@ def main():
         "the two pair sources differ — dedup to 3 is invalid"
     unique = {"source": inputs["dog-source"], "dog": inputs["dog-donor"],
               "ant": inputs["ant-donor"]}
+    rendered = {"source": rendered["dog-source"], "dog": rendered["dog-donor"],
+                "ant": rendered["ant-donor"]}
     assert len(unique) == 3, f"expected 3 unique inputs, got {len(unique)}"
+    # tokenizer validation BEFORE model load
+    from transformers import AutoTokenizer
+    tok_check = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B", revision=REAL_REVISION)
+    for name, prompt in PROMPTS.items():
+        got = rendered_input_ids(tok_check, prompt, "cpu")  # the full wrapper rendering
+        assert got["ids"].tolist() == list(unique[name]), \
+            f"{name}: rendered IDs != saved bridge IDs"
     manifest = {"n_unique_inputs": 3, "dedup": "dog-source == ant-source (asserted)",
                 "wrapper": WRAPPER, "model": MODEL, "revision": REAL_REVISION,
                 "inputs": {}, "dtype_device": None}
@@ -58,7 +62,7 @@ def main():
         manifest["inputs"][name] = {
             "n_tokens": len(ids), "ids_sha256": hashlib.sha256(
                 torch.tensor(ids).numpy().tobytes()).hexdigest(),
-            "rendered_repr": repr(rendered[name])[:400]}
+            "rendered_repr": rendered[name]}
     print("MANIFEST (pre-model): 3 unique inputs;",
           {k: v["n_tokens"] for k, v in manifest["inputs"].items()})
 
@@ -85,49 +89,16 @@ def main():
         got = rendered_input_ids(tokenizer, prompt, "cuda")
         assert got["ids"].tolist() == list(unique[name]), \
             f"{name}: actual forward input IDs != manifest"
-        res, _ = trajectory(model, got["ids"].to("cuda"), final_norm)
+        res, _ = trajectory(model, got["ids"].unsqueeze(0).to("cuda"), final_norm)
         torch.save(res.detach().float().cpu(), OUT / f"{name}_residuals.pt")
         manifest["inputs"][name]["captured"] = True
         print(f"captured {name}: {tuple(res.shape)}")
-    manifest["capture_count"] = 3
+    manifest["capture_count"] = sum(1 for v in manifest["inputs"].values() if v.get("captured"))
     manifest["git_describe"] = subprocess_run_git()
     (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
-
-    # ---- the ACTUAL production paired-builder: increment-routed span-correction
-    # construction on the same inputs; spy-capture the actual U/deltas
-    batch_row = json.load(open(ROOT / "slop" / "replay_frozen_candidate_batch.json"))[4]
-    oat.SWEEP_CONFIGS["bridge-inc-h20"] = lambda: [
-        (f, n, replace(c, delta_anchor_layer=20, basis_selector="increment"))
-        for f, n, c in oat.SWEEP_CONFIGS["span-correction-sweep"]()]
-    spec = dict(batch_row, sweep="bridge-inc-h20")
-    spec["output_dir"] = str(OUT / "production-construction")
-    obs = {}
-    orig = oat.intervention_hooks
-
-    def spy(*a, **kw):
-        hooks = orig(*a, **kw)
-        if kw.get("operation") == "span_corrected_delta":
-            obs["shared"] = a[0].clone()
-            obs["fixed_deltas"] = {k: v.clone() for k, v in kw["fixed_deltas"].items()}
-        return hooks
-
-    oat.intervention_hooks = spy
-    try:
-        d = Path(spec["output_dir"])
-        d.mkdir(parents=True, exist_ok=True)
-        oat.run_with_bundle(bundle, d, extraction_cache={"revision": bundle["revision"]},
-                            batch_spec={"batch_file": "bridge-capture", "index": 4,
-                                        "spec": dict(spec)},
-                            expected_detector_layers=None,
-                            **oat.strip_spec_metadata(spec))
-    finally:
-        oat.intervention_hooks = orig
-    torch.save({"U_production": obs["shared"].clone(),
-                "deltas_production": {k: v.clone() for k, v in obs["fixed_deltas"].items()}},
-               OUT / "production_U_deltas.pt")
-    print(f"PRODUCTION U captured: {tuple(obs['shared'].shape)} | "
-          f"result: {OUT / 'manifest.json'}")
-
+    manifest["file_sha256"] = {f.name: hashlib.sha256(f.read_bytes()).hexdigest()
+                               for f in OUT.glob("*.pt")}
+    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
 
 def subprocess_run_git():
     import subprocess
