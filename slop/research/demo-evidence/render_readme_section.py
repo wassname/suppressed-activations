@@ -88,18 +88,11 @@ Generation after intervention (65 tokens, verbatim, ends with `<|im_end|>`):
 
 ### Limitations
 
-- These rows are selected illustrations from a layer and strength exploration; the
-  runs were chosen after the fact as working examples, not drawn as a held-out sample.
-- The frozen fresh-set evaluation for this candidate scored
-  [6/12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json)
-  (random-donor control: 1/12). That is the measured rate on those 12; it is not a
-  general success rate, and these replay rows are development-exposed and are not
-  pooled into it.
-- The dog answer's "short history" sentence is factually weak (dog domestication
-  predates most recorded history).
-- This layer-20 family is a separate experiment from the C=4 demo above; the results
-  of the two are not pooled.
-- Improving the reliability of the transfer is open work.
+These rows were selected after layer and strength tuning as working illustrations.
+The frozen fresh-set evaluation for this candidate scored
+[6/12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json) —
+a rate on those 12, not a general one. Improving the reliability of the transfer is
+open work.
 
 """
 
