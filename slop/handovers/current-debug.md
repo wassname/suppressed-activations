@@ -352,3 +352,36 @@ Also traced: the runner's row['readout'] field = the CHANGED-readout vocab list 
 tokens whose readout moved) — NOT the basis IDs (' respuesta/response' etc. are
 readout-change diagnostics, unrelated to the selection).
 -- PI[glm-5p3-flash]
+
+## INVENTORY INTERPRETATIONS WITHDRAWN (2026-09-13, supervisor review of 5f4124d)
+
+- The per-position structure matters: position 45 = the ANSWER lexicon; positions
+  46-48 = others. My summary reported only the LAST position as "the" selection.
+- The script built SEPARATE source/donor SVDs, NOT the actual paired source+donor
+  union; the contrib arrays indexed the first 4 QR columns (not per-position blocks
+  of 8); no U4 or 33-point traces were saved (summaries only).
+- build/cut used UNCENTERED differences (production centers over vocab) — the
+  "min>0 passes trivially" claim is unsupported.
+- "ant failed while dog transferred" is FALSE for the increment rows (NEITHER
+  transferred; the increment rows are 8/spider at both sites).
+- The depth-shape and lexicon readings are withdrawn pending a corrected paired
+  analysis on EXACT bridge inputs.
+-- PI[glm-5p3-flash]
+
+## Capture-only contract for the bridge inputs (2026-09-13, PROPOSED — no GPU queued)
+
+Purpose: exact inputs for the central bridge question (the paired production basis on
+the historical prompts). Existing extractor (scripts/extract_exact_inputs.py), NO
+generation, NO new score.
+
+- 3 unique inputs (dedup verified against the rendered IDs): spider source (both pairs
+  share it), dog donor, ant donor — 3 forwards, not 24.
+- Saved per input: the FULL residual trajectory (h0..h32, float32), unembedding +
+  norm gain, input IDs + the rendered repr + the sha256 of both, precision recorded.
+- After capture (CPU): the PAIRED production basis builder (per-position production
+  selection for source+donor, concat, SVD with tolerance support, rank 4), the actual
+  U + singular values saved, ALL selected position IDs + decoded input tokens, ALL
+  33-point CENTERED readout traces, and a reconstruction-vs-production comparison on
+  the same arrays.
+- Hypothesis to test (not a conclusion): wrapper-position selection dilutes content.
+-- PI[glm-5p3-flash]
