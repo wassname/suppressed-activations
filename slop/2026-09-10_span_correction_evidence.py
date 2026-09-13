@@ -329,3 +329,255 @@ assert not bad_cens, f"censoring mismatch: {bad_cens}"
 assert not broken, f"broken source links: {broken}"
 print(f"FULL SELF-CHECK PASS: censoring consistent with saved token counts; "
       f"{len(src_links)} absolute links exist; aggregates derived from rows")
+
+
+# %% [markdown]
+# ## Current-plan section (2026-09-12): trajectory-selection comparison
+#
+# Added for the 2026-09-12 plan. Reads saved artifacts only (CPU, no model). The historical
+# sections above (including the 6/12 fresh-set result) are unchanged. All 12 questions in
+# the 2026-09-12 families are REUSED DEVELOPMENT prompts (exposed), not the fresh set.
+# The compared selector sums POSITIVE INCREMENTS over two declared windows (build b13..b23,
+# cut b29..b31) — a windowed-increment selector, not a whole-trajectory fit.
+
+# %%
+# Exact-input bank: task 1174 capture (24/24 rendered token-ID arrays list-equal to the
+# actual-run saved arrays; pinned revision 851bf6e8; exact batch-spec wrapper). Evidence:
+# batchwork/slop/research/exact_input_preflight.json (committed) and
+# batchwork/.local/preflight/exact_input_preflight.json.
+import json
+SEL = json.loads((BATCH / "out/2026-09-12_selector-comparison-v2/selector_comparison.json").read_text())
+print("selector sets (24 prompts): Jaccard mean", SEL["jaccard_summary"]["mean"],
+      "| snapshot-vs-canonical:", SEL["regression"]["note"],
+      "max_abs_residual", SEL["regression"]["max_abs_residual"])
+
+# %% [markdown]
+# ### Selector-selected vocabulary (decoded via the pinned tokenizer; labels only)
+#
+# The two selectors pick essentially different sets (Jaccard 0.020). On the legs prompt the
+# windowed-increment selection contains the topic vocabulary ( leg,  leg, -legged) that the
+# 3-snapshot selection misses. NOTE: 5/8 of the increment top-8 labels are not overtly
+# leg-related strings — no semantic claim is made from these labels.
+
+# %%
+from transformers import AutoTokenizer as _AT
+_TOK = _AT.from_pretrained("Qwen/Qwen3.5-4B", revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a")
+for name in ("legs-L1-dog-source", "name-N1-dog-source"):
+    r = SEL["per_cell"][name]
+    print(f"{name}")
+    print("  snapshot3 top8:", [_TOK.decode([t]) for t in r["snapshot3_ids"][-1]])
+    print("  increment  top8:", [_TOK.decode([t]) for t in r["increment_cand_ids"][-1]])
+
+# %% [markdown]
+# ## Family 1182 — selector×site (84 cells): ALL rows
+#
+# Source-expected = the spider answer for every question (legs 8, name Spider, spinneret
+# Yes, liveyoung No); target-expected per question (legs 4/6, name Dog/Ant, spinneret No,
+# liveyoung dog-Yes/ant-No). Identity column = WORD-BOUNDARY mention heuristic (not a
+# persistent-identity verdict); semantic answers NOT adjudicated for this family — shown
+# as not-adjudicated.
+
+# %%
+SRC_EXP = {"legs": "8", "name": "Spider", "prop-P1": "Yes", "prop-P2": "No"}
+
+def src_exp_for(cell_or_dirname):
+    if "-legs-" in cell_or_dirname or cell_or_dirname.startswith("legs"):
+        return SRC_EXP["legs"]
+    if "-name-" in cell_or_dirname or cell_or_dirname.startswith("name"):
+        return SRC_EXP["name"]
+    return SRC_EXP["prop-P1"] if "-P1-" in cell_or_dirname else SRC_EXP["prop-P2"]
+
+# %%
+R1182 = json.loads((BATCH / "out/2026-09-12_cb-selsite/per_row_verdicts.json").read_text())
+T_EXP = {"legs": {"dog": "4", "ant": "6"}, "name": {"dog": "Dog", "ant": "Ant"},
+         "prop-P1": {"dog": "No", "ant": "No"}, "prop-P2": {"dog": "Yes", "ant": "No"}}
+lines = ["| condition-cell | source-expected | target-expected | observed initial (first80) | stated identity (mention) | r2 | cap | result |",
+         "|---|---|---|---|---|---|---|---|"]
+for r in R1182:
+    dirname = r["condition_cell"]
+    donor = dirname.rsplit("-", 1)[1]
+    if "-legs-" in dirname:
+        qk, t_exp = "legs", T_EXP["legs"][donor]
+    elif "-name-" in dirname:
+        qk, t_exp = "name", T_EXP["name"][donor]
+    else:
+        qk = "prop-P1" if "-P1-" in dirname else "prop-P2"
+        t_exp = T_EXP[qk][donor]
+    link = f"/workspace/2026/suppressed-activations-batchwork/out/2026-09-12_cb-selsite/{dirname}/result.json"
+    cap = r["tokens"] >= 128
+    lines.append(f"| {dirname} | {src_exp_for(dirname)} | {t_exp} | not adjudicated "
+                 f"({r['first_80'][:38]!r}) | {r['expressed_identity']} | {r['r2']:.2f} "
+                 f"| {cap} | [result]({link}) |")
+TABLE1182 = "\n".join(lines)
+print(f"rows: {len(R1182)}; ALL rows displayed below")
+
+# %%
+TABLE1182  # full 84-row markdown table (display)
+
+# %% [markdown]
+# ## Family 1194 — cross-depth donor (24 nonzero + 12 C0): ALL rows
+#
+# Columns categorical where adjudicated (mechanical/quote level). The SHARED-answer caveat:
+# the ant liveyoung 'No' coincides with the source answer — not answer-change evidence
+# (applies to both arms; mirrors the 1208 wording).
+
+# %%
+R1194 = json.loads((BATCH / "out/2026-09-12_cb-xdepth/per_row_verdicts.json").read_text())
+lines = ["| condition-cell | source-expected | target-expected | observed initial | stated identity (mention) | r2 | cap | result |",
+         "|---|---|---|---|---|---|---|---|"]
+for r in R1194:
+    dirname = f"{r['condition']}-{r['cell']}"
+    donor = r["cell"].rsplit("-", 1)[1]
+    if r["cell"].startswith("prop-P1"):
+        t_exp = "No"
+    elif r["cell"].startswith("prop-P2"):
+        t_exp = {"dog": "Yes", "ant": "No"}[donor]
+    elif r["cell"].startswith("legs"):
+        t_exp = {"dog": "4", "ant": "6"}[donor]
+    else:
+        t_exp = {"dog": "Dog", "ant": "Ant"}[donor]
+    link = f"/workspace/2026/suppressed-activations-batchwork/out/2026-09-12_cb-xdepth/{dirname}/result.json"
+    cap = r["tokens"] >= 128
+    caveat = " (SHARED with source answer)" if r["cell"].startswith("prop-P2-liveyoung-ant") else ""
+    lines.append(f"| {dirname} | {src_exp_for(r['cell'])} | {t_exp}{caveat} | "
+                 f"{r['answer'][:24]} | {r['expressed_identity']} | {r['r2']:.2f} | {cap} | [result]({link}) |")
+TABLE1194 = "\n".join(lines)
+TABLE1194  # full display
+
+# %% [markdown]
+# ## Family 1208 — injection-rank (48 nonzero + 12 C0): ALL rows
+#
+# Initial-donor-direction: the two spinneret rows per k have the CHANGED target-direction
+# 'No' (donor-correct); the liveyoung-ant 'No' is SHARED (not a direction change). k8
+# replays 1194 imported exactly. The rank column is the injection-basis slice with the
+# removal span FIXED (injection truncation, not edited-subspace narrowing).
+
+# %%
+R1208 = json.loads((BATCH / "out/2026-09-12_cb-rankinj/categorical_adjudication.json").read_text())
+import hashlib as _hl
+import os as _os
+_rows_gen = []
+for r in R1208:
+    cell = r["cell"]
+    donor = cell.rsplit("-", 1)[1]
+    if cell.startswith("prop-P1"):
+        t_exp = "No"
+    elif cell.startswith("prop-P2"):
+        t_exp = {"dog": "Yes", "ant": "No"}[donor]
+    elif cell.startswith("legs"):
+        t_exp = {"dog": "4", "ant": "6"}[donor]
+    else:
+        t_exp = {"dog": "Dog", "ant": "Ant"}[donor]
+    p = BATCH / f"out/2026-09-12_cb-rankinj/{r['condition']}-{cell}/result.json"
+    raw = json.loads(p.read_text())["rows"][0]
+    n_tok = len(raw["generation"]["token_ids"])
+    ends_eos = raw["generation"]["text"].endswith("<|im_end|>")
+    cap = n_tok >= 128 and not ends_eos
+    r2 = raw["repeated_bigram_fraction"]
+    link = str(p)
+    lines.append(f"| {r['condition']}-{cell} | {src_exp_for(cell)} | {t_exp} | "
+                 f"{r['answer_initial'][:22]} | {str(r['answer_final'])[:38]} | {r['stated_identity']} | "
+                 f"{('; '.join(r['explicit_errors'])[:48]) if r['explicit_errors'] else '—'} | "
+                 f"{r2:.2f} | {'CAP' if cap else ''} | [result]({link}) |")
+TABLE1208 = "\n".join(lines)
+TABLE1208  # full display
+
+# %% [markdown]
+# ### Machine checks: k8 replay vs 1194 imported; C0 identity; quote substrings
+
+# %%
+n_hash = n_text = 0
+for r in R1208:
+    if r["condition"] != "k8":
+        continue
+    cell = r["cell"]
+    a = json.loads((BATCH / f"out/2026-09-12_cb-rankinj/k8-{cell}/result.json").read_text())["rows"][0]
+    b = json.loads((BATCH / f"out/2026-09-12_cb-xdepth/v25-imported-{cell}/result.json").read_text())["rows"][0]
+    n_hash += a["first_logits_sha256"]["steered"] == b["first_logits_sha256"]["steered"]
+    n_text += a["generation"]["text"] == b["generation"]["text"]
+assert n_hash == 12 and n_text == 12, f"k8 replay mismatch: {n_hash}/12 hash, {n_text}/12 text"
+c0 = json.loads((BATCH / "out/2026-09-12_cb-rankinj/C0-name-N1-dog/result.json").read_text())["rows"][0]
+assert c0["generation"]["token_ids"] == c0["base_generation"]["token_ids"], "C0 not identity"
+import re as _re
+bad = []
+for r in R1208:
+    gen = json.loads((BATCH / f"out/2026-09-12_cb-rankinj/{r['condition']}-{r['cell']}/result.json")
+                     .read_text())["rows"][0]["generation"]["text"]
+    for e in r["explicit_errors"]:
+        for q in _re.findall(r"'([^']+)'", e):
+            if q and q not in gen:
+                bad.append((r["condition"], r["cell"], q[:40]))
+for r in R1194:
+    gen = json.loads((BATCH / f"out/2026-09-12_cb-xdepth/{r['condition']}-{r['cell']}/result.json")
+                     .read_text())["rows"][0]["generation"]["text"]
+    q = r.get("quote", "")
+    if q and q not in gen:
+        bad.append((r["condition"], r["cell"], q[:40]))
+assert not bad, f"non-substring quotes: {bad[:3]}"
+print("CHECKS PASS: k8 replay 12/12 hashes+texts; C0 identity; all displayed quotes are "
+      "exact substrings (1208 explicit_errors + 1194 quotes)")
+
+# %% [markdown]
+# ### Representative contradictions (exact quotes)
+
+# %%
+print("1. (1194 imported spinneret-dog) donor-correct 'No' + spider identity + false fact:")
+r = [x for x in R1194 if x["condition"] == "v25-imported" and x["cell"] == "prop-P1-spinneret-dog"][0]
+print("   ", r["quote"][:100])
+print("2. (1208 k2 spinneret-ant) explicit in-continuation answer flip:")
+r = [x for x in R1208 if x["condition"] == "k2" and x["cell"] == "prop-P1-spinneret-ant"][0]
+print("   ", r["answer_final"][:100])
+print("3. (1194 imported liveyoung-ant) false cascade:")
+r = [x for x in R1194 if x["condition"] == "v25-imported" and x["cell"] == "prop-P2-liveyoung-ant"][0]
+print("   ", r["factuality"][:110])
+
+# %% [markdown]
+# ## Genuine-full legs rows (h1, six conditions) — added 2026-09-13
+#
+# Loaded read-only from runner outputs: the actual 1230 legs rows at h1 (dog/ant ×
+# k8/kfull/C0, strength 1.5, 128-token config), snapshotted under
+# `slop/research/demo-evidence/legs-rows/` with the batchwork originals linked. The
+# frozen fresh-set 6/12 evaluation above is NOT pooled with these rows. Basis
+# validation (CPU reconstruction of the joint/donor bases) is performed separately;
+# its status is printed below.
+
+# %%
+import json as _json
+from pathlib import Path as _Path
+from IPython.display import Markdown as _Markdown, display as _display
+
+_TOK = _TOK  # tokenizer from the earlier cell
+_ROOT = _Path.cwd()
+while not (_ROOT / ".git").exists() and _ROOT != _ROOT.parent:
+    _ROOT = _ROOT.parent
+_BW = _ROOT.parent / "suppressed-activations-batchwork"
+_batch_1230 = _json.load(open(_BW / "slop" / "complete_rank_batch.json"))
+_ROWS = _ROOT / "slop" / "research" / "demo-evidence" / "legs-rows"
+for _rd in sorted(_ROWS.glob("*.json")):
+    _row = _json.load(open(_rd))["rows"][0]
+    _gen = _row["generation"]
+    _donor = _row["target_concept"]
+    _arm = next(a for a in ("k8_C1.5", "kfull_C1.5", "C0")
+                if _row["condition_id"].endswith(a))
+    _n_eos = sum(1 for t in _gen["token_ids"] if t == _TOK.eos_token_id)
+    _prefix = _TOK.decode(_gen["token_ids"][:32])
+    _display(_Markdown(
+        f"### {_donor} {_arm}\n\n"
+        f"Source question (rendered, `repr`):\n\n"
+        f"```python\n{_batch_1230[27 if _donor == 'dog' else 33]['source_prompt']!r}\n```\n\n"
+        f"Generation ({len(_gen['token_ids'])} tokens; EOS count {_n_eos}):\n\n"
+        f"```text\n{_gen['text']}\n```\n\n"
+        f"First-32 prefix (`repr`):\n\n```python\n{_prefix!r}\n```\n\n"
+        f"Runner metrics: swap {_row['swap_log_odds_shift']:.3f} nats · "
+        f"p_valid {_row['bare_answer_mass']:.4f} · "
+        f"r2 {_row['repeated_bigram_fraction']:.3f}\n\n"
+        f"Links: [runner result.json](slop/research/demo-evidence/legs-rows/{_rd.name}) · "
+        f"[batchwork row](../suppressed-activations-batchwork/"
+        f"out/2026-09-13_genuine-full-legs-demo-130912/{_rd.name}/result.json)"))
+
+# %%
+_BASIS = _Path("../suppressed-activations-batchwork/out/2026-09-13_cpu-basis-check-131429")
+_done = sorted(p.name for p in _BASIS.glob("basis_*.pt")) if _BASIS.exists() else []
+print("Basis validation (CPU reconstruction):",
+      f"artifacts present: {', '.join(_done)}" if _done else "PENDING — cpu_basis_check running")
+print("Historical 6/12 fresh-set evaluation: frozen above, not pooled with the legs rows.")
