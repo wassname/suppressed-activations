@@ -106,6 +106,10 @@ class Config:
     complete_edit_mode: bool = False  # the DECLARED complete-edit ladder mode: BOTH bases
     # truncated before the joint support; scoping prevents silently changing the OLD
     # injection-only rankinj family's removal
+    delta_anchor_layer: int = -1  # template branch: if >=0 read template_deltas[THIS]
+    # layer for EVERY edit site (fixed anchor); -1 = site-tied (historical default)
+    basis_selector: str = "attenuation"  # "attenuation" (historical template contrast)
+    # | "increment" (trajectory-selected multi-token union/SVD U, same hook interface)
     xdepth_anchor_layer: int = -1  # if >=0: inject the donor residual from THIS layer
     # (projected on the SAME fixed span) instead of the site layer - cross-depth donor
     xdepth_norm_from_layer: int = -1  # if >=0: rescale the anchor projection to the norm of
@@ -2718,7 +2722,11 @@ def run_with_bundle(
             persistence["pair_singular_values"] = torch.linalg.svdvals(coordinate_directions).tolist()
             persistence["direction_cosine"] = float(coordinate_directions[:, 0] @ coordinate_directions[:, 1])
         elif cfg.template_contrast:
-            fixed_deltas = {layer: template_deltas[layer] for layer in intervention_layers}
+            if cfg.delta_anchor_layer >= 0:  # fixed anchor: same delta at every edit site
+                fixed_deltas = {layer: template_deltas[cfg.delta_anchor_layer]
+                                for layer in intervention_layers}
+            else:
+                fixed_deltas = {layer: template_deltas[layer] for layer in intervention_layers}
             persistence = {"direction_estimator": "matched_template_mean_difference",
                            "rendered_template_pairs": template_provenance}
             if cfg.future_coordinate:
@@ -2858,6 +2866,34 @@ def run_with_bundle(
                 }
                 fixed_deltas = projected
                 persistence.update(diagnostics)
+                if cfg.basis_selector == "increment":
+                    # route the trajectory-selected multi-token union/SVD U into the SAME
+                    # projection/norm-matching/hook interface (the operator consumes any
+                    # orthonormal U); union kept BEFORE the final SVD truncation
+                    from suppressed_activation_subspace import increment_scores
+                    _sc = increment_scores(
+                        source["residuals"].permute(1, 0, 2) if source["residuals"].dim() == 3
+                        else source["residuals"], unembedding, norm_gain,
+                        normalize_unembedding_rows=True)
+                    _seq = _sc.shape[0]
+                    _edited = list(range(_seq - cfg.intervention_positions, _seq))
+                    _U = []
+                    for _p in _edited:
+                        _ids = _sc[_p].topk(cfg.common_source_rank).indices
+                        _h = source["residuals"].float()[cfg.detector_layers[1], _p]
+                        _Qp = unembedding[_ids].float() * (norm_gain.float())
+                        _U.append(_Qp.T @ _Qp)
+                    _union = joint_support(_U[0], joint_support(_U[1], _U[2])[:, :0]
+                                           if False else _U[1]) if False else None
+                    # union over the three positions via joint support, pairwise
+                    _j = joint_support(_U[0], _U[1])
+                    _union = joint_support(_j, _U[2])
+                    persistence["basis_union_support"] = int(_union.shape[1])
+                    _vecs, _vals, _ = torch.linalg.svd(_union, full_matrices=False)
+                    shared = _vecs[:, :cfg.persistent_rank]
+                    diagnostics["selector"] = "increment_union_svd"
+                    diagnostics["union_singular_values"] = _vals.tolist()[:8]
+                    diagnostics["effective_rank"] = int(_union.shape[1])
                 if cfg.span_correction:
                     source_basis = target_basis = shared
                     persistence["direction_estimator"] = "span_corrected_template_delta"
