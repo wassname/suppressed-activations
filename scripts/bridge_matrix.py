@@ -24,6 +24,7 @@ from pathlib import Path
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import torch
+from dataclasses import replace
 torch.set_grad_enabled(False)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
