@@ -149,7 +149,7 @@ def main():
                 assert cfg["delta_anchor_layer"] == 20, (r["donor"], r["sel"], r["site"], "anchor")
             assert cfg["readout_positions"] == 4, (r["donor"], r["sel"], r["site"], "readout")
             assert cfg["intervention_layer"] == [r["site"]], (r["donor"], r["sel"], r["site"], "site")
-            assert cfg["basis_selector"] == ("increment" if r["sel"] == "inc" else "attenuation"), \
+            assert cfg["basis_selector"] == ("increment" if r["sel"].startswith("inc") else "attenuation"), \
                 (r["donor"], r["sel"], r["site"], "selector")
             assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}")
         # REPLAY GATE: the attenuation h20 rows must match the historical continuations
