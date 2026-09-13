@@ -77,3 +77,36 @@ The positive pinned reference was also re-executed via the exact existing
 confirm_causal_demo.py path: generations byte-identical, clean/C0 exact, C4
 probabilities reproduce to ~0.03 (top tokens and 256-random-control percentiles
 agree). -- PI[glm-5p3-flash]
+
+## Selector thinking deliverable (2026-09-13, CPU only, no model calls)
+
+**One specific unresolved selector assumption**: the production selector scores tokens
+from THREE sampled depths (early 18 / peak 20 / output 32 on the legs family) — it
+assumes the rise-and-fall shape between and before those points carries no information.
+The saved selected_traces (out/2026-09-12_selector-comparison-v2/selector_comparison.json)
+confirm the arrays only store 4 layers per token — the full-depth behavior is not
+observed anywhere in current selection evidence.
+
+**Cheapest discriminator (ran on existing arrays, zero model calls)**: the exact-input
+bank (out/2026-09-12_exact-input-bank-att3, h0..h32 float32 trajectories of the exact
+legs prompts, spec/script hashes in its manifest) makes the full-trajectory score
+computable on CPU. Quoted lines (fulltrajectory-vs-3snapshot.txt):
+
+> top-32 overlap (snapshot vs full-trajectory): 2/32
+> snapshot misses 30/32 of full-trajectory top; missed tokens' variation BEFORE layer
+> 18 (mean share): 0.556
+> top-32 overlap normalized-logit vs raw-energy: 8/32
+
+**Reading**: (1) the three-point selector and the full-trajectory selector disagree on
+30/32 top tokens — the assumption is load-bearing, not a formality; (2) the missed
+tokens carry ~56% of their variation BEFORE the selector's earliest anchor (layer 18) —
+directly relevant to the user's early-intervention plan (intervene at h1): selection
+anchored at 18 cannot see build-up in layers 1-17; (3) normalized-logit readout and raw
+projected energy select 8/32 agreement — they are different selectors, and the
+normalized readout can fall while raw projected energy rises (RMS growth swamps it);
+the goal's discriminator language requires keeping them separate.
+
+**Next discriminator proposal (proposal only, no GPU queued)**: recompute the selection
+on the same bank with the full-trajectory score and compare the resulting top-8
+subspaces' causal behavior at h1 in the existing six-row design — one bounded batch,
+only after review. -- PI[glm-5p3-flash]
