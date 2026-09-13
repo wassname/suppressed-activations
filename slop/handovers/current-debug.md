@@ -162,3 +162,25 @@ Unresolved selector question, narrowed: whether min(build-window, last-3-cut) �
 current conjunction — is the right trade-off vs e.g. per-position full-window
 build+cut with the same conjunction; the TV probe does not answer it. No GPU runs.
 -- PI[glm-5p3-flash]
+
+## Per-position selection class counts (2026-09-13, CPU, existing banks)
+
+Among ACTUAL production-selected tokens (per-position top-8 with min(build,cut)>0
+enforced; 24 selected per input over the 3 edited positions), the FINAL-WRITE behavior
+classes (readout at last layer vs previous, same state):
+
+> source (spider question): sign_flip 11, positive_fall 5, more_negative 8, energy_drop 12/24
+> dog (donor question): sign_flip 13, positive_fall 10, more_negative 1, energy_drop 21/24
+> ant (source file = same spider question as dog-source; files differ only by
+> extraction-run hash, tensor sums exactly equal — deterministic extraction, so the
+> identical counts are expected, not a bug)
+
+Reading (counts, not proof): the dominant final-write behavior among selected
+directions is SIGN FLIP (11-13/24), with energy drops in only 12/24 (spider) and
+21/24 (dog) — i.e. for about half the spider-selected directions the final-layer
+energy does NOT drop while the normalized readout still "cuts". This sharpens the
+normalized-readout/raw-energy distinction: much of what the selector sees as a cut is
+sign inversion, not removal. Examples with exact last-3 readouts saved in
+per_position_class_counts.json. Also fixed this round: production eps (1e-6) in the
+RMS, identity assert lg == full_lg[:, tok] (assert_close), and the aggregate-vs-pos48
+rank labeling. -- PI[glm-5p3-flash]

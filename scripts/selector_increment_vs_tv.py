@@ -57,24 +57,27 @@ def main():
 
     tok_id = sc_win.topk(1).indices[0].item()
     pos = edited[-1]
+    pos48_rank = int((sc[pos] > sc[pos, tok_id]).sum())
+    print(f"  chosen token: AGGREGATE-top across positions; rank at pos {pos} = {pos48_rank}")
     h1 = res[:, pos, :].float()                      # (33, hidden): all layers, one position
-    rms = h1.square().mean(-1).sqrt()
+    rms = (h1.square().mean(-1) + 1e-6).sqrt()       # production eps
     direction = (U[tok_id] * gain) / rown[tok_id]    # unit row direction (hidden,)
     # SIGNED projection per layer (can be negative); normalized readout = that
     # projection divided by the per-layer residual RMS
     signed = direction @ h1.T                        # (33,)
     lg = signed / rms                                # (33,) token across layers
     assert lg.shape == (res.shape[0],), lg.shape
+    energy = signed.square()                         # nonnegative projected energy
+    assert float(energy.min()) >= 0.0
     # per-write increments from the FULL vocab readout, vocab-centered per write
     hn = h1 * torch.rsqrt(h1.square().mean(-1, keepdim=True) + 1e-6) * gain.float()
     full_lg = ((hn @ U.float().T) / rown)
     assert full_lg.shape == (res.shape[0], U.shape[0])
+    torch.testing.assert_close(lg, full_lg[:, tok_id], rtol=1e-4, atol=1e-5)
     dphi_full = full_lg[1:] - full_lg[:-1]
     dphi_full = dphi_full - dphi_full.mean(-1, keepdim=True)
     dphi_t = dphi_full[:, tok_id]
     assert dphi_t.shape == (res.shape[0] - 1,), dphi_t.shape
-    energy = signed.square()                         # nonnegative projected energy
-    assert float(energy.min()) >= 0.0
     trace = {"token_id": tok_id, "token": tok.decode([tok_id]), "position": pos,
              "normalized_readout": lg.tolist(), "increment_dphi": dphi_t.tolist(),
              "residual_rms": rms.tolist(), "signed_projection": signed.tolist(),
@@ -97,3 +100,70 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+def per_position_selection_counts():
+    """Among ACTUAL production-selected tokens (per-position top-8), count final-layer
+    behavior classes over the three legs inputs: sign_flip / positive_fall /
+    more_negative, plus energy-drop counts. Same state per position; no sorting.
+    -- PI[glm-5p3-flash]"""
+    D = ROOT / "out" / "2026-09-12_exact-input-bank-att3"
+    U = torch.load(D / "unembedding.pt", weights_only=False).float()
+    gain = torch.load(D / "norm_gain.pt", weights_only=False).float()
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B",
+                                        revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a")
+    counts, traces = {}, {}
+    for name, stem in (("source", "legs-L1-dog-source"), ("dog", "legs-L1-dog-donor"),
+                       ("ant", "legs-L1-ant-source")):
+        res = torch.load(D / f"{stem}_residuals.pt", weights_only=False).float()
+        sc = increment_scores(res.permute(1, 0, 2), U, gain, normalize_unembedding_rows=True)
+        seq = res.shape[1]
+        c = {"sign_flip": 0, "positive_fall": 0, "more_negative": 0, "energy_drop": 0,
+             "n_selected": 0}
+        ex = []
+        for pos in (seq - 3, seq - 2, seq - 1):
+            h1 = res[:, pos, :].float()
+            rms = (h1.square().mean(-1) + 1e-6).sqrt()
+            hn = h1 * torch.rsqrt(h1.square().mean(-1, keepdim=True) + 1e-6) * gain.float()
+            full_lg = (hn @ U.float().T) / (gain * U).float().norm(dim=-1)
+            dphi_full = full_lg[1:] - full_lg[:-1]
+            dphi_full = dphi_full - dphi_full.mean(-1, keepdim=True)
+            for tid in sc[pos].topk(8).indices.tolist():
+                lg_t = full_lg[:, tid]
+                d_t = dphi_full[:, tid]
+                build = d_t[12:22].clamp_min(0).sum()
+                cut = (-d_t[-3:].clamp_max(0)).sum()
+                if min(build, cut) <= 0:
+                    continue  # not actually production-selected (min>0 required)
+                c["n_selected"] += 1
+                s_last, s_prev = lg_t[-1], lg_t[-2]
+                signed = full_lg[:, tid] * rms  # signed projection = readout * rms
+                e_energy = signed.square()
+                dropped = e_energy[-1] < e_energy.max()
+                if s_prev >= 0 > s_last or (s_prev > 0 and s_last < 0):
+                    c["sign_flip"] += 1
+                elif s_last >= 0:
+                    c["positive_fall"] += 1
+                else:
+                    c["more_negative"] += 1
+                if dropped:
+                    c["energy_drop"] += 1
+                if len(ex) < 3:
+                    ex.append({"token": tok.decode([tid]), "token_id": tid, "pos": pos,
+                               "readout_last3": [round(float(x), 3) for x in lg_t[-3:]],
+                               "signed_last3": [round(float(x), 3) for x in signed[-3:]],
+                               "class": ("sign_flip" if (s_prev >= 0 > s_last or (s_prev > 0 and s_last < 0))
+                                         else "positive_fall" if s_last >= 0 else "more_negative")})
+        counts[name] = c
+        traces[name] = ex
+        print(f"{name}: {c} | examples: {[(e['token'], e['class']) for e in ex]}")
+    (OUT / "per_position_class_counts.json").write_text(
+        json.dumps({"counts": counts, "examples": traces}, indent=1) + "\n")
+    print(f"saved: {OUT / 'per_position_class_counts.json'}")
+    return counts, traces
+
+
+if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "counts":
+    per_position_selection_counts()
