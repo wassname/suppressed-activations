@@ -653,3 +653,65 @@ for _arm in ("continuous", "prompt_only", "base"):
         f"research/demo-evidence/policy-discriminator/sidecar.json\n\n</details>"))
 print("r2 recomputed with the canonical non-special-ID metric; token IDs and "
       "first-logits hashes preserved in result.json.")
+
+# %% [markdown]
+# ### Final-write classes of production-selected directions (CPU, exact bank)
+#
+# Among the actual production-selected tokens (top-8 per edited position, 24 per
+# input), how does the signed projection change at the final write?
+
+# %%
+_counts = _json2.load(open(_ROOT / "slop" / "research" / "demo-evidence" /
+                     "policy-discriminator" / "per_position_class_counts.json")) \
+    if (_ROOT / "slop" / "research" / "demo-evidence" / "policy-discriminator" /
+        "per_position_class_counts.json").exists() else None
+if _counts is None:
+    _src_counts = _json2.load(open(_BW / "out" / "2026-09-13_selector-increment-vs-tv" /
+                                   "per_position_class_counts.json"))
+    (_ROOT / "slop" / "research" / "demo-evidence" / "policy-discriminator").mkdir(
+        parents=True, exist_ok=True)
+    (_ROOT / "slop" / "research" / "demo-evidence" / "policy-discriminator" /
+     "per_position_class_counts.json").write_text(_json2.dumps(_src_counts, indent=1))
+    _counts = _src_counts
+for _name, _c in _counts["counts"].items():
+    _k = _c["classes"]
+    print(f"{_name}: pos->neg {_k['pos->neg']}, neg->pos {_k['neg->pos']}, "
+          f"nonneg-inc/dec {_k['nonneg-increase']}/{_k['nonneg-decrease']}, "
+          f"nonpos-inc/dec {_k['nonpos-increase']}/{_k['nonpos-decrease']}, "
+          f"equal {_k['equal']} (n={_c['n_selected']}); "
+          f"energy last<prev {_c['energy']['energy_last<prev']}, "
+          f"last<start3(h29) {_c['energy']['energy_last<start3']}")
+print("Reading: the readout cut at the final write usually appears as pos->neg — "
+      "a NEGATIVE readout is valid evidence that the token is suppressed, whether or "
+      "not the projected energy drops; do not read the two as the same quantity.")
+
+# %% [markdown]
+# ### Anchor control (h1 legs-dog, same code/basis/C; only the donor-state anchor differs)
+#
+# Depth-matched donor anchor (layer 1) vs the current recipe's layer-25 anchor.
+# GPU artifact-derived (pueue 1326); canonical r2 recomputed on CPU from saved token
+# IDs. Full per-offset replacement traces were NOT persisted in that run — unavailable.
+
+# %%
+_res = _json2.load(open(_ROOT / "slop" / "research" / "demo-evidence" /
+                  "policy-discriminator" / "anchor_control_result.json"))
+for _arm in ("anchor25", "anchor1", "base"):
+    _row = _res["rows"][_arm]
+    _r2 = repetition_bigram_fraction(_row["token_ids"], _sids)
+    _label = {"anchor25": "current recipe (anchor 25)", "anchor1": "depth-matched (anchor 1)",
+              "base": "no intervention"}[_arm]
+    display(_Markdown(
+        f"### {_label}\n\n"
+        f"Tokens {len(_row['token_ids'])} · EOS {_row['n_eos']} · "
+        f"r2 (canonical) {_r2:.3f}\n\n"
+        f"```text\n{_row['text']}\n```\n\n"
+        f"<details><summary>Provenance</summary>\n\nFirst-logits sha256 "
+        f"{_res['first_logits_sha256'].get(_arm, 'n/a (base)')[:16]}… · decode edit norms "
+        f"{_row.get('decode_edit_norms', 'n/a (base)')} · sidecar: "
+        f"research/demo-evidence/policy-discriminator/sidecar.json (full per-offset "
+        f"replacement traces UNAVAILABLE — not persisted in that run)\n\n</details>"))
+print("Reading: with the same basis/site/C and identical-recipe prefill edit records, "
+      "the depth-matched anchor terminates normally and stays coherent SPIDER (8) — "
+      "lower damage, NOT transfer (no answer 4, no dog identity). The anchor change "
+      "alters both direction and size of the injected vector; they are not separated "
+      "in this control.")
