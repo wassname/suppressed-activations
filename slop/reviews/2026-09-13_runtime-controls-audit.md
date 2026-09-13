@@ -155,3 +155,50 @@ basis, actual donor vector) at sites {L1}; random-basis controls (1289-1291) rem
 separately labeled. Multi-layer interval hooks still untested. HYPOTHESIS standing:
 bf16 + huge-norm edits are the noise floor for any bf16-sweep interpretation;
 not a conclusion about the repetition mechanism. -- PI[glm-5p3-flash]
+
+## Corrections (supervisor review of the addendum, 2026-09-13)
+
+1. **Row identity**: condition index 0 of common-basis-earlyloc is the NAME-dog row
+   (the pDog/pSpider table row: 'Which animal is known for spinning webs to catch
+   insects... called'), NOT the legs-dog row. The diagnostic exercised the name-dog
+   pair; labels corrected in the script and here.
+2. **Rank 16 is the JOINT rank of 8+8**, not a "not-k8" anomaly: the built h1 spec's
+   basis is the joint support of the top8 source and top8 donor bases.
+3. **dtype/device confound**: the fp32 run changed DEVICE (GPU→CPU) AND rebuilt
+   bank/bases separately. The earlier "localized to rounding amplification" claim is
+   withdrawn; the supported claim is narrower: the same-spec cached-vs-uncached
+   internal check passes on CPU fp32; bf16-vs-fp32 row differences cannot be assigned
+   to dtype alone.
+4. **Row reproduction, by dtype (separately labeled)**: bf16/GPU historical
+   `swap_log_odds_shift` +3.891 vs fp32/CPU rebuilt +4.987 — a 1.1-nat difference
+   across dtype+device+basis rebuild, reported as separate rows, not one.
+5. **Repetition persists in fp32** (verified from saved token IDs): fp32 name-dog h1
+   continuation is 32 tokens `'::::::::::::::::::::::::::,:,,,\n'` (token 25 repeated,
+   r2 0.839); the bf16/GPU historical row is the same colon-degenerate continuation
+   (88 tokens of ':'). Inference (strong, pending full-text read which these token-ID
+   dumps ARE): bf16 cache mismatch alone cannot explain this row's repetition.
+6. **Effective tolerance floor**: printed "2x null" was a false label in fp32 — the
+   1e-3 floor dominates (null ~1.5e-5). The script now logs the effective floor
+   explicitly; no tuning.
+7. **Failure exit code**: the script caught AssertionError and exited 0; fixed —
+   re-raises after saving, so the queue shows FAILED. First-divergence save now
+   captures the ACTUAL failing check's step/tensors (hidden failures save the failing
+   decode step's hidden pair; logit failures the failing step's logits; step defaults
+   removed).
+8. **Probes**: the actual-spec script contains NO wrong-mask/no-hook probes; earlier
+   audit wording claiming probes for the actual-spec run is retracted — probes are
+   implemented in the random-basis control (runtime_controls.py) only.
+9. **Regression added**: tests/test_joint_support.py (3 passed) — the restored
+   joint_support path (rank/orthonormality/containment) plus the complete-mode Pj
+   selection; the cc25c2b break is exactly the missing-old-path-test failure mode.
+
+## Smallest actual scientific next step (PROPOSED, not queued)
+
+Restore the user's actual goal with the verified production mutation: run the
+LEGS-dog pair (not name-dog) with the genuine full-supported complete-edit candidate
+through the production function — one row, exact production construction, mutated by
+the verified `joint_support`/complete path, swap/p_valid/r2 + per-step norms + exact
+strings per the AGENTS causal-demo layout. NOT a dose-ladder default, NOT random
+basis, NOT multi-layer expansion. Awaiting supervisor go.
+
+-- PI[glm-5p3-flash]

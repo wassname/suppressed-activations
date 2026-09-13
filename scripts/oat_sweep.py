@@ -2445,6 +2445,17 @@ def strip_spec_metadata(spec: dict) -> dict:
 
 
 
+def joint_support(Us8: torch.Tensor, Ud8: torch.Tensor) -> torch.Tensor:
+    """Numerical joint support of the top8 source/donor bases [Us8 | Ud8] (fp32 SVD,
+    shared eps tolerance). The non-complete joint-removal span; cc25c2b dropped its
+    definition and joint arms crashed on the dangling `Pu` reference."""
+    cols, s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
+    keep = int((s > max(cols.shape) * torch.finfo(torch.float32).eps * s[0]).sum())
+    Pu = cols[:, :keep]
+    torch.testing.assert_close(Pu.T @ Pu, torch.eye(keep, device=Pu.device), rtol=1e-4, atol=1e-4)
+    return Pu
+
+
 def complete_edit_bases(U_s, U_d, Us8, Ud8, cfg):
     """The complete-edit ladder's construction (FACTORED from run_with_bundle; the same
     code path invoked there): both bases truncated at k before the joint support
@@ -3052,16 +3063,9 @@ def run_with_bundle(
             Us8 = src_by_offset(1).float()
             Ud8 = don_by_offset(1).float()
             Us_k, Ud_k, Pj, complete_rank_active = complete_edit_bases(U_s, U_d, Us8, Ud8, cfg)
-            # joint support of the top8 bases (the non-complete joint-removal span);
-            # restored verbatim from cc25c2b^ after the complete_edit_bases refactor
-            # dropped it and left the k8 joint arms crashing on an undefined Pu
-            Pu_cols, pu_s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
-            pu_keep = int((pu_s > max(Pu_cols.shape) * torch.finfo(torch.float32).eps * pu_s[0]).sum())
-            Pu = Pu_cols[:, :pu_keep]
-            torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep, device=Pu.device), rtol=1e-4, atol=1e-4)
             if cfg.common_removal == "joint":
                 assert not cfg.common_inject_restricted, "restricted injection pairs with source removal"
-                rem_cols = Pj if complete_rank_active else Pu
+                rem_cols = Pj if complete_rank_active else joint_support(Us8, Ud8)
             elif cfg.common_removal == "source":
                 rem_cols = Us8
             elif cfg.common_removal == "pref":

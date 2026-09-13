@@ -3,16 +3,15 @@
 # dependencies = ["accelerate>=1.10", "loguru>=0.7", "pyarrow>=21", "tabulate>=0.9",
 #                 "torch>=2.8", "transformers>=5.5"]
 # ///
-"""Actual-spec h1 diagnostic: ONE production row (task 1230, condition
-v25imported_h1_C1.5, common-basis-earlyloc batch) run through the REAL
-run_with_bundle construction to CAPTURE the actual built common_specs, then the same
-corrected cached-vs-uncached teacher-forced comparison (prefill + 5 cached decode
-steps) reusing those captured specs — joining bank construction to the hook/cache
-path with the real perturbation. Random-basis controls are NOT used here.
-
-Captured from production (observed, not rederived): common_specs, positions,
-source_position, strength, source input_ids. Fixed 2x-null tolerance (no widening);
-failure saves first-divergence tensors. -- PI[glm-5p3-flash]"""
+"""Actual-spec diagnostic: ONE production row from the common-basis-earlyloc batch
+(condition index 0 = `v25imported_h1_C1.5` on the NAME-dog prompt pair — 'Which animal
+is known for spinning webs to catch insects... called'), run through the REAL
+run_with_bundle construction with an observing spy capturing the actually-built
+common_specs (no rederivation), then the corrected cached-vs-uncached teacher-forced
+comparison reusing those specs. The captured basis is the JOINT support, rank 8+8=16.
+Random-basis controls are NOT used here. Fixed 2x-null tolerance with an explicit
+effective floor (the 1e-3 floor dominates in fp32); failure re-raises after saving
+first-divergence tensors for whichever check failed. -- PI[glm-5p3-flash]"""
 import hashlib
 import json
 import os
@@ -81,7 +80,12 @@ def main():
         sweep.generate_with_first_logits = orig_gen
 
     assert "spec" in capture, "production run never built common_replace specs"
+    result["condition"] = condition["expected_condition"]
     result = {"condition": condition["expected_condition"], "output_dir": str(out_dir),
+              "condition_index_note": ("index 0 of common-basis-earlyloc = the NAME-dog row "
+                                        "(pDog/pSpider table), NOT the legs-dog row"),
+              "source_prompt": condition["source_prompt"],
+              "target_prompt": condition["target_prompt"],
               "code_sha256": {p: sha(p) for p in ("scripts/oat_sweep.py", "scripts/demo.py",
                                                   "scripts/prompt.py",
                                                   "suppressed_activation_subspace.py")},
@@ -133,9 +137,14 @@ def main():
     result["null_hidden_abs_rel"] = clean_hidden
     result["tol_rel"] = tol_rel
     result["tol_hidden_rel"] = tol_hidden
+    result["tol_floor_dominates"] = {"logit": tol_rel == 1e-3, "hidden": tol_hidden == 1e-3}
     print(f"null: logit rel per step {['%.2e' % d for d in clean_step_delta]}, "
           f"hidden rel max {max(r for _, r, _ in clean_hidden):.2e}; "
-          f"tol = {TOL_FACTOR}x max null (fixed) = {tol_rel:.2e} / {tol_hidden:.2e}")
+          f"tol = {TOL_FACTOR}x max null = {TOL_FACTOR * max(clean_step_delta):.2e} / "
+          f"{TOL_FACTOR * max(r for _, r, _ in clean_hidden):.2e}; "
+          f"EFFECTIVE tol {tol_rel:.2e} / {tol_hidden:.2e} "
+          f"(1e-3 floor {'dominates' if tol_rel == 1e-3 else 'does not dominate'} logit, "
+          f"{'dominates' if tol_hidden == 1e-3 else 'does not dominate'} hidden)")
 
     # C0: the ACTUAL spec at strength 0 must be bitwise inert (exact production args)
     hooks0 = sweep.intervention_hooks(*capture["args"],
@@ -215,15 +224,28 @@ def main():
               f"{max(r for _, r, _ in hidden):.2e} (null {max(r for _, r, _ in clean_hidden):.2e}), "
               f"argmax {sum(argmax_match)}/{n}, first-token shift {first_shift:.2e}")
     except AssertionError as e:
-        j = next((j for j in range(n) if step_delta[j] > tol_rel), 0)
-        torch.save({"ids_full": ids_full, "rows_cached": rows[j].cpu(),
-                    "rows_ref": rows_ref[j].cpu(), "spec": spec, "step": j,
-                    "result": result}, out_dir / "first_divergence.pt")
+        # save the ACTUAL failing step's tensors: hidden failures get the failing
+        # decode step's hidden pair, logit failures the failing step's logits
+        j_logit = next((j for j in range(n) if step_delta[j] > tol_rel), None)
+        j_hidden = next((k for _, r, _ in hidden if r > tol_hidden), None)
+        fail = {"ids_full": ids_full, "spec": spec, "result": result,
+                "step_logit": j_logit, "step_hidden": j_hidden}
+        if j_logit is not None:
+            fail["rows_cached"] = rows[j_logit].cpu()
+            fail["rows_ref"] = rows_ref[j_logit].cpu()
+        if j_hidden is not None:
+            a, b, name = hidden[j_hidden]
+            fail["hidden_name"] = name
+            fail["hidden_cached"] = a.cpu()
+            fail["hidden_ref"] = b.cpu()
+        torch.save(fail, out_dir / "first_divergence.pt")
         result["outcome"] = f"FAILED: {e}"
+        (out_dir / "actual_spec_control_result.json").write_text(json.dumps(result, indent=2) + "\n")
         print(f"ACTUAL-SPEC CONTROL FAIL: {e} | first-divergence tensors: "
               f"{out_dir / 'first_divergence.pt'}")
+        raise  # the queue must see the failure
     (out_dir / "actual_spec_control_result.json").write_text(json.dumps(result, indent=2) + "\n")
-    print(f"result: {out_dir / 'result.json'}")
+    print(f"result: {out_dir / 'actual_spec_control_result.json'}")
 
 
 if __name__ == "__main__":
