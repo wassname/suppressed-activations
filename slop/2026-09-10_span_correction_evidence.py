@@ -551,30 +551,37 @@ _ROOT = _Path.cwd()
 while not (_ROOT / ".git").exists() and _ROOT != _ROOT.parent:
     _ROOT = _ROOT.parent
 _BW = _ROOT.parent / "suppressed-activations-batchwork"
-_batch_1230 = _json.load(open(_BW / "slop" / "complete_rank_batch.json"))
 _ROWS = _ROOT / "slop" / "research" / "demo-evidence" / "legs-rows"
+_CONDITIONS = {"dog-k8_C1.5", "dog-kfull_C1.5", "dog-C0", "ant-k8_C1.5",
+               "ant-kfull_C1.5", "ant-C0"}
+assert {p.stem for p in _ROWS.glob("*.json")} == _CONDITIONS, "row snapshot set mismatch"
+
 for _rd in sorted(_ROWS.glob("*.json")):
-    _row = _json.load(open(_rd))["rows"][0]
+    _run = _json.load(open(_rd))
+    _row = _run["rows"][0]
+    _ri = _run["rendered_inputs"]  # the saved run's actual rendered inputs
     _gen = _row["generation"]
     _donor = _row["target_concept"]
     _arm = next(a for a in ("k8_C1.5", "kfull_C1.5", "C0")
                 if _row["condition_id"].endswith(a))
     _n_eos = sum(1 for t in _gen["token_ids"] if t == _TOK.eos_token_id)
     _prefix = _TOK.decode(_gen["token_ids"][:32])
-    _display(_Markdown(
+    _src_rendered = _ri["source"]["rendered"]  # full rendered input (template+question)
+    _src_raw = None  # raw question not needed; rendered input shown and labeled \
+        if isinstance(_run.get("batch_spec"), dict) else None
+    display(_Markdown(
         f"### {_donor} {_arm}\n\n"
-        f"Source question (rendered, `repr`):\n\n"
-        f"```python\n{_batch_1230[27 if _donor == 'dog' else 33]['source_prompt']!r}\n```\n\n"
+        f"Full rendered source input (chat template + question; saved from this run):\n\n"
+        f"```text\n{_src_rendered}\n```\n\n"
         f"Generation ({len(_gen['token_ids'])} tokens; EOS count {_n_eos}):\n\n"
         f"```text\n{_gen['text']}\n```\n\n"
         f"First-32 prefix (`repr`):\n\n```python\n{_prefix!r}\n```\n\n"
         f"Runner metrics: swap {_row['swap_log_odds_shift']:.3f} nats · "
         f"p_valid {_row['bare_answer_mass']:.4f} · "
         f"r2 {_row['repeated_bigram_fraction']:.3f}\n\n"
-        f"Links: [runner result.json](slop/research/demo-evidence/legs-rows/{_rd.name}) · "
-        f"[batchwork row](../suppressed-activations-batchwork/"
-        f"out/2026-09-13_genuine-full-legs-demo-130912/{_rd.name}/result.json)"))
-
+        f"Links: [runner result.json](research/demo-evidence/legs-rows/{_rd.name}) · "
+        f"[batchwork row](../../suppressed-activations-batchwork/"
+        f"out/2026-09-13_genuine-full-legs-demo-130912/{_rd.stem}/result.json)"))
 # %%
 _BASIS = _Path("../suppressed-activations-batchwork/out/2026-09-13_cpu-basis-check-131429")
 _done = sorted(p.name for p in _BASIS.glob("basis_*.pt")) if _BASIS.exists() else []
