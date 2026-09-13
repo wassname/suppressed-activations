@@ -161,7 +161,8 @@ def main():
                 assert per["basis_support"] == sup, (tag, per["basis_support"], sup)
                 assert per["effective_rank"] == sup, (tag, per["effective_rank"], sup)
                 assert per["selector"] == "increment_union_svd", (tag, per["selector"])
-            assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}")
+            expect_rank = {"dog": 49, "ant": 47}[r["donor"]] if r["sel"] == "full" else 4
+            assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}", expect_rank)
         # REPLAY GATE: the attenuation h20 rows must match the historical continuations
         if r.get("gate"):
             # byte-equality vs the PREVIOUS increment rows (the same code path check)
@@ -203,19 +204,20 @@ def main():
     print(f"BRIDGE MATRIX {'PASS' if gate_ok else 'STOPPED'} | {out_dir / 'matrix_result.json'}")
 
 
-def shared_ok(obs, donor_tag="?"):
+def shared_ok(obs, donor_tag="?", expect_rank=4):
     shared = obs["shared"].float()
     eye = torch.eye(shared.shape[-1], device=shared.device)
     dev = float((shared.T @ shared - eye).abs().max())
-    assert dev < 1e-4 and shared.shape[-1] == 4
+    assert dev < 1e-4 and shared.shape[-1] == expect_rank, \
+        (donor_tag, "rank", shared.shape[-1], "expected", expect_rank)
     for delta in obs["fixed_deltas"].values():
         resid = delta - shared @ (shared.T @ delta)
         _cont = float(resid.norm() / delta.norm().clamp_min(1e-9))
-    # 1e-4: bf16 rounding of the projection/normalization path (the production's own
-    # fp32 containment gate passed; the recomputation from bf16-captured tensors adds
-    # ~1.6e-5 residual on the increment-routed rows)
-    assert _cont < 1e-4, (donor_tag, "containment", _cont, "shared_rank", shared.shape[-1],
-                          "delta_norm", float(delta.norm()))
+        # 1e-4: bf16 rounding of the projection/normalization path (the production's own
+        # fp32 containment gate passed; the recomputation from bf16-captured tensors
+        # adds ~1.6e-5 residual on the increment-routed rows)
+        assert _cont < 1e-4, (donor_tag, "containment", _cont, "shared_rank",
+                              shared.shape[-1], "delta_norm", float(delta.norm()))
     return True
 
 
