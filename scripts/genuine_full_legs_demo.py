@@ -137,8 +137,13 @@ def main():
         return hooks
 
     oat.intervention_hooks = spy_hooks
+    bundle = None
     try:
-        bundle = oat.load_bundle()
+        missing = [s for s in specs
+                   if f"{s['target_concept']}-{s['expected_condition']}" not in completed]
+        if missing:
+            bundle = oat.load_bundle()
+        tok_full = bundle["tokenizer"] if bundle else tok
         cache = {"revision": bundle["revision"]}
         for position, spec in enumerate(specs):
             tag = f"{spec['target_concept']}-{spec['expected_condition']}"
@@ -159,24 +164,26 @@ def main():
             schema_check(row, tag)
             gen = row["generation"]
             src_spec = spec_by_tag.get(tag)
-            ranks = {}
             if src_spec:
                 L = next(iter(src_spec))
-                Us = src_spec[L]["src"].float()
-                Ud = src_spec[L]["donor_U"].float()
-                ranks = {"source": int(Us.shape[-1]), "donor": int(Ud.shape[-1]),
-                         "joint": int(oat.joint_support(Us[0], Ud).shape[1])}
+                Qsrc = src_spec[L]["src"].float()
+                Qd = src_spec[L]["donor_U"].float()
+                # the captured src IS the joint support span; report joint + donor only
+                ranks = {"joint": int(oat.joint_support(Qsrc[0], Qd).shape[1]),
+                         "donor": int(Qd.shape[-1])}
             else:
-                # reused row (no captured spec): ranks from the verified resolved config
-                ranks = {"source": row["config"]["common_source_rank"],
-                         "donor": row["config"]["common_donor_rank"], "joint": None}
+                # reused row (no captured bases): config truncation parameters only,
+                # labeled as such — NOT presented as measured ranks
+                ranks = {"joint": None, "donor": row["config"]["common_donor_rank"],
+                         "provenance": "config truncation params; no captured bases; "
+                                       f"producer hash {row['code_sha256']['scripts/oat_sweep.py'][:12]}"}
             inj_norms = ([float(p.norm()) for p in src_spec[L]["donor_proj"]]
                          if src_spec else None)
             result["rows"][tag] = {
                 "dir": str(row_dir), "config": row["config"],
                 "generation_text": gen["text"],
                 "generation_count": len(gen["token_ids"]),
-                "eos_count": sum(1 for t in gen["token_ids"] if t == bundle["tokenizer"].eos_token_id),
+                "eos_count": sum(1 for t in gen["token_ids"] if t == tok_full.eos_token_id),
                 "first_32_prefix_text": tok.decode(gen["token_ids"][:32]),
                 "readout_prefill": row["readout"], "readout_final": row["last_decode_readout"],
                 "top_tokens": row["top_tokens"],
@@ -213,8 +220,6 @@ def _assert_contract(result, spec_by_tag):
                 f"k8 joint support out of range (8+8 bound): {k8['ranks']}"
             assert kfull["ranks"]["joint"] > k8["ranks"]["joint"], \
                 f"full joint support must exceed the k8 joint: {kfull['ranks']} vs {k8['ranks']}"
-        assert kfull["ranks"]["source"] > k8["ranks"].get("source", 8), \
-            f"full supported source rank must exceed k8: {kfull['ranks']} vs {k8['ranks']}"
         assert kfull["ranks"]["donor"] > k8["ranks"].get("donor", 8), \
             f"full supported donor rank must exceed k8: {kfull['ranks']} vs {k8['ranks']}"
         for row in (k8, kfull, c0):
@@ -222,26 +227,25 @@ def _assert_contract(result, spec_by_tag):
         assert c0["generation_text"] == c0["base_generation"], \
             "C0 row diverged from its own base generation"
         assert k8["readout_prefill"] is not None and k8["readout_final"] is not None
-        # injection norms monotonic per position (late donor, measured not assumed)
-        vals = kfull["injection_norms_by_position"]
-        if vals:
-            assert vals == sorted(vals) or vals == sorted(vals, reverse=True), \
-                f"injection norms not monotonic per position: {vals}"
-        # projector containment: k8 columns inside the FULL kfull span (both specs
-        # captured; containment is not computable for a reused row without its bases)
+        # NOTE: no monotonicity assertion across token positions — there is no
+        # mathematical basis for donor-projection norms to be sorted; removed.
+        # projector containment, PER POSITION (no cross-position reshaping):
+        # Q8[p] (d×8) must lie in the span of Qfull[p] (d×Rf)
         k8_spec, full_spec = spec_by_tag.get(f"{donor}-k8_C1.5"), spec_by_tag.get(f"{donor}-kfull_C1.5")
         if k8_spec and full_spec:
             L = next(iter(k8_spec))
-            k8_cols = k8_spec[L]["src"].float().transpose(1, 2).reshape(-1, 8).T
-            full_all = full_spec[L]["src"].float()          # (positions, hidden, R)
-            full_span, _ = torch.linalg.qr(full_all.transpose(1, 2).reshape(-1, full_all.shape[-1]))
-            resid = k8_cols - full_span @ (full_span.T @ k8_cols)
-            cont = float(resid.norm() / k8_cols.norm())
-            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment"] = cont
-            assert cont < 1e-4, f"{donor}: k8 not contained in kfull span: {cont}"
+            Q8 = k8_spec[L]["src"].float()      # (positions, hidden, 8)
+            Qf = full_spec[L]["src"].float()    # (positions, hidden, Rf)
+            conts = []
+            for p in range(Q8.shape[0]):
+                q8, qf = Q8[p], Qf[p]
+                resid = q8 - qf @ (qf.T @ q8)
+                conts.append(float(resid.norm() / q8.norm()))
+            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment_by_position"] = conts
+            assert max(conts) < 1e-4, f"{donor}: k8 not contained in kfull span: {conts}"
         else:
-            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment"] = \
-                "unavailable: k8 row reused without captured bases"
+            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment_by_position"] = \
+                f"unavailable: no captured bases (see cpu_basis_check artifacts)"
 
 
 if __name__ == "__main__":
