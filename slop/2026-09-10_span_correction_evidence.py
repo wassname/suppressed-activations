@@ -839,3 +839,55 @@ _prev = _j5.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-ma
 for _tag in _REPLAYS:
     assert _mxq["rows"][_tag]["generation"]["token_ids"] == \
         _prev[_tag]["generation"]["token_ids"], f"{_tag}: replay drift"
+
+# %% [markdown]
+# ### Full-support variant (rank 49/47 vs rank 4) — artifact-derived, 032306
+#
+# The same increment operator with the SVD rank = the full tolerance support (the
+# runtime record asserted 49 dog / 47 ant). Compared against the PAIRED rank-4 rows
+# (byte-exact replays). C0 coverage is HONEST: attenuation + increment DOG only —
+# there are NO full/ant C0 rows.
+
+# %%
+import json as _j6
+_FSDIR = _ROOT / "slop" / "research" / "demo-evidence" / "full-support"
+_fmx = _j6.load(open(_FSDIR / "matrix_result.json"))
+_h_ok = _h5.sha256((_BW / "out" / "2026-09-13_bridge-matrix-032306" /
+                    "matrix_result.json").read_bytes()).hexdigest()
+assert _h5.sha256((_FSDIR / "matrix_result.json").read_bytes()).hexdigest() == _h_ok
+assert _fmx["outcome"] == "PASS"
+_FSJ = {
+ "dog-full-h20": ("4", "8", "spider", "ANSWER FLIP + CONTRADICTION: 4 with spider anatomy (four pairs/eight limbs); no dog identity"),
+ "dog-full-h8": ("8", "8", "spider", "NO TRANSFER: 8/spider; 'arachids' repetition; short"),
+ "ant-full-h20": ("4", "8", "spider", "CROSS-DONOR NUMERAL FLIP: 4 = the dog answer on the ant prompt; wrong for BOTH ant-6 and source-8; the numeral alone is NOT dog-concept evidence"),
+ "ant-full-h8": ("8", "8", "spider", "NO TRANSFER: 8/spider + offtopic consent/self-regulation text"),
+ "dog-inc-h20": ("8", "8", "spider", "rank-4 comparison arm: coherent spider"),
+ "dog-inc-h8": ("8", "8", "spider", "rank-4 arm: mild repetition (r2 .117647)"),
+ "ant-inc-h20": ("8", "8", "spider", "rank-4 arm: coherent spider"),
+ "ant-inc-h8": ("8", "8", "spider", "rank-4 arm: coherent spider"),
+}
+for _tag in sorted(k for k in _fmx["controls"] if k in _fmx["rows"] and "-C0" not in k):
+    _row = _fmx["rows"][_tag]
+    _c = _fmx["controls"][_tag]
+    _ids = _row["generation"]["token_ids"]
+    _r2 = repetition_bigram_fraction(_ids, _sids)
+    _exp, _init, _ident, _judge = _FSJ[_tag]
+    _per = _row.get("persistence", {})
+    _site = _row["config"]["intervention_layer"][0]
+    display(_Markdown(
+        f"### {_tag}\n\n"
+        f"Initial answer **{_init}** · final answer **{_init.split()[-1] if _init else '?'}** · "
+        f"identity {_ident} · site h{_site} · runtime support {_per.get('basis_support')} · "
+        f"effective rank {_per.get('effective_rank')}\n\n"
+        f"Judgment: {_judge}\n\n"
+        f"vs the PAIRED rank-4 row: {('dog' if 'dog' in _tag else 'ant')}-inc-h{max(8, 20 if 'h20' in _tag else 8)}\n\n"
+        f"tokens {len(_ids)} · EOS {sum(1 for t in _ids if t == _TOK.eos_token_id)} · "
+        f"capped {len(_ids) == 128} · canonical r2 {_r2:.6f} · prefill edit norm "
+        f"{next((e['applied_norm_after_dtype'] for e in _row.get('intervention_record', {}).get('1', {}).get('replacement_trace', []) if e['phase'] == 'pre differentialfill'), 'n/a')}\n\n"
+        f"<details><summary>Full continuation</summary>\n\n```text\n{_c['full_text']}\n```\n\n"
+        f"[Per-row record](research/demo-evidence/full-support/rows/{_tag}.md) · "
+        f"source sha256 {_h_ok[:12]}…</details>"))
+print("C0 COVERAGE (honest): dog attenuation + dog increment ONLY — NO full/ant C0 rows exist.")
+print("Reading: the FULL support does NOT transfer identity; it produces answer flips/"
+      "contradictions (the numeral alone is not dog-concept evidence). The rank-4 arm "
+      "stays coherent-spider. The h20 transfers live ONLY in the attenuation rows.")
