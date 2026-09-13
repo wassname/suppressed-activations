@@ -715,3 +715,44 @@ print("Reading: with the same basis/site/C and fixed basis/site/C (the donor anc
       "lower damage, NOT transfer (no answer 4, no dog identity). The anchor change "
       "alters both direction and size of the injected vector; they are not separated "
       "in this control.")
+
+# %% [markdown]
+# ### Bridge matrix: 8 nonzero rows + C0 (h1/h20 × selectors; artifact-derived facts)
+#
+# Read from the saved matrix outputs (no recomputation of generations). Gates: both
+# h20 replay rows byte-exact vs the 2026-09-10 snapshots. No row hit the 128 cap
+# (all EOS) — no runaway repetition; semantic correctness is judged per row below.
+
+# %%
+import json as _j3
+_mx = _j3.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-matrix" / "matrix_result.json"))
+import re as _re
+for _tag in sorted(k for k in _mx["controls"] if k in _mx["rows"]):
+    _c = _mx["controls"][_tag]
+    _row = _mx["rows"][_tag]
+    _text = _c["full_text"]
+    _ids = _row["generation"]["token_ids"]
+    _r2 = repetition_bigram_fraction(_ids, _sids)
+    _m = _re.search(r"\b(\d+)\b", _text[:40])
+    _init = _m.group(1) if _m else "?"
+    _ident = [a for a in ("spider", "dog", "ant") if a in _text.lower()]
+    _note = {"dog-att-h20": "historical success reproduced (byte-exact); 'short history' weakness",
+             "dog-att-h8": "IDENTITY changed to dog but the answer STAYED 8 (answer-source/name-target mismatch); dubious 'most popular choice' claim",
+             "ant-att-h8": "spider identity with FALSE biology (spiders called hardworking social insects with colonies)",
+             "ant-inc-h8": "dubious 'more or fewer legs' biology",
+             "dog-inc-h20": "spider; 'insects' = the web prey, not an identity error",
+             "ant-att-h20": "historical success reproduced (byte-exact)",
+             "dog-inc-h8": "short; dubious 'more or fewer legs'",
+             "ant-inc-h20": "spider, clean"}.get(_tag, "C0 clean baseline")
+    display(_Markdown(
+        f"### {_tag}\n\n"
+        f"Initial answer **{_init}** · identity mentions {_ident} · capped: "
+        f"{len(_ids) == 128} · canonical r2 {_r2:.3f} · EOS "
+        f"{sum(1 for t in _ids if t == _TOK.eos_token_id)}\n\n"
+        f"Judgment: {_note}\n\n"
+        f"<details><summary>Full output</summary>\n\n```text\n{_text}\n```\n\n"
+        f"Source: [runner row](research/demo-evidence/bridge-matrix/ per run.md; "
+        f"batchwork out/2026-09-13_bridge-matrix-193115/{_tag}/result.json)\n\n</details>"))
+print("Artifact-derived only: initial answer / identity / contradictions / canonical "
+      "r2 / EOS / cap per row; the h20 rows transfer (4/dog, 6/ant, byte-exact), the "
+      "h8 rows change identity or biology WITHOUT a consistent transferred answer.")
