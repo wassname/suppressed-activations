@@ -781,3 +781,52 @@ print("Summary: ONLY the two attenuation/h20 rows transfer (byte-exact historica
       "the cap; canonical r2 max .117647 (dog-inc-h8 mild repetition). The separate "
       "unhooked-trajectory numeric check remains UNRESOLVED (hash-only evidence); "
       "trace.target is a projected donor residual, NOT the injected template vector.")
+
+# %% [markdown]
+# ### Window-shift rows (q4) — artifact-derived, corrected per the supervisor's read
+#
+# The four question-window rows (selection window moved to the last-4 QUESTION tokens)
+# plus their comparison arms. Roles: 4 wrapper replays (the same code path, byte-exact),
+# 4 q4 new rows, 4 C0 controls (configs inspected: the att C0 rows are site-tied anchor,
+# the inc C0 rows anchor 20). NO row transfers the donor answer; the q4 shift introduced
+# factual errors/repetition instead.
+
+# %%
+import json as _j4
+import re as _re4
+_mxq = _j4.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-matrix" / "matrix_result.json"))
+_QJUDGE = {
+ "dog-att-h20": ("4", "TRANSFER (replay)", "byte-exact vs the 2026-09-10 snapshot; 'short history' questionable"),
+ "ant-att-h20": ("6", "TRANSFER (replay)", "byte-exact; 'hardworking' anthropomorphism"),
+ "dog-att-h8": ("8", "no transfer", "identity dog / answer 8 mismatch; invented male; vague popularity claim"),
+ "ant-att-h8": ("8", "no transfer", "spider identity + FALSE biology (hardworking social insects with colonies)"),
+ "dog-inc-h20": ("8", "no transfer", "coherent spider; 'two pairs of legs for each side' = 4/side = 8 — CORRECT, not flagged"),
+ "ant-inc-h20": ("8", "no transfer", "coherent spider"),
+ "dog-inc-h8": ("8", "no transfer", "mild repetition (canonical r2 .117647): 'The animal is the spider... It is a spider.'"),
+ "ant-inc-h8": ("8", "no transfer", "dubious biology ('more or fewer legs'); 'legs manipulate silk' plausible (spinnerets produce silk)"),
+}
+for _tag in sorted(_k for _k in _mxq["controls"] if _k in _mxq["rows"] and "-C0" not in _k):
+    _c = _mxq["controls"][_tag]
+    _row = _mxq["rows"][_tag]
+    _ids = _row["generation"]["token_ids"]
+    _r2 = repetition_bigram_fraction(_ids, _sids)
+    _exp, _role, _judge = _QJUDGE[_tag]
+    _capped = len(_ids) == 128
+    display(_Markdown(
+        f"### {_tag} — role: {'wrapper REPLAY' if 'att' in _tag else 'q4 NEW row'}\n\n"
+        f"Initial answer **{_exp}** — {_role} · capped {_capped} · canonical r2 {_r2:.6f} · "
+        f"EOS {sum(1 for t in _ids if t == _TOK.eos_token_id)}\n\n"
+        f"Judgment: {_judge}\n\n"
+        f"<details><summary>Full continuation</summary>\n\n```text\n{_c['full_text']}\n```\n\n"
+        f"Per-row record: [research/demo-evidence/bridge-matrix/rows/{_tag}.md]"
+        f"(research/demo-evidence/bridge-matrix/rows/{_tag}.md)\n\n</details>"))
+_c0_tags = sorted(_k for _k in _mxq["controls"] if "-C0" in _k and "q4" not in _k)
+print("C0 controls (configs inspected): dog-att-h20-C0 (site-tied anchor), "
+      "dog-att-h8-C0 / dog-inc-h20-C0 / dog-inc-h8-C0 (anchor 20) — all zero-edit, "
+      "all generation == their paired Base (byte-equal).")
+print("Summary: the window shift FAILED to improve the two development pairs and "
+      "INTRODUCED factual errors (dog-q4-h8 'mammals are bipedal' FALSE + 'must be "
+      "fed' extraneous) and repetition (ant-q4-h8 repeats a whole paragraph twice, "
+      "capped). The wrapper-dilution hypothesis is NOT generally disproved. No answer "
+      "transfer supported in the q4 rows; 'no effect' NOT supported either (off-target "
+      "worse).")
