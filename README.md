@@ -153,6 +153,8 @@ Input (`repr`, unchanged):
 'Fact: The number of legs on the animal that spins webs is '
 ```
 
+We swap `spider` with `dog` in the last 3 tokens.
+
 Readout after intervention (“what it is thinking but not saying”):
 
 ```python
@@ -206,6 +208,100 @@ changes 72% of the residual norm, 21 of 256 matched-random interventions have
 an equal or larger effect, and a `2 + 2` target produces the same first-token change. See
 the [executed notebook](nbs/demo.ipynb) and [fixed run
 report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
+
+## Historical full continuations: the Question family (dog and ant)
+
+<!-- New prose in this section written by PI/GLM-5p3-flash, 2026-09-13, on the user's
+request. Exact strings are byte-verbatim snapshots; see slop/research/demo-evidence/. -->
+
+The C=4 demo above is one experiment. This section shows a different, earlier one: the
+Question-form runs at layer 20 (h20), where the intervention changed not just the first
+token but the whole continuation. These rows are from the span-correction replay
+(`out/2026-09-10_replay-C1.5-legs-*/` in the batchwork worktree); exact strings, token
+IDs, settings and source hashes are snapshotted in
+[slop/research/demo-evidence/](slop/research/demo-evidence/manifest.md).
+
+Settings, verified from the saved configs: Qwen3.5-4B, rank 8, detector layers 18/20/32,
+intervention at layer 20, three token positions, strength 1.5. The applied edit is
+`h' = h + C(Δ − U Uᵀ h)` with no component-norm matching and no residual renormalization
+in the executed branch. The source question is never changed; the donor prompt is used
+only to extract the intervention component. The `<think>\n\n</think>` block in the
+prompt is part of the input template, not generated reasoning.
+
+### Base (source prompt, no intervention)
+
+Input (full rendered prompt, `repr`, special tokens included, trailing space at the end):
+
+```text
+'<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal that spins webs have?\nAnswer: '
+```
+
+Generation (58 tokens, verbatim, ends with `<|im_end|>`):
+
+```text
+8
+
+The spider is an arachnid characterized by its eight legs and two main body segments. It is famous for spinning intricate webs to catch prey and protect its eggs. Despite their reputation for fear, most spiders are harmless to humans and play a vital role in controlling insect populations.<|im_end|>
+```
+
+### Dog donor
+
+The source prompt above is repeated unchanged for every condition. The intervention
+component is extracted from the dog prompt (shown collapsed; same template, different
+question):
+
+<details>
+<summary>Donor prompt (input only, not shown to the model as a question)</summary>
+
+```text
+"<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal that barks and is called man's best friend have?\nAnswer: "
+```
+
+</details>
+
+Generation after intervention (65 tokens, verbatim, ends with `<|im_end|>`):
+
+```text
+4
+
+The animal is a dog, which is a domesticated canine known for its loyalty and ability to understand human commands. Dogs typically have a short history of being raised by humans, often serving as companions, hunters, or working partners. They are generally friendly and adaptable, making them popular family pets around the world.<|im_end|>
+```
+
+### Ant donor
+
+Same source prompt, component extracted from the ant prompt:
+
+<details>
+<summary>Donor prompt (input only)</summary>
+
+```text
+'<|im_start|>user\nAnswer the question with the answer first. Then describe the animal in three sentences.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nQuestion: How many legs does the animal that lives in colonies and follows pheromone trails have?\nAnswer: '
+```
+
+</details>
+
+Generation after intervention (65 tokens, verbatim, ends with `<|im_end|>`):
+
+```text
+6
+
+The ant is a small, hardworking insect known for its ability to carry objects much larger than itself. These social creatures live in vast colonies and communicate with one another using chemical signals called pheromones. Despite their tiny size, ants are incredibly resilient and can be found in almost every habitat on Earth.<|im_end|>
+```
+
+### Limitations
+
+- These rows are selected illustrations from a layer and strength exploration; the runs
+  were chosen after the fact as working examples, not drawn as a held-out sample.
+- The frozen fresh-set evaluation for this candidate scored 6/12 complete successes
+  (random-donor control: 1/12). That is the measured rate on those 12; it is not a
+  general success rate, and these replay rows are development-exposed and are not
+  pooled into it.
+- The dog answer's "short history" sentence is factually weak (dog domestication
+  predates most recorded history).
+- This layer-20 family is a different experiment from the C=4 demo above (layer-26,
+  single-position patch) and from the later layer-1 early-intervention work; the
+  results are not pooled across families.
+- Improving the reliability of the transfer is open work.
 
 ## Limits
 
