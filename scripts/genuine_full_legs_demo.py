@@ -85,8 +85,10 @@ def main():
             f"{donor} donor input IDs differ from 1230"
         preflight[f"{donor}-{arm}"] = {
             "source_prompt_repr": repr(src_p), "target_prompt_repr": repr(tgt_p),
-            "source_ids_sha256": hashlib.sha256(json.dumps(src_r["input_ids"]).encode()).hexdigest(),
-            "donor_ids_sha256": hashlib.sha256(json.dumps(tgt_r["input_ids"]).encode()).hexdigest(),
+            "source_ids_sha256": hashlib.sha256(json.dumps(
+                src_r["input_ids"].flatten().tolist()).encode()).hexdigest(),
+            "donor_ids_sha256": hashlib.sha256(json.dumps(
+                tgt_r["input_ids"].flatten().tolist()).encode()).hexdigest(),
             "equals_1230": True}
         print(f"preflight {donor}-{arm}: source+donor input IDs EQUAL 1230 OK")
     result["preflight"] = preflight
