@@ -208,3 +208,25 @@ cut is SIGN INVERSION, not an energy drop. Donor input differs (17/24, 20/24). R
 before/after values for all pairs in per_position_class_counts.json (v2). No claim
 about raw energy "removed" — the comparisons are last-vs-prev and last-vs-start3
 explicitly. -- PI[glm-5p3-flash]
+
+## h20-specificity discriminator DRAFT (proposal only, no GPU/queue)
+
+Question: are the h1-selected directions the SAME semantic directions that made the
+h20 historical rows work, or a different selection that merely shares the site?
+
+Candidate discriminator with ACTUAL source formulas, CPU first:
+1. Recompute via the production construction (no new method): the h1 basis = the
+   saved artifacts (basis_*_C1.5.pt, joint 16); the h20 basis = re-run the SAME
+   construction with intervention_layer=20 on the same bank residuals (CPU) — or
+   reuse the h20 run's saved basis if a snapshot exists.
+2. Compare: (a) principal angles between the h1 joint span (16-dim) and the h20 joint
+   span on the same prompt/pairs — report per-position cosines and the
+   contained-energy fraction ||P_h20 h||^2 / ||h||^2 for the h1-selected donor
+   directions v25; (b) whether the h1-selected TOKEN SET overlaps the h20-selected
+   set under the production score (sc computed at both layers from the same bank).
+3. Semantic readout: for the overlapping vs h20-only directions, the normalized
+   readout at the animal tokens (Spider/Dog/4/8) — do the h20-only directions carry
+   the animal identity that h1 misses?
+
+Existing formulas only: increment_scores + subspace_from_scores + joint_support; no
+new score, no dose/site grid. One bounded batch IF reviewed. -- PI[glm-5p3-flash]
