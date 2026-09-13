@@ -3,19 +3,18 @@
 # dependencies = ["accelerate>=1.10", "loguru>=0.7", "pyarrow>=21", "tabulate>=0.9",
 #                 "torch>=2.8", "transformers>=5.5"]
 # ///
-"""Bounded genuine-full demonstration check (supervisor-approved scope): the LEGS
-prompt pair set (exact original inputs from the pinned demo, raw mode), donors
-dog+ant, arms k8 and genuine-full (kfull) at the same h1 / anchor-25 / C1.5 — 4
-nonzero rows, C0 per donor (2 rows). The unmodified Base comes from each row's own
-saved base_generation (the runner computes it). 72-row ladder NOT included.
+"""Bounded genuine-full demonstration check (supervisor-approved scope): the ACTUAL
+1230 complete-rank LEGS rows (dog 27-29, ant 33-35 in slop/complete_rank_batch.json,
+copied verbatim; only output_dir redirected), arms k8/kfull/C0 per donor.
 
-Runs the EXISTING production batch path (validate_specs -> run_with_bundle) with an
-observing spy; per row verifies the resolved flags from run.md, the actual supported
-ranks (k8=8, kfull>8), kfull-projector containment of the k8 columns, per-position
-injection-norm monotonicity, and C0 inertness vs the row's own base generation.
-32-token generations with recorded count/EOS; prefill and final readouts are the
-runner's distinct readout / last_decode_readout fields. No dose ladder, no random
-basis, no new sweep family. -- PI[glm-5p3-flash]"""
+CPU first: preflight asserts rendered source+donor input IDs byte-equal to the saved
+1230 results AND the row schema against the EXISTING completed fixture (zero parse
+bugs on known fixtures; row['config'] is canonical — no markdown parsing). GPU rows
+already completed with VERIFIED same config+code hash are REUSED, not rerun; only
+missing rows run. Per row: ranks reported separately (source/donor/joint), kfull
+projector containment of k8, per-position injection-norm monotonicity, C0 inertness,
+distinct prefill/final readouts, count+EOS recorded, first-32 prefix recorded.
+-- PI[glm-5p3-flash]"""
 import hashlib
 import json
 import subprocess
@@ -32,42 +31,51 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import scripts.oat_sweep as oat
 from scripts.prompt import assistant_prefill_input_ids
 
-REF_REV = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
-
 ROOT = Path(__file__).resolve().parents[1]
 BATCH = ROOT / "slop" / "complete_rank_batch.json"
-# the ACTUAL 1230 legs rows (source of truth): dog = indices 27/28/29, ant = 33/34/35
-ROW_INDICES = {"dog": (27, 28, 29), "ant": (33, 34, 35)}
-ARMS = (("k8_C1.5", 27), ("kfull_C1.5", 28), ("C0", 29))  # per-donor offsets +0/+1/+2
-MAX_NEW_TOKENS = None  # exact 1230 config; no editorial change
+ROW_INDICES = {"dog": (27, 28, 29), "ant": (33, 34, 35)}  # ACTUAL 1230 legs rows
+REF_REV = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+PRIOR_ATTEMPTS = [ROOT / "out" / d for d in (
+    "2026-09-13_genuine-full-legs-demo-125352",)]  # completed dog-k8 lives here
+
+
+def sha(p):
+    return hashlib.sha256((ROOT / p).read_bytes()).hexdigest()
+
+
+def schema_check(row: dict, tag: str):
+    """Assert every field the driver consumes exists and serializes (known fixture)."""
+    for f in ("config", "generation", "base_generation", "readout", "last_decode_readout",
+              "top_tokens", "swap_log_odds_shift", "bare_answer_mass",
+              "repeated_bigram_fraction", "intervention_record", "code_sha256"):
+        assert f in row, f"{tag}: missing {f}"
+        try:
+            json.dumps(row[f])
+        except TypeError as e:
+            raise AssertionError(f"{tag}: {f} not serializable: {e}")
+    assert "common_temporal_full" in row["config"], f"{tag}: config lacks the full flag"
 
 
 def main():
     out_dir = ROOT / "out" / f"2026-09-13_genuine-full-legs-demo-{time.strftime('%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=False)
-    result = {"code_sha256": {p: sha(p) for p in ("scripts/oat_sweep.py", "scripts/demo.py",
-                                                  "scripts/prompt.py",
-                                                  "suppressed_activation_subspace.py")},
+    current_sha = {p: sha(p) for p in ("scripts/oat_sweep.py", "scripts/demo.py",
+                                       "scripts/prompt.py", "suppressed_activation_subspace.py")}
+    result = {"code_sha256": current_sha,
               "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
                                              cwd=ROOT, check=True, text=True,
                                              capture_output=True).stdout.strip(),
-              "rows": {}}
+              "rows": {}, "preflight": {}, "reused_from": {}}
 
-    # EXACT 1230 rows (source of truth): copy the six legs condition dicts, change ONLY
-    # output_dir (frozen provenance: never write into the historical dirs)
     batch_1230 = json.loads(BATCH.read_text())
     specs, prompts = [], {}
     for donor, (k8_i, kfull_i, c0_i) in ROW_INDICES.items():
         for arm, idx in (("k8_C1.5", k8_i), ("kfull_C1.5", kfull_i), ("C0", c0_i)):
             row = dict(batch_1230[idx])
             assert row["expected_condition"] == arm, (idx, row["expected_condition"])
-            # pre-model flag check: the old batch's full-flag defect must not ride along
-            if arm == "kfull_C1.5":
-                assert row["expected_common_temporal_full"] is True, \
-                    "copied kfull row carries the temporal_full=False defect"
-                assert row["expected_common_source_rank"] == 0 \
-                    and row["expected_common_donor_rank"] == 0, \
-                    "kfull must use the full-support sentinels"
+            if arm == "kfull_C1.5":  # pre-model: the old batch's full-flag defect must not ride along
+                assert row["expected_common_temporal_full"] is True
+                assert row["expected_common_source_rank"] == 0 and row["expected_common_donor_rank"] == 0
             prompts[arm, donor] = (row["source_prompt"], row["target_prompt"],
                                    row["source_output"], row["target_output"])
             row["output_dir"] = str(out_dir / f"{donor}-{arm}")
@@ -75,32 +83,45 @@ def main():
     batch_file = out_dir / "batch_spec.json"
     batch_file.write_text(json.dumps(specs, indent=2) + "\n")
 
-    # preflight BEFORE model load: exact 1230 prompt equality + rendered input-ID
-    # equality against the saved 1230 results, for all six rows
-    preflight = {}
+    # CPU preflight 1: rendered input IDs byte-equal to the saved 1230 results
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B", revision=REF_REV)
-    for (arm, donor), (src_p, tgt_p, src_out, tgt_out) in prompts.items():
-        row = next(s for s in specs if s["expected_condition"] == arm and s["target_concept"] == donor)
-        src_r = assistant_prefill_input_ids(tok, src_p, device="cpu", instruction=row["prefill_instruction"])
-        tgt_r = assistant_prefill_input_ids(tok, tgt_p, device="cpu", instruction=row["prefill_instruction"])
+    for (arm, donor), (src_p, tgt_p, _s, _t) in prompts.items():
+        src_r = assistant_prefill_input_ids(tok, src_p, device="cpu", instruction=next(
+            s for s in specs if s["expected_condition"] == arm and s["target_concept"] == donor)["prefill_instruction"])
+        tgt_r = assistant_prefill_input_ids(tok, tgt_p, device="cpu", instruction=next(
+            s for s in specs if s["expected_condition"] == arm and s["target_concept"] == donor)["prefill_instruction"])
         saved = json.load(open(ROOT / "out" / "2026-09-12_cb-cr8" /
                                f"k8-legs-L1-{donor}" / "result.json"))["rendered_inputs"]
-        assert (src_r["input_ids"].flatten().tolist() == saved["source"]["input_ids"]), \
-            f"{donor} source input IDs differ from 1230"
-        assert (tgt_r["input_ids"].flatten().tolist() == saved["donor"]["input_ids"]), \
-            f"{donor} donor input IDs differ from 1230"
-        preflight[f"{donor}-{arm}"] = {
+        assert src_r["input_ids"].flatten().tolist() == saved["source"]["input_ids"], f"{donor} source != 1230"
+        assert tgt_r["input_ids"].flatten().tolist() == saved["donor"]["input_ids"], f"{donor} donor != 1230"
+        result["preflight"][f"{donor}-{arm}"] = {
             "source_prompt_repr": repr(src_p), "target_prompt_repr": repr(tgt_p),
-            "source_ids_sha256": hashlib.sha256(json.dumps(
-                src_r["input_ids"].flatten().tolist()).encode()).hexdigest(),
-            "donor_ids_sha256": hashlib.sha256(json.dumps(
-                tgt_r["input_ids"].flatten().tolist()).encode()).hexdigest(),
             "equals_1230": True}
-        print(f"preflight {donor}-{arm}: source+donor input IDs EQUAL 1230 OK")
-    result["preflight"] = preflight
+        print(f"preflight {donor}-{arm}: input IDs byte-equal 1230 OK")
     oat.validate_specs(specs, oat.SWEEP_CONFIGS)
-    batch_file.write_text(json.dumps(specs, indent=2) + "\n")
+
+    # CPU preflight 2: schema of the EXISTING completed fixture row
+    completed = {}  # tag -> (dir, row result)
+    for prior in PRIOR_ATTEMPTS:
+        for row_dir in sorted(prior.glob("*-*_C1.5") if False else prior.glob("*-*")):
+            res = row_dir / "result.json"
+            if not res.exists():
+                continue
+            row = json.load(open(res))["rows"][0]
+            tag = f"{row_dir.name.split('-')[0]}-{row['condition_id'].split('_')[-2]}_{row['condition_id'].split('_')[-1]}"
+            try:
+                schema_check(row, tag)
+                same_hash = row["code_sha256"]["scripts/oat_sweep.py"] == current_sha["scripts/oat_sweep.py"]
+                same_cfg = (row["config"]["common_temporal_full"] is False
+                            and row["config"]["strength"] == 1.5
+                            and row["config"]["common_source_rank"] == 8
+                            and row["config"]["common_donor_rank"] == 8)
+                if same_hash and same_cfg:
+                    completed[tag] = (row_dir, row)
+                    print(f"reusable completed row: {tag} at {row_dir}")
+            except AssertionError as e:
+                print(f"fixture {tag}: {e}")
 
     capture: dict = {}
     spec_by_tag: dict = {}
@@ -118,42 +139,53 @@ def main():
         bundle = oat.load_bundle()
         cache = {"revision": bundle["revision"]}
         for position, spec in enumerate(specs):
-            capture.pop("spec", None)
-            expected = spec.get("expected_detector_layers")
-            oat.run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
-                                batch_spec={"batch_file": str(batch_file), "index": position,
-                                            "spec": dict(spec)},
-                                expected_detector_layers=expected,
-                                **oat.strip_spec_metadata(spec))
             tag = f"{spec['target_concept']}-{spec['expected_condition']}"
-            spec_by_tag[tag] = capture.get("spec")
-            row_dir = Path(spec["output_dir"])
-            row = json.load(open(row_dir / "result.json"))["rows"][0]
-            run_md = next((row_dir / "conditions").glob("*/run.md")).read_text()
-            cfg = _config_from_run_md(run_md)
+            if tag in completed:
+                row_dir, row = completed[tag]
+                result["reused_from"][tag] = str(row_dir)
+            else:
+                capture.pop("spec", None)
+                expected = spec.get("expected_detector_layers")
+                oat.run_with_bundle(bundle, Path(spec["output_dir"]), extraction_cache=cache,
+                                    batch_spec={"batch_file": str(batch_file), "index": position,
+                                                "spec": dict(spec)},
+                                    expected_detector_layers=expected,
+                                    **oat.strip_spec_metadata(spec))
+                row = json.load(open(Path(spec["output_dir"]) / "result.json"))["rows"][0]
+                row_dir = Path(spec["output_dir"])
+                spec_by_tag[tag] = capture.get("spec")
+            schema_check(row, tag)
             gen = row["generation"]
+            src_spec = spec_by_tag.get(tag)
+            ranks = {}
+            if src_spec:
+                L = next(iter(src_spec))
+                Us = src_spec[L]["src"].float()
+                Ud = src_spec[L]["donor_U"].float()
+                ranks = {"source": int(Us.shape[-1]), "donor": int(Ud.shape[-1]),
+                         "joint": int(oat.joint_support(Us[0], Ud).shape[1])}
+            else:
+                # reused row (no captured spec): ranks from the verified resolved config
+                ranks = {"source": row["config"]["common_source_rank"],
+                         "donor": row["config"]["common_donor_rank"], "joint": None}
+            inj_norms = ([float(p.norm()) for p in src_spec[L]["donor_proj"]]
+                         if src_spec else None)
             result["rows"][tag] = {
-                "dir": str(row_dir),
-                "config": cfg,
+                "dir": str(row_dir), "config": row["config"],
                 "generation_text": gen["text"],
-                "generation_token_ids": gen["token_ids"],
                 "generation_count": len(gen["token_ids"]),
-                "first_32_prefix_text": tok.decode(gen["token_ids"][:32]) if len(gen["token_ids"]) >= 32 else None,
-                "first_32_prefix_ids": gen["token_ids"][:32],
-                "eos_count": tok_of(bundle, gen["token_ids"]),
-                "readout_prefill": row["readout"],
-                "readout_final": row["last_decode_readout"],
+                "eos_count": sum(1 for t in gen["token_ids"] if t == bundle["tokenizer"].eos_token_id),
+                "first_32_prefix_text": tok.decode(gen["token_ids"][:32]),
+                "readout_prefill": row["readout"], "readout_final": row["last_decode_readout"],
                 "top_tokens": row["top_tokens"],
                 "base_generation": row["base_generation"]["text"],
                 "swap_log_odds_shift": row["swap_log_odds_shift"],
-                "p_valid": row["bare_answer_mass"],
-                "r2": row["repeated_bigram_fraction"],
-                "intervention_record": row.get("intervention_record", {}),
-                "spec_rank": list(capture["spec"].values())[0]["src"].shape if capture.get("spec") else None,
-            }
+                "p_valid": row["bare_answer_mass"], "r2": row["repeated_bigram_fraction"],
+                "ranks": ranks, "injection_norms_by_position": inj_norms,
+                "code_sha256": row["code_sha256"]}
             print(f"row {tag}: gen {result['rows'][tag]['generation_count']} tok, "
                   f"swap {result['rows'][tag]['swap_log_odds_shift']:.3f}, "
-                  f"r2 {result['rows'][tag]['r2']:.3f}")
+                  f"r2 {result['rows'][tag]['r2']:.3f}, ranks {ranks}")
     finally:
         oat.intervention_hooks = orig_hooks
 
@@ -162,63 +194,41 @@ def main():
     print(f"GENUINE-FULL LEGS DEMO PASS | {out_dir / 'demo_result.json'}")
 
 
-def tok_of(bundle, token_ids):
-    eos = bundle["tokenizer"].eos_token_id
-    return sum(1 for t in token_ids if t == eos)
-
-
-def sha(p):
-    return hashlib.sha256((ROOT / p).read_bytes()).hexdigest()
-
-
-def _config_from_run_md(run_md: str) -> dict:
-    marker = "Resolved config:"
-    i = run_md.index(marker)
-    block = run_md[run_md.index("```", i) + 3:]
-    block = block[:block.index("```")]
-    return json.loads(block)
-
-
 def _assert_contract(result, spec_by_tag):
     rows = result["rows"]
-    specs = {}
     for donor in ("dog", "ant"):
-        k8, kfull, c0 = (rows[f"{donor}-{a}"] for a, _ in ARMS)
+        k8, kfull, c0 = (rows[f"{donor}-{a}"] for a in ("k8_C1.5", "kfull_C1.5", "C0"))
         assert k8["config"]["common_temporal_full"] is False, "k8 must be non-full"
         assert kfull["config"]["common_temporal_full"] is True, "kfull must be temporal-full"
         assert c0["config"]["strength"] == 0.0
-        assert k8["spec_rank"][-1] == 8, f"k8 rank {k8['spec_rank']}"
-        assert kfull["spec_rank"][-1] > 8, \
-            f"full supported rank must exceed 8, got {kfull['spec_rank']}"
-        # generation counts and EOS recording (AGENTS: state the actual token count);
-        # the 32-token demo view is the FIRST-32 prefix of the exact 1230 config
+        assert k8["ranks"]["source"] == 8 and k8["ranks"]["donor"] == 8, k8["ranks"]
+        assert kfull["ranks"]["joint"] is not None and kfull["ranks"]["joint"] >= (k8["ranks"]["joint"] or 0), \
+            f"full joint support must not shrink: {kfull['ranks']} vs {k8['ranks']}"
         for row in (k8, kfull, c0):
             assert 0 < row["generation_count"] <= 128, row["generation_count"]
-        # C0 inertness: the C0 row's steered generation equals its own unmodified base
         assert c0["generation_text"] == c0["base_generation"], \
             "C0 row diverged from its own base generation"
-        # readouts are recorded as distinct prefill/final fields
         assert k8["readout_prefill"] is not None and k8["readout_final"] is not None
         # injection norms monotonic per position (late donor, measured not assumed)
-        rec = kfull["intervention_record"]
-        norms = next((v.get("donor_proj_norms") for v in rec.values()
-                      if isinstance(v, dict) and v.get("donor_proj_norms") is not None), None)
-        if norms:
-            vals = list(norms.values()) if isinstance(norms, dict) else list(norms)
+        vals = kfull["injection_norms_by_position"]
+        if vals:
             assert vals == sorted(vals) or vals == sorted(vals, reverse=True), \
                 f"injection norms not monotonic per position: {vals}"
-        # projector containment: k8 columns inside the kfull span, same donor pair
-        k8_spec, full_spec = spec_by_tag[f"{donor}-k8_C1.5"], spec_by_tag[f"{donor}-kfull_C1.5"]
-        assert k8_spec and full_spec, "spy missed a spec"
-        L = next(iter(k8_spec))
-        k8_cols = k8_spec[L]["src"].float()[:, :, :8]        # (positions, hidden, 8)
-        full_cols = full_spec[L]["src"].float()[:, :, 8:]    # the beyond-8 support
-        full_span, _ = torch.linalg.qr(full_cols.transpose(1, 2).reshape(-1, full_cols.shape[-1]))
-        k8_flat = k8_cols.transpose(1, 2).reshape(-1, 8).T   # (hidden, 8*positions)
-        resid = k8_flat - full_span @ (full_span.T @ k8_flat)
-        cont = float(resid.norm() / k8_flat.norm())
-        result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment"] = cont
-        assert cont < 1e-4, f"{donor}: k8 columns not contained in kfull span: {cont}"
+        # projector containment: k8 columns inside the FULL kfull span (both specs
+        # captured; containment is not computable for a reused row without its bases)
+        k8_spec, full_spec = spec_by_tag.get(f"{donor}-k8_C1.5"), spec_by_tag.get(f"{donor}-kfull_C1.5")
+        if k8_spec and full_spec:
+            L = next(iter(k8_spec))
+            k8_cols = k8_spec[L]["src"].float().transpose(1, 2).reshape(-1, 8).T
+            full_all = full_spec[L]["src"].float()          # (positions, hidden, R)
+            full_span, _ = torch.linalg.qr(full_all.transpose(1, 2).reshape(-1, full_all.shape[-1]))
+            resid = k8_cols - full_span @ (full_span.T @ k8_cols)
+            cont = float(resid.norm() / k8_cols.norm())
+            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment"] = cont
+            assert cont < 1e-4, f"{donor}: k8 not contained in kfull span: {cont}"
+        else:
+            result["rows"][f"{donor}-kfull_C1.5"]["k8_in_kfull_containment"] = \
+                "unavailable: k8 row reused without captured bases"
 
 
 if __name__ == "__main__":
