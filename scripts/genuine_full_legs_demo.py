@@ -36,7 +36,9 @@ BATCH = ROOT / "slop" / "complete_rank_batch.json"
 ROW_INDICES = {"dog": (27, 28, 29), "ant": (33, 34, 35)}  # ACTUAL 1230 legs rows
 REF_REV = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 PRIOR_ATTEMPTS = [ROOT / "out" / d for d in (
-    "2026-09-13_genuine-full-legs-demo-125352",)]  # completed dog-k8 lives here
+    "2026-09-13_genuine-full-legs-demo-125352",  # completed dog-k8 (verified reuse)
+    "2026-09-13_genuine-full-legs-demo-130419",  # completed dog-kfull/C0, ant rows
+)]
 
 
 def sha(p):
@@ -201,9 +203,20 @@ def _assert_contract(result, spec_by_tag):
         assert k8["config"]["common_temporal_full"] is False, "k8 must be non-full"
         assert kfull["config"]["common_temporal_full"] is True, "kfull must be temporal-full"
         assert c0["config"]["strength"] == 0.0
-        assert k8["ranks"]["source"] == 8 and k8["ranks"]["donor"] == 8, k8["ranks"]
-        assert kfull["ranks"]["joint"] is not None and kfull["ranks"]["joint"] >= (k8["ranks"]["joint"] or 0), \
-            f"full joint support must not shrink: {kfull['ranks']} vs {k8['ranks']}"
+        if k8["ranks"]["joint"] is None:
+            # reused k8 row (no captured bases): config bounds the joint at 8+8=16;
+            # the fixed criterion uses that upper bound (measured siblings hit 16)
+            assert kfull["ranks"]["joint"] is not None and kfull["ranks"]["joint"] > 16, \
+                f"full joint support must exceed the k8 8+8 bound: {kfull['ranks']}"
+        else:
+            assert 8 <= k8["ranks"]["joint"] <= 16, \
+                f"k8 joint support out of range (8+8 bound): {k8['ranks']}"
+            assert kfull["ranks"]["joint"] > k8["ranks"]["joint"], \
+                f"full joint support must exceed the k8 joint: {kfull['ranks']} vs {k8['ranks']}"
+        assert kfull["ranks"]["source"] > k8["ranks"].get("source", 8), \
+            f"full supported source rank must exceed k8: {kfull['ranks']} vs {k8['ranks']}"
+        assert kfull["ranks"]["donor"] > k8["ranks"].get("donor", 8), \
+            f"full supported donor rank must exceed k8: {kfull['ranks']} vs {k8['ranks']}"
         for row in (k8, kfull, c0):
             assert 0 < row["generation_count"] <= 128, row["generation_count"]
         assert c0["generation_text"] == c0["base_generation"], \
