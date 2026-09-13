@@ -18,7 +18,11 @@ def test_mutations():
                              ("basis", {"expected_common_basis": "random_shared"}, 0),
                              ("removal", {"expected_common_removal": "source"}, 0),
                              ("strength", {"expected_strength": 2.5}, 0)):
-        bad = tr.enrich_specs([{**base[idx], **patch}])
+        try:
+            bad = tr.enrich_specs([{**base[idx], **patch}])
+        except AssertionError:
+            # independent-expectation conflict at enrich time is also a caught mutation
+            continue
         try:
             import scripts.oat_sweep as oat
             oat.validate_specs(bad, oat.SWEEP_CONFIGS)

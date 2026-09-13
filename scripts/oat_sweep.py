@@ -444,6 +444,7 @@ def smoke_common_basis_joint_configs():
                    intervention_positions=2, match_component_norm=False,
                    restore_residual_norm=False, continue_generation=True,
                    common_window=2, common_basis="top8_union", strength=1.5,
+                   xdepth_anchor_layer=3, common_bank_layers=(0, 2, 4),
                    intervention_layer=(1, 2, 3, 4, 5))
     return [("smoke_common_basis_joint", "original_C1.5", replace(base, common_removal="source")),
             ("smoke_common_basis_joint", "joint_removal_C1.5", replace(base, common_removal="joint")),
@@ -3216,7 +3217,8 @@ def run_with_bundle(
                 "bank_layers_for_common_bases": list(cfg.common_bank_layers),
                 "detector_layers_for_reference_path": list(cfg.detector_layers),
                 "removal_rank": (int(Pj.shape[1]) if complete_rank_active else
-                                 int(Pu.shape[1]) if cfg.common_removal == "joint" else int(Us8.shape[1])),
+                                 int(rem_cols.shape[1]) if cfg.common_removal == "joint"
+                                 else int(Us8.shape[1])),
                 "complete_rank_mode": {"temporal_full": cfg.common_temporal_full,
                                         "source_rank": int(Us_k.shape[1]),
                                         "donor_rank": int(Ud_k.shape[1]),
