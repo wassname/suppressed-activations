@@ -172,10 +172,11 @@ def sha(p):
 
 
 def _config_from_run_md(run_md: str) -> dict:
-    for line in run_md.splitlines():
-        if line.startswith("config:"):
-            return json.loads(line[len("config:"):].strip())
-    raise AssertionError("run.md carries no config line")
+    marker = "Resolved config:"
+    i = run_md.index(marker)
+    block = run_md[run_md.index("```", i) + 3:]
+    block = block[:block.index("```")]
+    return json.loads(block)
 
 
 def _assert_contract(result, spec_by_tag):
