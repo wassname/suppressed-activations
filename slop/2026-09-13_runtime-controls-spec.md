@@ -33,13 +33,16 @@ implemented. Both false claims are removed.
      `content_end-1+j`, and cached decode-step final-norm inputs vs the uncached final
      residual at position `content_end-1+j`, for every step j. No sampling drift
      (greedy; the uncached path teacher-forces the cached tokens).
-   - Tolerance: calibrated inside the run by a clean (no-hook) cached-vs-recompute
-     measurement on the same model; the intervention comparison asserts
-     `max_abs_delta <= max(1e-4, 10 x clean_delta)`. The measured clean delta and
+   - Tolerance: calibrated inside the run by a no-hook reference run (intervention
+     hooks absent, same model, cached generation vs full-history recompute of the
+     same teacher-forced tokens), i.e. the null measures pure cache-vs-recompute
+     numerics. The intervened comparison asserts
+     `max_abs_delta <= max(1e-4, 10 x null_delta)`. The measured null delta and
      tolerance are printed and saved.
    - Discrimination probes (must FAIL = large delta if the mask or hook is wrong):
      (a) wrong-mask reference (edits only the last 3 of the growing history) must
-     MISmatch the cached intervened run; (b) no-hook clean forward must MISmatch the
+     MISmatch the cached intervened run; (b) a no-hook forward (no intervention
+     hooks registered) must MISmatch the
      cached intervened run. These make "wrong mask" and "missing hook mutation" fail
      loudly instead of passing an equivalence that cannot distinguish them.
 
@@ -56,7 +59,7 @@ implemented. Both false claims are removed.
 Qwen/Qwen3.5-4B rev `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`, spider source, dog
 target, intervention layer 26, rank 8, strength 4.0, prefill-only single-position patch.
 Verification target from the pinned source of truth
-`out/2026-09-05_211609_causal-confirmation/result.json`: clean `p(8)=0.882568`;
+`out/2026-09-05_211609_causal-confirmation/result.json`: the no-intervention run gives
 dog_C4 `p(4)=0.490091`, `p(8)=0.297255`, top token `4`. Tolerance: exact re-execution
 on the same GPU/torch is expected to be near-bitwise; accept abs diff <= 1e-3 on the
 three probabilities and require top-token `4` in dog_C4. No random fallback, no new test

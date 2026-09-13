@@ -3048,6 +3048,13 @@ def run_with_bundle(
             Us8 = src_by_offset(1).float()
             Ud8 = don_by_offset(1).float()
             Us_k, Ud_k, Pj, complete_rank_active = complete_edit_bases(U_s, U_d, Us8, Ud8, cfg)
+            # joint support of the top8 bases (the non-complete joint-removal span);
+            # restored verbatim from cc25c2b^ after the complete_edit_bases refactor
+            # dropped it and left the k8 joint arms crashing on an undefined Pu
+            Pu_cols, pu_s, _ = torch.linalg.svd(torch.cat([Us8, Ud8], dim=1), full_matrices=False)
+            pu_keep = int((pu_s > max(Pu_cols.shape) * torch.finfo(torch.float32).eps * pu_s[0]).sum())
+            Pu = Pu_cols[:, :pu_keep]
+            torch.testing.assert_close(Pu.T @ Pu, torch.eye(pu_keep, device=Pu.device), rtol=1e-4, atol=1e-4)
             if cfg.common_removal == "joint":
                 assert not cfg.common_inject_restricted, "restricted injection pairs with source removal"
                 rem_cols = Pj if complete_rank_active else Pu
