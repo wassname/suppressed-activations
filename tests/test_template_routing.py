@@ -21,6 +21,7 @@ os.environ["SUPPRESSED_MODEL"] = "wassname/qwen3-5lyr-tiny-random"
 os.environ["SUPPRESSED_REVISION"] = "main"
 os.environ["SUPPRESSED_DEVICE"] = "cpu"
 import torch
+from types import SimpleNamespace
 from dataclasses import replace
 torch.set_grad_enabled(False)
 import scripts.oat_sweep as oat
@@ -187,6 +188,9 @@ def test_c0_not_unhooked():
           "baseline (byte-equal); logits-level identity covered by runtime_controls test 2")
 
 
+def _unused(): pass
+
+
 if __name__ == "__main__":
     test_nonzero_C_applies_contained_delta()
     test_anchor_equation_and_two_site()
@@ -194,3 +198,39 @@ if __name__ == "__main__":
     test_increment_routing_not_stale()
     test_c0_not_unhooked()
     print("TEMPLATE ROUTING TESTS PASS")
+
+
+def test_selection_offset_positions():
+    """offset 0 vs 4: the EXACT expected positions from content_end (unchanged), and
+    DIFFERENT projectors (the windows don't overlap). No content_end mutation."""
+    D = Path(__file__).resolve().parents[1] / "out" / "2026-09-13_bridge-capture-211809"
+    if not D.exists():
+        print("(6) capture dir absent on this machine — skipped")
+        return
+    unemb = torch.load(D / "unembedding.pt", weights_only=False).float()
+    gain = torch.load(D / "norm_gain.pt", weights_only=False).float()
+    src = torch.load(D / "source_residuals.pt", weights_only=False).float()
+    don = torch.load(D / "dog_residuals.pt", weights_only=False).float()
+    S = lambda off: SimpleNamespace(readout_positions=4, common_source_rank=8,
+                                    common_donor_rank=8, persistent_rank=4,
+                                    selection_end_offset=off)
+
+    # 125352 = producer; bridge rows have the same rendered inputs
+    run = json.load(open(Path(__file__).resolve().parents[1] / "out" /
+                         "2026-09-13_bridge-matrix-193115" / "dog-att-h20" / "result.json"))
+    ri = run["rendered_inputs"]
+    smp = {"source": {"residuals": src, "content_end": len(ri["source"]["input_ids"])},
+           "target": {"residuals": don, "content_end": len(ri["donor"]["input_ids"])}}
+    from scripts.oat_sweep import increment_union_basis
+    sh0, d0 = increment_union_basis(smp["source"], smp["target"], S(0), unemb, gain)
+    sh4, d4 = increment_union_basis(smp["source"], smp["target"], S(4), unemb, gain)
+    ce_s, ce_d = smp["source"]["content_end"], smp["target"]["content_end"]
+    exp0 = [ce_s - 1 - i for i in range(4)] + [ce_d - 1 - i for i in range(4)]
+    exp4 = [ce_s - 4 - 1 - i for i in range(4)] + [ce_d - 4 - 1 - i for i in range(4)]
+    # the diagnostics record the LAST sample's positions (the dog donor's): 51..48
+    assert d0["readout_positions_used"] == [ce_d - 1 - i for i in range(4)], \
+        d0["readout_positions_used"]
+    assert d4["readout_positions_used"] == [ce_d - 4 - 1 - i for i in range(4)], \
+        d4["readout_positions_used"]
+    assert not torch.equal(sh0, sh4), "offset change did not change the projector"
+    print(f"(6) offset 0 positions {exp0} | offset 4 positions {exp4} | projectors differ OK")

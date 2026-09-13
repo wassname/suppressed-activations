@@ -2491,6 +2491,7 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
     BOTH source and donor trajectories; concatenated BEFORE orthonormalization; SVD;
     support filtered by tolerance (asserted >= persistent_rank); truncated to
     persistent_rank. Returns (shared, diagnostics). -- PI[glm-5p3-flash]"""
+    end_off = getattr(cfg, "selection_end_offset", 0)
     # trajectory-selected multi-token union: per-position production
     # bases at the READOUT positions (content_end-anchored,
     # independent of intervention_positions) for BOTH source and
@@ -2502,8 +2503,9 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
         sc = increment_scores(
             sample["residuals"].permute(1, 0, 2), unembedding,
             norm_gain, normalize_unembedding_rows=True)
-        readout_pos = [sample["content_end"] - 1 - off
+        readout_pos = [sample["content_end"] - end_off - 1 - off
                        for off in range(cfg.readout_positions)]
+        assert min(readout_pos) >= 0
         for q in readout_pos:
             bases_q, _ = subspace_from_scores(
                 sc[q:q + 1], unembedding, norm_gain,
@@ -2520,7 +2522,8 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
     diagnostics = {"selector": "increment_union_svd",
                    "basis_support": support,
                    "effective_rank": int(shared.shape[1]),
-                   "spectrum_top": values[:8].tolist()}
+                   "spectrum_top": values[:8].tolist(),
+                   "readout_positions_used": readout_pos}
     return shared, diagnostics
 
 
