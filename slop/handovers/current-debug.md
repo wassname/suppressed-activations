@@ -416,3 +416,24 @@ position — and the ant selection is much weaker (few clean 'six' directions, n
 ant-lexicon). The wrapper-position selection DILUTES the union U (the hypothesis the
 supervisor flagged — now with the actual per-position composition; hypothesis, not
 conclusion). -- PI[glm-5p3-flash]
+
+## Question-window v2 (offset 4 corrected; 221d012's off-by-one fixed)
+
+The last-4 QUESTION tokens before '\nAnswer:' (the wrapper is 4 tokens: \n, Answer,
+:, space — so the window ends at '?', positions 40/47/48 for source/dog/ant):
+
+> ALL THREE inputs' '?' positions select the ANSWER-lexicon directions ('\tanswer',
+> '.answer', 'answer', '答え'...) — the projected answer direction is already present
+> at the question mark, BEFORE the 'Answer:' wrapper.
+> The content-word positions (' have', ' webs', ' spins', ' friend', ' trails'...)
+> select non-English/misc directions (Italian/Portuguese/other tokens). These are NOT
+> labeled noise/empty: human labels don't prove what the projected U does; zeroing
+> latent answers isn't ruled out. The prediction for such a U would be weaker
+> transfer, not deduced.
+> Projection overlap = sum((Qpos.T@U4)^2) per block — NOT an additive energy share
+> (overlapping blocks can't share a sum); labeled basis overlap.
+
+The experimental rows for the matched-window control = FOUR (dog/ant × h8/h20; the
+existing wrapper rows are the comparison arm; C0/replays listed separately). The cfg
+field selection_end_offset was committed in 21956a4 (the 221d012 stat omitted it).
+-- PI[glm-5p3-flash]
