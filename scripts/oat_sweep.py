@@ -107,6 +107,8 @@ class Config:
     complete_edit_mode: bool = False  # the DECLARED complete-edit ladder mode: BOTH bases
     # truncated before the joint support; scoping prevents silently changing the OLD
     # injection-only rankinj family's removal
+    selection_end_offset: int = 0  # selection window END offset: positions
+    # [content_end - selection_end_offset - readout_positions .. content_end - 1 - selection_end_offset]
     delta_anchor_layer: int = -1  # template branch: if >=0 read template_deltas[THIS]
     # layer for EVERY edit site (fixed anchor); -1 = site-tied (historical default)
     basis_selector: str = "attenuation"  # "attenuation" (historical template contrast)
@@ -2519,6 +2521,9 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
                    "basis_support": support,
                    "effective_rank": int(shared.shape[1]),
                    "spectrum_top": values[:8].tolist()}
+    return shared, diagnostics
+
+
 def run_with_bundle(
     bundle: dict,
     output_dir: Path,
