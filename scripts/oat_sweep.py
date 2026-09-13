@@ -2501,19 +2501,41 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
     # orthonormalization; rank filtered by SVD tolerance then
     # truncated to persistent_rank
     per_pos = []
-    for sample in (source, target):
-        sc = increment_scores(
+    selected = []
+    for sample, other, rank in ((source, target, cfg.common_source_rank),
+                                (target, source, cfg.common_donor_rank)):
+        sc_this = increment_scores(
             sample["residuals"].permute(1, 0, 2), unembedding,
+            norm_gain, normalize_unembedding_rows=True)
+        sc_other = increment_scores(
+            other["residuals"].permute(1, 0, 2), unembedding,
             norm_gain, normalize_unembedding_rows=True)
         readout_pos = [sample["content_end"] - end_off - 1 - off
                        for off in range(cfg.readout_positions)]
         assert min(readout_pos) >= 0
-        for q in readout_pos:
-            bases_q, _ = subspace_from_scores(
-                sc[q:q + 1], unembedding, norm_gain,
-                rank=cfg.common_source_rank,
-                normalize_unembedding_rows=True)
+        # the OTHER side's ALIGNED suffix position (the same offset from ITS OWN end —
+        # the sequences have different lengths)
+        other_pos = [other["content_end"] - end_off - 1 - off
+                     for off in range(cfg.readout_positions)]
+        for q, qo in zip(readout_pos, other_pos):
+            if getattr(cfg, "paired_score", False):
+                score_q = (sc_this[q] - sc_other[qo]).clamp_min(0)
+                if float(score_q.max()) <= 0:
+                    raise ValueError(
+                        "paired score has no positive candidates at position "
+                        f"{q}: identical trajectories cannot select a basis")
+                bases_q, _ = subspace_from_scores(
+                    score_q[None, :], unembedding, norm_gain,
+                    rank=rank, normalize_unembedding_rows=True)
+                selected.extend(bases_q[0].T @ torch.zeros(0)) if False else None
+            else:
+                bases_q, _ = subspace_from_scores(
+                    sc[q:q + 1] if False else sc_this[q:q + 1], unembedding, norm_gain,
+                    rank=rank, normalize_unembedding_rows=True)
             per_pos.append(bases_q[0])
+            selected.extend([int(t) for t in
+                             (score_q if getattr(cfg, "paired_score", False)
+                              else sc_this[q]).topk(rank).indices])
     cols = torch.cat(per_pos, dim=1)  # before orthonormalization
     vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
     tol = max(cols.shape) * torch.finfo(cols.dtype).eps * values[0]
@@ -2526,7 +2548,9 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
                    "basis_support": support,
                    "effective_rank": int(shared.shape[1]),
                    "spectrum_top": values[:8].tolist(),
-                   "readout_positions_used": readout_pos}
+                   "readout_positions_used": readout_pos,
+                   "paired_score": getattr(cfg, "paired_score", False),
+                   "selected_token_ids": selected}
     return shared, diagnostics
 
 

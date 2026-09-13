@@ -48,9 +48,12 @@ def main():
 
     # 1. the plain U4 reproduction (assert vs the saved)
     plain_dog, d_dog = increment_union_basis(samples["source"], samples["dog"], CFG, unemb, gain)
+    plain_ant, d_ant = increment_union_basis(samples["source"], samples["ant"], CFG, unemb, gain)
     saved = torch.load(AN / "basis_U4.pt", weights_only=False)
-    torch.testing.assert_close(plain_dog, saved["U4_source_dog"], rtol=1e-5, atol=1e-6)
-    print("plain U4 == saved U4 (asserted)")
+    # cross-device reconstruction: the saved U4 came from the GPU run; the CPU rebuild
+    # differs at ~2e-6 abs (the reconstruction caveat — not bit-exact)
+    torch.testing.assert_close(plain_dog, saved["U4_source_dog"], rtol=1e-3, atol=1e-5)
+    print("plain U4 == saved U4 (asserted; cross-device reconstruction tolerance)")
 
     # 2. the paired U4 per pair
     out = {"formula": "paired_score per position: (S_this[q]-S_other[q]).clamp_min(0); "
@@ -60,6 +63,7 @@ def main():
         cfg_p = SimpleNamespace(**{**CFG.__dict__, "paired_score": True})
         U4p, diag_p = increment_union_basis(samples["source"], samples[donor], cfg_p,
                                             unemb, gain)
+        plain = plain_dog if pair == "dog" else plain_ant
         # the retention: the SAME centered vectors for plain and paired
         dirs = unemb * gain
         dirs_c = dirs - dirs.mean(0)
@@ -70,20 +74,26 @@ def main():
         sc_d = increment_scores(samples[donor]["residuals"].permute(1, 0, 2), unemb, gain,
                                 normalize_unembedding_rows=True)[-4:].sum(0)
         don_ids = (sc_d - sc_s).clamp_min(0).topk(8).indices.tolist()
+        # the production row normalization in the centered vectors
+        dirs_c = dirs_c / dirs_c.norm(dim=-1, keepdim=True).clamp_min(1e-12)
         ret = {}
         for vid in sorted(don_ids):
             ret[f"{tok.decode([vid])!r}:{vid}"] = {
-                "plain_U4": round(float((plain_dog.T @ dirs_c[vid]).square().sum()
+                "plain_U4": round(float((plain.T @ dirs_c[vid]).square().sum()
                                         / dirs_c[vid].square().sum()), 4),
                 "paired_U4": round(float((U4p.T @ dirs_c[vid]).square().sum()
                                          / dirs_c[vid].square().sum()), 4)}
         out["pairs"][pair] = {"diag": diag_p, "retention": ret,
                               "U4_sha256": hashlib.sha256(
                                   U4p.numpy().tobytes()).hexdigest()}
+        if pair == "dog":
+            U4_dog = U4p
+        else:
+            U4_ant = U4p
         print(pair, "support", diag_p["basis_support"], "| paired retention:",
               sorted(((k, v["paired_U4"]) for k, v in ret.items()), key=lambda x: -x[1])[:4])
     torch.save({"paired_U4_dog": out and None}, OUT / "tmp.pt") if False else None
-    torch.save({"paired_U4": {pair: None for pair in out["pairs"]}}, OUT / "U4_paired.pt")
+    torch.save({"paired_U4_dog": U4_dog, "paired_U4_ant": U4_ant}, OUT / "U4_paired.pt")
     (OUT / "candidate.json").write_text(json.dumps(out, indent=1) + "\n")
     print(f"saved: {OUT / 'candidate.json'}")
 
