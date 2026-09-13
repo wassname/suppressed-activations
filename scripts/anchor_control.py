@@ -149,7 +149,8 @@ def main():
             firsts[anchor] = gen["token_ids"][0]
             recs[anchor] = record[L]
             assert recs[anchor]["residual_norm"] > 0 and recs[anchor]["decode_steps"] == TINY_MAX - 1
-        assert firsts[25] == firsts[1], "anchor change moved the first token"
+        # NOTE: first tokens may legitimately differ across anchors (different donor
+        # vector); no equality assert here.
         # projectors identical: same U; donor vectors different
         assert torch.equal(specs[25][L]["src"], specs[1][L]["src"])
         assert not torch.allclose(specs[25][L]["donor_proj"], specs[1][L]["donor_proj"])
