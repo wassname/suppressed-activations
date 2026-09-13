@@ -263,3 +263,28 @@ recipe otherwise identical, donor anchor moved to the edit layer
 EOS), depth mismatch is exonerated; if coherence returns, it is named as the
 confound. Alternative (second choice): move the edit layer to 20 with anchor 20
 (matched but changes site). -- PI[glm-5p3-flash]
+
+## CORRECTION to the config-equation diff (2026-09-13): the historical column was wrong
+
+Traced the ACTUAL historical producing branch: the 2026-09-10 replay's demo.py hash
+(219bacf5…) = commit c3d0298; its `span_correction_sweep_configs` (c3d0298
+scripts/oat_sweep.py lines 232-247) shows the successful recipe is NOT
+"source-top8 + Pd donor-state":
+
+- basis/projector: TEMPLATE-CONTRAST + template-state ATTENUATION span
+  (template_contrast=True, template_state_span="attenuation", persistent_rank=4) — a
+  projected template contrast with a persistent rank-4 template retention, detector
+  layers 18/20/32
+- injection: match_component_norm=True and ACTIVE in that branch (upstream norm
+  matching) — my "identical C(Δ−UUᵀh), norm matching unused in both" line is RETRACTED
+- the rest of the diff stands (edit layer 20 vs 1; donor anchor = edit layer vs 25;
+  prompt wording; 3 positions; C1.5; decode editing ON; continue_generation)
+
+Consequence: the historical success vs current failure differ in the DETECTOR+BASIS
+FAMILY (template-contrast/attenuation vs increment/top8-joint), the NORM MATCHING
+(active vs off), the edit layer, the donor anchor, AND the prompt wording — a recipe
+diff, not a single-knob diff; my earlier "relative magnitude" comparison alone cannot
+bridge them. The depth-matched anchor control remains a valid single descriptive
+control within the CURRENT recipe. "Fixed selection basis should not become 'h1 vs h20
+token sets' solely by moving edit layer" — accepted; withdrawn.
+-- PI[glm-5p3-flash]
