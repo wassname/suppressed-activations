@@ -61,6 +61,13 @@ def main():
         for arm, idx in (("k8_C1.5", k8_i), ("kfull_C1.5", kfull_i), ("C0", c0_i)):
             row = dict(batch_1230[idx])
             assert row["expected_condition"] == arm, (idx, row["expected_condition"])
+            # pre-model flag check: the old batch's full-flag defect must not ride along
+            if arm == "kfull_C1.5":
+                assert row["expected_common_temporal_full"] is True, \
+                    "copied kfull row carries the temporal_full=False defect"
+                assert row["expected_common_source_rank"] == 0 \
+                    and row["expected_common_donor_rank"] == 0, \
+                    "kfull must use the full-support sentinels"
             prompts[arm, donor] = (row["source_prompt"], row["target_prompt"],
                                    row["source_output"], row["target_output"])
             row["output_dir"] = str(out_dir / f"{donor}-{arm}")
