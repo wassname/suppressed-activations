@@ -112,3 +112,46 @@ scale — corrected expectation: exact for clean/C0, ~1e-3 at C1, ~0.03 at C4.
 No scientific sweep run or claimed. Production sweep code untouched this session
 except the `runtime_controls.py` rewrite. Main README/notebook untouched.
 -- PI[glm-5p3-flash]
+
+## Addendum: ACTUAL trajectory-built spec diagnostic (supervisor-directed, 2026-09-13)
+
+One exact row: task-1230 condition `v25imported_h1_C1.5` (common-basis-earlyloc),
+run through the REAL `run_with_bundle` construction with an observing spy capturing
+the actually-built common_specs (no rederivation), then the corrected
+cached-vs-uncached teacher-forced comparison reusing those specs.
+
+Blocker found and fixed first: commit cc25c2b's complete_edit_bases refactor DELETED
+the joint-support construction for non-complete arms — `rem_cols = ... else Pu`
+crashed on undefined `Pu` at HEAD. Every `common_removal="joint"` k8-family condition
+(including the user's h1 row) was unrunnable at HEAD. Pu restored verbatim from
+cc25c2b^ (unit check: rank 16 from two rank-8 bases, containment 6e-7).
+
+Actual captured spec (quoted from result.json):
+
+> actual_basis_rank: 16 (NOT k8 — the built earlyloc h1 spec is rank 16; flags:
+> selector increment, removal joint, anchor layer 25, detector layers 23/25/32)
+> prefill: residual norm 3.9, applied edit 12.48, relative perturbation by position
+> 2.814 / 4.217 / 2.409; decode: applied 5.45 per step, injection 3.6, span 0.1
+
+Results (fp32 CPU after bf16-GPU OOM, task 1295):
+
+> ACTUAL-SPEC CONTROL PASS (n=6, decode_steps=5): logit rel max 2.19e-05 (null
+> 1.53e-05), hidden rel max 4.27e-05 (null 3.16e-05), argmax 6/6, first-token shift
+> 1.40e+01; C0 with actual spec: bitwise OK
+
+The same comparison in bf16 on GPU (task 1293) FAILED the hidden check (0.510 vs
+0.397 tol = 2x null; logits within bounds): with the edit at 2.4-4.2x the residual
+norm, bf16 cache-vs-recompute divergence exceeds the no-hook null — the fp32 run
+localizes this to rounding amplification, not placement. Evidence chain: fp32 tiny
+exact → fp32 4B actual-spec exact → bf16 4B amplified.
+
+Production row reproduction: the diagnostic's own production run gives
+`swap_log_odds_shift +3.891` IDENTICAL to the historical 1230 row; p_valid 0.0000 =
+0.0000; r2 0.0001 = 0.0001; the second r2 differs 0.968 (diag) vs 0.965
+(historical) — one bigram-level difference, cross-code-version (Pu restore between).
+
+Scope note: this joins BANK CONSTRUCTION to the hook/cache path (actual trajectory
+basis, actual donor vector) at sites {L1}; random-basis controls (1289-1291) remain
+separately labeled. Multi-layer interval hooks still untested. HYPOTHESIS standing:
+bf16 + huge-norm edits are the noise floor for any bf16-sweep interpretation;
+not a conclusion about the repetition mechanism. -- PI[glm-5p3-flash]
