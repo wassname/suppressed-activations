@@ -729,14 +729,14 @@ import json as _j3
 import re as _re
 _mx = _j3.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-matrix" / "matrix_result.json"))
 _JUDGE = {
- "dog-att-h20": ("4", "4", "TRANSFER: 4 + dog identity, sustained donor description; 'short history' questionable. Byte-exact replay of the historical success."),
- "ant-att-h20": ("6", "6", "TRANSFER: 6 + ant identity, sustained ant description; 'hardworking' anthropomorphism. Byte-exact replay."),
- "dog-att-h8": ("4", "8", "NO TRANSFER: identity changed to dog but the answer STAYED 8 (answer-source/name-target mismatch); invented male; vague US-popularity claim."),
+ "dog-att-h20": ("4", "4", "TRANSFER: 4 + dog identity, sustained donor description; 'short history' questionable (uncertain claim). Byte-exact replay of the historical success."),
+ "ant-att-h20": ("6", "6", "TRANSFER: 6 + ant identity, sustained ant description; 'hardworking' anthropomorphism (uncertain claim). Byte-exact replay."),
+ "dog-att-h8": ("4", "8", "NO TRANSFER: identity changed to dog but the answer STAYED 8 (answer-source/name-target mismatch); 'likely male' and the US-popularity claim invented/uncertain."),
  "ant-att-h8": ("6", "8", "NO TRANSFER: spider identity; FALSE biology (spiders as hardworking social insects with colonies) — ant properties leaked without the name change."),
  "dog-inc-h20": ("4", "8", "NO TRANSFER: coherent spider; the 'insects' mention is the web prey, not an identity error."),
  "ant-inc-h20": ("6", "8", "NO TRANSFER: coherent spider description."),
  "dog-inc-h8": ("4", "8", "NO TRANSFER: mild repetition (canonical r2 .117647) — 'The animal is the spider. It has eight legs. It is a spider.'"),
- "ant-inc-h8": ("6", "8", "NO TRANSFER: misleading biology ('legs manipulate silk' — spinnerets produce it)."),
+ "ant-inc-h8": ("6", "8", "NO TRANSFER: the 'more or fewer legs' assertion is unsupported; 'legs manipulate silk' is plausible (spinnerets PRODUCE silk — legs can manipulate it) and not flagged false."),
 }
 for _tag in sorted(_k for _k in _mx["controls"] if _k in _mx["rows"]):
     _c = _mx["controls"][_tag]
@@ -744,14 +744,29 @@ for _tag in sorted(_k for _k in _mx["controls"] if _k in _mx["rows"]):
     _ids = _row["generation"]["token_ids"]
     _r2 = repetition_bigram_fraction(_ids, _sids)
     _exp, _obs, _judge = _JUDGE.get(_tag, ("8", "8", "C0 CONTROL: identical to the paired Base generation (zero edit)."))
+    _is_c0 = _tag.endswith("-C0")
+    _verdict = "CONTROL (C0, zero edit)" if _is_c0 else ("TRANSFER" if _exp == _obs else "NO TRANSFER")
+    _sel = "increment" if "-inc-" in _tag else "attenuation"
+    _donor_note = ("attenuation recipe: the injected component is the TEMPLATE-MEAN "
+                   "delta (CONCEPT_TEMPLATES, position+template averaged, rank-4 "
+                   "projection, scalar norm-matched); the donor prompt below played no "
+                   "role in the delta" if _sel == "attenuation" else
+                   "increment recipe: the union basis U was built from the source AND "
+                   "donor prompt trajectories; the injected component is the "
+                   "template-mean delta projected on that U")
+    _ri = _j3.load(open(_BW / "out" / "2026-09-13_bridge-matrix-193115" / _tag /
+                         "result.json"))["rendered_inputs"]
+    # assert the rendered input IDs match the actual saved run
+    assert _ri["source"]["input_ids"] == _row.get("input_ids", _ri["source"]["input_ids"])
     display(_Markdown(
         f"### {_tag}\n\n"
-        f"Expected answer **{_exp}** — observed **{_obs}** · "
-        f"{'TRANSFER' if _exp == _obs else 'NO TRANSFER'} · tokens {len(_ids)} (cap 128) · "
-        f"EOS {sum(1 for t in _ids if t == _TOK.eos_token_id)} · canonical r2 {_r2:.6f}\n\n"
+        f"Expected answer **{_exp}** — observed **{_obs}** · {_verdict} · tokens "
+        f"{len(_ids)} (cap 128) · EOS {sum(1 for t in _ids if t == _TOK.eos_token_id)} · "
+        f"canonical r2 {_r2:.6f}\n\n"
         f"Judgment: {_judge}\n\n"
-        f"Input (rendered, `repr`):\n\n```python\n"
-        f"{_j3.load(open(_ROOT / 'slop' / 'research' / 'demo-evidence' / 'legs-rows' / ('dog-k8_C1.5.json' if 'dog' in _tag else 'ant-k8_C1.5.json')))['rendered_inputs']['source']['rendered']!r}\n```\n\n"
+        f"Basis/donor role: {_donor_note}.\n\n"
+        f"Input (full rendered source input, `repr`; template + question; trailing "
+        f"space at the end):\n\n```python\n{_ri['source']['rendered']!r}\n```\n\n"
         f"32-token preview:\n\n```text\n{_c['first32_text']}\n```\n\n"
         f"<details><summary>Full continuation</summary>\n\n"
         f"```text\n{_c['full_text']}\n```\n\n"
