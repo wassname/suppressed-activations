@@ -809,7 +809,7 @@ for _tag in _REPLAYS + _Q4:
     _is_replay = _tag in _REPLAYS
     # resolved-config asserts from the CONFIGS (not tag regex)
     assert _cfg["basis_selector"] == "increment" and _cfg["persistent_rank"] == 4, _tag
-    assert (_cfg.get("selection_end_offset", 0) == 0) == _is_replay, (_tag, _cfg.get("selection_end_offset"))
+    assert _cfg.get("selection_end_offset", 0) == (0 if _is_replay else 4), (_tag, _cfg.get("selection_end_offset"))
     assert _cfg["delta_anchor_layer"] == 20 and _cfg["strength"] == 1.5
     _ids = _row["generation"]["token_ids"]
     _r2 = repetition_bigram_fraction(_ids, _sids)
@@ -839,6 +839,3 @@ _prev = _j5.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-ma
 for _tag in _REPLAYS:
     assert _mxq["rows"][_tag]["generation"]["token_ids"] == \
         _prev[_tag]["generation"]["token_ids"], f"{_tag}: replay drift"
-print("REPLAYS byte-exact vs the previous increment rows (4/4); the q4 rows = the new "
-      "experiment. dog-q4-h8 quotes: 'Unlike mammals, which are bipedal' FALSE + "
-      "'must be fed' extraneous; ant-q4-h8: the paragraph repeated twice + capped.")
