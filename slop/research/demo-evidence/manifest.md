@@ -21,3 +21,13 @@ all end <|im_end|>. Byte/string/token verification (CPU only): batchwork
 slop/research/demo-evidence/cpu-string-validation.txt (copy; original in batchwork .local/verify_logs/demo-evidence/).
 
 Reconstructed and written by PI[glm-5p3-flash], 2026-09-13.
+
+## Details moved off the main page (2026-09-13 burden reduction)
+
+- Random-donor control on the fresh set: 1/12.
+- The replay rows are development-exposed (12-29 runs each per row family) and are not
+  pooled into the fresh-set score.
+- The dog answer's "short history" sentence is factually weak (dog domestication
+  predates most recorded history).
+- The layer-20 family and the C=4 demo (layer 26, single final-token patch) are separate
+  experiments; results are not pooled.

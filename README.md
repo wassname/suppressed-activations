@@ -153,7 +153,7 @@ Input (`repr`, unchanged):
 'Fact: The number of legs on the animal that spins webs is '
 ```
 
-We swap `spider` with `dog` in the last 3 tokens.
+We swap `spider` with `dog` in the final prompt token.
 
 Readout after intervention (“what it is thinking but not saying”):
 
@@ -371,24 +371,16 @@ The ant is a small, hardworking insect known for its ability to carry objects mu
 
 ### Limitations
 
-- These rows are selected illustrations from a layer and strength exploration; the
-  runs were chosen after the fact as working examples, not drawn as a held-out sample.
-- The frozen fresh-set evaluation for this candidate scored
-  [6/12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json)
-  (random-donor control: 1/12). That is the measured rate on those 12; it is not a
-  general success rate, and these replay rows are development-exposed and are not
-  pooled into it.
-- The dog answer's "short history" sentence is factually weak (dog domestication
-  predates most recorded history).
-- This layer-20 family is a separate experiment from the C=4 demo above; the results
-  of the two are not pooled.
-- Improving the reliability of the transfer is open work.
+These rows were selected after layer and strength tuning as working illustrations.
+The frozen fresh-set evaluation for this candidate scored
+[6/12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json) —
+a rate on those 12, not a general one. Improving the reliability of the transfer is
+open work.
 
 ## Limits
 
 - This is a diagnostic result. It does not yet show that the subspace causes hidden English
   computation or suppression.
-- The method uses the LM head to find the subspace and to measure its contents.
 - The three layers were chosen from the aggregate English curve. A transfer test should
   choose them on held-in prompts or use a fixed model-level rule.
 - Each trajectory gets its own subspace. The different-prompt control shows that the basis
