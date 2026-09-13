@@ -552,6 +552,12 @@ while not (_ROOT / ".git").exists() and _ROOT != _ROOT.parent:
     _ROOT = _ROOT.parent
 _BW = _ROOT.parent / "suppressed-activations-batchwork"
 _ROWS = _ROOT / "slop" / "research" / "demo-evidence" / "legs-rows"
+_PRODUCER = {"dog-k8_C1.5": "2026-09-13_genuine-full-legs-demo-125352",
+             "ant-k8_C1.5": "2026-09-13_genuine-full-legs-demo-130419",
+             "dog-kfull_C1.5": "2026-09-13_genuine-full-legs-demo-130912",
+             "dog-C0": "2026-09-13_genuine-full-legs-demo-130912",
+             "ant-kfull_C1.5": "2026-09-13_genuine-full-legs-demo-130912",
+             "ant-C0": "2026-09-13_genuine-full-legs-demo-130912"}
 _CONDITIONS = {"dog-k8_C1.5", "dog-kfull_C1.5", "dog-C0", "ant-k8_C1.5",
                "ant-kfull_C1.5", "ant-C0"}
 assert {p.stem for p in _ROWS.glob("*.json")} == _CONDITIONS, "row snapshot set mismatch"
@@ -567,8 +573,6 @@ for _rd in sorted(_ROWS.glob("*.json")):
     _n_eos = sum(1 for t in _gen["token_ids"] if t == _TOK.eos_token_id)
     _prefix = _TOK.decode(_gen["token_ids"][:32])
     _src_rendered = _ri["source"]["rendered"]  # full rendered input (template+question)
-    _src_raw = None  # raw question not needed; rendered input shown and labeled \
-        if isinstance(_run.get("batch_spec"), dict) else None
     display(_Markdown(
         f"### {_donor} {_arm}\n\n"
         f"Full rendered source input (chat template + question; saved from this run):\n\n"
@@ -581,10 +585,28 @@ for _rd in sorted(_ROWS.glob("*.json")):
         f"r2 {_row['repeated_bigram_fraction']:.3f}\n\n"
         f"Links: [runner result.json](research/demo-evidence/legs-rows/{_rd.name}) · "
         f"[batchwork row](../../suppressed-activations-batchwork/"
-        f"out/2026-09-13_genuine-full-legs-demo-130912/{_rd.stem}/result.json)"))
+        f"out/{_PRODUCER[_rd.stem]}/{_rd.stem}/result.json)"))
 # %%
-_BASIS = _Path("../suppressed-activations-batchwork/out/2026-09-13_cpu-basis-check-131429")
-_done = sorted(p.name for p in _BASIS.glob("basis_*.pt")) if _BASIS.exists() else []
-print("Basis validation (CPU reconstruction):",
-      f"artifacts present: {', '.join(_done)}" if _done else "PENDING — cpu_basis_check running")
+import torch as _torch
+_BASIS = _ROOT.parent / "suppressed-activations-batchwork" / "out" / "2026-09-13_cpu-basis-check-131429"
+_files = sorted(_BASIS.glob("basis_*.pt")) if _BASIS.exists() else []
+if len(_files) == 4:
+    for _donor in ("dog", "ant"):
+        _k8 = _torch.load(f"{_BASIS}/basis_{_donor}-k8_C1.5.pt", weights_only=False)
+        _full = _torch.load(f"{_BASIS}/basis_{_donor}-kfull_C1.5.pt", weights_only=False)
+        _Q8, _Qd8 = _k8["Q_src"].float(), _k8["Q_donor"].float()
+        _Qf, _Qdf = _full["Q_src"].float(), _full["Q_donor"].float()
+        _ortho = max(float((_Q8[p].T @ _Q8[p] - _torch.eye(_Q8.shape[-1])).abs().max())
+                     for p in range(_Q8.shape[0]))
+        _nest = max(float((_Q8[p] - _Qf[p] @ (_Qf[p].T @ _Q8[p])).norm() / _Q8[p].norm())
+                    for p in range(_Q8.shape[0]))
+        _dcont = float((_Qd8 - _Qdf @ (_Qdf.T @ _Qd8)).norm() / _Qd8.norm())
+        assert _ortho < 1e-4 and _nest < 1e-4 and _dcont < 1e-6
+        print(f"{_donor}: joint k8={_Q8.shape[-1]} full={_Qf.shape[-1]}, donor 8->"
+              f"{_Qdf.shape[-1]}; orthonormality {_ortho:.1e}; k8-in-full nesting {_nest:.1e}; "
+              f"donor-basis containment {_dcont:.1e} (=> ||P_full v|| >= ||P_k8 v|| for all v)")
+    print("Basis validation COMPLETE (CPU reconstruction, same production construction; "
+          "treated as reconstruction, not bit-exact run bases)")
+else:
+    print(f"Basis validation PENDING: {len(_files)}/4 artifacts present")
 print("Historical 6/12 fresh-set evaluation: frozen above, not pooled with the legs rows.")
