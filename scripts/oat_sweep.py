@@ -2147,21 +2147,25 @@ def load_bundle() -> dict:
 
     Production default is explicit CUDA (fail-fast, as before); CPU and alternate
     models only via explicit test env (SUPPRESSED_DEVICE / SUPPRESSED_MODEL /
-    SUPPRESSED_REVISION). Loader calls append to SUPPRESSED_LOAD_LOG when set."""
+    SUPPRESSED_REVISION); SUPPRESSED_DTYPE=float32 for precision controls (the
+    cached-vs-recompute discriminator). Loader calls append to SUPPRESSED_LOAD_LOG
+    when set."""
     model_name = os.environ.get("SUPPRESSED_MODEL", MODEL)
     revision = os.environ.get("SUPPRESSED_REVISION", REVISION)
     device = os.environ.get("SUPPRESSED_DEVICE", "cuda")
     attn = os.environ.get("SUPPRESSED_ATTENTION", "sdpa")  # eager returns attention weights
+    dtype = {"bfloat16": torch.bfloat16, "float32": torch.float32}[
+        os.environ.get("SUPPRESSED_DTYPE", "bfloat16")]
     started = time.monotonic()
     torch.set_grad_enabled(False)
     tokenizer = AutoTokenizer.from_pretrained(model_name, revision=revision)
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, revision=revision, dtype=torch.bfloat16,
+        model_name, revision=revision, dtype=dtype,
         attn_implementation=attn,
     ).to(device).eval()
     record = {
         "model_name": model_name, "revision": revision, "device": device,
-        "tokenizer": tokenizer, "model": model,
+        "dtype": str(dtype), "tokenizer": tokenizer, "model": model,
         "blocks": model.model.layers, "final_norm": model.model.norm,
         "unembedding": model.lm_head.weight,
         "norm_gain": 1.0 + model.model.norm.weight,
