@@ -193,8 +193,10 @@ def main():
         print(f"{name}: {len(gen['token_ids'])} tok, r2 {result['rows'][name]['r2']:.3f}, "
               f"EOS {result['rows'][name]['n_eos']}")
 
-    assert result["rows"]["anchor25"]["first_logits_sha256"] == \
-        result["rows"]["anchor1"]["first_logits_sha256"], "first logits differ across anchors"
+    # save BEFORE asserting: the anchor change is SUPPOSED to change the edit (different
+    # donor vector), so first-logits identity is NOT required here; record both hashes
+    result["first_logits_sha256"] = {a: result["rows"][a]["first_logits_sha256"]
+                                     for a in ("anchor25", "anchor1")}
     assert result["rows"]["anchor25"]["prefill_edit_norm"] != \
         result["rows"]["anchor1"]["prefill_edit_norm"], \
         "donor anchor did not change the prefill edit"
