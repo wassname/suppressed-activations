@@ -40,8 +40,9 @@ N_TOKENS = 128
 
 def main():
     # the previous increment rows (the byte-equality reference for the replays)
-    PREV_INC = {t: json.load(open(BW_DEMO / t / "result.json"))["rows"][0]["generation"]
-                for t in ("dog-inc-h20", "dog-inc-h8", "ant-inc-h20", "ant-inc-h8")}
+    mx_prev = json.load(open(BW_DEMO / "matrix_result.json"))["rows"]
+    PREV_INC = {t: mx_prev[t]["generation"] for t in
+                ("dog-inc-h20", "dog-inc-h8", "ant-inc-h20", "ant-inc-h8")}
     out_dir = ROOT / "out" / f"2026-09-13_bridge-matrix-{time.strftime('%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=True)
     result = {"rows": {}, "gate": {}, "controls": {}}
