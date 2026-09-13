@@ -560,7 +560,8 @@ _PRODUCER = {"dog-k8_C1.5": "2026-09-13_genuine-full-legs-demo-125352",
              "ant-C0": "2026-09-13_genuine-full-legs-demo-130912"}
 _CONDITIONS = {"dog-k8_C1.5", "dog-kfull_C1.5", "dog-C0", "ant-k8_C1.5",
                "ant-kfull_C1.5", "ant-C0"}
-assert {p.stem for p in _ROWS.glob("*.json")} == _CONDITIONS, "row snapshot set mismatch"
+assert {p.stem for p in _ROWS.glob("*.json")} == _CONDITIONS, \
+    f"row snapshot set mismatch: cwd={_Path.cwd()}, ROOT={_ROOT}, got {sorted(p.stem for p in _ROWS.glob(chr(42) + chr(46) + chr(106) + chr(115) + chr(111) + chr(110)))}"
 
 for _rd in sorted(_ROWS.glob("*.json")):
     _run = _json.load(open(_rd))
@@ -610,3 +611,45 @@ if len(_files) == 4:
 else:
     print(f"Basis validation PENDING: {len(_files)}/4 artifacts present")
 print("Historical 6/12 fresh-set evaluation: frozen above, not pooled with the legs rows.")
+
+# %% [markdown]
+# ## Policy discriminator: decode-time component replacement (h1 legs-dog, added 2026-09-13)
+#
+# Two arms, same code, one spec construction, same saved legs-dog h1 row (k8 joint-16
+# basis, C1.5, anchor 25, last-3 prefill edit, 128-token config): the continuous arm
+# keeps the production decode-time component replacement C(v − Ph) at every decode
+# step; the prompt-only arm uses the production `prefill_only` flag so decode steps run
+# but edit nothing. Verified identical: first-logits hash and prefill edit records.
+# Since `prefill_only` removes both decode-time removal AND injection, the comparison
+# attributes the difference to the additional decode-time component replacement in this
+# fixed initial condition — not to injection alone. Both arms start with newlines: the
+# initial edit still suppresses the first bare `8`. Artifact-derived, no recomputation
+# of generations; r2 recomputed on CPU with the canonical non-special-ID metric.
+
+# %%
+import json as _json2
+_res = _json2.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "policy-discriminator" / "result.json"))
+_sids = set(_TOK.all_special_ids)
+# canonical metric, extracted VERBATIM from the batchwork scripts/oat_sweep.py via ast
+# (importing the full module would pull pyarrow, absent in this notebook kernel)
+import ast as _ast
+_src = (_BW / "scripts" / "oat_sweep.py").read_text()
+_fn = next(n for n in _ast.parse(_src).body
+           if isinstance(n, _ast.FunctionDef) and n.name == "repetition_bigram_fraction")
+exec(compile(_ast.Module(body=[_fn], type_ignores=[]), "oat_sweep.py", "exec"))
+
+for _arm in ("continuous", "prompt_only", "base"):
+    _row = _res["rows"][_arm]
+    _r2 = repetition_bigram_fraction(_row["token_ids"], _sids)
+    display(_Markdown(
+        f"### {_arm}\n\n"
+        f"Tokens {len(_row['token_ids'])} · EOS count {_row['n_eos']} · "
+        f"r2 (canonical, non-special IDs) {_r2:.3f}\n\n"
+        f"Generation:\n\n```text\n{_row['text']}\n```\n\n"
+        f"<details><summary>Config/provenance</summary>\n\n"
+        f"First-logits sha256 {_row.get('first_logits_sha256', 'n/a (base)')[:16]}… · prefill edit norm "
+        f"{_row.get('prefill_edit_norm', 'n/a (base)')} · decode steps "
+        f"{_row.get('decode_steps', 'n/a (base)')} · sidecar: "
+        f"research/demo-evidence/policy-discriminator/sidecar.json\n\n</details>"))
+print("r2 recomputed with the canonical non-special-ID metric; token IDs and "
+      "first-logits hashes preserved in result.json.")
