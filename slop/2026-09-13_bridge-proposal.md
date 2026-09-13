@@ -38,18 +38,19 @@ Norm axes: the delta and its norm are PER-LAYER SCALARS over the hidden dim
   the donor concept); the reused legs pairs are development data
 - All rows: C1.5, 3 positions, continuous decode policy, same replacement hook.
 
-## Code-change map (minimal; no framework)
+## Code-change map (IMPLEMENTED; tiny tests passing)
 
-1. `delta_anchor_layer` cfg field (default None = current site-tied behavior):
-   in the template branch, `fixed_deltas = {site: template_deltas[anchor]}` when set
-   (oat_sweep.py:2721) — one line + the cfg field.
-2. `basis_selector` routing: when `common_selector == "increment"`, set
-   `shared = joint_support(Us_k, Ud_k)`-style trajectory-selected U (the SAME
-   orthonormal-U interface the hook already consumes) instead of the attenuation
-   basis — a branch at the `shared` assignment (~6 lines), reusing the existing
-   increment/union construction.
-3. Everything downstream (projection, norm matching, span_correction hook, applied
-   delta hash) UNCHANGED.
+1. `delta_anchor_layer: int = -1` cfg field (-1 = site-tied historical default):
+   `fixed_deltas = {site: template_deltas[anchor]}` when >= 0 (oat_sweep.py:2722-2728).
+2. `basis_selector: str = "attenuation"` (historical) | `"increment"`: a branch at the
+   HEAD of the shared-basis chain (BEFORE projection/norm-matching): per-position
+   `subspace_from_scores` bases at the READOUT positions (content_end-anchored,
+   independent of intervention_positions) for BOTH source and donor trajectories,
+   CONCATENATED before orthonormalization, SVD, support = tolerance count (asserted
+   >= persistent_rank), truncated to persistent_rank. Union kept before the SVD.
+3. Downstream (projection, SCALAR per-layer norm matching, span_correction hook,
+   applied-delta hash) unchanged; an in-run assert requires the injected delta inside
+   the active basis.
 
 ## Tiny tests (historical replay with NONZERO C — C0 cannot validate the intervention)
 

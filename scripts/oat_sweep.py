@@ -41,6 +41,7 @@ from scripts.prompt import PREFILL_INSTRUCTION, assistant_prefill_input_ids, fir
 from scripts.demo import intervention_hooks, layer_hooks, one_token, trajectory
 from suppressed_activation_subspace import (
     component,
+    increment_scores,
     cross_position_covariance,
     suppressed_activation_scores,
     subspace_from_scores,
@@ -2753,7 +2754,39 @@ def run_with_bundle(
                                    future_span_words=forms, future_span_singular_values=span_singular_values,
                                    projected_norm_fraction=retained)
             if cfg.persistent_rank:
-                if cfg.template_state_span != "none":
+                if cfg.basis_selector == "increment":
+                    # trajectory-selected multi-token union: per-position production
+                    # bases at the READOUT positions (content_end-anchored,
+                    # independent of intervention_positions) for BOTH source and
+                    # donor trajectories; concatenated BEFORE union
+                    # orthonormalization; rank filtered by SVD tolerance then
+                    # truncated to persistent_rank
+                    per_pos = []
+                    for sample in (source, target):
+                        sc = increment_scores(
+                            sample["residuals"].permute(1, 0, 2), unembedding,
+                            norm_gain, normalize_unembedding_rows=True)
+                        readout_pos = [sample["content_end"] - 1 - off
+                                       for off in range(cfg.readout_positions)]
+                        for q in readout_pos:
+                            bases_q, _ = subspace_from_scores(
+                                sc[q:q + 1], unembedding, norm_gain,
+                                rank=cfg.common_source_rank,
+                                normalize_unembedding_rows=True)
+                            per_pos.append(bases_q[0])
+                    cols = torch.cat(per_pos, dim=1)  # before orthonormalization
+                    vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
+                    tol = max(cols.shape) * torch.finfo(cols.dtype).eps * values[0]
+                    support = int((values > tol).sum())
+                    assert support >= cfg.persistent_rank, \
+                        f"basis support {support} < persistent_rank {cfg.persistent_rank}"
+                    shared = vectors[:, :cfg.persistent_rank]
+                    diagnostics = {"selector": "increment_union_svd",
+                                   "basis_support": support,
+                                   "effective_rank": int(shared.shape[1]),
+                                   "spectrum_top": values[:8].tolist()}
+                elif cfg.template_state_span != "none":
+
                     suffixes = torch.stack(template_suffixes).float()
                     if cfg.normalize_selector_residuals:
                         suffixes = suffixes / suffixes.square().mean(-1, keepdim=True).sqrt()
@@ -2831,7 +2864,8 @@ def run_with_bundle(
                         "template_scores_source_target_position": ((template_coordinates-midpoint) @ identity_axis).tolist(),
                         "bee_template_prompts": bee_prompts,
                         "bee_template_scores": ((torch.stack(bee_suffixes).float()[:, intervention_layers[0]] @ shared-midpoint) @ identity_axis).tolist(),
-                        "heldout_template_indices": [i for i in range(4, 8) if i not in diagnostics["fit_template_indices"]],
+                        "heldout_template_indices": [i for i in range(4, 8)
+                                                  if i not in diagnostics.get("fit_template_indices", [])],
                         "implicit_scores": {
                             name: ((sample["residuals"][intervention_layers[0], sample["content_end"]-3:sample["content_end"]].float() @ shared-midpoint) @ identity_axis).tolist()
                             for name, sample in (("source", source), ("donor", target))
@@ -2866,34 +2900,6 @@ def run_with_bundle(
                 }
                 fixed_deltas = projected
                 persistence.update(diagnostics)
-                if cfg.basis_selector == "increment":
-                    # route the trajectory-selected multi-token union/SVD U into the SAME
-                    # projection/norm-matching/hook interface (the operator consumes any
-                    # orthonormal U); union kept BEFORE the final SVD truncation
-                    from suppressed_activation_subspace import increment_scores
-                    _sc = increment_scores(
-                        source["residuals"].permute(1, 0, 2) if source["residuals"].dim() == 3
-                        else source["residuals"], unembedding, norm_gain,
-                        normalize_unembedding_rows=True)
-                    _seq = _sc.shape[0]
-                    _edited = list(range(_seq - cfg.intervention_positions, _seq))
-                    _U = []
-                    for _p in _edited:
-                        _ids = _sc[_p].topk(cfg.common_source_rank).indices
-                        _h = source["residuals"].float()[cfg.detector_layers[1], _p]
-                        _Qp = unembedding[_ids].float() * (norm_gain.float())
-                        _U.append(_Qp.T @ _Qp)
-                    _union = joint_support(_U[0], joint_support(_U[1], _U[2])[:, :0]
-                                           if False else _U[1]) if False else None
-                    # union over the three positions via joint support, pairwise
-                    _j = joint_support(_U[0], _U[1])
-                    _union = joint_support(_j, _U[2])
-                    persistence["basis_union_support"] = int(_union.shape[1])
-                    _vecs, _vals, _ = torch.linalg.svd(_union, full_matrices=False)
-                    shared = _vecs[:, :cfg.persistent_rank]
-                    diagnostics["selector"] = "increment_union_svd"
-                    diagnostics["union_singular_values"] = _vals.tolist()[:8]
-                    diagnostics["effective_rank"] = int(_union.shape[1])
                 if cfg.span_correction:
                     source_basis = target_basis = shared
                     persistence["direction_estimator"] = "span_corrected_template_delta"
@@ -3015,7 +3021,6 @@ def run_with_bundle(
                 source["input_ids"][0, s_end - positions:s_end],
                 target["input_ids"][0, t_end - positions:t_end],
             )
-            from suppressed_activation_subspace import increment_scores
             bl = cfg.common_bank_layers
             if cfg.common_selector == "snapshot":
                 sc_s = suppressed_activation_scores(
