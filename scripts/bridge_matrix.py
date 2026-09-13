@@ -51,8 +51,9 @@ def main():
 
     # registry variants on the HISTORICAL family (span-correction-sweep)
     def variant(name, **cfg_over):
-        oat.SWEEP_CONFIGS[name] = lambda: [
-            (f, n, replace(c, **cfg_over)) for f, n, c in oat.SWEEP_CONFIGS["span-correction-sweep"]()]
+        rows_base = oat.SWEEP_CONFIGS["span-correction-sweep"]()
+        oat.SWEEP_CONFIGS[name] = lambda: [(f, n, replace(c, **cfg_over))
+                                           for f, n, c in rows_base]
     variant("bridge-att-h8", delta_anchor_layer=20, intervention_layer=(8,))
     variant("bridge-inc-h20", delta_anchor_layer=20, basis_selector="increment")
     variant("bridge-inc-h8", delta_anchor_layer=20, basis_selector="increment",
