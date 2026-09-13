@@ -710,7 +710,7 @@ for _arm in ("anchor25", "anchor1", "base"):
         f"{_row.get('decode_edit_norms', 'n/a (base)')} · sidecar: "
         f"research/demo-evidence/policy-discriminator/sidecar.json (full per-offset "
         f"replacement traces UNAVAILABLE — not persisted in that run)\n\n</details>"))
-print("Reading: with the same basis/site/C and identical-recipe prefill edit records, "
+print("Reading: with the same basis/site/C and fixed basis/site/C (the donor anchor changed both direction and size), "
       "the depth-matched anchor terminates normally and stays coherent SPIDER (8) — "
       "lower damage, NOT transfer (no answer 4, no dog identity). The anchor change "
       "alters both direction and size of the injected vector; they are not separated "
