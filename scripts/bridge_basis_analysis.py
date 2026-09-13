@@ -8,6 +8,7 @@ captured source/dog/ant trajectories. Saves: U4 + singular values + per-position
 selected IDs/decoded tokens + ALL 33-point centered readout traces + the SVD column
 contributions aggregated per 8-column position blocks (labeled basis overlap, not
 causal effect). -- PI[glm-5p3-flash]"""
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -38,6 +39,10 @@ def main():
     for name in ("source", "dog", "ant"):
         res = torch.load(D / f"{name}_residuals.pt", weights_only=False).float()
         ids = manifest_ids(manifest, name)
+        # the manifest's saved ID hash must match the reconstruction from the bridge rows
+        h = hashlib.sha256(torch.tensor(ids).numpy().tobytes()).hexdigest()
+        entry = manifest["inputs"][name if name != "source" else "source"]
+        assert h == entry["ids_sha256"], f"{name}: capture IDs != manifest hash"
         samples[name] = {"residuals": res, "content_end": len(ids), "ids": ids}
 
     # the ACTUAL production paired builder (the same function run_with_bundle calls)
@@ -64,9 +69,9 @@ def main():
             sel[str(q)] = {"labels": [tok.decode([t]) for t in ids8],
                            "decoded_input_token": tok.decode([sample["ids"][q]]),
                            "scores": [float(sc[q, t]) for t in ids8],
-                           "traces": {t: [round(x, 4) for x in lg[:, qi, t].tolist()]
+                           "readout_levels_uncentered": {t: [round(x, 4) for x in lg[:, qi, t].tolist()]
                                       for t in ids8},
-                           "increments": {t: [round(x, 4) for x in dphi[:, qi, t].tolist()]
+                           "increments_vocabcentered": {t: [round(x, 4) for x in dphi[:, qi, t].tolist()]
                                           for t in ids8}}
         selected[name] = sel
         traces[name] = lg  # full (33, V) per input, sliced per token above
@@ -86,14 +91,16 @@ def main():
             h = res[:, seq - CFG.readout_positions:, :].float()
             rms = (h.square().mean(-1) + 1e-6).sqrt()
             hn = h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6) * gain
-            for qi, q in enumerate(range(seq - CFG.readout_positions, seq)):
+            for q in range(seq - CFG.readout_positions, seq):
                 ids8 = sc[q].topk(CFG.common_source_rank).indices.tolist()
-                per_pos.append(unemb[ids8].float() * gain)  # (8, d) block
+                Qpos = (unemb[ids8].float() * gain).T          # (d, 8) orthonormal block
+                Qpos, _ = torch.linalg.qr(Qpos)
+                per_pos.append(Qpos)
         contrib = []
         for i in range(shared.shape[1]):
             u = shared[:, i]
-            contrib.append([float(abs(u @ blk.T).max()) for blk in per_pos])
-        blocks[pair] = contrib
+            contrib.append([float((blk.T @ u).square().sum()) for blk in per_pos])
+        blocks[pair] = contrib  # sum((Qpos.T@U4)^2) per position block: the basis overlap share
     torch.save({"U4_source_dog": shared_dog, "U4_source_ant": shared_ant},
                OUT / "basis_U4.pt")
     (OUT / "analysis.json").write_text(json.dumps(
