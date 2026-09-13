@@ -289,25 +289,36 @@ control within the CURRENT recipe. "Fixed selection basis should not become 'h1 
 token sets' solely by moving edit layer" — accepted; withdrawn.
 -- PI[glm-5p3-flash]
 
-## BRIDGE MATRIX RESULT (2026-09-13, pueue 1344, 8 rows + 4 C0 + unhooked)
+## BRIDGE MATRIX RESULT (2026-09-13, pueue 1344, 8 rows + 4 C0 + unhooked) — CORRECTED after the supervisor's full-text read
 
-GATES: both historical replays (dog/ant, attenuation h20, site-tied) reproduce the
-saved 2026-09-10 continuations BYTE-EXACTLY (token IDs + text) through current code.
+GATES: both historical replays (dog/ant) reproduce the 2026-09-10 continuations
+BYTE-EXACTLY through current code.
 
-| row | first token | behavior (full text in matrix_result.json) |
-|---|---|---|
-| dog-att-h20 (replay) | 4 | coherent dog transfer (the historical success, reproduced) |
-| dog-att-h8 | 4 | dog answer at the EARLIER site ("The animal described is a dog...") |
-| dog-inc-h20 | 8 | coherent SPIDER (no transfer) |
-| dog-inc-h8 | 8 | coherent SPIDER, short (19 tok, im_end in text) |
-| ant rows | analogous (att rows coherent; inc rows coherent spider; att-h8 50 tok) |
+Artifact-derived per-row facts (all 8 nonzero + 4 C0 read; canonical r2; NONE capped
+at 128 — every row emitted EOS, so there is NO runaway repetition anywhere):
 
-Reading (descriptive, this matrix only): the TRANSFER lives in the historical
-OPERATOR's selection (template-contrast attenuation + norm matching): it answers 4/dog
-at BOTH sites on the historical prompts. The increment-routed U (same hook, same
-delta anchor, matched rank 4) is coherent at both sites but transfers NOTHING (8/spider).
-So the selector recipe — not the site and not the decode policy — separates transfer
-from no-transfer in this comparison. The increment-union selection does not carry the
-answer directions the template-contrast selection does. No mechanism claim; the
-2x2 is confounded by rank/selection content as labeled (recipe comparison).
+> dog-att-h20: init 4, identity dog, coherent (the historical success; "short
+>   history" weakness) | r2 0.016
+> dog-att-h8: init 8, IDENTITY DOG ("The animal described is a dog, specifically a
+>   male who is likely to be the owner's best friend. Dogs have historically been the
+>   most popular choice in the United States." — dubious claim; short EOS) — the
+>   identity changed but the ANSWER STAYED 8: the exact user failure mode
+>   (answer-source/name-target mismatch) | r2 0.000
+> ant-att-h8: init 8, identity SPIDER with FALSE biology ("Spiders are small,
+>   hardworking insects... organized groups... colonies" — arachnids, not social
+>   insects): ant properties leaked WITHOUT the name change | r2 0.000
+> increment rows (all four): init 8, identity spider, coherent; dog-inc-h8 short with
+>   "some species may have more or fewer legs" (dubious); dog-inc-h20 mentions
+>   "insects" (the web-building prey, not an identity error) | r2 0.000-0.111
+> C0 rows: all init 8, spider, clean | r2 0.000
+
+RETRACTED by the supervisor's read (I misread the matrix): "dog-att-h8 transfers
+4/dog" (it answers 8 with dog identity — NOT a transfer); "all coherent/no
+degeneration" (at most: NO RUNAWAY REPETITION — semantic coherence is not established
+given the false-biology rows); "norm matching + small rank keep it sane" (causality
+untested); "rank confound" (both selectors are rank 4 — no rank difference exists).
+
+CORRECTED READING: h8 changes identity/properties WITHOUT a consistent transferred
+answer; there is NO early complete legs transfer in this matrix. The h20 rows (both
+donors) transfer correctly — the historical success is real and site-dependent.
 -- PI[glm-5p3-flash]
