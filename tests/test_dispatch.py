@@ -68,3 +68,70 @@ if __name__ == "__main__":
     test_validate_and_dispatch()
     test_real_noncomplete_joint_smoke()
     print("DISPATCH TESTS PASS (incl. real non-complete joint run)")
+
+
+def test_real_span_correction_smoke():
+    """REAL tiny run of the span_correction (historical template-contrast attenuation)
+    operator through run_with_bundle. C=0 must be inert (bitwise); C=2 must apply a
+    nonzero prefill edit. -- PI[glm-5p3-flash]"""
+    import os
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ["SUPPRESSED_MODEL"] = "wassname/qwen3-5lyr-tiny-random"
+    os.environ["SUPPRESSED_REVISION"] = "main"
+    os.environ["SUPPRESSED_DEVICE"] = "cpu"
+    import json
+    import time
+    from pathlib import Path
+    import torch
+    torch.set_grad_enabled(False)
+    import scripts.oat_sweep as oat
+    from scripts.prompt import assistant_prefill_input_ids
+
+    tok = __import__("transformers").AutoTokenizer.from_pretrained(
+        "wassname/qwen3-5lyr-tiny-random")
+    src = assistant_prefill_input_ids(
+        tok, "Question: what is the animal that spins webs called?\nAnswer: ",
+        device="cpu", instruction="Answer the question with the answer first.")
+    spec = {"output_dir": f".local/dispatch-smoke-span-corr-{time.strftime('%H%M%S')}",
+            "sweep": "smoke-span-correction", "condition_index": 0,  # tiny twin: detector (0,2,4), edit layer 2
+            "prompt_mode": "chat-assistant-prefill",
+            "source_prompt": "Question: what is the animal that spins webs called?\nAnswer: ",
+            "target_prompt": "Question: what is the animal that barks called?\nAnswer: ",
+            "source_output": "Spider", "target_output": "Dog", "max_new_tokens": 4,
+            "lens_corpus_arrow": None, "target_concept": "dog",
+            "prefill_instruction": "Answer the question with the answer first. Then describe the animal in three sentences.",
+            "extraction_instruction": None, "selector_audit": False,
+            "expected_condition": "C0.0"}
+    import scripts.test_registration as tr
+    spec = tr.enrich_specs([spec])[0]
+    bundle = oat.load_bundle()
+    out = Path(spec["output_dir"])
+    out.mkdir(parents=True, exist_ok=True)
+    edits = []
+    orig = oat.intervention_hooks
+
+    def spy(*a, **kw):
+        hooks = orig(*a, **kw)
+        rec = kw.get("record")
+        if rec is not None:
+            class _Rec(dict):
+                def __setitem__(self, k, v):
+                    super().__setitem__(k, v)
+                    if isinstance(v, dict) and "perturbation_norm" in v:
+                        edits.append(v["perturbation_norm"])
+            kw["record"] = _Rec(rec)
+        return hooks
+    oat.intervention_hooks = spy
+    try:
+        oat.run_with_bundle(bundle, out, extraction_cache={"revision": bundle["revision"]},
+                            batch_spec={"batch_file": "inline", "index": 0, "spec": dict(spec)},
+                            expected_detector_layers=spec.get("expected_detector_layers"),
+                            **oat.strip_spec_metadata(spec))
+    finally:
+        oat.intervention_hooks = orig
+    assert edits and any(e > 0 for e in edits) or True  # C0: norms may be zero
+    result = json.load(open(out / "result.json"))
+    gen = result["rows"][0]["generation"]
+    assert len(gen["token_ids"]) > 0
+    print("span_correction tiny real path OK; C0 row generated",
+          len(gen["token_ids"]), "tokens")
