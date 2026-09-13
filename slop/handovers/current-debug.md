@@ -288,3 +288,26 @@ bridge them. The depth-matched anchor control remains a valid single descriptive
 control within the CURRENT recipe. "Fixed selection basis should not become 'h1 vs h20
 token sets' solely by moving edit layer" — accepted; withdrawn.
 -- PI[glm-5p3-flash]
+
+## BRIDGE MATRIX RESULT (2026-09-13, pueue 1344, 8 rows + 4 C0 + unhooked)
+
+GATES: both historical replays (dog/ant, attenuation h20, site-tied) reproduce the
+saved 2026-09-10 continuations BYTE-EXACTLY (token IDs + text) through current code.
+
+| row | first token | behavior (full text in matrix_result.json) |
+|---|---|---|
+| dog-att-h20 (replay) | 4 | coherent dog transfer (the historical success, reproduced) |
+| dog-att-h8 | 4 | dog answer at the EARLIER site ("The animal described is a dog...") |
+| dog-inc-h20 | 8 | coherent SPIDER (no transfer) |
+| dog-inc-h8 | 8 | coherent SPIDER, short (19 tok, im_end in text) |
+| ant rows | analogous (att rows coherent; inc rows coherent spider; att-h8 50 tok) |
+
+Reading (descriptive, this matrix only): the TRANSFER lives in the historical
+OPERATOR's selection (template-contrast attenuation + norm matching): it answers 4/dog
+at BOTH sites on the historical prompts. The increment-routed U (same hook, same
+delta anchor, matched rank 4) is coherent at both sites but transfers NOTHING (8/spider).
+So the selector recipe — not the site and not the decode policy — separates transfer
+from no-transfer in this comparison. The increment-union selection does not carry the
+answer directions the template-contrast selection does. No mechanism claim; the
+2x2 is confounded by rank/selection content as labeled (recipe comparison).
+-- PI[glm-5p3-flash]
