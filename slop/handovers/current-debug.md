@@ -230,3 +230,36 @@ Candidate discriminator with ACTUAL source formulas, CPU first:
 
 Existing formulas only: increment_scores + subspace_from_scores + joint_support; no
 new score, no dose/site grid. One bounded batch IF reviewed. -- PI[glm-5p3-flash]
+
+## Config-equation diff: historical h20 success vs current h1 failure (2026-09-13, CPU audit of saved artifacts)
+
+One legs-dog pair; every line from the saved run configs / records (paths in-file):
+
+| dimension | HISTORICAL success (out/2026-09-10_replay-C1.5-legs-dog, 65 tok coherent+EOS) | CURRENT failure (out/2026-09-13_...-125352/dog-k8_C1.5, 128 tok degenerate) |
+|---|---|---|
+| edit layer | h20 (intervention_layer [20]) | h1 ([1]) |
+| donor anchor | layer 20 = edit layer (depth-matched) | layer 25 ≠ edit layer (mismatch 25→1) |
+| detector | snapshot 18/20/32 (three-depth scores) | increment (windowed, vocab-centered, min(build,cut)) |
+| removal span | source top-8 (8-dim) | joint support 16 (8+8) |
+| injection | C(Δ − U Uᵀh), norm matching recorded-but-unused in BOTH | same formula |
+| prompt wording | "the animal that spins webs have?" / "...barks and is called man's best friend have?" | "the animal known for spinning webs to catch insects have?" / "...known for barking while living as a domesticated pet have?" |
+| token windows / decode policy / C | 3 positions, continue_generation TRUE (decode editing ON), C1.5 | same |
+
+Relative magnitudes (from the saved intervention records): prefill edit/residual =
+0.68-0.94 (h20: 22.0/26.6) vs 1.84-2.02 (h1: 7.42/3.91); decode edits ≈11-12.7/step
+(h20) vs 4.16/step (h1). Decode editing was ON and coherent in the historical run —
+decode editing per se is not the poison.
+
+**Bridge hypothesis (one)**: the current recipe injects a depth-MISMATCHED donor
+vector (anchor 25) into the layer-1 stream at ~2× its norm (and ~1.1× per decode
+step), i.e. an out-of-scale, out-of-geometry patch repeated every step; the
+historical recipe injected a depth-matched vector in-scale at h20. The policy
+discriminator showed the same prefill edit without decode re-injection stays
+coherent — the compounding factor is the repeated out-of-scale decode patch.
+
+**Lowest-cost SINGLE confound control (proposal, no GPU queued)**: one row, current
+recipe otherwise identical, donor anchor moved to the edit layer
+(xdepth_anchor_layer 25→1, depth-matched). If degeneration persists (r2 ~0.98, no
+EOS), depth mismatch is exonerated; if coherence returns, it is named as the
+confound. Alternative (second choice): move the edit layer to 20 with anchor 20
+(matched but changes site). -- PI[glm-5p3-flash]
