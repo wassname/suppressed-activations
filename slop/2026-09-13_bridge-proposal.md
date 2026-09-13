@@ -52,12 +52,20 @@ Norm axes: the delta and its norm are PER-LAYER SCALARS over the hidden dim
    applied-delta hash) unchanged; an in-run assert requires the injected delta inside
    the active basis.
 
-## Tiny tests (historical replay with NONZERO C — C0 cannot validate the intervention)
+## Tiny tests — EXECUTED (all pass; log: .local/verify_logs/runtime-controls/template-routing-tests.log)
 
-a. historical replay (tiny, C1.5): the applied delta hash == the norm-matched
-   projected template delta hash; `assert_close(projected.norm(), delta.norm())`.
-b. projector independence: the template U identical across edit sites (site does not
-   enter the basis).
-c. anchor consumption: with delta_anchor=20 at site 8, the applied delta hash equals
-   the layer-20 delta hash (not the layer-8 one).
-d. C0 inert (already covered elsewhere; kept as the cheap sanity row).
+1. nonzero-C span-correction smoke (tiny, C2.0, sites 2): delta applied AND contained
+   in the active basis (in-run production assert).
+2. anchor equation + two-site fixture (tiny, C2.0, EXPLICIT basis_selector=
+   "increment" asserted in the rows' resolved configs): applied delta ==
+   P_U(d_anchor) norm-matched (the raw template delta recomputed independently
+   in-test), IDENTICAL across sites 2/1, U identical.
+3. basis site-independence (attenuation fixture): U identical across sites.
+4. increment routing: routed U != attenuation U; the delta in the routed span;
+   canonical r2.
+5. C0: record present, zero edit, decode calls ran, first logits == unhooked
+   (assert_close, not just argmax).
+
+The tiny fixtures are tiny-model smoke rows (C2.0, sites 2/1) — they validate the
+ROUTING CONTRACTS, not the historical replay; the h20 replay gate is enforced in the
+batch script before any h8 row.

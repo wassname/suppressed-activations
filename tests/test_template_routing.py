@@ -43,7 +43,11 @@ def run_row(sweep, idx, tag, extra_cfg=None):
         if kw.get("operation") == "span_corrected_delta":
             obs["shared"] = a[0].clone()
             obs["fixed_deltas"] = {k: v.clone() for k, v in kw["fixed_deltas"].items()}
+            obs["args"] = tuple(a)
+            obs["kwargs"] = {k: v for k, v in kw.items() if k != "record"}
         return hooks
+
+
 
     oat.intervention_hooks = spy
     try:
@@ -113,18 +117,19 @@ def expected_applied(shared, raw_delta):
 def test_anchor_equation_and_two_site():
     # combined incremental fixture: fixed anchor, two sites, BOTH selectors
     oat.SWEEP_CONFIGS["smoke-span-corr-anchor3"] = lambda: [
-        (f, n, replace(c, delta_anchor_layer=3)) for f, n, c in
+        (f, n, replace(c, delta_anchor_layer=3, basis_selector="increment")) for f, n, c in
         oat.SWEEP_CONFIGS["smoke-span-correction"]()]
     obs = {}
-    for tag, sweep, idx in (("anchor3-site2", "smoke-span-corr-anchor3", 1),
-                            ("anchor3-site1", "smoke-span-corr-anchor3", 1)):
-        pass
-    # two sites need two intervention layers: variant families per site
+    # two sites: variant families per site
     oat.SWEEP_CONFIGS["smoke-span-corr-anchor3-s1"] = lambda: [
-        (f, n, replace(c, delta_anchor_layer=3, intervention_layer=(1,))) for f, n, c in
+        (f, n, replace(c, delta_anchor_layer=3, basis_selector="increment",
+                       intervention_layer=(1,))) for f, n, c in
         oat.SWEEP_CONFIGS["smoke-span-correction"]()]
     obs_a_s2, rec_s2, row_s2, bundle = run_row("smoke-span-corr-anchor3", 1, "a3-s2")
     obs_a_s1, rec_s1, row_s1, _ = run_row("smoke-span-corr-anchor3-s1", 1, "a3-s1")
+    # the rows' RESOLVED configs must show the increment selector explicitly
+    assert row_s2["config"]["basis_selector"] == "increment"
+    assert row_s1["config"]["basis_selector"] == "increment"
     # U identical across sites
     assert torch.equal(obs_a_s2["shared"], obs_a_s1["shared"]), "U changed across sites"
     # applied delta identical across sites (fixed anchor) and equals the expected vector
@@ -196,8 +201,15 @@ def test_c0_not_unhooked():
     # exactly the unhooked first-generated-token prediction
     _, logits_prompt = trajectory(bundle["model"], ids, bundle["model"].model.norm)
     assert torch.argmax(logits_prompt) == gen_c0["token_ids"][0]
-    print("(5) C0: record present, zero edit, decode calls ran; first token matches the "
-          "unhooked forward argmax")
+    # actual C0-hooked first logits must EQUAL the unhooked ones (not just the argmax)
+    from scripts.demo import intervention_hooks as _ih
+    from scripts.runtime_controls import cached_generate as _cg
+    hooks_c0 = _ih(*obs["args"], **{**obs["kwargs"], "record": {}})
+    _, rows_c0, _ = _cg(bundle["model"], bundle["tokenizer"], ids,
+                        bundle["model"].model.layers, hooks_c0, 4)
+    torch.testing.assert_close(rows_c0[0], logits_prompt, rtol=1e-4, atol=1e-4)
+    print("(5) C0: record present, zero edit, decode calls ran; C0 first logits == "
+          "unhooked logits (assert_close)")
 
 
 if __name__ == "__main__":
