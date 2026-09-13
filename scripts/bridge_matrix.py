@@ -125,7 +125,9 @@ def main():
         # resolved-spec checks BEFORE interpretation
         cfg = row_res["config"]
         if not r.get("c0"):
-            assert cfg["strength"] == 1.5 and cfg["delta_anchor_layer"] == 20
+            assert cfg["strength"] == 1.5
+            if not r.get("gate"):  # the gate row IS the historical site-tied config
+                assert cfg["delta_anchor_layer"] == 20
             assert cfg["readout_positions"] == 4
             assert cfg["intervention_layer"] == [r["site"]]
             assert cfg["basis_selector"] == ("increment" if r["sel"] == "inc" else "attenuation")
@@ -171,7 +173,8 @@ def main():
 
 def shared_ok(obs):
     shared = obs["shared"].float()
-    dev = float((shared.T @ shared - torch.eye(shared.shape[-1])).abs().max())
+    eye = torch.eye(shared.shape[-1], device=shared.device)
+    dev = float((shared.T @ shared - eye).abs().max())
     assert dev < 1e-4 and shared.shape[-1] == 4
     for delta in obs["fixed_deltas"].values():
         resid = delta - shared @ (shared.T @ delta)
