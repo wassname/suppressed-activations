@@ -31,19 +31,39 @@ Tiny bf16 CPU:
 fp32 tiny: per-step rel delta max 7.64e-06, argmax 6/6 — mask/placement logic is
 exact in fp32; bf16 residuals are rounding, not logic.
 
-Qwen3.5-4B GPU:
+Qwen3.5-4B GPU (corrected runs, unique per-attempt result dirs):
 
-> 1. identity v=P h (same state/position): rel_edit=0.00e+00, max_logit_delta=0.00e+00
-> 2. C0 logits equality: bitwise OK
+> pueue 1289 — L26 random-basis cache-mechanics control (rank 256, C=8), PASS:
 > 3. cached/uncached teacher-forced equivalence (n=6, decode_steps=5): per-step rel
-> logit delta max 1.53e-01, rel hidden delta max 6.12e+00, tol_rel 1.24e+00 OK;
-> argmax match 5/6 (tie flips at steps [2] within numerics); first-token shift vs
-> clean 1.71e+01 (nonzero) OK
-> probes: wrong-mask rel delta 8.50e+00, no-hook rel delta 8.50e+00 OK
+> logit delta max 1.53e-01 (null max 1.24e-01), rel hidden delta max 1.42e-01
+> (null max 1.69e-01), tol = 2x max null (fixed, not widened) = 2.48e-01 OK;
+> argmax match 5/6 (tie flip at step 2: gap within measured step delta — consistent
+> with rank uncertainty, NOT proof of numerics-only); first-token shift 1.71e+01 OK
+> probes: wrong-mask rel 8.50e+00, no-hook rel 8.50e+00 OK
+> pueue 1290 — L26 C=1.5 rank 4, FAILED marginal:
+> AssertionError: cached/uncached final hidden diverge at decode-5: rel 3.399e-01 >
+> tol 3.386e-01 (logit per-step asserts passed within the same 2x-null bound)
+> pueue 1291 — actual 4B site h1 (L1), C=1.5 rank 4, FAILED:
+> AssertionError: intervention did not move the first-token logits beyond numerics:
+> shift 1.562e-01 vs clean null 1.250e-01 (per-step logit+hidden equivalence asserts
+> all passed within 2x-null before this check)
 
-Step-2 flip diagnosis from `result.json`: cached top-2 gap exactly 0.0 (bf16 tie),
-step delta 0.229 — argmax of an exact tie is arbitrary; not a placement bug. A flip
-with gap >> delta would still fail the assertion.
+Scope of these controls: RANDOM-basis cache-mechanics controls through the production
+hooks — NOT the actual trajectory-basis/bank-construction integration; sites actually
+exercised: residual L26 and L1 on Qwen3.5-4B (36 layers), L1/L2 on the tiny model.
+No multi-layer interval hooks tested. 1289 logit control (0.153) EXCEEDS its null
+(0.124); it passes the fixed 2x-null criterion, it is not below-null. 1290's
+marginal hidden exceedance (1.004x tol at decode-5, weakest intervention) and 1291's
+undetectable intervention (shift 1.25x null at L1) are labeled HYPOTHESES (numerics
+floor / intervention-too-weak-to-test), not conclusions; neither run is counted as a
+pass and no tolerance was widened after seeing them.
+
+Per-condition generation lengths in the pinned reference (from token IDs, both runs
+identical): every condition generates exactly 64 tokens (14 conditions, no early
+EOS): spider_clean, spider_ant_C4, spider_dog_C4, both random-distance seeds,
+byte_*, two_plus_two_C4, three_plus_three_C4, target cleans, forced_4/forced_6.
+The AGENTS.md README template shows 32 tokens per condition; the pinned script's
+actual output is 64 tokens per condition.
 
 Pinned reference reproduction (old → new):
 
@@ -79,12 +99,12 @@ scale — corrected expectation: exact for clean/C0, ~1e-3 at C1, ~0.03 at C4.
 | baseline comparison | Pinned reference IS the baseline comparison (table above). |
 | schedule | Not applicable: inference only. |
 | full sample viewed | 4B control generation text is `(//)( (` — garbage by design (random rank-256 basis at C=8); semantics are covered by the pinned reference, not this control. |
-| worst step | Step 2 argmax flip (gap 0.0, delta 0.229): explained — exact bf16 tie. |
+| worst step | 1290 decode-5 hidden (1.004x tol, FAILED — preserved); 1291 first-shift (1.25x null, FAILED — intervention undetectable at L1/rank4). |
 | surprises | (1) My first reference build anchored the extended mask at `content_end-1`, silently editing n extra PROMPT positions instead of generated ones; fp32 equivalence caught it at step 0 (rel 0.167). (2) My first C0 harness bug ran C0 at strength 1.5; the bitwise assertion caught it. Both were my bugs, both caught by the controls they were testing. (3) 4B random-basis C=1.5 moves logits only 2× the null — rank/C raised for the 4B control. |
-| missing trust evidence | Per-step hidden-state tolerance is weak (null-calibrated tol_rel 146; the hidden check alone would not catch moderate placement bugs — the logit check is the decisive one). Only ONE intervention layer and ONE spec family tested; production multi-layer interval hooks' cache interaction is not covered by this control. Sequential full read of pueue 1230/1254 logs still not done (supervisor side). No independent fresh-eyes reviewer has read the rewritten control yet. |
-| diagnoses with % | Placement/cache bug as the cause of early repetition: now unlikely (~15%) for the tested single-layer mechanics — fp32 exact, bf16 within null-calibrated tolerance, probes discriminate. Repeated frozen donor injection's semantic effect as repetition cause: unchanged (~60%, untested here). Other spec families (multi-layer intervals) carry residual mechanics risk (~25%, untested). |
+| missing trust evidence | Logit control at 1289 (0.153) exceeds null (0.124) — passes only the fixed 2x-null criterion. L1/L26 random-basis controls only; no trajectory-basis/bank integration. Multi-layer interval hooks untested. Sequential full read of pueue 1230/1254 logs still not done (supervisor side). No independent fresh-eyes reviewer has read the rewritten control yet. |
+| diagnoses with % | Placement/cache bug as the cause of early repetition: now unlikely (~15%) for single-layer L26 mechanics — fp32 exact, corrected bf16 hidden control (0.142) below its null (0.169), probes discriminate; this is a hypothesis-bearing observation, not proof. 1290 decode-5 hidden marginal failure: HYPOTHESIS numerics-floor (~70%, untested by a precision intervention). 1291: L1/rank4 intervention is too weak to test at all (shift 1.25x null). Multi-layer interval hooks carry residual untested risk. |
 | fresh subagent | Not run — worker is not permitted to spawn (spawn budget 0); requested for supervisor integration. |
-| cheapest next discriminator | Multi-layer-interval cached-vs-uncached control (same script, spec keyed on 2–3 layers) if the production sweeps keep interval hooks. |
+| cheapest next discriminator | ONE diagnostic, supervisor's choice: (a) 4B L1 with rank 256/C8 to make the h1 intervention testable above the null, or (b) 4B L26 replay in fp32 for a zero-null equivalence reference. Multi-layer intervals deprioritized per supervisor. |
 | wall-clock | 4B control ~65 s including load; pinned reference 154.8 s; tiny CPU ~30 s per dtype. |
 
 ## Boundary
