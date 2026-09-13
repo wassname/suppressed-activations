@@ -40,7 +40,7 @@ def r2_of(text_ids):
     return 1 - len(set(bigrams)) / len(bigrams) if len(bigrams) > 1 else 0.0
 
 
-def two_arm_run(model, tok, ids, blocks, spec, L, c_end, max_new, label_prefix, capture_decodes=True):
+def two_arm_run(model, tok, ids, blocks, spec, L, c_end, max_new, label_prefix, capture, capture_decodes=True):
     """Run continuous and prompt-only arms from the SAME spec; return records."""
     from scripts.demo import intervention_hooks
     from scripts.runtime_controls import cached_generate
@@ -144,11 +144,8 @@ def main():
             raise SpecCaptured
         return hooks
 
-    oat.intervention_hooks = spy
-    try:
-        bundle = oat.load_bundle()
-    finally:
-        oat.intervention_hooks = orig
+    oat.intervention_hooks = spy  # stays installed through the capture run
+    bundle = oat.load_bundle()
     tok, model = bundle["tokenizer"], bundle["model"]
     blocks = model.model.layers
     spec_dir = out_dir / "spec-construction"
@@ -162,6 +159,8 @@ def main():
         raise AssertionError("spec construction ran to completion without capture")
     except SpecCaptured:
         pass  # spec + bundle in hand; no generation happened
+    finally:
+        oat.intervention_hooks = orig
     src_r = assistant_prefill_input_ids(tok, spec_row["source_prompt"], device=model.device,
                                         instruction=spec_row["prefill_instruction"])
     saved = json.load(open(ROOT / "out" / "2026-09-12_cb-cr8" / "k8-legs-L1-dog" /
@@ -171,7 +170,7 @@ def main():
     L = next(iter(capture["kwargs"]["common_specs"]))
     spec = {L: {k: v for k, v in capture["kwargs"]["common_specs"][L].items()}}
 
-    arms = two_arm_run(model, tok, ids, blocks, spec, L, spec_row, capture, out_dir, result)
+    arms = two_arm_run(model, tok, ids, blocks, spec, L, None, N_TOKENS, "4B", capture)
 
     # base (no hooks) for the row
     from scripts.runtime_controls import cached_generate
@@ -199,11 +198,15 @@ def main():
     pc, pp = result["rows"]["continuous"]["prefill_positions"], result["rows"]["prompt_only"]["prefill_positions"]
     assert pc == pp and result["rows"]["continuous"]["prefill_edit_norm"] == \
         result["rows"]["prompt_only"]["prefill_edit_norm"], "prefill edits differ"
-    n = len(arms["continuous"]["gen"]["token_ids"])
-    assert result["rows"]["continuous"]["decode_steps"] == n - 1, "continuous decode not fully edited"
+    n_c = len(arms["continuous"]["gen"]["token_ids"])
+    n_p = len(arms["prompt_only"]["gen"]["token_ids"])
+    assert result["rows"]["continuous"]["decode_steps"] == n_c - 1, "continuous decode not fully edited"
     assert result["rows"]["prompt_only"]["decode_steps"] == 0, "prompt-only edited at decode"
-    assert result["rows"]["prompt_only"]["decode_call_count"] == n - 1, \
-        "prompt-only decode calls did not happen"
+    # lm_head fires on the prefill as well: forwards = 1 + decode calls, per arm's
+    # own length (the arms may stop at different EOS points — that is the signal)
+    assert result["rows"]["prompt_only"]["decode_call_count"] == n_p, \
+        f"prompt-only decode calls did not happen: {result['rows']['prompt_only']['decode_call_count']} forwards for {n_p} tokens"
+    assert result["rows"]["prompt_only"]["decode_steps"] == 0
     result["outcome"] = "PASS"
     (out_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(f"POLICY DISCRIMINATOR PASS | {out_dir / 'result.json'}")
