@@ -385,3 +385,34 @@ generation, NO new score.
   the same arrays.
 - Hypothesis to test (not a conclusion): wrapper-position selection dilutes content.
 -- PI[glm-5p3-flash]
+
+## Bridge capture + paired-basis analysis DONE (2026-09-13, commits through this entry)
+
+CAPTURE (pueue 1360, GPU, approved): 3 unique inputs (spider source 45 tok shared by
+both pairs — dedup asserted; dog donor 52; ant donor 53); full h0..h32 float32
+trajectories + unembedding/gain/final-norm weights + manifest (input-ID hashes,
+rendered reprs, dtype/device, code hashes) at
+out/2026-09-13_bridge-capture-211809/. NO generation.
+
+ANALYSIS (CPU, the production increment_union_basis — the same function
+run_with_bundle calls; no copied approximation): per-position selected IDs + decoded
+input tokens + ALL 33-point centered readout traces + increments; U4 + singular
+values; SVD column contributions per 8-column position block (basis overlap, not
+causal effect) — out/2026-09-13_bridge-basis-analysis/{basis_U4.pt, analysis.json}.
+
+The central question (across-depth selection vs intended build-then-late-cut) — the
+selected labels PER POSITION (wrapper positions included):
+
+> source: pos41 '\\n' -> answer-lexicon (' answer', '\\tanswer'...); pos42 'Answer' ->
+> multilingual noise; pos43 ':' -> mostly noise + 'eight'; pos44 ' ' (the trailing
+> space) -> ' legs', ' leg', '-legged' + noise (' GOODMAN', ' Конкурс'...)
+> dog: pos48 '\\n' -> answer-lexicon; pos49-51 mostly noise; pos52 ' ' -> the FOUR
+> lexicon (' четыре', ' four', 'four', '四条', ' dört', ' cuatro')
+> ant: pos52 ' ' -> 'six', '-six' + noise ('”…', ' دونالد', ' Kejaksaan'...)
+
+PATTERN: the ANSWER-WRAPPER positions ('\\n', 'Answer', ':') select meta/answer
+lexicon and noise; the CONTENT direction appears ONLY at the final trailing-space
+position — and the ant selection is much weaker (few clean 'six' directions, no
+ant-lexicon). The wrapper-position selection DILUTES the union U (the hypothesis the
+supervisor flagged — now with the actual per-position composition; hypothesis, not
+conclusion). -- PI[glm-5p3-flash]
