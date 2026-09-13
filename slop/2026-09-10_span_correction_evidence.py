@@ -717,42 +717,52 @@ print("Reading: with the same basis/site/C and fixed basis/site/C (the donor anc
       "in this control.")
 
 # %% [markdown]
-# ### Bridge matrix: 8 nonzero rows + C0 (h1/h20 × selectors; artifact-derived facts)
+# ### Bridge matrix: 8 nonzero rows + C0 controls (sites h8/h20, two selectors)
 #
-# Read from the saved matrix outputs (no recomputation of generations). Gates: both
-# h20 replay rows byte-exact vs the 2026-09-10 snapshots. No row hit the 128 cap
-# (all EOS) — no runaway repetition; semantic correctness is judged per row below.
+# Artifact-derived (no recomputation of generations). Gates: both historical
+# attenuation/h20 rows reproduce the 2026-09-10 snapshots byte-exactly. Only the two
+# attenuation/h20 rows transfer; none of the six other nonzero rows gives the donor
+# answer. Every row emitted EOS (none capped) — no runaway repetition.
 
 # %%
 import json as _j3
-_mx = _j3.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-matrix" / "matrix_result.json"))
 import re as _re
-for _tag in sorted(k for k in _mx["controls"] if k in _mx["rows"]):
+_mx = _j3.load(open(_ROOT / "slop" / "research" / "demo-evidence" / "bridge-matrix" / "matrix_result.json"))
+_JUDGE = {
+ "dog-att-h20": ("4", "4", "TRANSFER: 4 + dog identity, sustained donor description; 'short history' questionable. Byte-exact replay of the historical success."),
+ "ant-att-h20": ("6", "6", "TRANSFER: 6 + ant identity, sustained ant description; 'hardworking' anthropomorphism. Byte-exact replay."),
+ "dog-att-h8": ("4", "8", "NO TRANSFER: identity changed to dog but the answer STAYED 8 (answer-source/name-target mismatch); invented male; vague US-popularity claim."),
+ "ant-att-h8": ("6", "8", "NO TRANSFER: spider identity; FALSE biology (spiders as hardworking social insects with colonies) — ant properties leaked without the name change."),
+ "dog-inc-h20": ("4", "8", "NO TRANSFER: coherent spider; the 'insects' mention is the web prey, not an identity error."),
+ "ant-inc-h20": ("6", "8", "NO TRANSFER: coherent spider description."),
+ "dog-inc-h8": ("4", "8", "NO TRANSFER: mild repetition (canonical r2 .117647) — 'The animal is the spider. It has eight legs. It is a spider.'"),
+ "ant-inc-h8": ("6", "8", "NO TRANSFER: misleading biology ('legs manipulate silk' — spinnerets produce it)."),
+}
+for _tag in sorted(_k for _k in _mx["controls"] if _k in _mx["rows"]):
     _c = _mx["controls"][_tag]
     _row = _mx["rows"][_tag]
-    _text = _c["full_text"]
     _ids = _row["generation"]["token_ids"]
     _r2 = repetition_bigram_fraction(_ids, _sids)
-    _m = _re.search(r"\b(\d+)\b", _text[:40])
-    _init = _m.group(1) if _m else "?"
-    _ident = [a for a in ("spider", "dog", "ant") if a in _text.lower()]
-    _note = {"dog-att-h20": "historical success reproduced (byte-exact); 'short history' weakness",
-             "dog-att-h8": "IDENTITY changed to dog but the answer STAYED 8 (answer-source/name-target mismatch); dubious 'most popular choice' claim",
-             "ant-att-h8": "spider identity with FALSE biology (spiders called hardworking social insects with colonies)",
-             "ant-inc-h8": "dubious 'more or fewer legs' biology",
-             "dog-inc-h20": "spider; 'insects' = the web prey, not an identity error",
-             "ant-att-h20": "historical success reproduced (byte-exact)",
-             "dog-inc-h8": "short; dubious 'more or fewer legs'",
-             "ant-inc-h20": "spider, clean"}.get(_tag, "C0 clean baseline")
+    _exp, _obs, _judge = _JUDGE.get(_tag, ("8", "8", "C0 CONTROL: identical to the paired Base generation (zero edit)."))
     display(_Markdown(
         f"### {_tag}\n\n"
-        f"Initial answer **{_init}** · identity mentions {_ident} · capped: "
-        f"{len(_ids) == 128} · canonical r2 {_r2:.3f} · EOS "
-        f"{sum(1 for t in _ids if t == _TOK.eos_token_id)}\n\n"
-        f"Judgment: {_note}\n\n"
-        f"<details><summary>Full output</summary>\n\n```text\n{_text}\n```\n\n"
-        f"Source: [runner row](research/demo-evidence/bridge-matrix/ per run.md; "
-        f"batchwork out/2026-09-13_bridge-matrix-193115/{_tag}/result.json)\n\n</details>"))
-print("Artifact-derived only: initial answer / identity / contradictions / canonical "
-      "r2 / EOS / cap per row; the h20 rows transfer (4/dog, 6/ant, byte-exact), the "
-      "h8 rows change identity or biology WITHOUT a consistent transferred answer.")
+        f"Expected answer **{_exp}** — observed **{_obs}** · "
+        f"{'TRANSFER' if _exp == _obs else 'NO TRANSFER'} · tokens {len(_ids)} (cap 128) · "
+        f"EOS {sum(1 for t in _ids if t == _TOK.eos_token_id)} · canonical r2 {_r2:.6f}\n\n"
+        f"Judgment: {_judge}\n\n"
+        f"Input (rendered, `repr`):\n\n```python\n"
+        f"{_j3.load(open(_ROOT / 'slop' / 'research' / 'demo-evidence' / 'legs-rows' / ('dog-k8_C1.5.json' if 'dog' in _tag else 'ant-k8_C1.5.json')))['rendered_inputs']['source']['rendered']!r}\n```\n\n"
+        f"32-token preview:\n\n```text\n{_c['first32_text']}\n```\n\n"
+        f"<details><summary>Full continuation</summary>\n\n"
+        f"```text\n{_c['full_text']}\n```\n\n"
+        f"Per-row portable record: [research/demo-evidence/bridge-matrix/rows/{_tag}.md]"
+        f"(research/demo-evidence/bridge-matrix/rows/{_tag}.md) · "
+        f"[batchwork row](../../suppressed-activations-batchwork/out/"
+        f"2026-09-13_bridge-matrix-193115/{_tag}/result.json)\n\n</details>"))
+print("Summary: ONLY the two attenuation/h20 rows transfer (byte-exact historical "
+      "replays). None of the six other nonzero rows gives the donor answer: h8 changes "
+      "identity (dog-att-h8: dog/8) or biology (ant-att-h8: false insect-colony claims) "
+      "without the requested fact; the increment rows are coherent spider. No row hit "
+      "the cap; canonical r2 max .117647 (dog-inc-h8 mild repetition). The separate "
+      "unhooked-trajectory numeric check remains UNRESOLVED (hash-only evidence); "
+      "trace.target is a projected donor residual, NOT the injected template vector.")
