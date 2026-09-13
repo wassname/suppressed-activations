@@ -184,3 +184,27 @@ sign inversion, not removal. Examples with exact last-3 readouts saved in
 per_position_class_counts.json. Also fixed this round: production eps (1e-6) in the
 RMS, identity assert lg == full_lg[:, tok] (assert_close), and the aggregate-vs-pos48
 rank labeling. -- PI[glm-5p3-flash]
+
+## Exhaustive final-write classification (2026-09-13 v2, supersedes the counts above)
+
+Previous counts retracted (classification tested historical max / lacked fall tests;
+ant input was the ant-SOURCE not the ant DONOR). v2: exhaustive signed prev→last
+classes (machine-partition-asserted, sum == n_selected), selection = the ACTUAL
+production top-8 per position (score>0 mask recorded; ~217k/248k tokens have score>0 —
+the top-8 is the real selection), raw signed/energy before-after values saved for ALL
+72 selected pairs, ant = legs-L1-ant-donor (manifest-verified 'colonies' prompt):
+
+> source_spider: pos->neg 11, neg->pos 0, nonneg-inc 2, nonneg-dec 3, nonpos-inc 0,
+>   nonpos-dec 8, equal 0 | energy last<prev 5/24, last<start3 7/24
+> dog_donor:     pos->neg 13, neg->pos 0, nonneg-inc 0, nonneg-dec 10, nonpos-inc 0,
+>   nonpos-dec 1, equal 0 | energy last<prev 17/24, last<start3 20/24
+> ant_donor:     pos->neg 16, neg->pos 0, nonneg-inc 0, nonneg-dec 1, nonpos-inc 0,
+>   nonpos-dec 7, equal 0 | energy last<prev 4/24, last<start3 8/24
+
+Reading (counts): neg->pos NEVER occurs. The dominant final-write class is pos->neg
+(11-16/24). Energy at the final layer is LOWER than the previous layer in only 5/24
+(spider) and 4/24 (ant) — for most source/ant selected directions the normalized-readout
+cut is SIGN INVERSION, not an energy drop. Donor input differs (17/24, 20/24). Raw
+before/after values for all pairs in per_position_class_counts.json (v2). No claim
+about raw energy "removed" — the comparisons are last-vs-prev and last-vs-start3
+explicitly. -- PI[glm-5p3-flash]

@@ -104,65 +104,79 @@ if __name__ == "__main__":
 
 
 def per_position_selection_counts():
-    """Among ACTUAL production-selected tokens (per-position top-8), count final-layer
-    behavior classes over the three legs inputs: sign_flip / positive_fall /
-    more_negative, plus energy-drop counts. Same state per position; no sorting.
-    -- PI[glm-5p3-flash]"""
+    # Exhaustive final-write classification of ACTUAL production-selected tokens
+    # (sc[pos] > 0 mask recorded; per-position). Inputs: the three DISTINCT legs
+    # questions (spider source, dog donor, ANT DONOR; manifest-verified).
+    # Signed prev/last classes partition exactly; energy compared last-vs-prev AND
+    # last-vs-last-3-start separately. -- PI[glm-5p3-flash]
     D = ROOT / "out" / "2026-09-12_exact-input-bank-att3"
     U = torch.load(D / "unembedding.pt", weights_only=False).float()
     gain = torch.load(D / "norm_gain.pt", weights_only=False).float()
     from transformers import AutoTokenizer
     tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B",
                                         revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a")
-    counts, traces = {}, {}
-    for name, stem in (("source", "legs-L1-dog-source"), ("dog", "legs-L1-dog-donor"),
-                       ("ant", "legs-L1-ant-source")):
-        res = torch.load(D / f"{stem}_residuals.pt", weights_only=False).float()
+    manifest = json.load(open(D / "manifest.json"))
+    for c in manifest["preflight"]["checks"]:
+        if c["cell"] == "legs-L1-ant" and c["side"] == "donor":
+            assert "colonies" in tok.decode(c["ids"]), "ant donor prompt mismatch"
+    counts, records = {}, {}
+    for name, stem in (("source_spider", "legs-L1-dog-source"),
+                       ("dog_donor", "legs-L1-dog-donor"),
+                       ("ant_donor", "legs-L1-ant-donor")):
+        res = torch.load(D / (stem + "_residuals.pt"), weights_only=False).float()
         sc = increment_scores(res.permute(1, 0, 2), U, gain, normalize_unembedding_rows=True)
         seq = res.shape[1]
-        c = {"sign_flip": 0, "positive_fall": 0, "more_negative": 0, "energy_drop": 0,
-             "n_selected": 0}
-        ex = []
+        cls = {"pos->neg": 0, "neg->pos": 0, "nonneg-increase": 0, "nonneg-decrease": 0,
+               "nonpos-increase": 0, "nonpos-decrease": 0, "equal": 0}
+        e_cmp = {"energy_last<prev": 0, "energy_last<start3": 0}
+        pairs = []
+        n_sel = 0
         for pos in (seq - 3, seq - 2, seq - 1):
+            # actual production basis selection: top-k (rank 8) of the production score
+            ids_sel = sc[pos].topk(8).indices.tolist()
+            assert all(sc[pos, t] > 0 for t in ids_sel)
             h1 = res[:, pos, :].float()
             rms = (h1.square().mean(-1) + 1e-6).sqrt()
             hn = h1 * torch.rsqrt(h1.square().mean(-1, keepdim=True) + 1e-6) * gain.float()
             full_lg = (hn @ U.float().T) / (gain * U).float().norm(dim=-1)
-            dphi_full = full_lg[1:] - full_lg[:-1]
-            dphi_full = dphi_full - dphi_full.mean(-1, keepdim=True)
-            for tid in sc[pos].topk(8).indices.tolist():
+            for tid in ids_sel:
                 lg_t = full_lg[:, tid]
-                d_t = dphi_full[:, tid]
-                build = d_t[12:22].clamp_min(0).sum()
-                cut = (-d_t[-3:].clamp_max(0)).sum()
-                if min(build, cut) <= 0:
-                    continue  # not actually production-selected (min>0 required)
-                c["n_selected"] += 1
-                s_last, s_prev = lg_t[-1], lg_t[-2]
-                signed = full_lg[:, tid] * rms  # signed projection = readout * rms
-                e_energy = signed.square()
-                dropped = e_energy[-1] < e_energy.max()
-                if s_prev >= 0 > s_last or (s_prev > 0 and s_last < 0):
-                    c["sign_flip"] += 1
-                elif s_last >= 0:
-                    c["positive_fall"] += 1
+                signed = lg_t * rms
+                prev, last = float(signed[-2]), float(signed[-1])
+                if prev >= 0 and last < 0:
+                    k = "pos->neg"
+                elif prev < 0 and last >= 0:
+                    k = "neg->pos"
+                elif last > prev:
+                    k = "nonneg-increase" if prev >= 0 else "nonpos-increase"
+                elif last < prev:
+                    k = "nonneg-decrease" if prev >= 0 else "nonpos-decrease"
                 else:
-                    c["more_negative"] += 1
-                if dropped:
-                    c["energy_drop"] += 1
-                if len(ex) < 3:
-                    ex.append({"token": tok.decode([tid]), "token_id": tid, "pos": pos,
-                               "readout_last3": [round(float(x), 3) for x in lg_t[-3:]],
-                               "signed_last3": [round(float(x), 3) for x in signed[-3:]],
-                               "class": ("sign_flip" if (s_prev >= 0 > s_last or (s_prev > 0 and s_last < 0))
-                                         else "positive_fall" if s_last >= 0 else "more_negative")})
-        counts[name] = c
-        traces[name] = ex
-        print(f"{name}: {c} | examples: {[(e['token'], e['class']) for e in ex]}")
+                    k = "equal"
+                cls[k] += 1
+                n_sel += 1
+                e_prev, e_last = prev ** 2, last ** 2
+                e_start3 = float(signed[-3]) ** 2
+                if e_last < e_prev:
+                    e_cmp["energy_last<prev"] += 1
+                if e_last < e_start3:
+                    e_cmp["energy_last<start3"] += 1
+                pairs.append({"pos": pos, "token_id": tid, "token": tok.decode([tid]),
+                              "class": k, "signed_prev": prev, "signed_last": last,
+                              "energy_prev": e_prev, "energy_last": e_last,
+                              "energy_start3": e_start3,
+                              "selected_score": float(sc[pos, tid])})
+        assert sum(cls.values()) == n_sel, (cls, n_sel)
+        counts[name] = {"classes": cls, "energy": e_cmp, "n_selected": n_sel,
+                        "selected_per_position_top8": [8, 8, 8],
+                        "score_positive_per_position": [int((sc[q] > 0).sum())
+                                                        for q in (seq - 3, seq - 2, seq - 1)]}
+        records[name] = pairs
+        print(name, "n_selected", n_sel, "per-pos mask", counts[name]["selected_per_position_top8"], "|", cls, "|", e_cmp)
     (OUT / "per_position_class_counts.json").write_text(
-        json.dumps({"counts": counts, "examples": traces}, indent=1) + "\n")
-    print(f"saved: {OUT / 'per_position_class_counts.json'}")
-    return counts, traces
+        json.dumps({"counts": counts, "pairs": records}, indent=1) + "\n")
+    print("saved:", OUT / "per_position_class_counts.json")
+    return counts, records
 
 
 if __name__ == "__main__" and len(sys.argv) > 1 and sys.argv[1] == "counts":
