@@ -40,7 +40,9 @@ N_TOKENS = 128
 
 def main():
     # the previous increment rows (the byte-equality reference for the replays)
-    mx_prev = json.load(open(BW_DEMO / "matrix_result.json"))["rows"]
+    # the durable copy lives in the main evidence dir (the 130912 dir may be cleaned)
+    mx_prev = json.load(open(ROOT / "../suppressed-activations/slop/research/demo-evidence/"
+                             "bridge-matrix/matrix_result.json"))["rows"]
     PREV_INC = {t: mx_prev[t]["generation"] for t in
                 ("dog-inc-h20", "dog-inc-h8", "ant-inc-h20", "ant-inc-h8")}
     out_dir = ROOT / "out" / f"2026-09-13_bridge-matrix-{time.strftime('%H%M%S')}"
