@@ -150,8 +150,9 @@ def main():
                 assert cfg["delta_anchor_layer"] == 20, (r["donor"], r["sel"], r["site"], "anchor")
             assert cfg["readout_positions"] == 4, (r["donor"], r["sel"], r["site"], "readout")
             assert cfg["intervention_layer"] == [r["site"]], (r["donor"], r["sel"], r["site"], "site")
-            assert cfg["basis_selector"] == ("increment" if r["sel"].startswith("inc") else "attenuation"), \
-                (r["donor"], r["sel"], r["site"], "selector")
+            if not r["sel"] == "full":  # the full rows assert the selector in their own block
+                assert cfg["basis_selector"] == ("increment" if r["sel"].startswith("inc") else "attenuation"), \
+                    (r["donor"], r["sel"], r["site"], "selector")
             if r["sel"] == "full":  # the RUNTIME support AND effective rank must equal 49/47
                 sup = {"dog": 49, "ant": 47}[r["donor"]]
                 assert cfg["persistent_rank"] == -1, (tag, "sentinel")
