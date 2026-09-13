@@ -2483,6 +2483,42 @@ def complete_edit_bases(U_s, U_d, Us8, Ud8, cfg):
     return Us_k, Ud_k, Pj, True
 
 
+def increment_union_basis(source, target, cfg, unembedding, norm_gain):
+    """The PRODUCTION paired basis builder (pure): per-position production bases at the
+    READOUT positions (content_end-anchored, independent of intervention_positions) for
+    BOTH source and donor trajectories; concatenated BEFORE orthonormalization; SVD;
+    support filtered by tolerance (asserted >= persistent_rank); truncated to
+    persistent_rank. Returns (shared, diagnostics). -- PI[glm-5p3-flash]"""
+    # trajectory-selected multi-token union: per-position production
+    # bases at the READOUT positions (content_end-anchored,
+    # independent of intervention_positions) for BOTH source and
+    # donor trajectories; concatenated BEFORE union
+    # orthonormalization; rank filtered by SVD tolerance then
+    # truncated to persistent_rank
+    per_pos = []
+    for sample in (source, target):
+        sc = increment_scores(
+            sample["residuals"].permute(1, 0, 2), unembedding,
+            norm_gain, normalize_unembedding_rows=True)
+        readout_pos = [sample["content_end"] - 1 - off
+                       for off in range(cfg.readout_positions)]
+        for q in readout_pos:
+            bases_q, _ = subspace_from_scores(
+                sc[q:q + 1], unembedding, norm_gain,
+                rank=cfg.common_source_rank,
+                normalize_unembedding_rows=True)
+            per_pos.append(bases_q[0])
+    cols = torch.cat(per_pos, dim=1)  # before orthonormalization
+    vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
+    tol = max(cols.shape) * torch.finfo(cols.dtype).eps * values[0]
+    support = int((values > tol).sum())
+    assert support >= cfg.persistent_rank, \
+        f"basis support {support} < persistent_rank {cfg.persistent_rank}"
+    shared = vectors[:, :cfg.persistent_rank]
+    diagnostics = {"selector": "increment_union_svd",
+                   "basis_support": support,
+                   "effective_rank": int(shared.shape[1]),
+                   "spectrum_top": values[:8].tolist()}
 def run_with_bundle(
     bundle: dict,
     output_dir: Path,
@@ -2755,36 +2791,8 @@ def run_with_bundle(
                                    projected_norm_fraction=retained)
             if cfg.persistent_rank:
                 if cfg.basis_selector == "increment":
-                    # trajectory-selected multi-token union: per-position production
-                    # bases at the READOUT positions (content_end-anchored,
-                    # independent of intervention_positions) for BOTH source and
-                    # donor trajectories; concatenated BEFORE union
-                    # orthonormalization; rank filtered by SVD tolerance then
-                    # truncated to persistent_rank
-                    per_pos = []
-                    for sample in (source, target):
-                        sc = increment_scores(
-                            sample["residuals"].permute(1, 0, 2), unembedding,
-                            norm_gain, normalize_unembedding_rows=True)
-                        readout_pos = [sample["content_end"] - 1 - off
-                                       for off in range(cfg.readout_positions)]
-                        for q in readout_pos:
-                            bases_q, _ = subspace_from_scores(
-                                sc[q:q + 1], unembedding, norm_gain,
-                                rank=cfg.common_source_rank,
-                                normalize_unembedding_rows=True)
-                            per_pos.append(bases_q[0])
-                    cols = torch.cat(per_pos, dim=1)  # before orthonormalization
-                    vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
-                    tol = max(cols.shape) * torch.finfo(cols.dtype).eps * values[0]
-                    support = int((values > tol).sum())
-                    assert support >= cfg.persistent_rank, \
-                        f"basis support {support} < persistent_rank {cfg.persistent_rank}"
-                    shared = vectors[:, :cfg.persistent_rank]
-                    diagnostics = {"selector": "increment_union_svd",
-                                   "basis_support": support,
-                                   "effective_rank": int(shared.shape[1]),
-                                   "spectrum_top": values[:8].tolist()}
+                    shared, diagnostics = increment_union_basis(
+                        source, target, cfg, unembedding, norm_gain)
                 elif cfg.template_state_span != "none":
 
                     suffixes = torch.stack(template_suffixes).float()
