@@ -113,6 +113,8 @@ class Config:
     # layer for EVERY edit site (fixed anchor); -1 = site-tied (historical default)
     basis_selector: str = "attenuation"  # "attenuation" (historical template contrast)
     # | "increment" (trajectory-selected multi-token union/SVD U, same hook interface)
+    paired_score: bool = False  # increment selection: score = (S_this - S_other).clamp_min(0)
+    # per position (the paired specificity contrast) instead of the plain per-side score
     xdepth_anchor_layer: int = -1  # if >=0: inject the donor residual from THIS layer
     # (projected on the SAME fixed span) instead of the site layer - cross-depth donor
     xdepth_norm_from_layer: int = -1  # if >=0: rescale the anchor projection to the norm of
