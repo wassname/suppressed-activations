@@ -2530,11 +2530,11 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
                 selected.extend(bases_q[0].T @ torch.zeros(0)) if False else None
             else:
                 bases_q, _ = subspace_from_scores(
-                    sc[q:q + 1] if False else sc_this[q:q + 1], unembedding, norm_gain,
+                    sc_this[q:q + 1], unembedding, norm_gain,
                     rank=rank, normalize_unembedding_rows=True)
             per_pos.append(bases_q[0])
             selected.extend([int(t) for t in
-                             (score_q if getattr(cfg, "paired_score", False)
+                             (score_q if cfg.paired_score
                               else sc_this[q]).topk(rank).indices])
     cols = torch.cat(per_pos, dim=1)  # before orthonormalization
     vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
@@ -2548,8 +2548,9 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
                    "basis_support": support,
                    "effective_rank": int(shared.shape[1]),
                    "spectrum_top": values[:8].tolist(),
-                   "readout_positions_used": readout_pos,
-                   "paired_score": getattr(cfg, "paired_score", False),
+                   "readout_positions_used": {"source": readout_pos[:len(readout_pos)//2],
+                                              "donor": readout_pos[len(readout_pos)//2:]},
+                   "paired_score": cfg.paired_score,
                    "selected_token_ids": selected}
     return shared, diagnostics
 
