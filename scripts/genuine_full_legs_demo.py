@@ -30,13 +30,16 @@ torch.set_grad_enabled(False)
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import scripts.oat_sweep as oat
+from scripts.prompt import assistant_prefill_input_ids
+
+REF_REV = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE_PROMPT = "Fact: The number of legs on the animal that spins webs is "
-DOG_PROMPT = "Fact: The number of legs on the animal that barks and is called man's best friend is "
-ANT_PROMPT = "Fact: The number of legs on the animal that lives in colonies and follows pheromone trails is "
-ARMS = (("k8_C1.5", 3), ("kfull_C1.5", 4), ("C0", 5))  # complete-rank condition indices
-MAX_NEW_TOKENS = 32
+BATCH = ROOT / "slop" / "complete_rank_batch.json"
+# the ACTUAL 1230 legs rows (source of truth): dog = indices 27/28/29, ant = 33/34/35
+ROW_INDICES = {"dog": (27, 28, 29), "ant": (33, 34, 35)}
+ARMS = (("k8_C1.5", 27), ("kfull_C1.5", 28), ("C0", 29))  # per-donor offsets +0/+1/+2
+MAX_NEW_TOKENS = None  # exact 1230 config; no editorial change
 
 
 def main():
@@ -48,28 +51,47 @@ def main():
               "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
                                              cwd=ROOT, check=True, text=True,
                                              capture_output=True).stdout.strip(),
-              "max_new_tokens": MAX_NEW_TOKENS, "rows": {}}
+              "rows": {}}
 
-    specs = []
-    for donor, tgt_prompt, tgt_out in (("dog", DOG_PROMPT, "4"), ("ant", ANT_PROMPT, "6")):
-        for arm, idx in ARMS:
-            specs.append({
-                "output_dir": str(out_dir / f"{donor}-{arm}"),
-                "sweep": "complete-rank", "condition_index": idx,
-                "prompt_mode": "raw",
-                "source_prompt": SOURCE_PROMPT, "target_prompt": tgt_prompt,
-                "source_output": "8", "target_output": tgt_out,
-                "target_concept": donor, "max_new_tokens": MAX_NEW_TOKENS,
-                "lens_corpus_arrow": None, "prefill_instruction": None,
-                "extraction_instruction": None, "selector_audit": False,
-                "expected_condition": arm, "expected_strength": 1.5 if arm != "C0" else 0.0,
-                "expected_intervention_layer": [1], "expected_xdepth_anchor_layer": 25,
-                "expected_common_basis": "top8_union", "expected_common_removal": "joint",
-                "expected_common_selector": "increment",
-            })
+    # EXACT 1230 rows (source of truth): copy the six legs condition dicts, change ONLY
+    # output_dir (frozen provenance: never write into the historical dirs)
+    batch_1230 = json.loads(BATCH.read_text())
+    specs, prompts = [], {}
+    for donor, (k8_i, kfull_i, c0_i) in ROW_INDICES.items():
+        for arm, idx in (("k8_C1.5", k8_i), ("kfull_C1.5", kfull_i), ("C0", c0_i)):
+            row = dict(batch_1230[idx])
+            assert row["expected_condition"] == arm, (idx, row["expected_condition"])
+            prompts[arm, donor] = (row["source_prompt"], row["target_prompt"],
+                                   row["source_output"], row["target_output"])
+            row["output_dir"] = str(out_dir / f"{donor}-{arm}")
+            specs.append(row)
     batch_file = out_dir / "batch_spec.json"
     batch_file.write_text(json.dumps(specs, indent=2) + "\n")
-    oat.validate_specs(specs, oat.SWEEP_CONFIGS)  # pre-model contract, same as __main__
+
+    # preflight BEFORE model load: exact 1230 prompt equality + rendered input-ID
+    # equality against the saved 1230 results, for all six rows
+    preflight = {}
+    from transformers import AutoTokenizer
+    tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B", revision=REF_REV)
+    for (arm, donor), (src_p, tgt_p, src_out, tgt_out) in prompts.items():
+        row = next(s for s in specs if s["expected_condition"] == arm and s["target_concept"] == donor)
+        src_r = assistant_prefill_input_ids(tok, src_p, device="cpu", instruction=row["prefill_instruction"])
+        tgt_r = assistant_prefill_input_ids(tok, tgt_p, device="cpu", instruction=row["prefill_instruction"])
+        saved = json.load(open(ROOT / "out" / "2026-09-12_cb-cr8" /
+                               f"k8-legs-L1-{donor}" / "result.json"))["rendered_inputs"]
+        assert (src_r["input_ids"].flatten().tolist() == saved["source"]["input_ids"]), \
+            f"{donor} source input IDs differ from 1230"
+        assert (tgt_r["input_ids"].flatten().tolist() == saved["donor"]["input_ids"]), \
+            f"{donor} donor input IDs differ from 1230"
+        preflight[f"{donor}-{arm}"] = {
+            "source_prompt_repr": repr(src_p), "target_prompt_repr": repr(tgt_p),
+            "source_ids_sha256": hashlib.sha256(json.dumps(src_r["input_ids"]).encode()).hexdigest(),
+            "donor_ids_sha256": hashlib.sha256(json.dumps(tgt_r["input_ids"]).encode()).hexdigest(),
+            "equals_1230": True}
+        print(f"preflight {donor}-{arm}: source+donor input IDs EQUAL 1230 OK")
+    result["preflight"] = preflight
+    oat.validate_specs(specs, oat.SWEEP_CONFIGS)
+    batch_file.write_text(json.dumps(specs, indent=2) + "\n")
 
     capture: dict = {}
     spec_by_tag: dict = {}
@@ -107,6 +129,8 @@ def main():
                 "generation_text": gen["text"],
                 "generation_token_ids": gen["token_ids"],
                 "generation_count": len(gen["token_ids"]),
+                "first_32_prefix_text": tok.decode(gen["token_ids"][:32]) if len(gen["token_ids"]) >= 32 else None,
+                "first_32_prefix_ids": gen["token_ids"][:32],
                 "eos_count": tok_of(bundle, gen["token_ids"]),
                 "readout_prefill": row["readout"],
                 "readout_final": row["last_decode_readout"],
@@ -156,9 +180,10 @@ def _assert_contract(result, spec_by_tag):
         assert k8["spec_rank"][-1] == 8, f"k8 rank {k8['spec_rank']}"
         assert kfull["spec_rank"][-1] > 8, \
             f"full supported rank must exceed 8, got {kfull['spec_rank']}"
-        # generation counts and EOS recording (AGENTS: state the actual token count)
+        # generation counts and EOS recording (AGENTS: state the actual token count);
+        # the 32-token demo view is the FIRST-32 prefix of the exact 1230 config
         for row in (k8, kfull, c0):
-            assert 0 < row["generation_count"] <= MAX_NEW_TOKENS, row["generation_count"]
+            assert 0 < row["generation_count"] <= 128, row["generation_count"]
         # C0 inertness: the C0 row's steered generation equals its own unmodified base
         assert c0["generation_text"] == c0["base_generation"], \
             "C0 row diverged from its own base generation"
