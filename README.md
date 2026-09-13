@@ -369,8 +369,6 @@ Generation after intervention (65 tokens, verbatim, ends with `<|im_end|>`):
 The ant is a small, hardworking insect known for its ability to carry objects much larger than itself. These social creatures live in vast colonies and communicate with one another using chemical signals called pheromones. Despite their tiny size, ants are incredibly resilient and can be found in almost every habitat on Earth.<|im_end|>
 ```
 
-### Limitations
-
 These rows were selected after layer and strength tuning as working illustrations.
 The frozen fresh-set evaluation for this candidate scored
 [6/12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json) —
@@ -378,6 +376,9 @@ a rate on those 12, not a general one. Improving the reliability of the transfer
 open work.
 
 ## Limits
+
+<details>
+<summary>Method checks and limitations</summary>
 
 - This is a diagnostic result. It does not yet show that the subspace causes hidden English
   computation or suppression.
@@ -425,3 +426,5 @@ If you use the method or figure, please cite
 - Gurnee, Wes, et al. ["Verbalizable Representations Form a Global Workspace in Language Models."](https://transformer-circuits.pub/2026/workspace/) 2026.
 
 <!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4. -->
+
+</details>
