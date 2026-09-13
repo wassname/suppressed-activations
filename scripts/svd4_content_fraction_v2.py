@@ -50,6 +50,15 @@ def main():
     def frac(V, v):
         return float((V.T @ v).square().sum() / v.square().sum())
 
+    def increment_union_basis_if_available(pair):
+        from scripts.oat_sweep import increment_union_basis
+        samples = samples_for(pair)
+        s0, s1 = samples
+        cfg = SimpleNamespace(readout_positions=4, common_source_rank=8,
+                              common_donor_rank=8, persistent_rank=4)
+        sh, _ = increment_union_basis(s0, s1, cfg, unemb, gain)
+        return sh, None
+
     table = {}
     for pair in ("source_dog", "source_ant"):
         sh4 = U4s[f"U4_{pair}"].float()
@@ -88,13 +97,16 @@ def main():
             v = dirs_c[vid]
             rows[f"{tok.decode([vid])!r}:{vid}"] = {"U4": round(frac(sh4, v), 4),
                                                     "full": round(frac(full, v), 4)}
+        # the saved U4 must equal the reconstructed first-4 projector
+        recomputed, _ = increment_union_basis_if_available(pair)
+        torch.testing.assert_close(sh4, recomputed[:, :4], rtol=1e-4, atol=1e-5)
         table[pair] = {"support": support, "worst_full_containment": round(worst, 6),
                        "rows": rows}
         n_kept = sum(1 for v in rows.values() if v["U4"] > 0.5)
         print(f"{pair}: support {support} | worst full containment {worst:.6f} | "
               f"U4 fraction > 0.5 for {n_kept}/{len(rows)} selected directions")
     (OUT / "svd4_fraction_v2.json").write_text(json.dumps(
-        {"formula": "||V.T v||^2 / ||v||^2; v = (unemb[id]*gain)/rown; full span = SVD support",
+        {"formula": "CENTERED directions: dirs = normalize(unemb*gain); dirs_c = dirs - dirs.mean(0); fraction = ||V.T dirs_c[id]||^2/||dirs_c[id]||^2; full span = SVD-tolerance support",
          "table": table}, indent=1) + "\n")
     print(f"saved: {OUT / 'svd4_fraction_v2.json'}")
 

@@ -2516,9 +2516,10 @@ def increment_union_basis(source, target, cfg, unembedding, norm_gain):
     vectors, values, _ = torch.linalg.svd(cols, full_matrices=False)
     tol = max(cols.shape) * torch.finfo(cols.dtype).eps * values[0]
     support = int((values > tol).sum())
-    assert support >= cfg.persistent_rank, \
-        f"basis support {support} < persistent_rank {cfg.persistent_rank}"
-    shared = vectors[:, :cfg.persistent_rank]
+    rank_cut = support if cfg.persistent_rank < 0 else cfg.persistent_rank
+    assert support >= rank_cut, \
+        f"basis support {support} < persistent_rank {rank_cut}"
+    shared = vectors[:, :rank_cut]
     diagnostics = {"selector": "increment_union_svd",
                    "basis_support": support,
                    "effective_rank": int(shared.shape[1]),
