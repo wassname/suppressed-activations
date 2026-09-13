@@ -33,9 +33,17 @@ N_TOKENS = 128
 TINY_MAX = 4
 
 
-def r2_of(ids):
-    bg = list(zip(ids, ids[1:]))
-    return 1 - len(set(bg)) / len(bg) if len(bg) > 1 else 0.0
+import ast as _ast
+_src_sas = (ROOT / "suppressed_activation_subspace.py").read_text()
+_fn = next(n for n in _ast.parse(_src_sas).body
+           if isinstance(n, _ast.FunctionDef) and n.name == "repetition_bigram_fraction")
+exec(compile(_ast.Module(body=[_fn], type_ignores=[]), "suppressed_activation_subspace.py", "exec"))
+
+
+def r2_of(ids, tok):
+    from transformers import AutoTokenizer
+    return repetition_bigram_fraction(ids, set(AutoTokenizer.from_pretrained(
+        "Qwen/Qwen3.5-4B", revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a").all_special_ids))
 
 
 def capture_spec(bundle, spec_row, out_dir):
@@ -165,7 +173,8 @@ def main():
     assert torch.equal(s25["donor_U"], s1["donor_U"]), "donor basis changed with anchor"
     assert not torch.allclose(s25["donor_proj"], s1["donor_proj"]), \
         "donor vectors identical; anchor change ineffective"
-    assert torch.equal(s25["src"], s1["decode_src"]) or True  # decode spec per arm below
+    assert torch.equal(s25["decode_src"], s1["decode_src"]), "decode_src differs across anchors"
+    assert torch.equal(s25["decode_proj"], s1["decode_proj"]), "decode_proj differs across anchors"
 
     saved = json.load(open(ROOT / "out" / "2026-09-12_cb-cr8" / "k8-legs-L1-dog" /
                            "result.json"))["rendered_inputs"]
@@ -177,12 +186,13 @@ def main():
     from scripts.runtime_controls import cached_generate
     gen_base, _, _ = cached_generate(model, tok, ids, blocks, {}, N_TOKENS)
     result["rows"]["base"] = {"text": gen_base["text"], "token_ids": gen_base["token_ids"],
-                              "r2": r2_of(gen_base["token_ids"]),
+                              "r2": r2_of(gen_base["token_ids"], tok),
                               "n_eos": sum(1 for t in gen_base["token_ids"] if t == tok.eos_token_id)}
     for name, cap, po in (("anchor25", cap25, False), ("anchor1", cap1, False)):
         gen, rows, record = run_arm(model, tok, ids, blocks, cap, po, N_TOKENS)
         result["rows"][name] = {
-            "text": gen["text"], "token_ids": gen["token_ids"], "r2": r2_of(gen["token_ids"]),
+            "text": gen["text"], "token_ids": gen["token_ids"], "r2": r2_of(gen["token_ids"], tok),
+            "replacement_trace_full": record[L]["replacement_trace"],
             "n_eos": sum(1 for t in gen["token_ids"] if t == tok.eos_token_id),
             "first_logits_sha256": hashlib.sha256(rows[0].cpu().numpy().tobytes()).hexdigest(),
             "prefill_edit_norm": next(e["applied_norm_after_dtype"]
