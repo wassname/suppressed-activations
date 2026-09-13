@@ -31,6 +31,7 @@ import hashlib
 import json
 import subprocess
 import sys
+import time
 
 import torch
 torch.set_grad_enabled(False)
@@ -49,6 +50,9 @@ POS = 3
 # would make the equivalence test near-vacuous; larger rank/strength make it decisive.
 RANK = int(os.environ.get("SUPPRESSED_CONTROL_RANK", "4"))
 STRENGTH = float(os.environ.get("SUPPRESSED_CONTROL_STRENGTH", "1.5"))
+# fixed in advance: cached and uncached paths run the same numerics on the same
+# edit, so their errors should be the same order; NOT widened after seeing results
+TOL_FACTOR = 2.0
 sys_path = str(Path(__file__).resolve().parents[1])
 sys_path in __import__("sys").path or __import__("sys").path.insert(0, sys_path)
 from scripts.demo import intervention_hooks, layer_hooks, trajectory
@@ -184,21 +188,20 @@ def run_controls(result):
     # null (clean) measurement at the same scale sets the tolerance.
     rel = lambda a, b: [float((a[j] - b[j]).abs().max() / (b[j].std() + 1e-9)) for j in range(len(a))]
     clean_step_delta = rel(rows_cl, rows_cl_ref)
-    clean_hidden_delta = [float((fin_cl[j + 1][0, 0] - fin_cl_ref[c_end - 1 + j]).abs().max())
-                          for j in range(len(rows_cl) - 1)]
     clean_rel = max(clean_step_delta)
-    tol_rel = max(1e-3, 10 * clean_rel)
-    clean_hidden_rel = [float((fin_cl[j + 1][0, 0] - fin_cl_ref[c_end - 1 + j]).abs().max()
-                              / (fin_cl_ref[c_end - 1 + j].std() + 1e-9))
-                        for j in range(len(rows_cl) - 1)]
-    tol_hidden = max(1e-3, 10 * max(clean_hidden_rel))
+    tol_rel = max(1e-3, TOL_FACTOR * clean_rel)
+    clean_hidden = [(float((a - b).abs().max()),
+                     float((a - b).abs().max() / (b.std() + 1e-9)), name)
+                    for a, b, name in hidden_pairs(fin_cl, fin_cl_ref, c_end, len(rows_cl))]
+    tol_hidden = max(1e-3, TOL_FACTOR * max(r for _, r, _ in clean_hidden))
     result["clean_step_logit_delta_rel"] = clean_step_delta
-    result["clean_step_hidden_delta_rel"] = clean_hidden_rel
+    result["clean_step_hidden_abs_rel"] = clean_hidden
     result["tolerance_rel"] = tol_rel
     result["tolerance_hidden_rel"] = tol_hidden
     print(f"calibration: clean cached-vs-recompute rel logit delta per step "
           f"{['%.2e' % d for d in clean_step_delta]}; "
-          f"tol_rel = max(1e-3, 10x max) = {tol_rel:.2e}, tol_hidden = {tol_hidden:.2e}")
+          f"tol = {TOL_FACTOR}x max null (fixed, not widened) = {tol_rel:.2e}, "
+          f"tol_hidden = {tol_hidden:.2e}")
 
     # 3. intervened cached generation (production path, real nonzero edit)
     record = {}
@@ -239,25 +242,31 @@ def run_controls(result):
         f"reference mask is not prompt-last3 + all generated: {rec_ext[L]['prefill_positions']}"
 
     step_delta = rel(rows, rows_ref)
-    hidden_delta = [float((fin[1 + j][0, 0] - fin_ref[c_end - 1 + j]).abs().max()
-                          / (fin_ref[c_end - 1 + j].std() + 1e-9))
-                    for j in range(n - 1)]
+    hidden = [(float((a - b).abs().max()),
+               float((a - b).abs().max() / (b.std() + 1e-9)), name)
+              for a, b, name in hidden_pairs(fin, fin_ref, c_end, n)]
     result["step_logit_delta_rel"] = step_delta
-    result["step_hidden_delta_rel"] = hidden_delta
+    result["step_abs_delta"] = [float((rows[j] - rows_ref[j]).abs().max()) for j in range(n)]
+    result["step_hidden_abs_rel"] = hidden
+    # per-step null vs control side by side (absolute logit deltas)
+    result["per_step_abs_null_vs_control"] = {
+        f"step{j}": [float((rows_cl[j] - rows_cl_ref[j]).abs().max()),
+                     float((rows[j] - rows_ref[j]).abs().max())] for j in range(n)}
     for j, d in enumerate(step_delta):
         assert d <= tol_rel, f"cached/uncached logits diverge at step {j}: rel {d:.3e} > tol {tol_rel:.3e}"
-    for j, d in enumerate(hidden_delta):
-        assert d <= tol_hidden, f"cached/uncached final hidden diverge at decode {j}: rel {d:.3e} > tol {tol_hidden:.3e}"
+    for ab, r, name in hidden:
+        assert r <= tol_hidden, f"cached/uncached final hidden diverge at {name}: rel {r:.3e} > tol {tol_hidden:.3e}"
     # top-2 separation per step: a greedy argmax flip with a gap below the measured
-    # cached-vs-uncached delta is numerics, not a placement bug
+    # cached-vs-uncached delta is CONSISTENT with an exact-tie rank uncertainty;
+    # it does not by itself prove the discrepancy is only numerics
     gap = lambda row: float(row.topk(2).values[0] - row.topk(2).values[1])
     result["cached_top2_gap"] = [gap(r) for r in rows]
     result["ref_top2_gap"] = [gap(r) for r in rows_ref]
     result["step_abs_delta"] = [float((rows[j] - rows_ref[j]).abs().max()) for j in range(n)]
     argmax_match = [int(rows[j].argmax()) == int(rows_ref[j].argmax()) for j in range(n)]
     result["step_argmax_match"] = argmax_match
-    # no sampling drift: every greedy step picks the same token, EXCEPT exact bf16
-    # ties (top-2 gap within the measured step delta), where argmax is arbitrary
+    # no sampling drift: every greedy step picks the same token, EXCEPT exact ties
+    # (top-2 gap within the measured step delta), where argmax ordering is uncertain
     tie_flip = [j for j in range(n) if not argmax_match[j]
                 and result["cached_top2_gap"][j] <= result["step_abs_delta"][j]]
     result["argmax_tie_flips"] = tie_flip
@@ -274,11 +283,14 @@ def run_controls(result):
         f"intervention did not move the first-token logits beyond numerics: " \
         f"shift {first_shift:.3e} vs clean null {clean_abs0:.3e}"
     result["first_token_logit_shift_vs_clean"] = first_shift
+    hd = max(r for _, r, _ in hidden) if hidden else 0.0
     print(f"3. cached/uncached teacher-forced equivalence (n={n}, decode_steps={n - 1}): "
-          f"per-step rel logit delta max {max(step_delta):.2e}, rel hidden delta max "
-          f"{max(hidden_delta) if hidden_delta else 0.0:.2e}, tol_rel {tol_rel:.2e} OK; "
+          f"per-step rel logit delta max {max(step_delta):.2e} (null max {clean_rel:.2e}), "
+          f"rel hidden delta max {hd:.2e} (null max {max(r for _, r, _ in clean_hidden):.2e}), "
+          f"tol {tol_rel:.2e} OK; "
           f"argmax match {sum(argmax_match)}/{n}"
-          + (f" (tie flips at steps {tie_flip} within numerics)" if tie_flip
+          + (f" (tie flip at steps {tie_flip}: gap within measured step delta — "
+             f"consistent with rank uncertainty, NOT proof of numerics-only)" if tie_flip
              else " (no flips)") + "; "
           f"first-token shift vs clean {first_shift:.2e} (nonzero) OK")
 
@@ -302,9 +314,20 @@ def run_controls(result):
     print(f"probes: wrong-mask rel delta {wm_delta:.2e}, no-hook rel delta {nh_delta:.2e} "
           f"(both must exceed tol_rel {tol_rel:.2e}) OK")
 
-    out_dir = ROOT / "out" / f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir = (ROOT / "out" /
+               f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}-"
+               f"{str(DTYPE).replace("torch.", "")}-{time.strftime('%H%M%S')}")
+    out_dir.mkdir(parents=True, exist_ok=False)
     result["outcome"] = "PASS"
+
+
+def hidden_pairs(fin, fin_ref, c_end, n):
+    """Position-aligned final-norm-input pairs. Decode call j (fin[j], j>=1) processed
+    token g_j at position c_end-1+j; fin[0][:, -1] is the prefill last position."""
+    pairs = [(fin[0][0, -1], fin_ref[c_end - 1], "prefill-last")]
+    for j in range(1, n):
+        pairs.append((fin[j][0, 0], fin_ref[c_end - 1 + j], f"decode-{j}"))
+    return pairs
 
 
 def main():
@@ -312,9 +335,11 @@ def main():
               "git_describe": subprocess.run(["git", "describe", "--always", "--dirty"],
               cwd=ROOT, check=True, text=True, capture_output=True).stdout.strip(),
               "code_sha256": code_hashes(), "strength": STRENGTH, "positions": POS,
-              "control_rank": RANK, "max_new_tokens": N_GEN}
-    out_dir = ROOT / "out" / f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}"
-    out_dir.mkdir(parents=True, exist_ok=True)
+              "control_rank": RANK, "max_new_tokens": N_GEN, "dtype": str(DTYPE).replace("torch.", "")}
+    out_dir = (ROOT / "out" /
+               f"2026-09-13_runtime-controls-{MODEL.split('/')[-1]}-"
+               f"{str(DTYPE).replace("torch.", "")}-{time.strftime('%H%M%S')}")
+    out_dir.mkdir(parents=True, exist_ok=False)
     try:
         run_controls(result)
         result.setdefault("outcome", "PASS")
