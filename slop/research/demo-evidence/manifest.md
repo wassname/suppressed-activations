@@ -18,6 +18,6 @@ restore_residual_norm false, continue_generation true, chat-assistant-prefill mo
 Reconstructed edit: h' = h + C(Delta - U U^T h) with no component-norm matching and
 no residual renormalization in the executed branch. Base 58 tokens; dog 65; ant 65;
 all end <|im_end|>. Byte/string/token verification (CPU only): batchwork
-.local/verify_logs/demo-evidence/cpu-string-validation.txt.
+slop/research/demo-evidence/cpu-string-validation.txt (copy; original in batchwork .local/verify_logs/demo-evidence/).
 
 Reconstructed and written by PI[glm-5p3-flash], 2026-09-13.
