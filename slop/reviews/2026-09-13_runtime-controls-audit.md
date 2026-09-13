@@ -202,3 +202,33 @@ strings per the AGENTS causal-demo layout. NOT a dose-ladder default, NOT random
 basis, NOT multi-layer expansion. Awaiting supervisor go.
 
 -- PI[glm-5p3-flash]
+
+## Genuine-full LEGS demonstration (supervisor-approved bounded scope, 2026-09-13)
+
+Final driver: `scripts/genuine_full_legs_demo.py` — six ACTUAL 1230 complete-rank
+legs rows (dog/ant × k8/kfull/C0), copied verbatim (only output_dir redirected),
+input IDs preflight-verified byte-equal to the saved 1230 results before model load.
+dog-k8 + ant-k8 reused from prior attempts with verified config+code hash; the rest
+ran with spec capture. `demo_result.json` passes: temporal_full True on both kfull
+rows (old-batch flag defect did not ride along), C0 generations byte-equal their own
+base, distinct prefill/final readouts, count+EOS recorded, first-32 prefixes saved.
+
+| row | swap (nats) | p_valid | r2 | gen | EOS |
+|---|---|---|---|---|---|
+| dog-k8 | −1.500 | 0.0022 | 0.992 | 128 | 0 |
+| dog-kfull | −0.250 | 0.1742 | 0.976 | 128 | 0 |
+| dog-C0 | 0.000 | 0.9575 | 0.000 | 63 | 1 |
+| ant-k8 | −1.938 | 0.1536 | 0.984 | 128 | 0 |
+| ant-kfull | +0.625 | 0.0715 | 0.961 | 128 | 0 |
+| ant-C0 | 0.000 | 0.9718 | 0.000 | 63 | 1 |
+
+Ranks (measured, reported separately): k8 arms joint 16 (=8+8; the captured spec's
+src IS the joint span), donor 8; kfull: dog 53/31/53, ant 46/29/46 (source/donor/
+joint). Injection norms monotone per position (assertion passed). Containment
+assertion passes with captured bases; labeled unavailable for reused rows without
+them. Observations, no mechanism claims: repetition r2 0.96–0.99 in every nonzero
+row (the user's phenomenon reproduces with the actual trajectory-selected basis);
+k8 swap negative for both donors; intervened rows never emit EOS while C0 does.
+Process slips noted: the final pass ran five rows in a direct uv invocation (not
+pueue); the reuse scan under-matched (sentinel/strength configs) causing those
+reruns. -- PI[glm-5p3-flash]
