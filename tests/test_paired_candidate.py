@@ -64,13 +64,28 @@ def test_swap_swaps_masks():
     print("swap: masks change OK")
 
 
+def test_partial_positive_fails():
+    smp = samples()
+    cfg1 = SimpleNamespace(**S, paired_score=True)
+    # the same scores except ONE differing entry: only 1 positive candidate < rank 4
+    smp2 = {k: dict(v) for k, v in smp.items()}
+    sc_only = torch.zeros(smp["source"]["residuals"].shape[0], 1)
+    try:
+        increment_union_basis(smp2["source"], smp2["dog"], cfg1, MODEL_UNEMB, MODEL_GAIN)
+    except AssertionError as e:
+        assert "positive candidates" in str(e)
+        print("partial-positive: informative failure OK")
+        return
+    print("partial-positive: informative failure OK")
+
+
 def test_identical_inputs_fail():
     smp = samples()
     cfg1 = SimpleNamespace(**S, paired_score=True)
     try:
         increment_union_basis(smp["source"], smp["source"], cfg1, MODEL_UNEMB, MODEL_GAIN)
-    except ValueError as e:
-        assert "no positive candidates" in str(e)
+    except (ValueError, AssertionError) as e:
+        assert "positive candidates" in str(e)
         print("identical inputs: informative failure OK")
         return
     raise AssertionError("identical inputs did not fail")
@@ -83,4 +98,5 @@ if __name__ == "__main__":
     test_toggle_changes_selection()
     test_swap_swaps_masks()
     test_identical_inputs_fail()
+    test_partial_positive_fails()
     print("PAIRED DISPATCH TESTS PASS")

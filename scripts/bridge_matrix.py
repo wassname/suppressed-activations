@@ -58,6 +58,10 @@ def main():
     variant("bridge-inc-h20", delta_anchor_layer=20, basis_selector="increment")
     variant("bridge-inc-h8", delta_anchor_layer=20, basis_selector="increment",
             intervention_layer=(8,))
+    variant("bridge-paired-h20", delta_anchor_layer=20, basis_selector="increment",
+            paired_score=True)
+    variant("bridge-paired-h8", delta_anchor_layer=20, basis_selector="increment",
+            paired_score=True, intervention_layer=(8,))
     # the FULL-support variants (persistent_rank=-1 = the SVD-tolerance support)
     variant("bridge-full-h20", delta_anchor_layer=20, basis_selector="increment",
             persistent_rank=-1)
@@ -83,6 +87,13 @@ def main():
         rows.append({"donor": donor, "sel": "inc", "site": 8, "sweep": "bridge-inc-h8",
                      "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h8"),
                      "hist": hist, "gate": True})
+        # the 4 PAIRED-score experimental rows
+        rows.append({"donor": donor, "sel": "paired", "site": 20, "sweep": "bridge-paired-h20",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-paired-h20"),
+                     "hist": hist})
+        rows.append({"donor": donor, "sel": "paired", "site": 8, "sweep": "bridge-paired-h8",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-paired-h8"),
+                     "hist": hist})
         # the 4 FULL-support experimental rows (rank = the SVD-tolerance support 49/47)
         rows.append({"donor": donor, "sel": "full", "site": 20, "sweep": "bridge-full-h20",
                      "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-full-h20"),
@@ -161,7 +172,10 @@ def main():
                 assert per["basis_support"] == sup, (tag, per["basis_support"], sup)
                 assert per["effective_rank"] == sup, (tag, per["effective_rank"], sup)
                 assert per["selector"] == "increment_union_svd", (tag, per["selector"])
-            expect_rank = {"dog": 49, "ant": 47}[r["donor"]] if r["sel"] == "full" else 4
+            expect_rank = ({"dog": 49, "ant": 47}[r["donor"]] if r["sel"] == "full" else 4)
+            per = row_res.get("persistence", {})
+            if r["sel"] == "paired":
+                assert per.get("paired_score") is True, (tag, "paired not consumed")
             assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}", expect_rank)
         # REPLAY GATE: the attenuation h20 rows must match the historical continuations
         if r.get("gate"):
