@@ -140,13 +140,23 @@ build-then-cut shape; it is NOT a deleted-energy measure (no claim that variatio
 equals deletion). The earlier "2/32 vs snapshot" numbers compared the wrong baseline
 and are retracted as a selector description.
 
-Sampled token complete trace (top production-increment token on the exact legs-dog
-source bank, position 48 = the last edited position, token 243784 ' Конкурс'):
-normalized readout oscillates ~13-31 across 33 layers; per-write increments show
-build (+9.7, +12.5, +8.9 within the window) and cut (−15.1 at the last write);
-unit-projected energy builds to ~1.99 then −2.135 at the final write — the
-rise-then-cut signature the min() conjunction selects for. Full 33-point arrays
-(normalized readout / increments / RMS / unit energy) saved in the .pt artifact.
+Sampled token trace (CORRECTED axes — the previous version selected layer 0 across
+vocab instead of the token across layers, and mislabeled the signed projection as
+"energy"): top production-increment token on the exact legs-dog source bank = token
+243784 ' Конкурс' at position 48. Full 33-point traces saved (normalized readout,
+vocab-centered per-write increments, residual RMS, signed projection, energy=signed²;
+arrays in out/2026-09-13_selector-increment-vs-tv/selector_comparison_arrays.pt with
+the residual-file sha256 labeled as such and the manifest's input-ID hash separate).
+
+Reading, per-token observation not a general claim: the normalized readout builds from
+layer 20 (2.50 → 3.49 peak at layer 24) then falls to −1.655 at the final write (cut
+−2.145 vocab-centered). The SIGNED projection goes 1.99 → −2.135 while the energy
+(signed², nonnegative) PEAKS at the final layer (4.56) — for this token the last
+write INVERTS the readout direction rather than removing projected energy. Also: the
+first write's +10.7 increment is an RMS artifact (0.02→0.04). The production
+min(build, cut) selects this token via the normalized shape; whether sign-flip vs
+energy-removal is the general suppression mechanism is exactly the
+normalized-readout/raw-energy distinction and is untested beyond this token.
 
 Unresolved selector question, narrowed: whether min(build-window, last-3-cut) — the
 current conjunction — is the right trade-off vs e.g. per-position full-window

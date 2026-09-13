@@ -59,24 +59,37 @@ def main():
     pos = edited[-1]
     h1 = res[:, pos, :].float()                      # (33, hidden): all layers, one position
     rms = h1.square().mean(-1).sqrt()
+    direction = (U[tok_id] * gain) / rown[tok_id]    # unit row direction (hidden,)
+    # SIGNED projection per layer (can be negative); normalized readout = that
+    # projection divided by the per-layer residual RMS
+    signed = direction @ h1.T                        # (33,)
+    lg = signed / rms                                # (33,) token across layers
+    assert lg.shape == (res.shape[0],), lg.shape
+    # per-write increments from the FULL vocab readout, vocab-centered per write
     hn = h1 * torch.rsqrt(h1.square().mean(-1, keepdim=True) + 1e-6) * gain.float()
-    lg = ((hn @ U.float().T) / rown)[0]                # (33,) readout at this token
-    direction = (U[tok_id] * gain) / rown[tok_id]          # unit row direction (hidden,)
-    unit_e = direction @ h1.T                              # unit-projected energy/layer
-    dphi_t = lg[1:] - lg[:-1]
-    dphi_t = dphi_t - dphi_t.mean(-1, keepdim=True)
+    full_lg = ((hn @ U.float().T) / rown)
+    assert full_lg.shape == (res.shape[0], U.shape[0])
+    dphi_full = full_lg[1:] - full_lg[:-1]
+    dphi_full = dphi_full - dphi_full.mean(-1, keepdim=True)
+    dphi_t = dphi_full[:, tok_id]
+    assert dphi_t.shape == (res.shape[0] - 1,), dphi_t.shape
+    energy = signed.square()                         # nonnegative projected energy
+    assert float(energy.min()) >= 0.0
     trace = {"token_id": tok_id, "token": tok.decode([tok_id]), "position": pos,
              "normalized_readout": lg.tolist(), "increment_dphi": dphi_t.tolist(),
-             "residual_rms": rms.tolist(), "unit_projected_energy": unit_e.tolist()}
+             "residual_rms": rms.tolist(), "signed_projection": signed.tolist(),
+             "projected_energy": energy.tolist()}
     torch.save({"scores_increment_per_position": sc, "scores_tv": tv,
-                "trace": trace, "input_sha256": input_sha,
-                "top32_increment": sorted(top_inc), "top32_tv": sorted(top_tv)},
+                "trace": trace, "residual_tensor_file_sha256": input_sha,
+                "top32_increment_aggregate_probe": sorted(top_inc),
+                "top32_tv_aggregate_probe": sorted(top_tv)},
                OUT / "selector_comparison_arrays.pt")
     print(f"sampled token {tok_id} ({tok.decode([tok_id])!r}) at position {pos}:")
     print("  normalized readout (33):", [round(x, 3) for x in lg.tolist()])
-    print("  per-write increment (32):", [round(x, 3) for x in dphi_t.tolist()])
+    print("  per-write increment, vocab-centered (32):", [round(x, 3) for x in dphi_t.tolist()])
     print("  residual RMS (33):", [round(x, 2) for x in rms.tolist()])
-    print("  unit-projected energy (33):", [round(x, 3) for x in unit_e.tolist()])
+    print("  signed projection (33):", [round(x, 3) for x in signed.tolist()])
+    print("  projected energy = signed^2 (33):", [round(x, 3) for x in energy.tolist()])
     (OUT / "summary.json").write_text(json.dumps(
         {"overlap": len(top_inc & top_tv), "sampled_token": trace["token"],
          "token_id": tok_id, "input_sha256": input_sha}, indent=1) + "\n")
