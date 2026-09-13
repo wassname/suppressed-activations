@@ -39,6 +39,9 @@ N_TOKENS = 128
 
 
 def main():
+    # the previous increment rows (the byte-equality reference for the replays)
+    PREV_INC = {t: json.load(open(BW_DEMO / t / "result.json"))["rows"][0]["generation"]
+                for t in ("dog-inc-h20", "dog-inc-h8", "ant-inc-h20", "ant-inc-h8")}
     out_dir = ROOT / "out" / f"2026-09-13_bridge-matrix-{time.strftime('%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=True)
     result = {"rows": {}, "gate": {}, "controls": {}}
@@ -51,6 +54,10 @@ def main():
     variant("bridge-inc-h20", delta_anchor_layer=20, basis_selector="increment")
     variant("bridge-inc-h8", delta_anchor_layer=20, basis_selector="increment",
             intervention_layer=(8,))
+    variant("bridge-inc-h20-q4", delta_anchor_layer=20, basis_selector="increment",
+            selection_end_offset=4)
+    variant("bridge-inc-h8-q4", delta_anchor_layer=20, basis_selector="increment",
+            selection_end_offset=4, intervention_layer=(8,))
 
     frozen = json.load(open(ROOT / "slop" / "replay_frozen_candidate_batch.json"))
     bundle = oat.load_bundle()
@@ -63,14 +70,21 @@ def main():
     rows = []
     for donor, frozen_idx in (("dog", 4), ("ant", 6)):
         hist = json.load(open(HIST[donor]))
-        rows.append({"donor": donor, "sel": "att", "site": 20, "sweep": "span-correction-sweep",
-                     "cond": 3, "spec": frozen[frozen_idx], "hist": hist, "gate": True})
-        rows.append({"donor": donor, "sel": "att", "site": 8, "sweep": "bridge-att-h8",
-                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-att-h8"), "hist": hist})
+        # wrapper replays (offset 0) — the comparison arm; byte-equality required vs
+        # the previous increment rows (previous_inc_ref below)
         rows.append({"donor": donor, "sel": "inc", "site": 20, "sweep": "bridge-inc-h20",
-                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h20"), "hist": hist})
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h20"),
+                     "hist": hist, "gate": True})
         rows.append({"donor": donor, "sel": "inc", "site": 8, "sweep": "bridge-inc-h8",
-                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h8"), "hist": hist})
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h8"),
+                     "hist": hist, "gate": True})
+        # the 4 QUESTION-window experimental rows (offset 4)
+        rows.append({"donor": donor, "sel": "inc-q4", "site": 20, "sweep": "bridge-inc-h20-q4",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h20-q4"),
+                     "hist": hist})
+        rows.append({"donor": donor, "sel": "inc-q4", "site": 8, "sweep": "bridge-inc-h8-q4",
+                     "cond": 3, "spec": dict(frozen[frozen_idx], sweep="bridge-inc-h8-q4"),
+                     "hist": hist})
     for sel in ("att", "inc"):
         for site in (20, 8):
             sweep = "span-correction-sweep" if (sel == "att" and site == 20) else \
@@ -136,16 +150,18 @@ def main():
             assert shared_ok(obs, f"{r['donor']}-{r['sel']}-h{r['site']}")
         # REPLAY GATE: the attenuation h20 rows must match the historical continuations
         if r.get("gate"):
-            hist_gen = r["hist"]["rows"][0]["generation"]
-            same_ids = row_res["generation"]["token_ids"] == hist_gen["token_ids"]
-            same_text = row_res["generation"]["text"] == hist_gen["text"]
-            result["gate"][r["donor"]] = {"token_ids_match": same_ids, "text_match": same_text}
-            print(f"GATE {r['donor']}: token_ids_match={same_ids} text_match={same_text}")
+            # byte-equality vs the PREVIOUS increment rows (the same code path check)
+            prev_ref = PREV_INC[f"{r['donor']}-inc-h{r['site']}"]
+            same_ids = row_res["generation"]["token_ids"] == prev_ref["token_ids"]
+            same_text = row_res["generation"]["text"] == prev_ref["text"]
+            result["gate"][f"{r['donor']}-h{r['site']}"] = {"token_ids_match": same_ids,
+                                                            "text_match": same_text}
+            print(f"GATE {r['donor']} h{r['site']}: token_ids_match={same_ids} text_match={same_text}")
             if not (same_ids and same_text):
                 (out_dir / "drift_report.json").write_text(json.dumps(
-                    {"row": r["donor"], "got": row_res["generation"]["text"],
-                     "expected": hist_gen["text"]}, indent=2))
-                print("DRIFT: stopping the batch; scientific rows not comparable")
+                    {"row": r["donor"], "site": r["site"], "got": row_res["generation"]["text"],
+                     "expected": prev_ref["text"]}, indent=2))
+                print("DRIFT: stopping the batch; the comparison arm is not the same code path")
                 gate_ok = False
                 break
         tag = f"{r['donor']}-{r['sel']}-h{r['site']}" + ("-C0" if r.get("c0") else "")
