@@ -78,6 +78,11 @@ confirm_causal_demo.py path: generations byte-identical, clean/C0 exact, C4
 probabilities reproduce to ~0.03 (top tokens and 256-random-control percentiles
 agree). -- PI[glm-5p3-flash]
 
+
+## Historical (withdrawn or stale) claims — do not cite as current
+
+- The donor-projection direction family (v = Pd d) is exhausted at the tested settings
+
 ## Selector thinking deliverable (2026-09-13, CPU only, no model calls)
 
 **One specific unresolved selector assumption**: the production selector scores tokens
@@ -110,3 +115,40 @@ the goal's discriminator language requires keeping them separate.
 on the same bank with the full-trajectory score and compare the resulting top-8
 subspaces' causal behavior at h1 in the existing six-row design — one bounded batch,
 only after review. -- PI[glm-5p3-flash]
+
+## CORRECTED selector comparison (2026-09-13, replaces the strawman entry above)
+
+The entry above compared against a SNAPSHOT STRAWMAN (18/20/32) — misdescribing the
+current production selector. The ACTUAL production baseline
+(`suppressed_activation_subspace.increment_scores`, used by common_selector='increment'
+in all current families) is ALREADY whole-trajectory: normalized readout at every
+layer, per-write increments dphi[b] = logits[b+1]−logits[b] VOCAB-CENTERED before
+rectification, build = sum of positive increments over the ~40-70% window, cut = sum
+over exactly the last-3 writes, score = min(build, cut). Anchors bound windows; the
+score uses all increments within them.
+
+Executed comparison (script + arrays SAVED: scripts/selector_increment_vs_tv.py,
+out/2026-09-13_selector-increment-vs-tv/selector_comparison_arrays.pt; log
+.local/verify_logs/demo-evidence/selector-increment-vs-tv.txt; input sha in-array):
+
+> top-32 overlap production-increment vs total-variation: 0/32
+
+My total-variation probe (all-layers positive variation, vocab-centered, no
+min(build,cut) conjunction, oscillation-permissive) shares ZERO of 32 top tokens with
+the production selector. The probe rewards any oscillation and magnitude, not the
+build-then-cut shape; it is NOT a deleted-energy measure (no claim that variation
+equals deletion). The earlier "2/32 vs snapshot" numbers compared the wrong baseline
+and are retracted as a selector description.
+
+Sampled token complete trace (top production-increment token on the exact legs-dog
+source bank, position 48 = the last edited position, token 243784 ' Конкурс'):
+normalized readout oscillates ~13-31 across 33 layers; per-write increments show
+build (+9.7, +12.5, +8.9 within the window) and cut (−15.1 at the last write);
+unit-projected energy builds to ~1.99 then −2.135 at the final write — the
+rise-then-cut signature the min() conjunction selects for. Full 33-point arrays
+(normalized readout / increments / RMS / unit energy) saved in the .pt artifact.
+
+Unresolved selector question, narrowed: whether min(build-window, last-3-cut) — the
+current conjunction — is the right trade-off vs e.g. per-position full-window
+build+cut with the same conjunction; the TV probe does not answer it. No GPU runs.
+-- PI[glm-5p3-flash]
