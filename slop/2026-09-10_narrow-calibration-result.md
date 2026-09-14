@@ -11,15 +11,17 @@ Commit 2bf8a16 (code + spec). Pueue task 938 Success, 02:14:35-02:15:42.
 |---|---|---|---|---|---|
 | prop-dog C=0.2 | `'1'` | ` No` .2157 / `1` .2157 / ` Yes` .1903 | "No, … is not a mammal; it is a domesticated dog" | 0.068 | fail — stuck at source |
 | prop-dog C=0.25 | `'1'` | ` Yes` .2151 / `1` .2151 / ` No` .1898 | "No, … is not a mammal" (Yes tied on top but prose says No) | 0.070 | fail — contradictory |
-| prop-ant C=0.2 | `' Yes'` | ` Yes` .3035 / `1` .2364 | coherent ant identity prose, 88 tok | 0.070 | **clean pass** |
-| prop-ant C=0.25 | `' Yes'` | ` Yes` .2949 / `1` .2602 | coherent ant prose to EOS, 66 tok | 0.047 | **clean pass** |
+| prop-ant C=0.2 | `' Yes'` | ` Yes` .3035 / `1` .2364 | coherent ant identity prose, 88 tok | 0.070 | **pass** (all 3 criteria) |
+| prop-ant C=0.25 | `' Yes'` | ` Yes` .2949 / `1` .2602 | coherent ant prose to EOS, 66 tok | 0.047 | **pass** (all 3 criteria) |
+
+Success criteria (from AGENTS.md): ` Yes`/` No` first token, r2 < 0.2, coherent target-identity prose to EOS.
 
 ## Decision
 
-No single C gives both animals a clean pass → **freeze branch** of the decision rule.
+No single C gives both animals a pass on all three criteria → **freeze branch** of the decision rule.
 
 - prop-ant passes across the whole swept range 0.05-0.25 (cells 937 C=0.05/0.15 + 938 C=0.2/0.25,
-  4/4 clean: ` Yes` first + coherent ant prose to EOS + r2 < 0.2).
+  4/4 meet all 3 criteria: ` Yes` first + coherent ant prose to EOS + r2 < 0.2).
 - prop-dog never passes: at low C the answer stays at source (` No`, self-contradictory with dog
   prose); at C>=0.25 the top-2 becomes a ` Yes`/`1` tie but the generated prose still answers "No".
   The earlier C=0.3/0.6 cells (937) had correct Yes+dog content behind a `1` numeral artifact —
@@ -39,7 +41,7 @@ header in condition run.md. Column-label issue only, not a computation bug.
 
 Two-site span-correction: L20 `h' = h + 1.5(Δ − UUᵀh)` + L26 additive d_act.
 - Identity/naming + limb-count: C=1.5 (both animals, established 929/936).
-- Property answer: prop-ant C=0.15 (mid of passing range, cleanest margin); prop-dog = partial,
+- Property answer: prop-ant C=0.15 (mid of passing range, largest ` Yes` margin); prop-dog = partial,
   documented as non-transferring (answer-stuck-at-source below C=0.25, numeral/contradiction above).
 
 Next: reserved-string evaluation (spinneret naming, limb-count, live-birth + matched-random
