@@ -958,3 +958,12 @@ Action: resumed the existing worker session for the new common-subspace goal, wi
 The next comparison must test the intended shared basis rather than reject it using a different construction.
 
 -- PI/OpenAI
+
+## 2026-09-11 — Task 938: final narrow two-site calibration -> freeze branch (PI[Kimi K3])
+
+Evidence (out/2026-09-10_twosite-narrow-*/result.json, batchwork commit c04fc06; code+spec 2bf8a16):
+- prop-ant C=0.2: first `' Yes'`, coherent ant prose 88 tok, r2=0.070. C=0.25: `' Yes'`, 66 tok to EOS, r2=0.047. With 937 (C=0.05/0.15): prop-ant 4/4 clean passes across 0.05-0.25.
+- prop-dog C=0.2: first `'1'`, prose "No, … is not a mammal; it is a domesticated dog" — answer stuck at source. C=0.25: first `'1'`, top-2 tie ` Yes`/`1` (0.2151), prose still "No". No clean Yes-first pass at any C in {0.05,0.15,0.2,0.25,0.3,0.6,1.5}.
+- r2 recording: no -1 placeholder in any 937/938 result.json; `repeated_bigram_fraction` populated. Only -1s are seed sentinels. Real quirk: `bare_answer_mass` rendered under "p(Yes)+p(No)" header — label issue only.
+
+Interpretation: no single C passes both animals -> supervisor decision rule says FREEZE branch. Two-site rule frozen (L20 span-correction C=1.5 + L26 d_act; property at prop-ant C=0.15). prop-dog property = partial/non-transferring: probability mass moves toward ` Yes` (tie at C=0.25) but the model never commits to Yes-first coherent prose. Next: reserved-string evaluation + notebook finalization with property labelled partial.
