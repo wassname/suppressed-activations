@@ -1,5 +1,36 @@
 # A suppressed activation subspace isolates hidden English in Qwen
 
+## Status · 2026-09-20 · paused
+
+This project asks whether information readable in intermediate layers but absent from the
+answer can be isolated, then changed to alter what the model says. It produced useful
+Qwen3.5-4B readouts and selected steering examples, but reliable concept replacement remains
+unproven.
+
+- **What worked:** selecting vocabulary directions whose logits rise then fall isolates
+  intermediate English during German-to-Chinese translation. On 53 held-out prompts, the
+  selected vocabulary rows include an English answer token in 42 cases and Chinese in one.
+  This is a descriptive result, not proof of the mechanism that suppresses English.
+- Tuned layer-20 edits produced dog/ant names, corresponding leg counts, and extended target
+  descriptions on development prompts. These later successes used a template-contrast
+  attenuation basis; they do not validate the original detector as a causal explanation.
+  Property answers were less consistent. Later shared-subspace variants, including full
+  supported rank, did not reliably transfer identity.
+- **What to keep:** sample-specific readouts; combining token subspaces by concatenating
+  their bases and taking an SVD; and testing answer changes separately from identity in the
+  continuation. A changed digit can accompany unchanged spider prose, even under random edits.
+- Recommendation: leave this paused unless there is a new question or construction to test.
+  A useful restart would compare the original detector with the successful attenuation
+  construction under one fixed evaluation, with matched controls and full continuations,
+  rather than continue tuning examples. Held-out generalization and the causal meaning of
+  the readouts remain open.
+
+The [examples below](#full-continuations-dog-and-ant) and
+[executed research notebook](slop/2026-09-10_span_correction_evidence.ipynb) preserve both
+successes and failures. Older journal summaries contain subsequently corrected claims.
+
+<!-- Status note: PI/OpenAI Astra, 2026-09-20. -->
+
 I was searching for a way to test whether [Wes Gurnee's](https://x.com/wesg52)
 ["suppression neurons"](https://arxiv.org/abs/2401.12181) can be found in the residual
 stream.
