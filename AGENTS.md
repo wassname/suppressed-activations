@@ -2,7 +2,46 @@
 
 Inherit the user's global agent instructions. `README.md` is the public result.
 
-## Required causal-demo layout
+## Research framing (read first)
+
+wassname, 2026-09-29:
+
+> we are using the english thoughts in a setting where thoughts are in english to try to
+> generalise to other settigns wherte input and output are also english. of coruse act lens
+> would not generalise because they would all be english. having english thoughts is the eval
+> not the training
+
+The goal is a method that finds what the model thinks but does not say, in any setting,
+including settings where input, thought, and output are all English. German-to-Chinese
+translation is the labelled eval, because language marks each role:
+
+| role | language | the method should |
+|---|---|---|
+| input | German | exclude |
+| hidden thought | English | find |
+| said output | Chinese | exclude |
+
+Language is only the answer key. The method must not use it. For this reason, finding the
+English word alone is not success: the plain logit lens finds English but also finds the
+Chinese word that is said, so in an all-English setting it cannot separate thought from
+speech. Score "hidden word found AND said word excluded" per prompt, and report the rate
+over prompts together with a within-prompt ranking score (AUROC).
+
+Generalisation means that the same frozen method (same layer rule and k) is scored on
+English-only tasks with a known hidden intermediate. The spider example comes from
+[Gurnee et al. 2026](https://transformer-circuits.pub/2026/workspace/), where the swap is
+spider to ant along Jacobian-lens directions at all positions. Readout and causal editing
+are separate claims. Readout is the main claim. Editing is secondary.
+
+## Demo selection
+
+Every demo states how it was selected and its rate on a fixed set of tries, for example
+"heart to school: worked for 16 of 50 fixed word pairs with this configuration". If the
+example was chosen after tuning, state that and state how many configurations were tried.
+
+<!-- Written by Claudypoo[opus-4.8] from wassname's 2026-09-29 corrections. -->
+
+## Spider/dog causal-demo layout
 
 Show one experiment as two complete, directly comparable conditions: `Base` and `Causal
 intervention`. Each condition must show the same fields in the same order:
@@ -12,7 +51,8 @@ intervention`. Each condition must show the same fields in the same order:
 3. the exact next 32 generated tokens, verbatim;
 4. the top-10 next-token table with token, log probability, and probability; the causal table also shows change in log probability from Base.
 
-The public section must follow this template:
+When the README shows the spider/dog intervention, that section follows this template. Add
+the selection statement from "Demo selection" to its limitations paragraph:
 
 ```markdown
 ## Are suppressed activations causal? Can changing this subspace change the answer?
@@ -80,7 +120,7 @@ Use the measured probabilities: clean `p(8)=0.882568`; after C=4,
 `p(4)=0.490091` and `p(8)=0.297255`. Bold expected `8` in the first table and `4`
 in the second. Italicize alternative `4` in the first table and `8` in the second.
 
-Do not add Ant, translation, a dose grid, or another generated prompt. Do not call C=4 a
+Inside this section, do not add Ant, translation, a dose grid, or another generated prompt. Do not call C=4 a
 literal `spider → dog` token swap. C=1 is the constructed component replacement and still
 generates 8 first. C=4 changes 72% of the residual norm; 21 of 256 matched-random
 interventions have an equal or larger effect; and a `2 + 2` target produces the same
