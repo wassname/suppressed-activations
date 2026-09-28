@@ -1,4 +1,7 @@
-# A suppressed activation subspace isolates hidden English in Qwen
+# A suppressed activation subspace isolates hidden English in 
+
+<img width="1448" height="1086" alt="ChatGPT Image Sep 28, 2026, 07_01_55 PM" src="https://github.com/user-attachments/assets/73da1994-7dd6-41f4-af6b-166a40f3f115" />
+
 
 ## Status · 2026-09-20 · paused
 
