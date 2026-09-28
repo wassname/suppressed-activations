@@ -21,7 +21,7 @@ the Chinese word?
 
 | claim | status |
 |---|---|
-| **Readout:** find the hidden word, exclude the said word | Works on the translation eval: at least 91 of 120 prompts. The plain logit lens: at most 15 of 120. |
+| **Readout:** find the hidden word, exclude the said word | Partly works on the translation eval: 56 of 120 prompts isolate the English word (plain logit lens: 4 of 120). The main error is selecting the German input word (37 of 120). |
 | **Editing:** replacing the found component changes the answer | Secondary. Unsupervised rank-8 swap: 16 of 50 word pairs (random edit: 0 of 50). |
 | **Generalisation:** the same frozen method on all-English tasks | Not tested on a fixed set yet. One example: the spider prompt readout contains `Spider`. |
 
@@ -80,26 +80,30 @@ per prompt and needs one unmodified forward pass through the output layer.
 
 ## Does it find the hidden word and exclude the said word?
 
-![Three panels for Qwen3.5-4B German-to-Chinese translation. a: logit-lens probability of the English word rises at layers 24 to 27 and falls by layer 32, while the Chinese word rises to about 0.6 at layer 32. b: per selector, the fraction of 120 prompts where the top-32 tokens contain the English word but not the Chinese or German word; rise-and-fall is highest. c: fraction of 50 word pairs where swapping a component at the last prompt token makes the model output the other word's Chinese translation, by patched layer window; random edits stay at zero](figs/english_setting.png)
+![Three panels for Qwen3.5-4B German-to-Chinese translation. a: logit-lens probability of the English word rises at layers 24 to 27 and falls by layer 32, while the Chinese word rises to about 0.6 at layer 32. b: per selector, the fraction of 120 prompts whose top-32 tokens contain the English word, the Chinese word, the German word, and the English word without the other two; rise-and-fall has the highest isolation, about 0.47, and the logit lens includes Chinese in most prompts. c: fraction of 50 word pairs where swapping a component at the last prompt token makes the model output the other word's Chinese translation, by patched layer window; random edits stay at zero](figs/english_setting.png)
 
 *Qwen3.5-4B, 120 German-to-Chinese word prompts in the Wendler et al. 4-shot format.
-Layers: early 22, peak 27, output 32. Panel c is the next section.*
+Layers: early 22, peak 27, output 32. Panel c is the next section; its layer windows overlap.*
 
 "Isolates" means the top-32 tokens contain the English word, and contain neither the
 Chinese word (said) nor the German word (input). AUROC ranks the whole vocabulary within
 one prompt: the probability that an English-word token scores above a Chinese-word token.
 
-| selector (top-32 tokens) | isolates hidden word (bound from the two counts, before the German check) | English in | Chinese in |
-|---|---:|---:|---:|
-| rise-and-fall (this method) | **≥ 91/120** | 94/120 | 3/120 |
-| plain logit lens at L27 | ≤ 15/120 | 116/120 | 105/120 |
-| fall only | ≥ 67/120 | 69/120 | 2/120 |
-| rise only | ≤ 19/120 | 114/120 | 101/120 |
-
-<!-- TODO(Claudypoo): replace the bounds with exact counts, German exclusion, and within-prompt AUROC from pueue job 2421. -->
+| selector (top-32 tokens) | isolates hidden word | English (hidden) in | Chinese (said) in | German (input) in | median AUROC, English vs Chinese tokens |
+|---|---:|---:|---:|---:|---:|
+| rise-and-fall (this method) | **56/120** | 94/120 | 3/120 | 37/120 | 0.82 |
+| fall only | 51/120 | 69/120 | 2/120 | 17/120 | 1.00 |
+| plain logit lens at L27 | 4/120 | 116/120 | 105/120 | 70/120 | 0.09 |
+| rise only | 6/120 | 114/120 | 101/120 | 61/120 | 0.11 |
 
 The plain logit lens finds English in 116 of 120 prompts, but it also finds the Chinese
 word in 105. In an all-English setting it would return the said word with the thought.
+Rise-and-fall excludes the said word well, but in 37 of 120 prompts it also selects the
+German input word (for example ` Herz`, ` Holz`, ` Licht`). Those are real German words,
+not short-prefix matches: requiring 4 matching characters gives 60 of 120 isolated. So the
+method finds words that are *read or thought but not said*, and the input is one of them.
+Evidence: [`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md)
+and [`scripts/scratch/german_hit_tokens.py`](scripts/scratch/german_hit_tokens.py).
 
 <details>
 <summary>Why the earlier "95% of English inside the subspace" figure was dropped</summary>
@@ -144,7 +148,7 @@ English word was in both rank-8 selections and 5 of 34 otherwise. At no tested l
 window was the English direction a better handle than the Chinese direction (panel c).
 At layers 25 to 32 the English-token swap makes the model say the target's English word
 (44 of 50). Evidence:
-[`out/2026-09-29_064035_english-baselines-L23/run.md`](out/2026-09-29_064035_english-baselines-L23/run.md).
+[`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md).
 
 In [Gurnee et al. 2026](https://transformer-circuits.pub/2026/workspace/), swaps use
 Jacobian-lens directions at all token positions and flip 54–70% of 50 two-hop prompts. They
