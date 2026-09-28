@@ -14,13 +14,13 @@ n_pairs: 50
 
 English hit = a selected token is a >=3-char prefix of the English word. Chinese hit = a selected token is a prefix of the Chinese word.
 
-| selector (top-32 tokens)   | English answer in set   | Chinese answer in set   |
-|:---------------------------|:------------------------|:------------------------|
-| rise_and_fall (repo)       | 94/120                  | 3/120                   |
-| peak logit lens            | 116/120                 | 105/120                 |
-| fall only                  | 69/120                  | 2/120                   |
-| rise only                  | 114/120                 | 101/120                 |
-| output logits (sanity)     | 67/120                  | 118/120                 |
+| selector (top-32 tokens)   | isolates hidden word   | English in   | Chinese in   | German in   |   median AUROC EN vs ZH |   median AUROC EN vs vocab |
+|:---------------------------|:-----------------------|:-------------|:-------------|:------------|------------------------:|---------------------------:|
+| rise_and_fall (repo)       | **56/120**             | 94/120       | 3/120        | 37/120      |                    0.82 |                      0.84  |
+| peak logit lens            | **4/120**              | 116/120      | 105/120      | 70/120      |                    0.09 |                      0.998 |
+| fall only                  | **51/120**             | 69/120       | 2/120        | 17/120      |                    1    |                      0.751 |
+| rise only                  | **6/120**              | 114/120      | 101/120      | 61/120      |                    0.11 |                      0.997 |
+| output logits (sanity)     | **0/120**              | 67/120       | 118/120      | 1/120       |                    0    |                      0.98  |
 
 rise_and_fall top-8 examples: [{"word": {"en": "book", "de": "Buch", "zh": "书"}, "top8": [" book", " books", " BOOK", " booking", " Book", ".books", " Volume", " Booking"]}, {"word": {"en": "cloud", "de": "Wolke", "zh": "云"}, "top8": [" cloud", " clouds", " Cloud", "_cloud", "-cloud", "/cloud", " обла", "cloud"]}, {"word": {"en": "bag", "de": "Tasche", "zh": "包"}, "top8": [" bag", " port", " sac", " Cases", " cases", " case", " ang", "-facing"]}]
 

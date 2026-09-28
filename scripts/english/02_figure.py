@@ -39,10 +39,11 @@ def main() -> None:
     names = ["rise_and_fall (repo)", "peak logit lens", "fall only", "rise only"]
     labels = ["rise-and-fall\n(this repo)", "L27 logit lens\n(top-32)", "fall only", "rise only"]
     y = range(len(names))
-    ax.barh([i - 0.27 for i in y], [q1[k]["isolates"] / n for k in names], 0.26, color="black",
-            label="isolates: English in, Chinese and German out")
-    ax.barh([i for i in y], [q1[k]["en"] / n for k in names], 0.26, color=ENGLISH, label="English (hidden) in")
-    ax.barh([i + 0.27 for i in y], [q1[k]["zh"] / n for k in names], 0.26, color=CHINESE, label="Chinese (said) in")
+    bars = [("isolates", "black", "isolates: English in, Chinese and German out"),
+            ("en", ENGLISH, "English (hidden) in"), ("zh", CHINESE, "Chinese (said) in"),
+            ("de", "0.7", "German (input) in")]
+    for j, (key, colour, label) in enumerate(bars):
+        ax.barh([i + (j - 1.5) * 0.2 for i in y], [q1[k][key] / n for k in names], 0.19, color=colour, label=label)
     ax.set_yticks(list(y), labels, fontsize=8.5)
     ax.invert_yaxis()
     ax.set(xlim=(0, 1), xlabel=f"fraction of {n} prompts with the word in the top-32 tokens")
@@ -55,11 +56,11 @@ def main() -> None:
         ax.plot(starts, rate, style, color=colour, label=label, lw=1.8, ms=5)
     n_pairs = len(runs[23]["q2"]["rise_and_fall (repo)"])
     ax.set(ylim=(-0.03, 1.03), xticks=starts, xticklabels=[f"L{s}–{s + 7}" for s in starts],
-           xlabel="patched residual layers (last prompt token)",
-           ylabel=f"fraction of {n_pairs} word pairs where\nthe top-1 token becomes the target's")
+           xlabel="patched residual layers (8-layer windows; last prompt token)",
+           ylabel=f"fraction of {n_pairs} word pairs where the top-1\ntoken becomes the target's Chinese word")
     en_word = [sum(r["top1"].strip().lower() == p["tgt"]["en"].lower()
                    for p, r in zip(runs[s]["pairs"], runs[s]["q2"]["English answer tokens (oracle)"])) for s in starts]
-    ax.annotate(f"{en_word[-1]}/{n_pairs} say the target's\nEnglish word instead", xy=(starts[-1], 0.1),
+    ax.annotate(f"English-token swap: {en_word[-1]}/{n_pairs}\nsay the target's English word", xy=(starts[-1], 0.1),
                 xytext=(starts[-1] - 3.2, 0.2), fontsize=7.5, color=ENGLISH,
                 arrowprops={"arrowstyle": "-", "color": ENGLISH, "lw": 0.7})
     ax.legend(frameon=False, fontsize=7.5, loc="upper center", bbox_to_anchor=(0.45, -0.22), ncol=2)
