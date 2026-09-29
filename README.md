@@ -35,6 +35,9 @@ found in English or Chinese.
 appears in the middle layers, then the Russian word. (b) Pass rate on five language pairs that
 were not used to choose the method (76 to 88 prompts each).*
 
+> These numbers use two passes: the "said" word is taken from the model's generated answer.
+> A one-pass version (said = the output layer's top words at the same step) is running.
+
 The best method finds the hidden word in 386 of 408 test prompts (95%). The plain logit lens
 finds it in 11–18%, because its top words also contain the input and the output word.
 
