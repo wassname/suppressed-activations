@@ -21,7 +21,7 @@ translation is the labelled eval, because language marks each role:
 | hidden thought | English | find |
 | said output | Chinese | exclude |
 
-Language is only the answer key. The method must not use it. For this reason, finding the
+Language is used only to score the method. The method must not use it. For this reason, finding the
 English word alone is not success: the plain logit lens finds English but also finds the
 Chinese word that is said, so in an all-English setting it cannot separate thought from
 speech. Score "hidden word found AND said word excluded" per prompt, and report the rate
@@ -57,8 +57,9 @@ the selection statement from "Demo selection" to its limitations paragraph:
 ```markdown
 ## Are suppressed activations causal? Can changing this subspace change the answer?
 
-To see if this subspace allows causal replacement, we repeat the spider/dog demonstration
-from Gurnee et al. using our suppressed-activation method.
+To answer "8", the model has to think "spider" without saying it. Gurnee et al. changed
+that hidden "spider" into "ant" inside the model, and it answered 6. We try the same with
+our method: we change the hidden spider part into the hidden part from a dog prompt.
 
 ### Base
 
@@ -83,7 +84,7 @@ Thinking Process:
 
 ### Causal intervention
 
-Now we replace the suppressed component selected from the spider prompt with the component selected from a dog prompt. The input stays unchanged. The readout below is recomputed after the intervention.
+We keep the spider prompt, but replace its hidden part with the hidden part from a dog prompt. The text does not change; only the model's activations do. We then read the hidden words again.
 
 Input (`repr`, unchanged):
 
