@@ -29,15 +29,23 @@ SHOULD: on pairs without zh, a Chinese peak well above zero means Qwen also thin
 | peak_any − prompt words (frozen 03 winner)                  | 84/103        | 64/76         | 64/78          | 71/78          | 67/88          | 75/88          | 64/76          |
 | rise_fall 22/27/32, erased                                  | 46/103        | 45/76         | 51/78          | 54/78          | 47/88          | 61/88          | 40/76          |
 | peak_any, erased                                            | 50/103        | 39/76         | 52/78          | 46/78          | 52/88          | 52/88          | 37/76          |
+| peak_any, prompt words erased (re-tokenized)                | 79/103        | 60/76         | 60/78          | 62/78          | 70/88          | 72/88          | 64/76          |
 | peak logit lens L27                                         | 4/103         | 14/76         | 11/78          | 9/78           | 15/88          | 10/88          | 14/76          |
+| peak_any − prompt & said words                              | 87/103        | 74/76         | 74/78          | 77/78          | 82/88          | 82/88          | 71/76          |
+| peak lens max L24-30 − prompt & said words                  | 79/103        | 71/76         | 74/78          | 73/78          | 80/88          | 83/88          | 71/76          |
+| peak lens L27 − prompt & said words                         | 79/103        | 72/76         | 73/78          | 74/78          | 81/88          | 86/88          | 72/76          |
 
-| English-only passes (Chinese not counted)   | de→zh   | de→fr   | fr→ru   | ru→fr   | de→ru   | ru→de   | fr→de   |
-|:--------------------------------------------|:--------|:--------|:--------|:--------|:--------|:--------|:--------|
-| rise_fall 22/27/32 (repo)                   | 45/103  | 44/76   | 43/78   | 45/78   | 47/88   | 54/88   | 37/76   |
-| peak_any − prompt words (frozen 03 winner)  | 84/103  | 64/76   | 64/78   | 69/78   | 67/88   | 75/88   | 64/76   |
-| rise_fall 22/27/32, erased                  | 46/103  | 45/76   | 48/78   | 54/78   | 45/88   | 60/88   | 39/76   |
-| peak_any, erased                            | 50/103  | 39/76   | 50/78   | 46/78   | 52/88   | 52/88   | 37/76   |
-| peak logit lens L27                         | 4/103   | 14/76   | 11/78   | 9/78    | 15/88   | 10/88   | 14/76   |
+| English-only passes (Chinese not counted)    | de→zh   | de→fr   | fr→ru   | ru→fr   | de→ru   | ru→de   | fr→de   |
+|:---------------------------------------------|:--------|:--------|:--------|:--------|:--------|:--------|:--------|
+| rise_fall 22/27/32 (repo)                    | 45/103  | 44/76   | 43/78   | 45/78   | 47/88   | 54/88   | 37/76   |
+| peak_any − prompt words (frozen 03 winner)   | 84/103  | 64/76   | 64/78   | 69/78   | 67/88   | 75/88   | 64/76   |
+| rise_fall 22/27/32, erased                   | 46/103  | 45/76   | 48/78   | 54/78   | 45/88   | 60/88   | 39/76   |
+| peak_any, erased                             | 50/103  | 39/76   | 50/78   | 46/78   | 52/88   | 52/88   | 37/76   |
+| peak_any, prompt words erased (re-tokenized) | 79/103  | 58/76   | 58/78   | 60/78   | 69/88   | 71/88   | 63/76   |
+| peak logit lens L27                          | 4/103   | 14/76   | 11/78   | 9/78    | 15/88   | 10/88   | 14/76   |
+| peak_any − prompt & said words               | 87/103  | 74/76   | 74/78   | 75/78   | 82/88   | 82/88   | 71/76   |
+| peak lens max L24-30 − prompt & said words   | 79/103  | 71/76   | 73/78   | 73/78   | 80/88   | 83/88   | 70/76   |
+| peak lens L27 − prompt & said words          | 79/103  | 72/76   | 73/78   | 74/78   | 81/88   | 86/88   | 72/76   |
 
 | failure counts: hidden missing / output in / input in   | de→zh    | de→fr   | fr→ru   | ru→fr   | de→ru   | ru→de   | fr→de   |
 |:--------------------------------------------------------|:---------|:--------|:--------|:--------|:--------|:--------|:--------|
@@ -45,4 +53,8 @@ SHOULD: on pairs without zh, a Chinese peak well above zero means Qwen also thin
 | peak_any − prompt words (frozen 03 winner)              | 16/3/0   | 2/11/0  | 4/10/0  | 1/6/0   | 6/15/0  | 6/7/0   | 5/7/0   |
 | rise_fall 22/27/32, erased                              | 19/10/36 | 4/1/29  | 19/3/8  | 9/0/15  | 20/5/21 | 12/1/15 | 12/1/27 |
 | peak_any, erased                                        | 12/13/38 | 2/9/31  | 2/13/15 | 2/6/26  | 6/18/24 | 5/5/27  | 5/7/31  |
+| peak_any, prompt words erased (re-tokenized)            | 13/11/1  | 6/9/1   | 4/13/2  | 4/8/4   | 9/9/0   | 5/6/5   | 5/5/4   |
 | peak logit lens L27                                     | 4/90/64  | 2/45/43 | 4/54/43 | 1/49/55 | 4/61/46 | 2/46/68 | 4/39/45 |
+| peak_any − prompt & said words                          | 16/0/0   | 2/1/0   | 4/0/0   | 1/0/0   | 6/0/0   | 6/0/0   | 5/0/0   |
+| peak lens max L24-30 − prompt & said words              | 4/20/0   | 2/3/0   | 1/4/0   | 2/3/0   | 5/3/0   | 2/3/0   | 2/3/0   |
+| peak lens L27 − prompt & said words                     | 5/20/0   | 2/2/0   | 4/2/0   | 1/3/0   | 4/3/0   | 1/1/0   | 4/0/0   |

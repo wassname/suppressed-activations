@@ -14,6 +14,7 @@ import csv
 import importlib.util
 import json
 import random
+import re
 import sys
 import time
 import urllib.request
@@ -84,7 +85,10 @@ def main() -> None:
         return id_cache[key]
 
     selector_names = ["rise_fall 22/27/32 (repo)", "peak_any − prompt words (frozen 03 winner)",
-                      "rise_fall 22/27/32, erased", "peak_any, erased", "peak logit lens L27"]
+                      "rise_fall 22/27/32, erased", "peak_any, erased", "peak_any, prompt words erased (re-tokenized)",
+                      "peak logit lens L27",
+                      "peak_any − prompt & said words", "peak lens max L24-30 − prompt & said words",
+                      "peak lens L27 − prompt & said words"]
     results, curves, n_skipped = {}, {}, {}
     for src, tgt in PAIRS:
         pair = f"{src}→{tgt}"
@@ -120,22 +124,39 @@ def main() -> None:
             Q = torch.linalg.qr(E.T, mode="reduced").Q  # [d, seq]; logit_t = u · W_t, so erase W_t (= E rows), not g·W_t
             u = lens_space(res[list(READ), -1], g)
             u_erased = u - (u @ Q) @ Q.T
+            # erase the tokens the model would use to *say* each prompt word (first token of common spellings)
+            say_ids = set(ids[0].tolist())
+            for word in set(re.findall(r"\w+", prompt)):
+                for v in {word, word.lower(), word.capitalize()}:
+                    for pre in ("", " "):
+                        say_ids.add(tok(pre + v, add_special_tokens=False).input_ids[0])
+            Q2 = torch.linalg.qr(Wf[sorted(say_ids)].T, mode="reduced").Q
+            u_erased2 = u - (u @ Q2) @ Q2.T
             z, z_er = torch.zeros(33, W.shape[0], device=u.device), torch.zeros(33, W.shape[0], device=u.device)
-            z[list(READ)], z_er[list(READ)] = u @ Wf.T, u_erased @ Wf.T
+            z_er2 = torch.zeros(33, W.shape[0], device=u.device)
+            z[list(READ)], z_er[list(READ)], z_er2[list(READ)] = u @ Wf.T, u_erased @ Wf.T, u_erased2 @ Wf.T
             mask = q.prompt_word_mask(prompt, vocab_norm, u.device)
+            # "said" from the model's own greedy answer, up to the closing quote; no language labels
+            gen = model.generate(ids, max_new_tokens=8, do_sample=False)
+            said_text = tok.decode(gen[0, ids.shape[1]:], skip_special_tokens=True).split('"')[0]
+            mask_rs = mask | q.prompt_word_mask(said_text, vocab_norm, u.device)
             scores = {
                 "rise_fall 22/27/32 (repo)": rise_fall(z, 22, 27),
                 "peak_any − prompt words (frozen 03 winner)": peak_any(z, 22, 24, 30).masked_fill(mask, float("-inf")),
                 "rise_fall 22/27/32, erased": rise_fall(z_er, 22, 27),
                 "peak_any, erased": peak_any(z_er, 22, 24, 30),
+                "peak_any, prompt words erased (re-tokenized)": peak_any(z_er2, 22, 24, 30),
                 "peak logit lens L27": c(z[27]),
+                "peak_any − prompt & said words": peak_any(z, 22, 24, 30).masked_fill(mask_rs, float("-inf")),
+                "peak lens max L24-30 − prompt & said words": c(z[24:31]).amax(0).masked_fill(mask_rs, float("-inf")),
+                "peak lens L27 − prompt & said words": c(z[27]).masked_fill(mask_rs, float("-inf")),
             }
             for name, score in scores.items():
                 r_h, r_s, r_i = ranks_of_best(score, hidden), ranks_of_best(score, said), ranks_of_best(score, inp)
                 r_en = ranks_of_best(score, sorted(en - set(said) - set(inp)))
                 top1 = int(score.argmax())
                 recs[name].append({"word": w["en"], "r_hidden": r_h, "r_said": r_s, "r_input": r_i,
-                                   "hidden_is_zh": top1 in zh_latent, "ok": r_h < K and r_s >= K and r_i >= K,
+                                   "hidden_is_zh": top1 in zh_latent, "said_text": said_text, "ok": r_h < K and r_s >= K and r_i >= K,
                                    "ok_en_only": r_en < K and r_s >= K and r_i >= K})
         results[pair], n_skipped[pair] = recs, n_skip
         curves[pair] = (curve_sum / n_curve).tolist()
