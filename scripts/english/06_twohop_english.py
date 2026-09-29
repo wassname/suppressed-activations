@@ -11,8 +11,10 @@ so the bridge is known to the model. Selectors and layers are frozen from the la
 
 from __future__ import annotations
 
+import argparse
 import ast
 import csv
+import hashlib
 import importlib.util
 import json
 import random
@@ -50,9 +52,15 @@ def name_words(names: list[str]) -> set[str]:
     return {w for n in names for w in re.findall(r"\w+", n) if len(w) >= 3}
 
 
-def main() -> None:
+def aliases(row: dict, entity: str) -> list[str]:
+    return [a for group in ast.literal_eval(row[f"{entity}.aliases"]) for a in group] or [row[f"{entity}.value"]]
+
+
+def main(diagnose: Path | None = None) -> None:
     torch.set_grad_enabled(False)
-    out_dir = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_twohop-english"
+    started = time.monotonic()
+    suffix = "twohop-four-case-diagnostic" if diagnose else "twohop-english"
+    out_dir = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_{suffix}"
     out_dir.mkdir(parents=True)
     logger.add(out_dir / "stderr.log")
     if not DATA.exists():
@@ -88,6 +96,84 @@ def main() -> None:
     rng = random.Random(0)
     names = ["peak_any − prompt & output-layer words (dev winner)", "peak lens L27 − prompt & output-layer words",
              "rise_fall 22/27/32 (repo)", "peak logit lens L27"]
+    if diagnose:
+        # Label-guided localisation is diagnostic only, not a new readout method. — PI/OpenAI
+        prior = json.loads(diagnose.read_text())[names[0]]
+        cases = [r for r in prior if r["two_hop_correct"]][:4]
+        assert len(cases) == 4
+        reports = []
+        for case in cases:
+            prompt = case["prompt"]
+            matches = [r for r in rows if r["r2(r1(e1)).prompt"] == prompt
+                       and aliases(r, "e2")[0] == case["bridge"] and aliases(r, "e3")[0] == case["answer"]]
+            assert matches, case
+            labels = {(tuple(aliases(r, "e2")), tuple(aliases(r, "e3"))) for r in matches}
+            assert len(labels) == 1, labels
+            bridge, answer = labels.pop()
+            prompt_words = set(re.findall(r"\w+", prompt.lower()))
+            hidden = sorted(ids_for_words({w.lower() for w in name_words(bridge)} - prompt_words))
+            said = sorted(ids_for_words({w.lower() for w in name_words(answer)} - prompt_words))
+            assert hidden and said and not set(hidden) & set(said)
+            ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
+            res, logits = trajectory(model, ids, final_norm)
+            locations = []
+            for pos in range(ids.shape[1]):
+                z = lens_space(res[:, pos], g) @ Wf.T
+                best = z[:, hidden].max(-1)
+                ranks = (z > best.values[:, None]).sum(-1).tolist()
+                for layer, rank in enumerate(ranks):
+                    t = hidden[int(best.indices[layer])]
+                    locations.append({"position": pos, "input_token": tok.decode([int(ids[0, pos])]),
+                                      "layer": layer, "r_hidden": rank, "best_hidden_token": vocab_text[t]})
+            torch.save(z.cpu(), out_dir / f"case_{len(reports)}_last_logits.pt")
+            prompt_mask = q.prompt_word_mask(prompt, vocab_norm, z.device)
+            output_mask = s4.output_word_mask(z[32], vocab_norm, windex)
+            raw = peak_any(z, 22, 24, 30)
+            variants = {"peak_any raw": raw,
+                        "peak_any prompt mask": raw.masked_fill(prompt_mask, -torch.inf),
+                        "peak_any output mask": raw.masked_fill(output_mask, -torch.inf),
+                        names[0]: raw.masked_fill(prompt_mask | output_mask, -torch.inf),
+                        "plain L27 raw": c(z[27])}
+            stages = {}
+            for name, score in variants.items():
+                r_h, r_s = ranks_of_best(score, hidden), ranks_of_best(score, said)
+                stages[name] = {"r_hidden": r_h, "r_said": r_s, "ok": r_h < K and r_s >= K,
+                                "top8": [vocab_text[t] for t in score.topk(8).indices.tolist()]}
+            assert stages[names[0]]["r_hidden"] == case["r_hidden"], (stages, case)
+            last = [r for r in locations if r["position"] == ids.shape[1] - 1]
+            report = {"prior": case, "bridge_aliases": bridge, "answer_aliases": answer,
+                      "best_anywhere": min(locations, key=lambda r: r["r_hidden"]),
+                      "best_last_position": min(last, key=lambda r: r["r_hidden"]),
+                      "stages": stages, "locations": locations,
+                      "hidden_tokens": [{"token": vocab_text[t], "id": t,
+                                         "prompt_masked": bool(prompt_mask[t]), "output_masked": bool(output_mask[t])}
+                                        for t in hidden],
+                      "actual_next_token": tok.decode([int(logits.argmax())])}
+            reports.append(report)
+            (out_dir / "result.json").write_text(json.dumps(reports, ensure_ascii=False, indent=1))
+            logger.info(f"{case['bridge']}: prior rank reproduced; raw={stages['peak_any raw']['r_hidden']}, "
+                        f"masked={stages[names[0]]['r_hidden']}, best last={report['best_last_position']}")
+        table = tabulate([[r["prior"]["bridge"], r["stages"][names[0]]["r_hidden"],
+                           r["stages"]["peak_any raw"]["r_hidden"], r["best_last_position"]["r_hidden"],
+                           r["best_last_position"]["layer"], r["best_anywhere"]["r_hidden"],
+                           f"L{r['best_anywhere']['layer']}/P{r['best_anywhere']['position']}"] for r in reports],
+                         headers=["bridge", "frozen rank", "unmasked rank", "best last-token lens rank",
+                                  "layer", "best anywhere lens rank", "location"], tablefmt="pipe")
+        details = "\n\n".join(f"Input: {r['prior']['prompt']!r}\n\nPrior continuation: {r['prior']['said_text']!r}\n\n"
+                               f"Stages: {json.dumps(r['stages'], ensure_ascii=False)}" for r in reports)
+        source_sha = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nsource_sha256: {source_sha}\nprior: {diagnose}\n"
+              f"forward_passes: 4\ngenerations: 0\nelapsed_seconds: {time.monotonic() - started:.2f}\n---\n"
+              "# Four-case localisation diagnostic\n\nWritten by PI/OpenAI.\n\n"
+              "Selection: first four previously answer-correct cases, in saved order. No success-rate claim.\n"
+              "SHOULD: frozen ranks reproduce exactly. If masking causes the misses, unmasked ranks improve. "
+              "If location causes misses, the plain lens finds the bridge elsewhere. These label-selected locations "
+              "are diagnostics, not a frozen method or causal evidence.\n\n"
+              f"{table}\n\n{details}\n\nrun.md: {out_dir / 'run.md'}\n")
+        (out_dir / "run.md").write_text(md)
+        print(md)
+        return
+
     recs, n_tried, n_unknown, n_overlap = {n: [] for n in names}, 0, 0, 0
     for cat in sorted(by_cat):
         pool = by_cat[cat][:]
@@ -97,8 +183,7 @@ def main() -> None:
             if kept >= PER_CATEGORY:
                 break
             n_tried += 1
-            bridge = [a for group in ast.literal_eval(r["e2.aliases"]) for a in group] or [r["e2.value"]]
-            answer = [a for group in ast.literal_eval(r["e3.aliases"]) for a in group] or [r["e3.value"]]
+            bridge, answer = aliases(r, "e2"), aliases(r, "e3")
             prompt = r["r2(r1(e1)).prompt"]
             hop1 = greedy(r["r1(e1).prompt"])
             if not any(b.lower() in hop1.lower() for b in bridge):  # model must know the bridge
@@ -178,4 +263,6 @@ First six scored prompts where the two-hop answer is correct (dev winner):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--diagnose", type=Path, help="Inspect four correct cases from an earlier result.json; no generation.")
+    main(**vars(parser.parse_args()))
