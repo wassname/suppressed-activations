@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import importlib.util
 import json
+import bisect
 import random
 import re
 import sys
@@ -55,6 +56,38 @@ def load_lang(lang: str) -> dict[str, str]:
     return {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(path))}
 
 
+class WordIndex:
+    """Find vocab tokens that spell the same word as a given token string (case/space-insensitive)."""
+
+    def __init__(self, vocab_norm: list[str]):
+        self.by_str: dict[str, list[int]] = {}
+        for t, v in enumerate(vocab_norm):
+            if v:
+                self.by_str.setdefault(v, []).append(t)
+        self.sorted = sorted(self.by_str)
+
+    def same_word(self, w: str) -> set[int]:
+        out = set(self.by_str.get(w, []))
+        out |= {t for i in range(3, len(w)) for t in self.by_str.get(w[:i], [])}  # tokens that are a prefix of w
+        if len(w) >= 2 or "\u4e00" <= w <= "\u9fff":  # tokens that start with w (skip 1-letter Latin/Cyrillic)
+            i = bisect.bisect_left(self.sorted, w)
+            while i < len(self.sorted) and self.sorted[i].startswith(w):
+                out |= set(self.by_str[self.sorted[i]])
+                i += 1
+        return out
+
+
+def output_word_mask(z_out: Tensor, vocab_norm: list[str], index: WordIndex, top_p: float = 0.9, max_n: int = 20) -> Tensor:
+    """One pass: 'said' = words of the output layer's top tokens at this step. No generation."""
+    p = z_out.softmax(-1)
+    top = p.topk(max_n)
+    keep = top.indices[(top.values.cumsum(0) - top.values) < top_p].tolist()
+    ids = set().union(*(index.same_word(vocab_norm[t]) for t in keep if vocab_norm[t])) | set(keep)
+    mask = torch.zeros_like(z_out, dtype=torch.bool)
+    mask[sorted(ids)] = True
+    return mask
+
+
 def lens_space(h: Tensor, g: Tensor) -> Tensor:
     """u such that logits = u @ W.T (rmsnorm and gain applied)."""
     h = h.float()
@@ -75,6 +108,7 @@ def main() -> None:
     vocab_text = [tok.convert_tokens_to_string([t]) if t is not None else "" for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
     vocab_norm = [v.strip().lower() for v in vocab_text]
     tables = {l: load_lang(l) for l in LANGS}
+    windex = WordIndex(vocab_norm)
 
     id_cache: dict[tuple[str, int], frozenset[int]] = {}
 
@@ -87,8 +121,8 @@ def main() -> None:
     selector_names = ["rise_fall 22/27/32 (repo)", "peak_any − prompt words (frozen 03 winner)",
                       "rise_fall 22/27/32, erased", "peak_any, erased", "peak_any, prompt words erased (re-tokenized)",
                       "peak logit lens L27",
-                      "peak_any − prompt & said words", "peak lens max L24-30 − prompt & said words",
-                      "peak lens L27 − prompt & said words"]
+                      "peak_any − prompt & output-layer words", "peak lens max L24-30 − prompt & output-layer words",
+                      "peak lens L27 − prompt & output-layer words"]
     results, curves, n_skipped = {}, {}, {}
     for src, tgt in PAIRS:
         pair = f"{src}→{tgt}"
@@ -136,10 +170,8 @@ def main() -> None:
             z_er2 = torch.zeros(33, W.shape[0], device=u.device)
             z[list(READ)], z_er[list(READ)], z_er2[list(READ)] = u @ Wf.T, u_erased @ Wf.T, u_erased2 @ Wf.T
             mask = q.prompt_word_mask(prompt, vocab_norm, u.device)
-            # "said" from the model's own greedy answer, up to the closing quote; no language labels
-            gen = model.generate(ids, max_new_tokens=8, do_sample=False)
-            said_text = tok.decode(gen[0, ids.shape[1]:], skip_special_tokens=True).split('"')[0]
-            mask_rs = mask | q.prompt_word_mask(said_text, vocab_norm, u.device)
+            # "said" = what the output layer is about to say at this step (one pass, no generation)
+            mask_rs = mask | output_word_mask(z[32], vocab_norm, windex)
             scores = {
                 "rise_fall 22/27/32 (repo)": rise_fall(z, 22, 27),
                 "peak_any − prompt words (frozen 03 winner)": peak_any(z, 22, 24, 30).masked_fill(mask, float("-inf")),
@@ -147,16 +179,16 @@ def main() -> None:
                 "peak_any, erased": peak_any(z_er, 22, 24, 30),
                 "peak_any, prompt words erased (re-tokenized)": peak_any(z_er2, 22, 24, 30),
                 "peak logit lens L27": c(z[27]),
-                "peak_any − prompt & said words": peak_any(z, 22, 24, 30).masked_fill(mask_rs, float("-inf")),
-                "peak lens max L24-30 − prompt & said words": c(z[24:31]).amax(0).masked_fill(mask_rs, float("-inf")),
-                "peak lens L27 − prompt & said words": c(z[27]).masked_fill(mask_rs, float("-inf")),
+                "peak_any − prompt & output-layer words": peak_any(z, 22, 24, 30).masked_fill(mask_rs, float("-inf")),
+                "peak lens max L24-30 − prompt & output-layer words": c(z[24:31]).amax(0).masked_fill(mask_rs, float("-inf")),
+                "peak lens L27 − prompt & output-layer words": c(z[27]).masked_fill(mask_rs, float("-inf")),
             }
             for name, score in scores.items():
                 r_h, r_s, r_i = ranks_of_best(score, hidden), ranks_of_best(score, said), ranks_of_best(score, inp)
                 r_en = ranks_of_best(score, sorted(en - set(said) - set(inp)))
                 top1 = int(score.argmax())
                 recs[name].append({"word": w["en"], "r_hidden": r_h, "r_said": r_s, "r_input": r_i,
-                                   "hidden_is_zh": top1 in zh_latent, "said_text": said_text, "ok": r_h < K and r_s >= K and r_i >= K,
+                                   "hidden_is_zh": top1 in zh_latent, "ok": r_h < K and r_s >= K and r_i >= K,
                                    "ok_en_only": r_en < K and r_s >= K and r_i >= K})
         results[pair], n_skipped[pair] = recs, n_skip
         curves[pair] = (curve_sum / n_curve).tolist()
