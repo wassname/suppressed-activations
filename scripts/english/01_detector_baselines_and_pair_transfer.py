@@ -13,6 +13,7 @@ import random
 import re
 import sys
 import time
+import urllib.request
 from pathlib import Path
 
 import torch
@@ -33,7 +34,8 @@ from suppressed_activation_subspace import (  # noqa: E402
 
 MODEL = "Qwen/Qwen3.5-4B"
 REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
-WENDLER = Path("/tmp/llm-latent-language/data/langs")  # git clone https://github.com/epfl-dlab/llm-latent-language
+WENDLER_COMMIT = "d0e4f292f204d69bf9bc51cbe35e73e4f66e896f"  # epfl-dlab/llm-latent-language; no licence, so fetched not vendored
+WENDLER = ROOT / "data/wendler_words"
 EARLY, PEAK, OUT = 22, 27, 32  # README figure layers
 RANK_DETECT = 32  # README hit-rate rank
 # heart->school demo config (git b9255a1^:scripts/demo.py): early 22, peak 27, out 32, rank 8, residuals L23..L30
@@ -44,6 +46,12 @@ N_GEN = 24
 
 
 def load_words() -> list[dict]:
+    for lang in ("de", "zh"):
+        path = WENDLER / f"{lang}/clean.csv"
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            url = f"https://raw.githubusercontent.com/epfl-dlab/llm-latent-language/{WENDLER_COMMIT}/data/langs/{lang}/clean.csv"
+            urllib.request.urlretrieve(url, path)
     de = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(WENDLER / "de/clean.csv"))}
     zh = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(WENDLER / "zh/clean.csv"))}
     return [{"en": en, "de": de[en], "zh": zh[en]} for en in de if en in zh]

@@ -36,12 +36,18 @@ lens passes on 4, because it also returns the Chinese word the model is about to
 
 | method (top 32 tokens) | passes | English in | Chinese (said) in | German (input) in |
 |---|---:|---:|---:|---:|
+| rise-and-fall, best peak layer per token (24–30), prompt words removed | **92/120** | 95 | 4 | 0 |
 | rise-and-fall (this repo) | 56/120 | 94 | 3 | 37 |
 | fall only | 51/120 | 69 | 2 | 17 |
 | plain logit lens, layer 27 | 4/120 | 116 | 105 | 70 |
 
-37 of the 64 failures contain the German input word, such as ` Herz` or ` Licht`. The method finds
-words that are read or thought and then not said, and the input is one of those.
+With the original method, 37 of the 64 failures contain the German input word, such as
+` Herz` or ` Licht`: it finds words that are read or thought and then not said, and the input
+is one of those. The top row fixes this by dropping any token that spells a word from the
+prompt, and lets each token peak at its own layer. We picked it from 42 variants on half the
+prompts (46/60) and it scored the same on the other half (46/60). 8 of its 28 failures are
+words spelled the same in German and English (Hand, Ball, Person), which no method can tell
+apart from the input. Evidence: [`out/2026-09-29_115749_selector-search/run.md`](out/2026-09-29_115749_selector-search/run.md).
 
 Replacing the found component with another word's component changes
 the output word in 16 of 50 fixed word pairs. Random edits of the same size change 0 of 50.
@@ -309,7 +315,7 @@ just notebook-run                                                            # s
 ```
 
 The word lists come from [epfl-dlab/llm-latent-language](https://github.com/epfl-dlab/llm-latent-language),
-cloned to `/tmp/llm-latent-language`. The research history is in
+downloaded automatically at a pinned commit. The research history is in
 [`RESEARCH_JOURNAL.md`](RESEARCH_JOURNAL.md); older entries contain claims corrected later.
 
 ## Citation
