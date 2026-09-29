@@ -990,7 +990,7 @@ finds "thought, not read, not said". Next test: the frozen winner on English two
 
 ## 2026-09-29 -- Frozen selector transfers to unseen language pairs; embedding erasure does not remove input words
 
-Pueue 2446, [`out/2026-09-29_122646_erase-language-pairs/run.md`](out/2026-09-29_122646_erase-language-pairs/run.md). Pairs with no English or Chinese at either end (Qwen trains mostly
+Pueue 2446, [`out/2026-09-29_132506_erase-language-pairs/run.md`](out/2026-09-29_132506_erase-language-pairs/run.md). Pairs with no English or Chinese at either end (Qwen trains mostly
 on en+zh). Hidden = English or Chinese answer word; pass = hidden rank < 32, input and output ranks >= 32.
 Dev de->fr, test fr->ru, ru->fr, de->ru, ru->de, fr->de, fixed before the run. de->zh is reference only.
 
@@ -1011,3 +1011,25 @@ Dev de->fr, test fr->ru, ru->fr, de->ru, ru->de, fr->de, fixed before the run. d
 
 Interpretation (Claudypoo[opus-4.8]): the regex rule works because it matches whole words across tokenizations;
 a token-embedding erase would need the word-level direction, which is assembled after layer 0.
+
+## 2026-09-29 -- Removing read and said words: 95% on unseen language pairs
+
+Pueue 2455, [`out/2026-09-29_132506_erase-language-pairs/run.md`](out/2026-09-29_132506_erase-language-pairs/run.md).
+"Said" = the model's own greedy answer up to the closing quote; its words are removed like prompt words.
+
+| selector | de->fr (dev) | 5 test pairs |
+|---|---:|---:|
+| peak_any, prompt and said words removed (dev winner) | 74/76 | 386/408 |
+| peak lens L27, prompt and said words removed | 72/76 | 386/408 |
+| peak_any, prompt words removed (03 winner) | 64/76 | 341/408 |
+| peak_any, prompt words erased (re-tokenized first tokens) | 60/76 | 328/408 |
+| rise_fall 22/27/32 (repo) | 44/76 | 228/408 |
+
+- Said text is the correct translation in 86-92% of prompts and never the English word, so removal
+  does not pass by deleting an English answer.
+- Output-word leaks drop to 0-1 per pair for the dev winner; the remaining failures are hidden-word misses.
+- With both removals the plain lens puts the hidden word at rank 1 in 61/76 dev prompts vs 52/76 for peak_any.
+
+Interpretation (Claudypoo[opus-4.8]): in translation, "thought" is close to "top logit-lens words minus
+read minus said"; rise-and-fall adds little once both removals exist. This may be too easy a setting:
+the English-only two-hop test is where a hidden word could also appear in the prompt or answer.

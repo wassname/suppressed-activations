@@ -23,79 +23,75 @@ Here we have a nice setup. In the famous paper ["Do Llamas Work in English?"](ht
 
 Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
 
+We test on translation between German, French and Russian. Qwen is trained mostly on English
+and Chinese, so we use neither as the input or the output, and count the hidden word if it is
+found in English or Chinese.
+
 ## Results so far
 
-![Three panels for Qwen3.5-4B, German-to-Chinese word translation. Panel a: logit-lens probability by layer; the English word rises at layers 24 to 27 and falls to zero at layer 32; the Chinese word rises to about 0.6 at layer 32. Panel b: for four selectors, the fraction of 120 prompts whose top-32 tokens contain the English word, the Chinese word, the German word, and the English word without the other two. Rise-and-fall has the highest isolation, about 0.47. The plain logit lens contains Chinese in about 0.87 of prompts. Panel c: fraction of 50 word pairs where replacing a component at the last prompt token makes the model output the other word's Chinese translation, for 8-layer windows starting at layers 15, 19, 23 and 25. Replacing the whole residual vector works best, the Chinese-token directions reach 1.0 at layers 25 to 32, the rise-and-fall selector reaches 0.44, and random edits stay at 0.](figs/english_setting.png)
+![Two panels for Qwen3.5-4B. Panel a: French-to-Russian translation, mean logit-lens probability by layer over 78 words. The English word rises from layer 23, peaks at about 0.49 at layer 28, and falls to near zero at layer 32. The Russian output word rises after layer 29 to about 0.38. Chinese peaks at about 0.13; the French input word stays below 0.04. Panel b: for five language pairs not used to choose the method (fr→ru, ru→fr, de→ru, ru→de, fr→de), the fraction of prompts passed by four methods. Rise-and-fall and the plain logit lens, both with read and said words removed, pass 92 to 99 percent. The original rise-and-fall passes 49 to 63 percent, and the plain logit lens 11 to 18 percent.](figs/language_pairs.png)
 
-*Qwen3.5-4B on 120 German-to-Chinese word prompts. (a) The English word appears in the middle
-layers before the Chinese word. (b) Black bars are passes: English found, Chinese and German
-left out. (c) Replacing the found component with another word's component, by layer window.*
+*Qwen3.5-4B, word translation. (a) French to Russian, mean over 78 words: the English word
+appears in the middle layers, then the Russian word. (b) Pass rate on five language pairs that
+were not used to choose the method (76 to 88 prompts each).*
 
-The method below finds the hidden word and passes on 56 of 120 prompts. The plain logit
-lens passes on 4, because it also returns the Chinese word the model is about to say.
+The best method finds the hidden word in 386 of 408 test prompts (95%). The plain logit lens
+finds it in 11–18%, because its top words also contain the input and the output word.
 
-| method (top 32 tokens) | passes | English in | Chinese (said) in | German (input) in |
-|---|---:|---:|---:|---:|
-| rise-and-fall, best peak layer per token (24–30), prompt words removed | **92/120** | 95 | 4 | 0 |
-| rise-and-fall (this repo) | 56/120 | 94 | 3 | 37 |
-| fall only | 51/120 | 69 | 2 | 17 |
-| plain logit lens, layer 27 | 4/120 | 116 | 105 | 70 |
+| method (top 32 tokens) | de→fr (dev) | fr→ru | ru→fr | de→ru | ru→de | fr→de |
+|---|---:|---:|---:|---:|---:|---:|
+| rise-and-fall, read and said words removed | 74/76 | 74/78 | 77/78 | 82/88 | 82/88 | 71/76 |
+| plain logit lens, read and said words removed | 72/76 | 73/78 | 74/78 | 81/88 | 86/88 | 72/76 |
+| original rise-and-fall | 44/76 | 43/78 | 45/78 | 48/88 | 55/88 | 37/76 |
+| plain logit lens, layer 27 | 14/76 | 11/78 | 9/78 | 15/88 | 10/88 | 14/76 |
 
-With the original method, 37 of the 64 failures contain the German input word, such as
-` Herz` or ` Licht`: it finds words that are read or thought and then not said, and the input
-is one of those. The top row fixes this by dropping any token that spells a word from the
-prompt, and lets each token peak at its own layer. We picked it from 42 variants on half the
-prompts (46/60) and it scored the same on the other half (46/60). 8 of its 28 failures are
-words spelled the same in German and English (Hand, Ball, Person), which no method can tell
-apart from the input. Evidence: [`out/2026-09-29_115749_selector-search/run.md`](out/2026-09-29_115749_selector-search/run.md).
+A method passes on a prompt if its top 32 tokens contain the English or Chinese word and
+neither the input nor the output word. We chose the method on de→fr only. Prompts where the
+English word is spelled like the input or output word (such as *Hand*) are left out, because
+no method can tell them apart. Counting Chinese adds at most 2 passes per pair.
 
-Replacing the found component with another word's component changes
-the output word in 16 of 50 fixed word pairs. Random edits of the same size change 0 of 50.
-Using the Chinese answer tokens' own directions works better (41 of 50), so the English
-component is not the best place to edit.
-
-The heart to school demo below was hand-picked; the same setup works for 16 of the 50
-pairs. The spider to dog demo (collapsed below) was the best of 64 settings on one prompt
-pair, and the same settings did not work for spider to ant.
-
-```text
-Base:         心" (xīn), which means "heart" in English.
-Heart→school: 学校" (xué xiào), which means "school" in English. This is a common mistake, as "
-```
-
-Evidence: [`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md).
+Most of the gain comes from removing the words the model read and said. With those removed,
+the plain logit lens does as well as rise-and-fall, and puts the hidden word first more often
+(61 of 76 dev prompts, against 52). The open question is whether this holds when the input,
+thought and output are all English. Evidence:
+[`out/2026-09-29_132506_erase-language-pairs/run.md`](out/2026-09-29_132506_erase-language-pairs/run.md).
 
 ## How it works
 
-I think of these as "words that are thought but not spoken." For each sample, project the
-residual stream into vocabulary space and find token logits that rise in the middle but
-fall before they can be sampled.
+I think of these as "words that are thought but not spoken." Read the residual stream at the
+last prompt token through the model's own output layer (the logit lens), then remove the words
+the model read and the words it said.
 
 ```python
-z_early, z_peak, z_output = unembed(rmsnorm(h[[early, peak, output]]))  # layers 22, 27, 32
-
-rise = center_over_vocab(z_peak - z_early)
-fall = center_over_vocab(z_peak - z_output)
-suppressed_score = minimum(relu(rise), relu(fall))
-
-suppressed_tokens = topk(suppressed_score, k=32)
-S = orthogonal_basis(center(unembedding[suppressed_tokens]).T)
-h_suppressed = h @ S @ S.T
+z = {l: unembed(rmsnorm(h[l])) for l in layers}         # logit lens, last prompt token
+rise_fall = min(relu(z[peak] - z[22]), relu(z[peak] - z[32]))
+score = max(rise_fall for peak in range(24, 31))          # each token peaks at its own layer
+said = model.generate(prompt)                             # the model's own answer
+score[tokens that spell a word in prompt or said] = -inf  # remove what it read and said
+hidden_words = topk(score, 32)
 ```
 
-A token scores high only if its logit both rose and then fell. `h` is the residual stream at
-the last prompt token. The PyTorch functions are in
+Logits are centred over the vocabulary before the differences. "Spell a word" means the token,
+without spaces or case, is a word from the text or its first 3 or more letters. The code is in
+[`scripts/english/04_erase_and_language_pairs.py`](scripts/english/04_erase_and_language_pairs.py).
+The original per-prompt subspace functions are in
 [`suppressed_activation_subspace.py`](suppressed_activation_subspace.py).
 
 ## Next
 
-- Leave out tokens that already appear in the prompt. This uses no language information and
-  should remove most German errors.
-- Choose the layers by a fixed rule instead of from the English curve.
+- Freeze the method and test it on English-only two-step questions with a known middle word,
+  such as spider in "the number of legs on the animal that spins webs".
+- Replace string matching with erasure: erasing the tokens the model would use to say each
+  prompt word passes 60 of 76 dev prompts, against 64 for string matching of prompt words.
 - Try the Jacobian lens from [Gurnee et al. 2026](https://transformer-circuits.pub/2026/workspace/),
   which the authors report works better than the logit lens in earlier layers.
-- Freeze the best method and test it on English-only two-step questions with a known middle
-  word, such as spider in "the number of legs on the animal that spins webs".
+
+<details>
+<summary>Earlier results on German to Chinese, and editing the answer</summary>
+
+{old_results}
+
+</details>
 
 <details>
 <summary>Spider to dog demo (Gurnee et al. style)</summary>
@@ -311,6 +307,8 @@ the same rise and fall:
 ```bash
 uv run python scripts/english/01_detector_baselines_and_pair_transfer.py 23  # eval and word-pair swaps, ~3 min on a 3090
 uv run python scripts/english/02_figure.py                                   # figs/english_setting.png
+uv run python scripts/english/04_erase_and_language_pairs.py                 # language-pair test, ~15 min
+uv run python scripts/english/05_figure_language_pairs.py                    # figs/language_pairs.png
 just notebook-run                                                            # spider/dog demo, nbs/demo.ipynb
 ```
 
