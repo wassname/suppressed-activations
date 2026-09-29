@@ -987,3 +987,27 @@ method's prompts. Of 28 failures, 8 are German/English identical spellings maske
 Interpretation (Claudypoo[opus-4.8]): most of the gain is removing input words, a rule that uses only the
 prompt text. In an all-English setting it will also remove a hidden word that appears in the prompt, so it
 finds "thought, not read, not said". Next test: the frozen winner on English two-hop prompts.
+
+## 2026-09-29 -- Frozen selector transfers to unseen language pairs; embedding erasure does not remove input words
+
+Pueue 2446, [`out/2026-09-29_122646_erase-language-pairs/run.md`](out/2026-09-29_122646_erase-language-pairs/run.md). Pairs with no English or Chinese at either end (Qwen trains mostly
+on en+zh). Hidden = English or Chinese answer word; pass = hidden rank < 32, input and output ranks >= 32.
+Dev de->fr, test fr->ru, ru->fr, de->ru, ru->de, fr->de, fixed before the run. de->zh is reference only.
+
+| selector | de->fr (dev) | fr->ru | ru->fr | de->ru | ru->de | fr->de |
+|---|---:|---:|---:|---:|---:|---:|
+| 03 winner (peak_any, prompt words removed), frozen from de->zh | 64/76 | 64/78 | 71/78 | 67/88 | 75/88 | 64/76 |
+| rise_fall 22/27/32 (repo) | 44/76 | 43/78 | 45/78 | 48/88 | 55/88 | 37/76 |
+| peak_any, input embeddings erased | 39/76 | 52/78 | 46/78 | 52/88 | 52/88 | 37/76 |
+| plain logit lens L27 | 14/76 | 11/78 | 9/78 | 15/88 | 10/88 | 14/76 |
+
+- Latent language: English peaks at p 0.49-0.59 (L27-28); Chinese 0.09-0.13; input <= 0.04.
+- Counting Chinese as hidden adds at most 2 passes per pair (English-only table in run.md).
+- Winner failures are now mostly the output word inside the top 32 (6-15 per pair); input errors are 0.
+- Erasure of the prompt's layer-0 embeddings leaves the input word (29-31 of 76 on dev). CPU check: after a
+  quote mark the prompt tokenizes "Herz" as 'Her'+'z', while the selected token is ' Herz'; embedding cosine
+  between them is -0.05 to 0.35, so erasing the pieces barely touches the whole-word direction.
+- A first run erased g*W_t instead of W_t (bug; logit_t = u.W_t); fixed, results above are from the fixed run.
+
+Interpretation (Claudypoo[opus-4.8]): the regex rule works because it matches whole words across tokenizations;
+a token-embedding erase would need the word-level direction, which is assembled after layer 0.
