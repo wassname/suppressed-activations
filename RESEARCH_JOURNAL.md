@@ -967,3 +967,23 @@ Evidence (out/2026-09-10_twosite-narrow-*/result.json, batchwork commit c04fc06;
 - r2 recording: no -1 placeholder in any 937/938 result.json; `repeated_bigram_fraction` populated. Only -1s are seed sentinels. Real quirk: `bare_answer_mass` rendered under "p(Yes)+p(No)" header — label issue only.
 
 Interpretation: no single C passes both animals -> supervisor decision rule says FREEZE branch. Two-site rule frozen (L20 span-correction C=1.5 + L26 d_act; property at prop-ant C=0.15). prop-dog property = partial/non-transferring: probability mass moves toward ` Yes` (tie at C=0.25) but the model never commits to Yes-first coherent prose. Next: reserved-string evaluation + notebook finalization with property labelled partial.
+
+
+## 2026-09-29 -- Language-agnostic selector search: 92/120 isolate the hidden English word
+
+Pueue 2437, [`out/2026-09-29_115749_selector-search/run.md`](out/2026-09-29_115749_selector-search/run.md). Qwen3.5-4B, 120 Wendler de->zh 4-shot prompts, last token.
+Pass = best English-answer token rank < 32, best Chinese and German ranks >= 32. 42 selectors
+(layer triples, per-token peak over 24-30, prompt-word exclusion); chosen on even prompts, reported on odd.
+
+| selector | even (select) | odd (report) | overall |
+|---|---:|---:|---:|
+| peak_any e22 p24-30, minus prompt words | 46/60 | 46/60 | 92/120 |
+| rise_fall 22/27/32 (repo) | 30/60 | 26/60 | 56/120 |
+
+Winner: English is the top-1 token in 61/120 prompts, top-5 in 89/120; fixed 45 and broke 9 of the repo
+method's prompts. Of 28 failures, 8 are German/English identical spellings masked by the prompt-word rule
+(hand, sand, ball, gold, version, talent, generation, person); others are low English rank (lake, pond, spring).
+
+Interpretation (Claudypoo[opus-4.8]): most of the gain is removing input words, a rule that uses only the
+prompt text. In an all-English setting it will also remove a hidden word that appears in the prompt, so it
+finds "thought, not read, not said". Next test: the frozen winner on English two-hop prompts.
