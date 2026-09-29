@@ -2,31 +2,6 @@
 
 <img width="1448" height="1086" alt="Cartoon titled 'How can we find a model's hidden thoughts?', subtitle 'Models can think in English even when translating from French to Chinese.' A French speaker asks a robot 'Peux-tu traduire ceci en chinois ?'. The robot thinks 'Okay — first I understand it in English.' and says to a Chinese speaker '好的，我来翻译成中文。'. Labels: French (input), Model, Chinese (output). Lower panel: a magnifying glass over the robot's head shows English words (understand, translate, answer). Text: 'Knowing that we are looking for English, we can search for general transforms that isolate it.'" src="https://github.com/user-attachments/assets/73da1994-7dd6-41f4-af6b-166a40f3f115" />
 
-<img width="292" height="184" alt="Logit-lens plot from Wendler et al. for Llama-2: probability of the English answer (orange) rises from about layer 16 to about 0.65, then falls to near zero by the last layer. Probability of the correct Chinese answer (blue) stays low, then rises to about 0.6 in the last few layers." src="https://github.com/user-attachments/assets/28ab1795-4a8a-4752-b4cb-337ed360075a" />
-
-*When Llama-2 translates to Chinese, the logit lens reads the English word in the middle
-layers, then the Chinese word at the output
-([Wendler et al. 2024](https://arxiv.org/abs/2402.10588)).*
-
-## Status · 2026-09-29 · draft
-
-The goal is a method that finds what a model thinks but does not say, in any setting,
-including settings where the input, the thought, and the output are all English.
-
-In an all-English setting we cannot score such a method, because the hidden word and the
-said word look the same. German-to-Chinese translation gives an answer key: the input is
-German, the hidden thought is English, and the said output is Chinese. The method never
-uses language. We use language only to score it: did it find the English word and exclude
-the Chinese word?
-
-| claim | status |
-|---|---|
-| **Readout:** find the hidden word, exclude the said word | Partly works on the translation eval: 56 of 120 prompts isolate the English word (plain logit lens: 4 of 120). The main error is selecting the German input word (37 of 120). |
-| **Editing:** replacing the found component changes the answer | Secondary. Unsupervised rank-8 swap: 16 of 50 word pairs (random edit: 0 of 50). |
-| **Generalisation:** the same frozen method on all-English tasks | Not tested on a fixed set yet. One example: the spider prompt readout contains `Spider`. |
-
----
-
 I was searching for a way to test whether [Wes Gurnee's](https://x.com/wesg52)
 ["suppression neurons"](https://arxiv.org/abs/2401.12181) can be found in the residual
 stream.
@@ -34,35 +9,64 @@ stream.
 For the test, I tried to isolate the suppressed English from the output language in the
 ["Do Llamas Work in English?"](https://arxiv.org/abs/2402.10588) plot.
 
-## Where the idea came from
+<img width="300" alt="Logit-lens heatmap from Wendler et al., Figure 1: Llama-2-7B translating a French word into Chinese. Columns are the last four prompt tokens (中, 文, :, and a quote mark); rows are layers 1 to 32. At the last token, layers 19 to 25 decode to the English word flower, and layers 27 to 32 decode to the Chinese answer 花. Layers below 17 decode to unrelated word pieces." src="https://arxiv.org/html/2402.10588v4/figures/zh_fr_new_indexing_large.png" /> <img width="360" alt="Logit-lens plot from Wendler et al. for Llama-2: probability of the English answer (orange) rises from about layer 16 to about 0.65, then falls to near zero by the last layer. Probability of the correct Chinese answer (blue) stays low, then rises to about 0.6 in the last few layers." src="https://github.com/user-attachments/assets/28ab1795-4a8a-4752-b4cb-337ed360075a" />
 
-[Gurnee et al.](https://arxiv.org/abs/2401.12181) found prediction neurons through the
-later layers, followed by suppression neurons near the output:
+*From [Wendler et al. (2024)](https://arxiv.org/abs/2402.10588). Left: one example. Llama-2
+translates a French word into Chinese; the middle layers read "flower", the output is 花.
+Right: the average over many words, English (orange) rises and falls before Chinese (blue).*
 
-> We find a striking pattern which is remarkably consistent across the different seeds:
-> after about the halfway point in the model, prediction neurons become increasingly
-> prevalent until the very end of the network where there is a sudden shift towards a much
-> larger number of suppression neurons.
+## The challenge
 
-[Wendler et al.](https://arxiv.org/abs/2402.10588) found a representation that follows
-the same rise and fall:
+In AI models we want to find the thoughts and concepts and planning. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable tensors. The problem is that we don't understand them. If we could understand them, we could increase the model's virtue to give it a better character, see if it's eval aware (and make it not aware in a game or test), we could turn up honesty to find true values, and many other alignment tools to help us develop good, kind, deeply aligned models. 
 
-> Neither the correct Chinese token nor its English analog garner any noticeable
-> probability mass during the first half of layers. Then, around the middle layer, English
-> begins a sharp rise followed by a decline, while Chinese slowly grows and, after a
-> crossover with English, spikes on the last five layers.
+Here we have a nice setup. In the famous paper ["Do Llamas Work in English?"](https://arxiv.org/abs/2402.10588) they showed that a model translating from X to Y thinks in English. In this setting we know that many of the inner concepts correspond to English, so this gives us a really nice way to read the model's mind and find the parts of their activations that correspond to English words.
 
-This gives us known content that is readable in the middle and suppressed before the
-output: the English word for the answer.
+Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
 
-## The method
+## Results so far
+
+![Three panels for Qwen3.5-4B, German-to-Chinese word translation. Panel a: logit-lens probability by layer; the English word rises at layers 24 to 27 and falls to zero at layer 32; the Chinese word rises to about 0.6 at layer 32. Panel b: for four selectors, the fraction of 120 prompts whose top-32 tokens contain the English word, the Chinese word, the German word, and the English word without the other two. Rise-and-fall has the highest isolation, about 0.47. The plain logit lens contains Chinese in about 0.87 of prompts. Panel c: fraction of 50 word pairs where replacing a component at the last prompt token makes the model output the other word's Chinese translation, for 8-layer windows starting at layers 15, 19, 23 and 25. Replacing the whole residual vector works best, the Chinese-token directions reach 1.0 at layers 25 to 32, the rise-and-fall selector reaches 0.44, and random edits stay at 0.](figs/english_setting.png)
+
+*Qwen3.5-4B on 120 German-to-Chinese word prompts. (a) The English word appears in the middle
+layers before the Chinese word. (b) Black bars are passes: English found, Chinese and German
+left out. (c) Replacing the found component with another word's component, by layer window.*
+
+The method below finds the hidden word and passes on 56 of 120 prompts. The plain logit
+lens passes on 4, because it also returns the Chinese word the model is about to say.
+
+| method (top 32 tokens) | passes | English in | Chinese (said) in | German (input) in |
+|---|---:|---:|---:|---:|
+| rise-and-fall (this repo) | 56/120 | 94 | 3 | 37 |
+| fall only | 51/120 | 69 | 2 | 17 |
+| plain logit lens, layer 27 | 4/120 | 116 | 105 | 70 |
+
+37 of the 64 failures contain the German input word, such as ` Herz` or ` Licht`. The method finds
+words that are read or thought and then not said, and the input is one of those.
+
+Replacing the found component with another word's component changes
+the output word in 16 of 50 fixed word pairs. Random edits of the same size change 0 of 50.
+Using the Chinese answer tokens' own directions works better (41 of 50), so the English
+component is not the best place to edit.
+
+The heart to school demo below was hand-picked; the same setup works for 16 of the 50
+pairs. The spider to dog demo (collapsed below) was the best of 64 settings on one prompt
+pair, and the same settings did not work for spider to ant.
+
+```text
+Base:         心" (xīn), which means "heart" in English.
+Heart→school: 学校" (xué xiào), which means "school" in English. This is a common mistake, as "
+```
+
+Evidence: [`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md).
+
+## How it works
 
 I think of these as "words that are thought but not spoken." For each sample, project the
 residual stream into vocabulary space and find token logits that rise in the middle but
 fall before they can be sampled.
 
 ```python
-z_early, z_peak, z_output = unembed(rmsnorm(h[[early, peak, output]]))
+z_early, z_peak, z_output = unembed(rmsnorm(h[[early, peak, output]]))  # layers 22, 27, 32
 
 rise = center_over_vocab(z_peak - z_early)
 fall = center_over_vocab(z_peak - z_output)
@@ -73,94 +77,30 @@ S = orthogonal_basis(center(unembedding[suppressed_tokens]).T)
 h_suppressed = h @ S @ S.T
 ```
 
-The `fall` term removes the words the model is about to say. The complete PyTorch
-functions, including `component`, `remove`, `steer`, and `replace`, are in
-[`suppressed_activation_subspace.py`](suppressed_activation_subspace.py). The extraction is
-per prompt and needs one unmodified forward pass through the output layer.
+A token scores high only if its logit both rose and then fell. `h` is the residual stream at
+the last prompt token. The PyTorch functions are in
+[`suppressed_activation_subspace.py`](suppressed_activation_subspace.py).
 
-## Does it find the hidden word and exclude the said word?
+## Next
 
-![Three panels for Qwen3.5-4B German-to-Chinese translation. a: logit-lens probability of the English word rises at layers 24 to 27 and falls by layer 32, while the Chinese word rises to about 0.6 at layer 32. b: per selector, the fraction of 120 prompts whose top-32 tokens contain the English word, the Chinese word, the German word, and the English word without the other two; rise-and-fall has the highest isolation, about 0.47, and the logit lens includes Chinese in most prompts. c: fraction of 50 word pairs where swapping a component at the last prompt token makes the model output the other word's Chinese translation, by patched layer window; random edits stay at zero](figs/english_setting.png)
-
-*Qwen3.5-4B, 120 German-to-Chinese word prompts in the Wendler et al. 4-shot format.
-Layers: early 22, peak 27, output 32. Panel c is the next section; its layer windows overlap.*
-
-"Isolates" means the top-32 tokens contain the English word, and contain neither the
-Chinese word (said) nor the German word (input). AUROC ranks the whole vocabulary within
-one prompt: the probability that an English-word token scores above a Chinese-word token.
-
-| selector (top-32 tokens) | isolates hidden word | English (hidden) in | Chinese (said) in | German (input) in | median AUROC, English vs Chinese tokens |
-|---|---:|---:|---:|---:|---:|
-| rise-and-fall (this method) | **56/120** | 94/120 | 3/120 | 37/120 | 0.82 |
-| fall only | 51/120 | 69/120 | 2/120 | 17/120 | 1.00 |
-| plain logit lens at L27 | 4/120 | 116/120 | 105/120 | 70/120 | 0.09 |
-| rise only | 6/120 | 114/120 | 101/120 | 61/120 | 0.11 |
-
-The plain logit lens finds English in 116 of 120 prompts, but it also finds the Chinese
-word in 105. In an all-English setting it would return the said word with the thought.
-Rise-and-fall excludes the said word well, but in 37 of 120 prompts it also selects the
-German input word (for example ` Herz`, ` Holz`, ` Licht`). Those are real German words,
-not short-prefix matches: requiring 4 matching characters gives 60 of 120 isolated. So the
-method finds words that are *read or thought but not said*, and the input is one of them.
-Evidence: [`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md)
-and [`scripts/scratch/german_hit_tokens.py`](scripts/scratch/german_hit_tokens.py).
+- Leave out tokens that already appear in the prompt. This uses no language information and
+  should remove most German errors.
+- Choose the layers by a fixed rule instead of from the English curve.
+- Try the Jacobian lens from [Gurnee et al. 2026](https://transformer-circuits.pub/2026/workspace/),
+  which the authors report works better than the logit lens in earlier layers.
+- Freeze the best method and test it on English-only two-step questions with a known middle
+  word, such as spider in "the number of legs on the animal that spins webs".
 
 <details>
-<summary>Why the earlier "95% of English inside the subspace" figure was dropped</summary>
-
-The earlier Figure 1 shaded the English probability by the share of the English readout
-inside `S`. Each basis vector of `S` is an unembedding row of a selected token. If the
-English answer token is selected, its readout direction lies inside `S`, so the share is 1
-at every layer, for any residual. The saved values show this: the share is 0.94 at L3 and
-1.01 at L15, where the English probability is about zero. The share restated the hit rate
-and did not measure the residual stream. A version that leaves the answer tokens out of
-`S` would measure it; that has not been run.
-
-</details>
-
-## Can editing the component change the answer?
-
-This is the secondary claim. For a source word and a target word, we replace the source
-prompt's component in `S` with the target prompt's component, at the last prompt token,
-in residual layers 23 to 30. The prompt is
-`'The Chinese translation of the German word "Herz" is "'`.
-
-The first example we found was heart to school. It changes the top token from `心` to
-`学校`, and the model then corrects itself:
-
-```text
-学校" (xué xiào), which means "school" in English. This is a common mistake, as "
-```
-
-**Selection:** heart to school was hand-picked. The same configuration on 50 fixed word
-pairs (all words the model translates correctly, each paired with the next):
-
-| replaced subspace (rank 8 unless stated) | top-1 becomes the target's Chinese word | median Δ log-odds (nats) |
-|---|---:|---:|
-| rise-and-fall selector (this method) | 16/50 | +9.1 |
-| English answer tokens (oracle) | 28/50 | +11.1 |
-| Chinese answer tokens (oracle) | **41/50** | +14.0 |
-| random direction, same edit norm | 0/50 | 0.0 |
-| whole residual vector | 49/50 | +20.1 |
-
-Most rise-and-fall failures are selection failures: it worked in 11 of 16 pairs where the
-English word was in both rank-8 selections and 5 of 34 otherwise. At no tested layer
-window was the English direction a better handle than the Chinese direction (panel c).
-At layers 25 to 32 the English-token swap makes the model say the target's English word
-(44 of 50). Evidence:
-[`out/2026-09-29_070913_english-baselines-L23/run.md`](out/2026-09-29_070913_english-baselines-L23/run.md).
-
-In [Gurnee et al. 2026](https://transformer-circuits.pub/2026/workspace/), swaps use
-Jacobian-lens directions at all token positions and flip 54–70% of 50 two-hop prompts. They
-report that logit-lens directions flip the answer less often. Our swaps use logit-lens
-directions at the last token only.
+<summary>Spider to dog demo (Gurnee et al. style)</summary>
 
 ## Are suppressed activations causal? Can changing this subspace change the answer?
 
-To see if this subspace allows causal replacement, we repeat the spider/dog demonstration
-from [Gurnee et al., Figures
-12–13](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching) using our
-suppressed-activation method.
+To answer "8", the model has to think "spider" without saying it. [Gurnee et al.
+(Figures 12–13)](https://transformer-circuits.pub/2026/workspace/#fig-latent-patching)
+changed that hidden "spider" into "ant" inside the model, and it answered 6. We try the same
+with our method: we change the hidden spider part into the hidden part from a dog prompt,
+and hope the answer becomes 4.
 
 ### Base
 
@@ -202,17 +142,15 @@ Thinking Process:
 
 ### Causal intervention
 
-Now we replace the suppressed component selected from the spider prompt with the component
-selected from a dog prompt. The input stays unchanged. The readout below is recomputed after
-the intervention.
+We keep the spider prompt, but replace its hidden part with the hidden part from a dog
+prompt. The text does not change; only the model's activations do. We then read the hidden
+words again.
 
 Input (`repr`, unchanged):
 
 ```python
 'Fact: The number of legs on the animal that spins webs is '
 ```
-
-We swap `spider` with `dog` in the final prompt token.
 
 Readout after intervention (“what it is thinking but not saying”):
 
@@ -244,14 +182,14 @@ Thinking Process
 | 9 | 7 | -4.713 | 0.008976 | +1.037 |
 | 10 | 0 | -6.588 | 0.001377 | -0.088 |
 
-The dog component comes from an unmodified pass over this target input:
+The dog part comes from this prompt:
 
 ```python
 "Fact: The number of legs on the animal that barks and is called man's best friend is "
 ```
 
-For each complete input, an unmodified first pass extracts a separate subspace. We then
-change one residual vector at L26 and the final source-input token:
+Each prompt gets its own subspace `S`. We change the activation at layer 26 of the last
+prompt token:
 
 ```python
 source = h_spider @ S_spider @ S_spider.T
@@ -260,18 +198,22 @@ target = target * norm(source) / norm(target)
 h_replaced = match_norm(h_spider + C * (target - source), h_spider)
 ```
 
-At `C=1`, the constructed replacement still generates `8` first. The displayed `C=4`
-intervention extrapolates past that replacement. The readout after intervention remains
-spider-related, so this does not establish a semantic `spider → dog` replacement. C=4
-changes 72% of the residual norm, 21 of 256 matched-random interventions have
-an equal or larger effect, and a `2 + 2` target produces the same first-token change. See
-the [executed notebook](nbs/demo.ipynb) and [fixed run
+What this shows and what it does not. A plain swap (`C=1`) still answers 8; we had to
+push 4 times further (`C=4`), which changes 72% of the activation. Pushes of that size in
+random directions move the answer as far in 21 of 256 tries, and a "2 + 2" prompt in place
+of the dog prompt gives the same change. The hidden words after the edit still say spider.
+So the edit moves the next number, but it does not show that "spider" became "dog". See the
+[executed notebook](nbs/demo.ipynb) and [run
 report](out/2026-09-05_211609_causal-confirmation/recovered_log.md).
 
-**Selection:** this configuration was the best of a 64-condition layer, rank, and strength
-screen on this one pair. Dog was chosen over ant because it gave the more reliable demo.
-The same fixed configuration did not transfer to an ant donor (0 of 1). There is no rate on
-a fixed prompt set.
+How it was picked: these were the best of 64 settings tried on this one prompt pair. We
+used dog instead of ant because dog worked more reliably; the same settings failed for ant.
+We have no success rate for this demo.
+
+</details>
+
+<details>
+<summary>Dog and ant full continuations (a different, tuned method)</summary>
 
 ## Full continuations: dog and ant
 
@@ -324,28 +266,50 @@ set this configuration scored
 [6 of 12 complete successes](slop/research/demo-evidence/eval_fresh_adjudications.json);
 a random edit scored 1 of 12.
 
-## Limits
+</details>
 
-- The three layers (22/27/32) were chosen from the aggregate English curve. A new setting
-  needs a fixed layer rule, or the result partly depends on picking layers again.
-- The subspace is per prompt. Editing during open-ended generation needs an unmodified
-  first pass or a basis learned from other prompts.
-- The spider C=4 edit changes 68–72% of the residual norm, 21 of 256 matched-random edits
-  have an equal or larger effect, and a `2 + 2` target gives the same first-token change.
-  It supports transfer of the next-answer state, not of animal identity.
-- The earlier dog/ant successes use a different basis (template-contrast attenuation).
-  They do not validate the rise-and-fall selector as an editing handle.
+<details>
+<summary>Why the earlier "95% of English inside the subspace" figure was dropped</summary>
+
+The earlier Figure 1 shaded the English probability by the share of the English readout
+inside `S`. Each basis vector of `S` is an unembedding row of a selected token. If the
+English answer token is selected, its readout direction lies inside `S`, so the share is 1
+at every layer, for any residual. The saved values show this: the share is 0.94 at layer 3
+and 1.01 at layer 15, where the English probability is about zero.
+
+</details>
+
+<details>
+<summary>Background: suppression neurons</summary>
+
+[Gurnee et al.](https://arxiv.org/abs/2401.12181) found prediction neurons through the
+later layers, followed by suppression neurons near the output:
+
+> We find a striking pattern which is remarkably consistent across the different seeds:
+> after about the halfway point in the model, prediction neurons become increasingly
+> prevalent until the very end of the network where there is a sudden shift towards a much
+> larger number of suppression neurons.
+
+[Wendler et al.](https://arxiv.org/abs/2402.10588) found a representation that follows
+the same rise and fall:
+
+> Neither the correct Chinese token nor its English analog garner any noticeable
+> probability mass during the first half of layers. Then, around the middle layer, English
+> begins a sharp rise followed by a decline, while Chinese slowly grows and, after a
+> crossover with English, spikes on the last five layers.
+
+</details>
 
 ## Reproduce
 
 ```bash
-uv run python scripts/english/01_detector_baselines_and_pair_transfer.py 23  # eval + pair swaps, ~3 min on a 3090
+uv run python scripts/english/01_detector_baselines_and_pair_transfer.py 23  # eval and word-pair swaps, ~3 min on a 3090
 uv run python scripts/english/02_figure.py                                   # figs/english_setting.png
 just notebook-run                                                            # spider/dog demo, nbs/demo.ipynb
 ```
 
-The eval needs a clone of [epfl-dlab/llm-latent-language](https://github.com/epfl-dlab/llm-latent-language)
-at `/tmp/llm-latent-language` for the word lists. The research history is in
+The word lists come from [epfl-dlab/llm-latent-language](https://github.com/epfl-dlab/llm-latent-language),
+cloned to `/tmp/llm-latent-language`. The research history is in
 [`RESEARCH_JOURNAL.md`](RESEARCH_JOURNAL.md); older entries contain claims corrected later.
 
 ## Citation
@@ -360,4 +324,4 @@ If you use the method or figure, please cite
 - Gurnee, Wes, et al. ["Verbalizable Representations Form a Global Workspace in Language Models."](https://transformer-circuits.pub/2026/workspace/) 2026.
 
 <!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4.
-2026-09-29 draft restructure (eval framing, English pair results, selection counts) by Claudypoo[opus-4.8]. -->
+2026-09-29 restructure by Claudypoo[opus-4.8]: challenge framing, results table, collapsed demos. -->

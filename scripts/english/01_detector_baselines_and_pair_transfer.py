@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import json
 import random
+import re
 import sys
 import time
 from pathlib import Path
@@ -62,14 +63,25 @@ def centered(z: Tensor) -> Tensor:
     return z - z.mean(-1, keepdim=True)
 
 
-def selector_scores(res_last: Tensor, W: Tensor, g: Tensor) -> dict[str, Tensor]:
-    """res_last [layers, d] -> vocab scores [V] per selector."""
+def prompt_word_mask(prompt: str, vocab_norm: list[str], device) -> Tensor:
+    """True for tokens that spell a word, or a >=3-char prefix of a word, already in the prompt. Uses no language info."""
+    words = set(re.findall(r"\w+", prompt.lower()))
+    prefixes = {w[:i] for w in words for i in range(3, len(w) + 1)}
+    return torch.tensor([bool(v) and (v in words or v in prefixes) for v in vocab_norm], device=device)
+
+
+def selector_scores(res_last: Tensor, W: Tensor, g: Tensor, in_prompt: Tensor | None = None) -> dict[str, Tensor]:
+    """res_last [layers, d] -> vocab scores [V] per selector. in_prompt adds variants that drop words read in the input."""
     z_early, z_peak, z_out = logit_lens(res_last[[EARLY, PEAK, OUT]], W, g)
     rise, fall = centered(z_peak - z_early), centered(z_peak - z_out)
     rise_fall = suppressed_activation_scores(res_last[None], W, g, early_layer=EARLY, peak_layer=PEAK, output_layer=OUT)[0]
     torch.testing.assert_close(rise_fall, torch.minimum(rise.clamp_min(0), fall.clamp_min(0)))
-    return {"rise_and_fall (repo)": rise_fall, "peak logit lens": centered(z_peak), "fall only": fall,
-            "rise only": rise, "output logits (sanity)": centered(z_out)}
+    out = {"rise_and_fall (repo)": rise_fall, "peak logit lens": centered(z_peak), "fall only": fall,
+           "rise only": rise, "output logits (sanity)": centered(z_out)}
+    if in_prompt is not None:
+        for k in ("rise_and_fall (repo)", "fall only", "peak logit lens"):
+            out[f"{k} − prompt words"] = out[k].masked_fill(in_prompt, float("-inf"))
+    return out
 
 
 def basis_from_ids(ids: list[int], W: Tensor, g: Tensor) -> Tensor:
@@ -90,6 +102,7 @@ def main() -> None:
     W, g = model.lm_head.weight, 1.0 + final_norm.weight
     vocab_text = tok.convert_ids_to_tokens(list(range(W.shape[0])))
     vocab_text = [tok.convert_tokens_to_string([t]) if t is not None else "" for t in vocab_text]
+    vocab_norm = [v.strip().lower() for v in vocab_text]
 
     words = load_words()
     logger.info(f"{len(words)} de/zh/en word triples")
@@ -118,7 +131,7 @@ def main() -> None:
         en_ids, zh_ids = word_ids(w["en"], 3), word_ids(w["zh"], 1)
         de_ids = word_ids(w["de"], 3) - en_ids  # German/English cognates (Hand/hand) count as English
         assert en_ids and zh_ids and not (en_ids & zh_ids), w
-        for name, score in selector_scores(res[:, -1], W, g).items():
+        for name, score in selector_scores(res[:, -1], W, g, prompt_word_mask(prompt, vocab_norm, res.device)).items():
             top = set(score.topk(RANK_DETECT).indices.tolist())
             rec = {"en": bool(top & en_ids), "zh": bool(top & zh_ids), "de": bool(top & de_ids),
                    "auroc_en_vs_zh": auroc(score, sorted(en_ids), sorted(zh_ids)),
@@ -130,10 +143,13 @@ def main() -> None:
 
     def med(x): return sorted(x)[len(x) // 2]
     hits = {name: {k: sum(r[k] for r in rs) for k in ("isolates", "en", "zh", "de")} for name, rs in q1_records.items()}
-    q1_rows = [[name, f"**{h['isolates']}/{n_q1}**", f"{h['en']}/{n_q1}", f"{h['zh']}/{n_q1}", f"{h['de']}/{n_q1}",
+    for name, rs in q1_records.items():  # pick a variant on even prompts, report it on odd prompts
+        hits[name]["isolates_even"] = sum(r["isolates"] for r in rs[0::2])
+        hits[name]["isolates_odd"] = sum(r["isolates"] for r in rs[1::2])
+    q1_rows = [[name, f"**{h['isolates']}/{n_q1}**", f"{h['isolates_even']}/{len(words[0::2])}", f"{h['isolates_odd']}/{len(words[1::2])}", f"{h['en']}/{n_q1}", f"{h['zh']}/{n_q1}", f"{h['de']}/{n_q1}",
                 f"{med([r['auroc_en_vs_zh'] for r in q1_records[name]]):.2f}",
                 f"{med([r['auroc_en_vs_vocab'] for r in q1_records[name]]):.3f}"] for name, h in hits.items()]
-    q1_table = tabulate(q1_rows, headers=["selector (top-32 tokens)", "isolates hidden word", "English in", "Chinese in",
+    q1_table = tabulate(q1_rows, headers=["selector (top-32 tokens)", "isolates hidden word", "even half", "odd half", "English in", "Chinese in",
                                           "German in", "median AUROC EN vs ZH", "median AUROC EN vs vocab"],
                         tablefmt="pipe")
     logger.info("\n" + q1_table)
@@ -153,10 +169,11 @@ def main() -> None:
         en_ids = sorted({t for t, s in enumerate(vocab_text) if s.strip() and is_prefix_hit(s, w["en"], 3)
                          and len(s.strip()) >= max(3, len(w["en"]) - 2)})
         zh_ids = sorted({t for t, s in enumerate(vocab_text) if s.strip() and is_prefix_hit(s, w["zh"], 1)})
-        scores = selector_scores(res[:, -1], W, g)
+        scores = selector_scores(res[:, -1], W, g, prompt_word_mask(zero_shot(w["de"]), vocab_norm, res.device))
         clean.append({"w": w, "ids": ids, "res": res, "logits": logits, "zh_id": zh_id,
                       "bases": {
                           "rise_and_fall (repo)": subspace_from_scores(scores["rise_and_fall (repo)"][None], W, g, rank=RANK_PATCH)[0],
+                          "rise_and_fall (repo) − prompt words": subspace_from_scores(scores["rise_and_fall (repo) − prompt words"][None], W, g, rank=RANK_PATCH)[0],
                           "peak logit lens": subspace_from_scores(scores["peak logit lens"][None], W, g, rank=RANK_PATCH)[0],
                           "English answer tokens (oracle)": basis_from_ids(en_ids, W, g) if en_ids else None,
                           "Chinese answer tokens (oracle)": basis_from_ids(zh_ids, W, g),
@@ -205,7 +222,7 @@ def main() -> None:
                 "still_source": int(logits.argmax()) == s,
                 "d_logodds": float((lp[t] - lp[s]) - (lp0[t] - lp0[s])), "distances": record, "gen": text}
 
-    modes = ["rise_and_fall (repo)", "peak logit lens", "English answer tokens (oracle)", "Chinese answer tokens (oracle)",
+    modes = ["rise_and_fall (repo)", "rise_and_fall (repo) − prompt words", "peak logit lens", "English answer tokens (oracle)", "Chinese answer tokens (oracle)",
              "random rotation, matched to rise_and_fall norm", "full residual (upper bound)"]
     rows, per_pair = {m: [] for m in modes}, []
     for k, (a, b) in enumerate(pairs):
