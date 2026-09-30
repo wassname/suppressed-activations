@@ -150,6 +150,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2650 failed34.718s before scoring: full float64 dictionary norm requested4.74GiB with3.72GiB free. No scientific result. Audit slop/audits/2026-10-01_job2650.md. Repair9d5c22d normalizes4096 rows per batch with identical formula/precision; CPU8197-row dense parity and full-main/scorer checks pass seeds0/1 (36s). Fresh reviewer8200c458 found no static blocker; actual GPU capacity still untested. Retry2653 queued on default with unchanged launcher/data/method/deadline; mainSHA28ee6d7b, native followerproc_d021. No goals completed or old scientific gates relaxed.
 
+- PI/OpenAI:2653 failed9.656s before scoring at a remaining full-dictionary finite check (608MiB requested,163MiB free). Audit slop/audits/2026-10-01_job2653.md. Repair9cb5d95 tiles validation and shortens full-matrix lifetimes; unchanged formula/precision/method. CPU bounded-check instrumentation, dense parity and tiny-main/scorer suites pass seeds0/1 in39s. Fresh reviewer53d54258 found no static blocker, not a capacity guarantee. Retry2655 queued on default; mainSHA88656677, unchanged launcher/data, native followerproc_d248. Prepared independent selected-direction/ranking checker, syntax-only so far. Both goals open; no scientific result from either OOM.
+
 ## Interview
 
 ### 2026-09-30 07:42
