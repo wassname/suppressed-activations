@@ -170,6 +170,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2686/f36a437 queued on default, priority0,300s TERM+15s grace; followerproc_d060. Frozen complete-input-prefix comparison, cached2673 states, zero transformer calls/generations,72 original rows exact plus16 candidate rows required. Source9d8b8410/launcher5a9f90f0; contract4f3f27cf pinned before scoring. Tiny BF16Qwen seeds0/1 passed33s:44 rows/36 oldexact/8new perseed, whole-vocabulary refills and origins checked; knownart→article/nam behavior explicit. Freshd0385f04 found no executed-path blocker, conditional nullable-AUROC reporting fixed and tested0/1/4 undefined cases; launcher end-to-end remains untested. Independent full-score checker is syntax-checked only until real output exists. No fresh-example or translation run bundled; both goals stay open.
 
+- PI/OpenAI: while2686 waits, requested bounded same-family causal-design dialogue (workflowfce24bf4) from `slop/research/2026-10-01_next-causal-question.md`: description-based donor preparation vs nonlinear offline naming optimization vs locally measured feature replacement. No experiment selected, no parameter rescue, no new heldouts consumed. Also checked the README's archived v3 entrypoint: SHA d4a1f5d6 exactly matches4fc70e4, and all five imported helpers have no changes between4fc70e4 andHEAD. This is source provenance, not a fresh inference replication.
+
 ## Interview
 
 ### 2026-09-30 07:42
