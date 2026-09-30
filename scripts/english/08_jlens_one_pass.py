@@ -137,7 +137,7 @@ def prepare_donors(model, tok, block, config_path, out):
     config = json.loads(config_path.read_text())
     assert config["block_index"] == block
     assert config["concepts"] == ["spider", "dog"]
-    means, samples = {}, []
+    means, samples, sample_states = {}, [], {}
     for concept in config["concepts"]:
         states = []
         for template in config["templates"]:
@@ -148,13 +148,15 @@ def prepare_donors(model, tok, block, config_path, out):
             states.append(h)
             samples.append({"concept": concept, "input_repr": repr(prompt), "token_ids": ids[0].tolist(),
                             "residual_norm": float(h.norm())})
-        means[concept] = torch.stack(states).mean(0).cpu()
+        stacked = torch.stack(states)
+        means[concept] = stacked.mean(0).cpu()
+        sample_states[concept] = stacked.cpu()
     difference_norm = float((means["dog"] - means["spider"]).norm())
     assert difference_norm > 0
     provenance = {"model": q.MODEL, "model_revision": q.REVISION, "block_index": block, "config": config,
                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(), "samples": samples,
                   "difference_norm": difference_norm}
-    torch.save({"means": means, "provenance": provenance}, out / "donors.pt")
+    torch.save({"means": means, "sample_states": sample_states, "provenance": provenance}, out / "donors.pt")
     (out / "donors.json").write_text(json.dumps(provenance, indent=1))
     report = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nblock_index: {block}\nn_prompts: {len(samples)}\n---\n"
               "# Offline donor calibration\n\nWritten by PI/OpenAI.\n\n"
@@ -199,7 +201,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
          equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
-         erase_strength=1.0, decode_scale=1.0):
+         erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -416,7 +418,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
               "States and output token IDs are captured during that same generation, with one prefill and cached decode calls, not a separate trajectory pass. generation_traces.json records coverage and token pieces; prefill.pt stores last-position states for later readout analysis only. Historical cached continuations are regenerated with the same eight-token cap. Scoring definitions are unchanged. "
               "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
               "The primary alias-checked metric also excludes every predeclared answer alias when an expected answer is observed (e.g. Lisboa after Lisbon, six after6). This is still not exhaustive semantic exclusion. Literal-only scores remain in JSON for comparison. "
-              "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC; they remain in the full denominator, so the joint count is a conservative count of verified passes. "
+              "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC and remain in the full denominator. These are lexical passes, not a verified lower bound on semantic success. "
               "Token-pair AUROC compares unambiguous hidden and said token variants, with half credit for ties; it is undefined when the hidden concept is said or a class is empty. It is not top32 recovery. "
               "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
               f"SHOULD: {'end-pass masking improves joint recovery over unmasked readouts; compare J with equally masked plain lenses.' if end_pass_readout else 'forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, forecast error alone cannot explain it.'}\n\n"
@@ -483,6 +485,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert donor["provenance"]["block_index"] == block
         full_delta = (donor["means"]["spider"] - donor["means"]["dog"]).cuda()
         full_delta = full_delta if reverse else -full_delta
+        native_donor_norm = float(full_delta.norm())
+        if donor_norm is not None:
+            assert donor_norm > 0
+            full_delta = full_delta * (donor_norm / full_delta.norm())
         projected_delta = full_delta @ inverse_j.T @ vectors_j.T
         assert full_delta.norm() > 0
         noise = torch.randn(full_delta.shape, device="cuda", generator=torch.Generator(device="cuda").manual_seed(0))
@@ -495,7 +501,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "full donor contrast": full_delta,
                             "matched-random delta": noise * (full_delta.norm() / noise.norm())}
         donor_info = {"checkpoint": str(donor_checkpoint), "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
-                      "provenance": donor["provenance"], "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
+                      "provenance": donor["provenance"], "native_donor_norm": native_donor_norm, "requested_donor_norm": donor_norm,
+                      "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
         (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
         logger.info(f"Offline donor delta norms: {donor_info['delta_norms']}")
     prompt_pair, answer_pair = RELATIONS[relation]
@@ -584,7 +591,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                       for m, r in conditions.items()], headers=["condition", "answer_log_odds_shift", f"p({answer_pair[1]})", f"p({answer_pair[0]})", "answer_pair_mass", "r2"], tablefmt="pipe")
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe") if readouts else "No standalone readout benchmark in this intervention run."
-    edit_description = ("Offline donor contrast: delta=mean(target)-mean(source), with strength1 in raw residual units. "
+    edit_description = ("Offline donor contrast: delta=mean(target)-mean(source) in raw residual units. "
+                        f"Requested donor norm={donor_norm}; a specified norm rescales this contrast and is not an unscaled component replacement. "
                         "J projection is delta @ pinv(V).T @ V.T. Full contrast and norm-matched full contrast are separate controls. "
                         f"Equal-donor-norm={equal_donor_norm}: when true, compare full contrast, J projection and random at the full contrast's norm. "
                         f"Random uses one fixed seed0 direction at the same absolute norm as the {'full contrast' if equal_donor_norm else 'projection'}, reused at every edited position. "
@@ -594,7 +602,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -622,7 +630,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
-                       f"donor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"donor_checkpoint: {donor_checkpoint}\ndonor_norm: {donor_norm}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
@@ -647,6 +655,7 @@ if __name__ == "__main__":
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
+    parser.add_argument("--donor-norm", type=float, help="Rescale donor contrast to this norm before building matched controls; default retains its natural norm.")
     parser.add_argument("--decode-scale", type=float, default=1.0, help="Multiply intervention deltas during cached decode only; prefill remains unchanged.")
     parser.add_argument("--erase-strength", type=float, default=1.0, help="Requested output-erasure fraction, compared with full erasure on the same captured states.")
     parser.add_argument("--erase-output", action="store_true", help="End-pass comparison: remove the activation component along the predicted output-token direction before unembedding.")
