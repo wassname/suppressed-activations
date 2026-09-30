@@ -19,6 +19,7 @@ root=Path(__file__).resolve().parents[2]
 entry=root/'scripts/english/08_jlens_one_pass.py'
 print('source_sha256='+hashlib.sha256(entry.read_bytes()).hexdigest(),flush=True)
 ns=runpy.run_path(str(entry)); g=ns['main'].__globals__
+old=runpy.run_path(str(root/'out/2026-10-01_045248_jlens-one-pass/source.py')); old_g=old['main'].__globals__
 tok=AutoTokenizer.from_pretrained(g['q'].MODEL,revision=g['q'].REVISION,local_files_only=True)
 config=Qwen3_5TextConfig(vocab_size=len(tok),hidden_size=32,intermediate_size=64,num_hidden_layers=32,
     num_attention_heads=2,num_key_value_heads=1,head_dim=16,linear_key_head_dim=8,linear_value_head_dim=8,
@@ -48,7 +49,8 @@ for seed in (0,1):
             prompt=data['prefix']+case['prompt']
             enc=tok(prompt,add_special_tokens=False,return_offsets_mapping=True,return_special_tokens_mask=True)
             res,generated,coverage=g['generate_readout'](model,torch.tensor([enc.input_ids]),23)
-            states.append(res);traces.append({'prompt':prompt,'token_ids':generated,'coverage':coverage})
+            states.append(res);traces.append({'prompt':prompt,'token_ids':generated,'coverage':coverage,
+                'generation_overrides':{'max_new_tokens':8,'do_sample':False,'use_cache':True}})
             spans.append({'prompt':prompt,'input_ids':enc.input_ids,'offsets':enc.offset_mapping,
                 'positions':g['question_positions'](enc.input_ids,enc.offset_mapping,enc.special_tokens_mask,set(tok.all_special_ids),len(data['prefix']),len(prompt))})
         torch.save(states,cache/'prefill_positions.pt')
@@ -66,8 +68,10 @@ for seed in (0,1):
         try:
             out=g['main'](cases_json=config_path,end_pass_readout=True,output_mask_max_n=1,
                 erase_output=True,erase_strength=.5,matching_pursuit=True,gradient_pursuit=gradient,replay_readout_run=cache)
-            g['ROOT']=tmp/'baseline'
-            baseline=g['main'](cases_json=config_path,end_pass_readout=True,output_mask_max_n=1,
+            for key in ('AutoModelForCausalLM','hf_hub_download','LENS_SHA','q','PURSUIT_CLUES'):
+                old_g[key]=g[key]
+            old_g['ROOT']=tmp/'baseline'
+            baseline=old_g['main'](cases_json=config_path,end_pass_readout=True,output_mask_max_n=1,
                 erase_output=True,erase_strength=.5,matching_pursuit=gradient,replay_readout_run=cache)
         finally:
             torch.Tensor.cuda=original_cuda;g['q'].prompt_word_mask=original_mask
@@ -115,4 +119,4 @@ for seed in (0,1):
             else:
                 raise AssertionError('main failed to install replay guard')
     print(f'PASS seed{seed}: gradient={gradient}, full main, real tiny BF16 Qwen prefills/decode cache, both prefixes,{len(rows)} rows, same-cardinality controls, diagnostics,{len(baseline_rows)} baseline rows exact, unchanged parameters/IDs/states, no scoring forwards',flush=True)
-print('PASS CPU full-main smoke only; production 4B pursuit and prior168-row parity still pending',flush=True)
+print('PASS CPU full-main smoke against archived pre-chat source; not new full-size model evidence',flush=True)

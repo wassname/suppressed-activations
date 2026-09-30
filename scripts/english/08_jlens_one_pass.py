@@ -399,7 +399,7 @@ def validate_donor_coordinates(model, tok, config_path, out, projected_coordinat
 
 
 
-def generate_readout(model, ids, read_block):
+def generate_readout(model, ids, read_block, max_new_tokens=8, eos_token_id=None):
     states, coverage = {}, {b + 1: [] for b in {read_block, 26, 31}}
 
     def capture(residual_index, _module, _args, output):
@@ -410,7 +410,8 @@ def generate_readout(model, ids, read_block):
 
     hooks = {r - 1: partial(capture, r) for r in coverage}
     with layer_hooks(model.model.layers, hooks):
-        generated = model.generate(ids, max_new_tokens=8, do_sample=False, use_cache=True)
+        overrides = {} if eos_token_id is None else {"eos_token_id": eos_token_id}
+        generated = model.generate(ids, max_new_tokens=max_new_tokens, do_sample=False, use_cache=True, **overrides)
     tokens = generated[0, ids.shape[1]:].tolist()
     expected = [ids.shape[1]] + [1] * (len(tokens) - 1)
     assert all(lengths == expected for lengths in coverage.values()), coverage
@@ -635,7 +636,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          replay_readout_run: Path | None = None, donor_reflection=False,
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
          reflection_coordinate_checkpoint: Path | None = None, token_kl=False, pool_question=False,
-         verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False, gradient_pursuit=False):
+         verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False, gradient_pursuit=False,
+         chat_readout=False, readout_max_new_tokens=8):
+    assert 1 <= readout_max_new_tokens <= 32
+    if chat_readout or readout_max_new_tokens != 8:
+        assert cases_json is not None and end_pass_readout and not pool_question
     assert not gradient_pursuit or matching_pursuit
     country_swap = relation in ("capital", "currency")
     if country_swap:
@@ -691,6 +696,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
     model.generation_config.to_json_file(out / "generation_defaults.json")
+    generation_overrides = {"max_new_tokens": readout_max_new_tokens, "do_sample": False, "use_cache": True}
+    chat_eos_ids = None
+    if chat_readout:
+        assert isinstance(model.generation_config.eos_token_id, int)
+        chat_eos_ids = sorted({tok.eos_token_id, model.generation_config.eos_token_id})
+        generation_overrides["eos_token_id"] = chat_eos_ids
     if validate_donor_coordinates_json is not None:
         fitted = fit_nuisance_from_run(json.loads(validate_donor_coordinates_json.read_text()), out) if fit_nuisance else None
         validation = validate_donor_coordinates(model, tok, validate_donor_coordinates_json, out, fitted)
@@ -771,8 +782,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     elif uses_dataset:
         dataset = translation_cases(translation_per_pair, label_ids) if translation_per_pair else json.loads(cases_json.read_text())
         if "required_max_new_tokens" in dataset:
-            assert dataset["required_max_new_tokens"] == 8, "This readout runner currently generates eight tokens; dataset requires a different horizon"
+            assert dataset["required_max_new_tokens"] == readout_max_new_tokens, "Dataset requires a different generation horizon"
+        if "prompt_format" in dataset:
+            assert dataset["prompt_format"] == "native-chat-no-thinking" and chat_readout
         cases = [{**c, "prompt": dataset["prefix"] + c["prompt"]} for c in dataset["cases"]]
+        if chat_readout:
+            assert dataset["prefix"] == ""
+            for case in cases:
+                case["user_message"] = case["prompt"]
+                case["prompt"] = tok.apply_chat_template([{"role": "user", "content": case["prompt"]}],
+                    tokenize=False, enable_thinking=False, add_generation_prompt=True)
+            (out / "chat_rendering.json").write_text(json.dumps({"enable_thinking": False,
+                "add_generation_prompt": True, "eos_token_ids": chat_eos_ids,
+                "chat_template_sha256": hashlib.sha256(tok.chat_template.encode()).hexdigest(),
+                "cases": [{"user_message": c["user_message"], "rendered_repr": repr(c["prompt"]),
+                           "input_ids": tok(c["prompt"], add_special_tokens=False).input_ids} for c in cases]},
+                ensure_ascii=False, indent=1))
         concepts, answers = [c["concept"] for c in cases], [c["answer"] for c in cases]
         selection = dataset["selection"]
         (out / "cases.json").write_text(json.dumps(dataset, ensure_ascii=False, indent=1))
@@ -819,6 +844,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         replay_traces = json.loads((replay_readout_run / "generation_traces.json").read_text())
         assert len(replay_states) == len(replay_traces) == len(cases) > 1
         assert [c["prompt"] for c in cases] == [t["prompt"] for t in replay_traces]
+        assert all(t["generation_overrides"] == generation_overrides for t in replay_traces)
         (out / "replay_source.json").write_text(json.dumps({"run": str(replay_readout_run.resolve()),
             "model_forward_calls": 0, "mismatch_rule": "next case cyclically; retain original masks",
             "sha256": {n: hashlib.sha256((replay_readout_run / n).read_bytes()).hexdigest()
@@ -854,7 +880,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             coverage = captured_generations[case_index]["coverage"]
         elif replay_readout_run is None:
             ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-            res, generated_ids, coverage = generate_readout(model, ids, read_block)
+            res, generated_ids, coverage = generate_readout(model, ids, read_block, readout_max_new_tokens, chat_eos_ids)
         else:
             res = {layer: state.unsqueeze(0).cuda() for layer, state in replay_states[case_index].items()}
             generated_ids = replay_traces[case_index]["token_ids"]
@@ -862,9 +888,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert set(res) == {read_block + 1, 27, 32}
         h = res[read_block + 1]
         case["said_text"] = tok.decode(generated_ids)
+        scoring_text = tok.decode(generated_ids, skip_special_tokens=True) if chat_readout else case["said_text"]
         generation_traces.append({"case_index": case_index, "prompt": case["prompt"], "token_ids": generated_ids,
                                   "tokens": [vocab[t] for t in generated_ids], "coverage": coverage,
-                                  "generation_overrides": {"max_new_tokens": 8, "do_sample": False, "use_cache": True}})
+                                  "generation_overrides": generation_overrides,
+                                  **({"n_tokens": len(generated_ids), "stopped_on_eos": generated_ids[-1] in chat_eos_ids,
+                                      "decoded_verbatim": case["said_text"], "scoring_text": scoring_text} if chat_readout else {})})
         activation_cache.append({r: state[-1].cpu() for r, state in res.items()})
         (out / "generation_traces.json").write_text(json.dumps(generation_traces, ensure_ascii=False, indent=1))
         torch.save(activation_cache, out / "prefill.pt")
@@ -880,14 +909,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         hidden_alias_ids = sorted({t for a, minimum in hidden_rules for t in label_ids(a, minimum)})
         input_label_ids = set(label_ids(case["input_word"])) if "input_word" in case else set()
         said_alias_ids = sorted({t for a in answer_aliases for t in label_ids(a)})
-        actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
+        actual_words = sorted(set(re.findall(r"[^\W_]+", scoring_text.lower())))
         unscorable_actual_words = [a for a in actual_words if not label_ids(a)]
         actual_said_ids = sorted({t for a in actual_words for t in label_ids(a)})
         actual_hidden_ids, actual_said_ids, ambiguous_actual = disjoint_labels(hidden_alias_ids, actual_said_ids)
         hidden_alias_ids, said_alias_ids, _ = disjoint_labels(hidden_alias_ids, said_alias_ids)
         hidden_is_said = any(a.casefold() in actual_words for a in hidden_aliases)
         actual_evaluable = hidden_is_said or bool(actual_hidden_ids and actual_said_ids and not unscorable_actual_words)
-        expected_observed = any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases)
+        expected_observed = any(re.search(r"\b" + re.escape(a) + r"\b", scoring_text, re.IGNORECASE) for a in answer_aliases)
         alias_negatives = set(actual_said_ids) | (set(said_alias_ids) if expected_observed else set())
         checked_hidden, checked_said, _ = disjoint_labels(actual_hidden_ids, alias_negatives)
         checked_evaluable = hidden_is_said or bool(actual_evaluable and checked_hidden and checked_said)
@@ -1100,8 +1129,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             if checked_evaluable and not hidden_is_said:
                 positives, negatives = z[checked_hidden, None], z[checked_said][None, :]
                 checked_auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
+            pair_metrics = {}
+            if "partner_aliases" in case:
+                partner_ids = sorted({t for a in case["partner_aliases"] for t in label_ids(a)})
+                pair_metrics = {"pair_hidden_rank": s4.ranks_of_best(z, hidden_alias_ids),
+                                "pair_partner_rank": s4.ranks_of_best(z, partner_ids),
+                                "partner_aliases": case["partner_aliases"]}
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept, "case_index": case_index,
-                             "generation_token_ids": generated_ids,
+                             "generation_token_ids": generated_ids, **pair_metrics,
+                             **({"scoring_text": scoring_text, "selected_ids": top, "selected_scores": z[top].tolist()}
+                                if chat_readout else {}),
                              **({"returned_cardinality": len(top), "return_limit": pursuit_limits[name], "selected_ids": top}
                                 if name in pursuit_limits else {}),
                              "emitted_word_piece_hits": [vocab[t] for t in top if t in generated_ids and re.search(r"[^\W_]", vocab[t])],
@@ -1190,7 +1227,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             description += ("Gradient pursuit additionally revises every active coefficient with one feasible restricted-gradient step per iteration, at most32 iterations. "
                             "Same dictionaries and post-decomposition masks; raw/unit-dot controls have matching returned cardinality. Matching pursuit is also capped at that budget without padding; its actual count may be smaller. "
                             "Improved reconstruction is not semantic success. This specified solver is not a claimed reproduction of unpublished code. ")
-        md = (f"---\ngradient_pursuit: {str(gradient_pursuit).lower()}\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+        md = (f"---\nchat_readout: {str(chat_readout).lower()}\nreadout_max_new_tokens: {readout_max_new_tokens}\ngradient_pursuit: {str(gradient_pursuit).lower()}\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
               f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
@@ -1198,8 +1235,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
               "When erase_output is true, additional readouts remove the normalised activation's projection onto the greedy output token's unembedding row, then apply the same masks. Full erasure and the requested fractional strength are compared on identical states. No language or concept labels determine that projection; erasure_traces.json records the removed norm and residual target score. This is a new method, not a scorer-only repair. "
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
-              "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
-              "States and output token IDs are captured during that same generation, with one prefill and cached decode calls, not a separate trajectory pass. generation_traces.json records coverage and token pieces; prefill.pt stores last-position states for later readout analysis only. Fresh runs generate with an eight-token cap; replay runs reuse the cached continuations without generation. Scoring definitions are unchanged. "
+              f"this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved continuation (cap{readout_max_new_tokens}), ignoring punctuation; generation is scoring only. "
+              "Native-chat mode uses thinking=False and add_generation_prompt=True, stops on tokenizer or model EOS, and excludes special tokens from scoring text only; the verbatim decoded continuation is preserved. Completion-mode defaults remain unchanged. "
+              "States and output token IDs are captured during that same generation, with one prefill and cached decode calls, not a separate trajectory pass. generation_traces.json records coverage and token pieces; prefill.pt stores last-position states for later readout analysis only. Replay runs reuse the cached continuations without generation. " 
               "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
               "The primary alias-checked metric also excludes every predeclared answer alias when an expected answer is observed (e.g. Lisboa after Lisbon, six after6). This is still not exhaustive semantic exclusion. Literal-only scores remain in JSON for comparison. "
               "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC and remain in the full denominator. These are lexical passes, not a verified lower bound on semantic success. "
@@ -1547,7 +1585,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                f"Clean target margin: {target_probe['donor_margin']:.6f}. Expected source negative, target positive. "
                "[Post-intervention target diagnostic](clean_target_probe.json); no recentering or dose selection.\n")
     for case in cases:
-        md += f"\nReadout input: {case['prompt']!r}\n\nBaseline continuation (up to 8 tokens): {case['said_text']!r}\n"
+        md += f"\nReadout input: {case['prompt']!r}\n\nBaseline continuation (up to {readout_max_new_tokens} tokens): {case['said_text']!r}\n"
     for mode, r in conditions.items():
         condition_dir = out / mode.lower().replace(" ", "-")
         condition_dir.mkdir()
@@ -1586,6 +1624,8 @@ if __name__ == "__main__":
     parser.add_argument("--forecast-checkpoint", type=Path, help="Reuse an offline forecast unchanged; evaluate readouts only.")
     parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
     parser.add_argument("--end-pass-readout", action="store_true", help="Readout only: use final-layer output mask, never for an earlier intervention.")
+    parser.add_argument("--chat-readout", action="store_true", help="Native user chat without thinking; EOS at model or tokenizer terminal, special tokens excluded from scoring only.")
+    parser.add_argument("--readout-max-new-tokens", type=int, default=8, help="Readout generation cap, at most32; completion default remains8.")
     parser.add_argument("--replay-readout-run", type=Path, help="Rescore saved prefill states/generations without model forwards; include a cyclic mismatched-final control.")
     parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
     parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")

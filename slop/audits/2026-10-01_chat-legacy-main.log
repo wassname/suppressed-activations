@@ -1,0 +1,258 @@
+source_sha256=8703a56f4313e673eb19f891b97eb3cbb247818187aa321e9f75130b3fc3b868
+PASS all8 pinned-tokenizer identifying spans; diagnostic tokens end before identifying text
+WARNING: tiny random BF16 Qwen CPU fixture, not the pinned 4B weights; zero scientific inference
+2026-10-01 05:34:25.321 | INFO     | <run_path>:main:688 - Loading pinned model; no input-specific preparation
+2026-10-01 05:34:30.176 | INFO     | <run_path>:main:1186 - Readout December: baseline=' такому Ziel开水 unfavorableতারodik_hdl医养'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=['রodik']
+2026-10-01 05:34:34.681 | INFO     | <run_path>:main:1186 - Readout autumn: baseline='eno lemahizioso自動車Nice 개최нную beetle'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=['개최нную']
+
+## Fixed-set readout results
+
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+
+### Current-layer methods
+
+| method                     | alias-checked joint↑   | AUROC↑   | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|:---------|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [plain lens](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+
+### End-of-pass readout (not for earlier edits)
+
+| method                                                            | alias-checked joint↑   | AUROC↑   | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:------------------------------------------------------------------|:-----------------------|:---------|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast J-lens](readout.json)                    | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast J-lens](readout.json)              | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast J-lens](readout.json)         | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass plain24](readout.json)                                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast plain24](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast plain24](readout.json)             | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast plain24](readout.json)        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass plain27](readout.json)                                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast plain27](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast plain27](readout.json)             | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast plain27](readout.json)        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit J24](readout.json)                              | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched J24](readout.json)                      | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched J24](readout.json)                     | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 J24](readout.json)                       | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 J24](readout.json)                      | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient pursuit J24](readout.json)                     | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient raw-dot matched J24](readout.json)             | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient unit-dot matched J24](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient-budget matching pursuit J24](readout.json)     | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit plain24](readout.json)                          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched plain24](readout.json)                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched plain24](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 plain24](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 plain24](readout.json)                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient pursuit plain24](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient raw-dot matched plain24](readout.json)         | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient unit-dot matched plain24](readout.json)        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient-budget matching pursuit plain24](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit plain27](readout.json)                          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched plain27](readout.json)                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched plain27](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 plain27](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 plain27](readout.json)                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient pursuit plain27](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient raw-dot matched plain27](readout.json)         | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient unit-dot matched plain27](readout.json)        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass gradient-budget matching pursuit plain27](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass negative final control](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 J-lens](readout.json)                           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 J-lens](readout.json)                         | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 plain24](readout.json)                          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 plain24](readout.json)                        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 plain27](readout.json)                          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 plain27](readout.json)                        | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+
+
+
+run.md: /workspace/2026/suppressed-activations/.local/tmp3ptf9jlc/out/2026-10-01_053425_jlens-one-pass/run.md
+2026-10-01 05:34:34.848 | INFO     | <run_path>:main:683 - Loading pinned model; no input-specific preparation
+2026-10-01 05:34:39.439 | INFO     | <run_path>:main:1149 - Readout December: baseline=' такому Ziel开水 unfavorableতারodik_hdl医养'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=['রodik']
+2026-10-01 05:34:41.647 | INFO     | <run_path>:main:1149 - Readout autumn: baseline='eno lemahizioso自動車Nice 개최нную beetle'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=['개최нную']
+
+## Fixed-set readout results
+
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+
+### Current-layer methods
+
+| method                     | alias-checked joint↑   | AUROC↑   | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|:---------|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [plain lens](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+
+### End-of-pass readout (not for earlier edits)
+
+| method                                                     | alias-checked joint↑   | AUROC↑   | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:-----------------------------------------------------------|:-----------------------|:---------|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast J-lens](readout.json)             | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast J-lens](readout.json)       | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast J-lens](readout.json)  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass plain24](readout.json)                           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast plain24](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast plain24](readout.json)      | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast plain24](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass plain27](readout.json)                           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass logit contrast plain27](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass probability contrast plain27](readout.json)      | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass mismatched logit contrast plain27](readout.json) | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit J24](readout.json)                       | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched J24](readout.json)               | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched J24](readout.json)              | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 J24](readout.json)                | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 J24](readout.json)               | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit plain24](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched plain24](readout.json)           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched plain24](readout.json)          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 plain24](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 plain24](readout.json)           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass pursuit plain27](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot matched plain27](readout.json)           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot matched plain27](readout.json)          | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass raw-dot full32 plain27](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass unit-dot full32 plain27](readout.json)           | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass negative final control](readout.json)            | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 J-lens](readout.json)                    | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 J-lens](readout.json)                  | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 plain24](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 plain24](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased1 plain27](readout.json)                   | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+| [end-pass erased0.5 plain27](readout.json)                 | 0/2                    |          | 0/0                      | 0/2                            |          2 |
+
+
+
+run.md: /workspace/2026/suppressed-activations/.local/tmp3ptf9jlc/baseline/out/2026-10-01_053434_jlens-one-pass/run.md
+PASS seed0: gradient=True, full main, real tiny BF16 Qwen prefills/decode cache, both prefixes,96 rows, same-cardinality controls, diagnostics,72 baseline rows exact, unchanged parameters/IDs/states, no scoring forwards
+2026-10-01 05:34:42.915 | INFO     | <run_path>:main:688 - Loading pinned model; no input-specific preparation
+2026-10-01 05:34:48.003 | INFO     | <run_path>:main:1186 - Readout December: baseline='essem Emperor Compartilhar segmentation priveontvangstけません hermosaประชาชน'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 05:34:50.680 | INFO     | <run_path>:main:1186 - Readout autumn: baseline=' Украї.StatusInternalServerErrorfiles暂行规定犯的国の απαι>.'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+
+## Fixed-set readout results
+
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+
+### Current-layer methods
+
+| method                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/2                    |    0.493 | 0/0                      | 0/2                            |          0 |
+| [plain lens](readout.json) | 0/2                    |    0.548 | 0/0                      | 0/2                            |          0 |
+
+### End-of-pass readout (not for earlier edits)
+
+| method                                                            | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:------------------------------------------------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                                   | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast J-lens](readout.json)                    | 0/2                    |    0.555 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast J-lens](readout.json)              | 0/2                    |    0.568 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast J-lens](readout.json)         | 0/2                    |    0.585 | 0/0                      | 0/2                            |          0 |
+| [end-pass plain24](readout.json)                                  | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast plain24](readout.json)                   | 0/2                    |    0.475 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast plain24](readout.json)             | 0/2                    |    0.430 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast plain24](readout.json)        | 0/2                    |    0.597 | 0/0                      | 0/2                            |          0 |
+| [end-pass plain27](readout.json)                                  | 0/2                    |    0.638 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast plain27](readout.json)                   | 0/2                    |    0.452 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast plain27](readout.json)             | 0/2                    |    0.399 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast plain27](readout.json)        | 0/2                    |    0.610 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit J24](readout.json)                              | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched J24](readout.json)                      | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched J24](readout.json)                     | 0/2                    |    0.551 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 J24](readout.json)                       | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 J24](readout.json)                      | 0/2                    |    0.551 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient pursuit J24](readout.json)                     | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient raw-dot matched J24](readout.json)             | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient unit-dot matched J24](readout.json)            | 0/2                    |    0.551 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient-budget matching pursuit J24](readout.json)     | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit plain24](readout.json)                          | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched plain24](readout.json)                  | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched plain24](readout.json)                 | 0/2                    |    0.630 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 plain24](readout.json)                   | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 plain24](readout.json)                  | 0/2                    |    0.630 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient pursuit plain24](readout.json)                 | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient raw-dot matched plain24](readout.json)         | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient unit-dot matched plain24](readout.json)        | 0/2                    |    0.630 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient-budget matching pursuit plain24](readout.json) | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit plain27](readout.json)                          | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched plain27](readout.json)                  | 0/2                    |    0.636 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched plain27](readout.json)                 | 0/2                    |    0.641 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 plain27](readout.json)                   | 0/2                    |    0.636 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 plain27](readout.json)                  | 0/2                    |    0.641 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient pursuit plain27](readout.json)                 | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient raw-dot matched plain27](readout.json)         | 0/2                    |    0.636 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient unit-dot matched plain27](readout.json)        | 0/2                    |    0.641 | 0/0                      | 0/2                            |          0 |
+| [end-pass gradient-budget matching pursuit plain27](readout.json) | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass negative final control](readout.json)                   | 0/2                    |    0.504 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 J-lens](readout.json)                           | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 J-lens](readout.json)                         | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 plain24](readout.json)                          | 0/2                    |    0.588 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 plain24](readout.json)                        | 0/2                    |    0.623 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 plain27](readout.json)                          | 0/2                    |    0.603 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 plain27](readout.json)                        | 0/2                    |    0.637 | 0/0                      | 0/2                            |          0 |
+
+
+
+run.md: /workspace/2026/suppressed-activations/.local/tmpc6vxzd9r/out/2026-10-01_053442_jlens-one-pass/run.md
+2026-10-01 05:34:50.782 | INFO     | <run_path>:main:683 - Loading pinned model; no input-specific preparation
+2026-10-01 05:34:54.948 | INFO     | <run_path>:main:1149 - Readout December: baseline='essem Emperor Compartilhar segmentation priveontvangstけません hermosaประชาชน'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 05:34:56.668 | INFO     | <run_path>:main:1149 - Readout autumn: baseline=' Украї.StatusInternalServerErrorfiles暂行规定犯的国の απαι>.'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+
+## Fixed-set readout results
+
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+
+### Current-layer methods
+
+| method                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/2                    |    0.493 | 0/0                      | 0/2                            |          0 |
+| [plain lens](readout.json) | 0/2                    |    0.548 | 0/0                      | 0/2                            |          0 |
+
+### End-of-pass readout (not for earlier edits)
+
+| method                                                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:-----------------------------------------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                            | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast J-lens](readout.json)             | 0/2                    |    0.555 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast J-lens](readout.json)       | 0/2                    |    0.568 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast J-lens](readout.json)  | 0/2                    |    0.585 | 0/0                      | 0/2                            |          0 |
+| [end-pass plain24](readout.json)                           | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast plain24](readout.json)            | 0/2                    |    0.475 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast plain24](readout.json)      | 0/2                    |    0.430 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast plain24](readout.json) | 0/2                    |    0.597 | 0/0                      | 0/2                            |          0 |
+| [end-pass plain27](readout.json)                           | 0/2                    |    0.638 | 0/0                      | 0/2                            |          0 |
+| [end-pass logit contrast plain27](readout.json)            | 0/2                    |    0.452 | 0/0                      | 0/2                            |          0 |
+| [end-pass probability contrast plain27](readout.json)      | 0/2                    |    0.399 | 0/0                      | 0/2                            |          0 |
+| [end-pass mismatched logit contrast plain27](readout.json) | 0/2                    |    0.610 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit J24](readout.json)                       | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched J24](readout.json)               | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched J24](readout.json)              | 0/2                    |    0.551 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 J24](readout.json)                | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 J24](readout.json)               | 0/2                    |    0.551 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit plain24](readout.json)                   | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched plain24](readout.json)           | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched plain24](readout.json)          | 0/2                    |    0.630 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 plain24](readout.json)            | 0/2                    |    0.624 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 plain24](readout.json)           | 0/2                    |    0.630 | 0/0                      | 0/2                            |          0 |
+| [end-pass pursuit plain27](readout.json)                   | 0/2                    |    0.500 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot matched plain27](readout.json)           | 0/2                    |    0.636 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot matched plain27](readout.json)          | 0/2                    |    0.641 | 0/0                      | 0/2                            |          0 |
+| [end-pass raw-dot full32 plain27](readout.json)            | 0/2                    |    0.636 | 0/0                      | 0/2                            |          0 |
+| [end-pass unit-dot full32 plain27](readout.json)           | 0/2                    |    0.641 | 0/0                      | 0/2                            |          0 |
+| [end-pass negative final control](readout.json)            | 0/2                    |    0.504 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 J-lens](readout.json)                    | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 J-lens](readout.json)                  | 0/2                    |    0.563 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 plain24](readout.json)                   | 0/2                    |    0.588 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 plain24](readout.json)                 | 0/2                    |    0.623 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased1 plain27](readout.json)                   | 0/2                    |    0.603 | 0/0                      | 0/2                            |          0 |
+| [end-pass erased0.5 plain27](readout.json)                 | 0/2                    |    0.637 | 0/0                      | 0/2                            |          0 |
+
+
+
+run.md: /workspace/2026/suppressed-activations/.local/tmpc6vxzd9r/baseline/out/2026-10-01_053450_jlens-one-pass/run.md
+PASS seed1: gradient=True, full main, real tiny BF16 Qwen prefills/decode cache, both prefixes,96 rows, same-cardinality controls, diagnostics,72 baseline rows exact, unchanged parameters/IDs/states, no scoring forwards
+PASS CPU full-main smoke against archived pre-chat source; not new full-size model evidence
