@@ -35,6 +35,8 @@ REFERENCE = "https://github.com/anthropics/jacobian-lens/tree/581d398613e5602a5a
 SPIDER = "Fact: The number of legs on the animal that spins webs is "
 DOG = "Fact: The number of legs on the animal that barks and is called man's best friend is "
 RELATIONS = {
+    "arithmetic_control": (("Fact: An animal that barks is nearby. The sum of 2 and 2 is ",
+                            "Fact: An animal that barks is nearby. The sum of 2 and 2 is "), ("8", "4")),
     "capital": (("Fact: The capital of the country shaped like a boot is",
                  "Fact: The capital of the country known as the Land of the Rising Sun is"), (" Rome", " Tokyo")),
     "currency": (("Fact: The currency used in the country shaped like a boot is",
@@ -599,6 +601,80 @@ def prepare_donors(model, tok, block, config_path, out):
     print(report)
 
 
+def naming_vjp(model, ids, block, position, contrast_ids):
+    attached = {}
+
+    def attach(_module, _args, output):
+        h = output[0] if isinstance(output, tuple) else output
+        attached["h"] = h.detach().requires_grad_(True)
+        return replace_output(output, attached["h"])
+
+    assert not any(p.requires_grad for p in model.parameters())
+    with torch.enable_grad(), layer_hooks(model.model.layers, {block: attach}):
+        logits = model(ids, use_cache=False).logits[0, -1].float()
+        contrast = logits[contrast_ids[1]] - logits[contrast_ids[0]]
+        gradient = torch.autograd.grad(contrast, attached["h"])[0][0, position].float()
+    assert torch.isfinite(gradient).all() and torch.isfinite(gradient.norm()) and gradient.norm() > 0
+    return gradient.detach(), attached["h"][0, position].detach().float(), logits[contrast_ids].detach()
+
+
+def prepare_vjp(model, tok, block, config_path, donor_path, out):
+    config = json.loads(config_path.read_text())
+    assert config["block_index"] == block
+    templates_path = ROOT / config["templates_path"]
+    assert hashlib.sha256(templates_path.read_bytes()).hexdigest() == config["templates_sha256"]
+    assert hashlib.sha256(donor_path.read_bytes()).hexdigest() == config["donor_sha256"]
+    templates = json.loads(templates_path.read_text())
+    donor = torch.load(donor_path, weights_only=True, map_location="cpu")
+    assert donor["provenance"]["model_revision"] == q.REVISION
+    assert donor["provenance"]["block_index"] == block and donor["provenance"]["config"] == templates
+    name_ids = [tok(s, add_special_tokens=False).input_ids for s in config["logit_tokens"]]
+    source_ids = tok(config["source_token"], add_special_tokens=False).input_ids
+    assert all(len(t) == 1 for t in [*name_ids, source_ids])
+    contrast_ids = [t[0] for t in name_ids]
+    model.requires_grad_(False)
+    context_dir = out / "vjp-contexts"
+    context_dir.mkdir()
+    (context_dir / "config.json").write_text(json.dumps({"model_revision": q.REVISION, "config": config}, indent=1))
+    gradients, states, records = [], [], []
+    for concept in templates["concepts"]:
+        for template in templates["templates"]:
+            prefix = template.format(concept=concept)
+            prompt = prefix + config["suffix"]
+            prefix_ids = tok(prefix, add_special_tokens=False).input_ids
+            ids = tok(prompt, add_special_tokens=False, return_tensors="pt").input_ids.to(model.device)
+            position = len(prefix_ids) - 1
+            assert ids[0, :len(prefix_ids)].tolist() == prefix_ids and prefix_ids[-1] == source_ids[0]
+            gradient, state, logits = naming_vjp(model, ids, block, position, contrast_ids)
+            gradients.append(gradient.cpu()); states.append(state.cpu())
+            records.append({"concept": concept, "input_repr": repr(prompt), "input_ids": ids[0].tolist(),
+                            "source_position": position, "source_token_id": prefix_ids[-1],
+                            "gradient_norm": float(gradient.norm()), "name_logits": logits.tolist()})
+            torch.save({"gradient": gradients[-1], "state": states[-1], "record": records[-1]},
+                       context_dir / f"{len(records)-1:02d}.pt")
+    assert len(gradients) == 8
+    gradients, states = torch.stack(gradients), torch.stack(states)
+    mean = gradients.mean(0)
+    assert torch.isfinite(mean).all() and mean.norm() > 0
+    direction = mean / mean.norm()
+    difference = donor["means"][config["target_concept"]] - donor["means"][config["source_concept"]]
+    coefficient = float(difference @ direction)
+    delta = coefficient * direction
+    provenance = {"model_revision": q.REVISION, "block_index": block, "config": config,
+                  "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(),
+                  "donor_checkpoint": str(donor_path), "records": records,
+                  "gradient_mean_norm": float(mean.norm()), "coefficient": coefficient,
+                  "natural_donor_norm": float(difference.norm()), "delta_norm": float(delta.norm()),
+                  "projection_fraction": float(delta.norm() / difference.norm()), "passed": coefficient > 0}
+    torch.save({"gradients": gradients, "states": states, "direction": direction, "delta": delta,
+                "donor_difference": difference, "provenance": provenance}, out / "vjp.pt")
+    (out / "vjp.json").write_text(json.dumps(provenance, indent=1))
+    (out / "run.md").write_text("# Offline naming-gradient preparation\n\nWritten by PI/OpenAI. Eight generic contexts, no experimental inputs. Natural donor difference projected onto mean naming gradient; this is not a proven referent direction.\n\n```json\n" + json.dumps(provenance, indent=1) + "\n```\n")
+    logger.info(f"Naming VJP: coefficient={coefficient}; delta_norm={delta.norm()}; natural_donor_norm={difference.norm()}")
+    assert coefficient > 0, "Offline donor scale opposes the naming gradient; preparation failed, no sign/dose rescue"
+    assert delta.norm() <= difference.norm() * (1 + 1e-6)
+
+
 def translation_cases(per_pair, label_ids):
     tables = {lang: s4.load_lang(lang) for lang in s4.LANGS}
     cases, skipped = [], []
@@ -637,7 +713,21 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
          reflection_coordinate_checkpoint: Path | None = None, token_kl=False, pool_question=False,
          verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False, gradient_pursuit=False,
-         chat_readout=False, readout_max_new_tokens=8):
+         chat_readout=False, readout_max_new_tokens=8,
+         prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None):
+    if prepare_vjp_json is not None or vjp_checkpoint is not None:
+        assert not (prepare_vjp_json is not None and vjp_checkpoint is not None)
+        assert block_index == 15
+        assert not any((end_pass_readout, chat_readout, matching_pursuit, donor_reflection, relation in ("capital", "currency")))
+        assert all(p is None for p in (cases_json, calibration_json, forecast_checkpoint, prepare_donors_json,
+                   validate_donor_coordinates_json, reflection_coordinate_checkpoint, donor_norm, replay_readout_run))
+        if prepare_vjp_json is not None:
+            assert donor_checkpoint is not None
+        else:
+            assert donor_checkpoint is None and reverse and prompt_positions == 1 and decode_scale == 0.25
+            assert readout_block_index == 23 and relation in ("legs", "skeleton_body", "arithmetic_control")
+    if relation == "arithmetic_control":
+        assert vjp_checkpoint is not None
     assert 1 <= readout_max_new_tokens <= 32
     if chat_readout or readout_max_new_tokens != 8:
         assert cases_json is not None and end_pass_readout and not pool_question
@@ -702,6 +792,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert isinstance(model.generation_config.eos_token_id, int)
         chat_eos_ids = sorted({tok.eos_token_id, model.generation_config.eos_token_id})
         generation_overrides["eos_token_id"] = chat_eos_ids
+    if prepare_vjp_json is not None:
+        prepare_vjp(model, tok, block_index, prepare_vjp_json, donor_checkpoint, out)
+        return out
     if validate_donor_coordinates_json is not None:
         fitted = fit_nuisance_from_run(json.loads(validate_donor_coordinates_json.read_text()), out) if fit_nuisance else None
         validation = validate_donor_coordinates(model, tok, validate_donor_coordinates_json, out, fitted)
@@ -775,10 +868,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         selection = ("Fixed Italy-to-Japan capital/currency pair, chosen after failed animal transfer and polar readout. "
                      "Five conditions per property, one configuration. Earlier trailing-space currency prompt answered100% gold; "
                      "this exact no-space form was untested. Retain wrong baselines; no prompt or alternate-winner rescue.")
-    elif donor_checkpoint is not None:
+    elif donor_checkpoint is not None or vjp_checkpoint is not None:
         assert not (uses_dataset or forecasting or end_pass_readout)
         cases, concepts, answers = [], [], []
         selection = "Previously selected spider/dog pair; generic offline donor templates frozen before extraction. No standalone readout benchmark in this intervention run."
+        if vjp_checkpoint is not None:
+            selection = "Offline naming VJP projection; one frozen setting across two already-observed properties plus one arithmetic control. Eight generic preparatory contexts, no current-input preparation or dose selection. Eight generations total across the three properties; this call is one property."
     elif uses_dataset:
         dataset = translation_cases(translation_per_pair, label_ids) if translation_per_pair else json.loads(cases_json.read_text())
         if "required_max_new_tokens" in dataset:
@@ -1360,6 +1455,17 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                                         "provenance": fitted["provenance"], "validation": fitted["validation"]}
         (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
         logger.info(f"Offline donor delta norms: {donor_info['delta_norms']}")
+    if vjp_checkpoint is not None:
+        prepared = torch.load(vjp_checkpoint, weights_only=True, map_location="cpu")
+        assert prepared["provenance"]["passed"] and prepared["provenance"]["block_index"] == block
+        assert prepared["provenance"]["model_revision"] == q.REVISION
+        delta = prepared["delta"].to(W.device)
+        assert torch.isfinite(delta).all() and delta.norm() > 0
+        noise = torch.randn(delta.shape, device=W.device, generator=torch.Generator(device=W.device).manual_seed(0))
+        donor_deltas = {"offline naming VJP": delta, "matched-random delta": noise * (delta.norm() / noise.norm())}
+        torch.save({k: v.cpu() for k, v in donor_deltas.items()}, out / "applied_vectors.pt")
+        (out / "vjp_provenance.json").write_text(json.dumps({"checkpoint": str(vjp_checkpoint),
+            "sha256": hashlib.sha256(vjp_checkpoint.read_bytes()).hexdigest(), "provenance": prepared["provenance"]}, indent=1))
     prompt_pair, answer_pair = RELATIONS[relation]
     source_prompt = prompt_pair[1] if reverse else prompt_pair[0]
     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
@@ -1368,15 +1474,19 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     assert all(len(a) == 1 for a in answer_ids), answer_ids
     a0, a1 = [a[0] for a in answer_ids]
     expected_base, expected_target = answer_pair[::-1] if reverse else answer_pair
+    if relation == "arithmetic_control":
+        expected_base = expected_target = "4"
     prompt_start = -prompt_positions
     conditions = {}
-    modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
+    modes = ("Base", *donor_deltas) if donor_checkpoint is not None or vjp_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
     if country_swap:
         modes = ("Base", "raw J-coordinate exchange", "unit J-coordinate exchange", "raw plain-coordinate exchange", "matched-random delta")
     if donor_reflection:
         modes = ("Base", reflection_mode, "full donor contrast", "matched-random reflection control")
         if reflection_coordinate_checkpoint is not None:
             modes = ("Base", "raw donor reflection", reflection_mode, "full donor contrast", "matched-random reflection control")
+    if relation == "arithmetic_control":
+        modes = ("Base", "offline naming VJP")
     for mode in modes:
         if donor_reflection:
             active_center, active_direction = ((raw_donor_center, raw_donor_direction) if mode == "raw donor reflection"
@@ -1403,7 +1513,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                 edited = reflect_donor_side(selected, active_center, active_direction)
                 if mode == "matched-random reflection control":
                     edited = selected + (edited - selected).norm(dim=-1, keepdim=True) * reflection_noise
-            elif donor_checkpoint is not None:
+            elif donor_checkpoint is not None or vjp_checkpoint is not None:
                 edited = selected + donor_deltas[mode]
             elif mode == "plain-lens swap":
                 edited = swap(selected, vectors_plain, inverse_plain)
@@ -1438,6 +1548,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     tolerance = 1e-4 * (1 + float(expected.abs().max()))
                     assert requested_error < tolerance, calls[-1]
                     assert applied_error <= cast_bound + 2*tolerance, calls[-1]
+            if vjp_checkpoint is not None:
+                local_states.append(torch.stack((selected, edited, changed[:, start:].float())).cpu())
+                calls[-1].update(requested_delta_norm=float((edited-selected).norm()),
+                                 applied_delta_norm=float((changed[:, start:].float()-selected).norm()))
             if donor_reflection:
                 margin = (selected - active_center) @ active_direction
                 requested_margin = (edited - active_center) @ active_direction
@@ -1494,7 +1608,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         if relation == "legs":
             r = conditions[mode]
             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
-        if country_swap:
+        if country_swap or vjp_checkpoint is not None:
             torch.save(torch.stack(local_states), out / (mode.lower().replace(" ", "-") + "-states.pt"))
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
@@ -1541,6 +1655,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
+    if vjp_checkpoint is not None:
+        edit_description = ("Fixed offline naming-gradient contrast addition, delta=(mean_spider-mean_dog) projected onto the unit mean VJP at It. "
+                            "VJPs use eight generic naming contexts, not the current input. No runtime gradients or later-layer feedback. "
+                            "Final prompt position receives delta; every decode receives0.25delta. Fixed seed0 random has the same requested norm. "
+                            "This is not literal component replacement; naming bias remains an alternative explanation. "
+                            f"Checkpoint: {vjp_checkpoint}. Arithmetic should retain4; its8/4 log-odds metric is diagnostic only. ")
     if country_swap:
         edit_description = ("Primary: raw pair-coordinate exchange h+V(swap(pinv(V)h)-pinv(V)h), V=([W_Italy;W_Japan]*gain @ J[15]).T (block15/output residual16). "
                             "No column normalization or raw-score exchange in the primary. Unit J and raw plain are separate controls. "
@@ -1566,19 +1686,20 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             f"Coordinate checkpoint: {reflection_coordinate_checkpoint}. ")
     steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
     md = (f"---\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
-          f"country_swap: {str(country_swap).lower()}\nblock_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"vjp_checkpoint: {vjp_checkpoint}\ncountry_swap: {str(country_swap).lower()}\nblock_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
-          f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
+          f"Readout-lens reference: {REFERENCE}. Lens fitted on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
           "The observer never controls the edit; it returns no activation replacement. "
-          f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; reverse success has a negative shift. "
+          f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; "
+          + ("arithmetic should preserve4, not maximize a shift. " if relation == "arithmetic_control" else "reverse success has a negative shift. ") +
           "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} " + ("" if country_swap else "Previously chosen spider/dog example. ") +
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
-          f"SHOULD: intervention changes {expected_base} toward {expected_target} "
-          "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
+          + ("SHOULD: arithmetic remains4 with a coherent continuation; no random arithmetic condition was run.\n\n" if relation == "arithmetic_control" else
+             f"SHOULD: intervention changes {expected_base} toward {expected_target} with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n") +
           f"{read_table}\n\n{table}\n")
     if donor_reflection:
         md += (f"\nClean source prefill donor margin: {conditions['Base']['coverage'][0]['donor_margin_before']}. "
@@ -1605,7 +1726,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\ncountry_swap: {str(country_swap).lower()}\ncoordinate_kind: {r['coordinate_kind']}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
-                       f"donor_checkpoint: {donor_checkpoint}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"vjp_checkpoint: {vjp_checkpoint}\ndonor_checkpoint: {donor_checkpoint}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
@@ -1632,6 +1753,8 @@ if __name__ == "__main__":
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
+    parser.add_argument("--prepare-vjp-json", type=Path, help="Offline delayed naming gradients; requires the natural pronoun --donor-checkpoint and stops before evaluation.")
+    parser.add_argument("--vjp-checkpoint", type=Path, help="Fixed naming-gradient contrast; reverse, last prompt position, decode0.25, no runtime backward pass.")
     parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Validate donor coordinates on frozen generic prefills; no generation or intervention.")
     parser.add_argument("--matching-pursuit", action="store_true", help="Cached32-step nonnegative pursuit with same-cardinality dot controls and fixed prefix/pre-clue diagnostics.")
     parser.add_argument("--gradient-pursuit", action="store_true", help="Add feasible active-coefficient updates and matched controls; requires --matching-pursuit.")
