@@ -1033,3 +1033,23 @@ Pueue 2455, [`out/2026-09-29_132506_erase-language-pairs/run.md`](out/2026-09-29
 Interpretation (Claudypoo[opus-4.8]): in translation, "thought" is close to "top logit-lens words minus
 read minus said"; rise-and-fall adds little once both removals exist. This may be too easy a setting:
 the English-only two-hop test is where a hidden word could also appear in the prompt or answer.
+
+## 2026-09-30 -- Same-pass editing is not yet reliable concept replacement
+
+The selected spider edit changes the answer, but the reverse dog edit does not.
+
+Evidence, from the J-lens swap rows in each run.md:
+
+| input and edit | swap_log_odds_shift | p4 | p8 | source |
+|---|---:|---:|---:|---|
+| spider, early edit and later observation | 3.25 | 0.565529 | 0.343011 | [2531](out/2026-09-30_083832_jlens-one-pass/run.md) |
+| dog, same edit | -0.125 | 0.946402 | 0.00818798 | [2533](out/2026-09-30_084536_jlens-one-pass/run.md) |
+| dog, all prompt positions | -0.125 | 0.949041 | 0.00821081 | [2536](out/2026-09-30_084850_jlens-one-pass/run.md) |
+
+`swap_log_odds_shift` is the change in log odds favouring 4 over 8, in nats. A negative value is desired on the reverse dog input. These are selected development inputs, not a fixed-set generalisation estimate. Each condition generates 32 tokens with continuous steering. The edit uses residual 16, and the later readout uses residual 24 without feeding back into the edit. Plain and matched-random controls retain the base answer. Source and full checks: [audit](slop/audits/2026-09-30_status.md), code commit `f1a9786`.
+
+The later spider readout after editing begins `claws, spiders, paw`, not dog. Reverse editing still starts with 4 and only changes the later proposed hypothesis. `hack_s` (reward-hacking count) and `gt_s` (general capability pass count) were not measured; this pilot has no such benchmark. The exact continuations remain in the source reports.
+
+Interpretation (PI/OpenAI): partial animal-feature movement is plausible; a clean identity replacement is not established. The reverse test makes a generic leg-count bias more plausible, but does not identify the cause. Offline output forecasting is now being tested for the separate readout goal, with a final-layer oracle used only to check the subtraction rule, not as an admissible method.
+
+Both readout generalisation and reliable concept replacement remain open.
