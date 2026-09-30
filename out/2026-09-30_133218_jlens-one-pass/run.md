@@ -1,0 +1,26 @@
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=1.430336. This does not establish useful steering.
+
+| concept   | input repr                        |   residual norm |
+|:----------|:----------------------------------|----------------:|
+| spider    | 'The animal is a spider. It'      |         9.18996 |
+| spider    | 'I am thinking of a spider. It'   |        10.0692  |
+| spider    | 'The picture shows a spider. It'  |        10.0533  |
+| spider    | 'The story mentions a spider. It' |         9.14268 |
+| dog       | 'The animal is a dog. It'         |         9.39664 |
+| dog       | 'I am thinking of a dog. It'      |        10.1474  |
+| dog       | 'The picture shows a dog. It'     |        10.0072  |
+| dog       | 'The story mentions a dog. It'    |         9.21155 |
+
+Checkpoint: /workspace/2026/suppressed-activations/out/2026-09-30_133218_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/out/2026-09-30_133218_jlens-one-pass/run.md
