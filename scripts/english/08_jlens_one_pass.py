@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import random
 import re
 import sys
 import time
@@ -105,9 +106,37 @@ def fit_forecast(model, tok, block, corpus_path, out):
     return transform, bias, metrics
 
 
+def translation_cases(per_pair, label_ids):
+    tables = {lang: s4.load_lang(lang) for lang in s4.LANGS}
+    cases, skipped = [], []
+    for src, tgt in s4.PAIRS:
+        if tgt == "zh":
+            continue
+        words = [{"en": en, src: tables[src][en], tgt: tables[tgt][en], "zh": tables["zh"][en]}
+                 for en in tables[src] if en in tables[tgt] and en in tables["zh"]]
+        rng, retained = random.Random(0), 0
+        for i, w in enumerate(words):
+            shots = rng.sample([x for j, x in enumerate(words) if j != i], 4)
+            if set(label_ids(w["en"])) & (set(label_ids(w[src])) | set(label_ids(w[tgt]))):
+                skipped.append({"pair": f"{src}→{tgt}", "word": w["en"], "reason": "overlapping English/input/output prefix labels"})
+                continue
+            prompt = "".join(f'{s4.NAME[src]}: "{s[src]}" - {s4.NAME[tgt]}: "{s[tgt]}"\n' for s in shots)
+            prompt += f'{s4.NAME[src]}: "{w[src]}" - {s4.NAME[tgt]}: "'
+            cases.append({"prompt": prompt, "concept": w["en"], "answer": w[tgt], "input_word": w[src],
+                          "hidden_aliases": [w["en"], w["zh"]], "hidden_alias_min_chars": [3, 1],
+                          "answer_aliases": [w[tgt]], "pair": f"{src}→{tgt}", "split": s4.ROLE.get((src, tgt), "test")})
+            retained += 1
+            if retained == per_pair:
+                break
+        assert retained == per_pair, (src, tgt, retained)
+    return {"author": "PI/OpenAI", "prefix": "", "cases": cases, "skipped": skipped,
+            "reference_revision": q.WENDLER_COMMIT,
+            "selection": f"First{per_pair} prefix-label-eligible words per pair in pinned CSV order; four-shot prompts use seed0 and script04 sampling. No output filtering. de→fr is development, five other de/fr/ru pairs are test; de→zh remains historical reference. English/Chinese hidden labels and their prefix lengths affect scoring only. Frozen after English development; no translation retuning. Concepts recur across language pairs, so prompts are not independent concepts."}
+
+
 def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
-         end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False):
+         end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -156,27 +185,30 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         transform, bias = saved["transform"].cuda(), saved["bias"].cuda()
         calibration_metrics = json.loads((forecast_checkpoint.parent / "calibration.json").read_text())["metrics"]
 
-    prior_path = ROOT / "out/2026-09-29_204246_twohop-english/result.json"
-    prior = next(iter(json.loads(prior_path.read_text()).values()))
-    cases = [r for r in prior if r["two_hop_correct"]][:4]
-    concepts = ["Bulgaria", "Iceland", "Turkey", "Congo"]
-    answers = ["Sofia", "Reykjavík", "Erdoğan", "Nguesso"]
-    fresh = [
-        ("Fact: The capital of the country shaped like a boot is ", "Italy", "Rome"),
-        ("Fact: The currency used in the country shaped like a boot is ", "Italy", "euro"),
-        ("Fact: The number of legs on the animal that barks is ", "dog", "4"),
-        ("Fact: The number of legs on the animal with feathers and a beak is ", "bird", "2"),
-    ]
-    cases += [{"prompt": p} for p, _, _ in fresh]
-    concepts += [c for _, c, _ in fresh]
-    answers += [a for _, _, a in fresh]
-    selection = "Four selected countries and four simple development prompts; currency previously answered100% gold, not euro."
-    if cases_json is not None:
-        dataset = json.loads(cases_json.read_text())
+    assert not (cases_json is not None and translation_per_pair)
+    uses_dataset = cases_json is not None or translation_per_pair > 0
+    if uses_dataset:
+        dataset = translation_cases(translation_per_pair, label_ids) if translation_per_pair else json.loads(cases_json.read_text())
         cases = [{**c, "prompt": dataset["prefix"] + c["prompt"]} for c in dataset["cases"]]
         concepts, answers = [c["concept"] for c in cases], [c["answer"] for c in cases]
         selection = dataset["selection"]
-        (out / "cases.json").write_bytes(cases_json.read_bytes())
+        (out / "cases.json").write_text(json.dumps(dataset, ensure_ascii=False, indent=1))
+    else:
+        prior_path = ROOT / "out/2026-09-29_204246_twohop-english/result.json"
+        prior = next(iter(json.loads(prior_path.read_text()).values()))
+        cases = [r for r in prior if r["two_hop_correct"]][:4]
+        concepts = ["Bulgaria", "Iceland", "Turkey", "Congo"]
+        answers = ["Sofia", "Reykjavík", "Erdoğan", "Nguesso"]
+        fresh = [
+            ("Fact: The capital of the country shaped like a boot is ", "Italy", "Rome"),
+            ("Fact: The currency used in the country shaped like a boot is ", "Italy", "euro"),
+            ("Fact: The number of legs on the animal that barks is ", "dog", "4"),
+            ("Fact: The number of legs on the animal with feathers and a beak is ", "bird", "2"),
+        ]
+        cases += [{"prompt": p} for p, _, _ in fresh]
+        concepts += [c for _, c, _ in fresh]
+        answers += [a for _, _, a in fresh]
+        selection = "Four selected countries and four simple development prompts; currency previously answered100% gold, not euro."
     readouts = []
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
@@ -188,12 +220,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden, said, ambiguous_intended = disjoint_labels(label_ids(concept), label_ids(answer))
         canonical_evaluable = bool(hidden and said)
-        if cases_json is None:
+        if not uses_dataset:
             hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
             answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
         else:
             hidden_aliases, answer_aliases = case["hidden_aliases"], case["answer_aliases"]
-        hidden_alias_ids = sorted({t for a in hidden_aliases for t in label_ids(a)})
+        hidden_rules = zip(hidden_aliases, case["hidden_alias_min_chars"], strict=True) if "hidden_alias_min_chars" in case else [(a, 3) for a in hidden_aliases]
+        hidden_alias_ids = sorted({t for a, minimum in hidden_rules for t in label_ids(a, minimum)})
+        input_label_ids = set(label_ids(case["input_word"])) if "input_word" in case else set()
         said_alias_ids = sorted({t for a in answer_aliases for t in label_ids(a)})
         actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
         unscorable_actual_words = [a for a in actual_words if not label_ids(a)]
@@ -227,6 +261,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                 positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
                 auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
+                             **{key: case[key] for key in ("pair", "split") if key in case},
+                             "input_hits": [vocab[t] for t in top if t in input_label_ids],
                              "answer": answer, "r_hidden": rh, "r_said": rs,
                              "pass": bool(selected.intersection(hidden)) and not selected.intersection(said) if canonical_evaluable else None,
                              "canonical_evaluable": canonical_evaluable,
@@ -234,7 +270,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                              "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids) if hidden_alias_ids and said_alias_ids else None,
                              "actual_words": actual_words, "token_pair_auroc": auc,
                              "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
-                             "actual_pass": actual_evaluable and not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(actual_said_ids),
+                             "actual_pass": actual_evaluable and not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(set(actual_said_ids) | input_label_ids),
                              "actual_evaluable": actual_evaluable, "unscorable_actual_words": unscorable_actual_words,
                              "hidden_is_said": hidden_is_said,
                              "ambiguous_intended_tokens": [vocab[t] for t in ambiguous_intended],
@@ -254,7 +290,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
               f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
@@ -279,6 +315,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                               "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
+        groups = []
+        if translation_per_pair:
+            for split in ("dev", "test"):
+                for name in dict.fromkeys(r["method"] for r in readouts):
+                    rows = [r for r in readouts if r["split"] == split and r["method"] == name]
+                    aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
+                    groups.append({"split": split, "method": name, "joint_pass": sum(r["actual_pass"] for r in rows),
+                                   "n": len(rows), "mean_auroc": sum(aucs) / len(aucs) if aucs else None,
+                                   "auroc_n": len(aucs), "unscored_n": sum(not r["actual_evaluable"] for r in rows)})
+            (out / "groups.json").write_text(json.dumps(groups, indent=1))
         summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Unscored rows remain in the full denominator but cannot earn a pass. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
         for category in ("current", "end-pass", "oracle"):
             group = sorted([r for r in summaries if ("oracle" if "oracle" in r["method"] else "end-pass" if r["method"].startswith("end-pass") else "current") == category], key=lambda r: r["joint_pass"], reverse=True)
@@ -288,6 +334,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['joint_pass']}/{r['n']}", r["mean_token_pair_auroc"],
                                     f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}", r["unscored_n"]] for r in group],
                                    headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+        if groups:
+            summary_md += "### Translation development/test splits\n\n" + tabulate(
+                [[r["split"], r["method"], f"{r['joint_pass']}/{r['n']}", r["mean_auroc"], r["unscored_n"]] for r in groups],
+                headers=["split", "method", "joint↑", "AUROC↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
         (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return
@@ -426,4 +476,5 @@ if __name__ == "__main__":
     parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
     parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
+    parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     main(**vars(parser.parse_args()))
