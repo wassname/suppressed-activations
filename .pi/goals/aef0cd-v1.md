@@ -116,6 +116,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 - PI/OpenAI:2619 intermediate residual20 coordinate swaps change neither initial answer; reverse coefficients do exchange, but no answer movement.2621 end-prefill logit contrast on cached v4 is0/8 for all three lenses; all88 previous rows exactly replay. No new forwards/generations. Topic words/fragments dominate; do not call this semantic recovery. Signed-logit code/review/tests committed24c6faf; directories150940,150958,151032.
 - PI/OpenAI: re-read exact user words via transcript: “I don't think we want to passes that's cheating remove that!” and the intervention clarification. Generated-answer removal remains excluded from the method. Advisor dialogue515df875 is choosing the next causal test, rather than further unstructured reranking. Proposed/frozen for review: full-strength conditional reflection about a generic donor midpoint, reverse legs and skeleton, no posthoc centre/dose tuning; explicitly a new method. Both goals remain open.
 
+- PI/OpenAI: advisor implementation review56d1e2f9 found no blocker; launcher AST verifies block15/final1/full decode/reverse, both legs and skeleton_body, raw133218 donor, no norm rescaling. CPU reflection checks pass seeds0/1 and real endpoints±.715169. Source86445f1 frozen; job2625 queued with300s total cap, maximum256 generated tokens plus two post-condition clean-target prefills. Follower proc_26ee. This conditional donor method is not a J-sparse clamp; no success claimed.
+
 ## Interview
 
 ### 2026-09-30 07:42
