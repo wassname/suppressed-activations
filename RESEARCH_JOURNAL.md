@@ -1126,3 +1126,13 @@ Observed: coordinate swaps at intermediate residual20 (2619;150940/150958, sourc
 Observed:2621 rescored v4 saved prefill states at24c6faf, with a hook forbidding transformer forwards. All fields of88 old rows replay exactly. Signed logit contrast is0/8 for J24/plain24/plain27; negative-final control also0/8; cyclic mismatched-final J is2/8. Probability contrast J remains4/8, plain27 5/8. Lists contain topic words (`Months`, `Days`) and fragments. Source `out/2026-09-30_151032_jlens-one-pass/`; component logits/log-probabilities and cutoff ties saved. Same-family review `slop/reviews/2026-09-30_logit-contrast-design.md` predicted denominator-driven artifacts; this is development, not holdout evidence.
 
 Interpretation/next: grammar was partly damaged by repeated constant additions, but grammatical changed digits are insufficient. Pause reranker expansion while advisor dialogue chooses a bounded causal change: locally conditional donor-coordinate reflection, with clean source/target signed-margin diagnostics. Generic donor-centre domain mismatch is an explicit possible failure, not something to fix by tuning against these prompts. README remains an unapproved draft; both goals remain open.
+
+## 2026-09-30 — Generic donor midpoint fails the clean-question sign test
+
+— PI/OpenAI
+
+Job2625 completed94s, source86445f1. At residual16/final position, clean dog/spider margins are1.081535/1.153284 for legs and1.194581/1.415897 for skeleton. Both species lie on the side designated spider, so conditional reflection applies zero before each initial answer. Outputs remain4/inside and exactly match Base generations. Later8/7 reflection calls do update, with fold/coverage/precision checks passing. Natural addition still answers4 on legs andoutside on skeleton; its skeleton continuation explicitly saysdog. No same-method concept transfer.
+
+Interpretation: the stored generic midpoint is not a valid source/target boundary for these last-position question states. Positive target-minus-source ordering survives, so this does not establish that the direction is useless. No threshold or dose will be fitted against these four prompts. Raw layer16 tensors were not saved; numerical auditing uses the frozen source and recorded margins/deltas.
+
+Evidence: `out/2026-09-30_155111_jlens-one-pass/`, `out/2026-09-30_155140_jlens-one-pass/`; complete37-line log, source, job metadata and verification saved. Detailed audit: `slop/audits/2026-09-30_job2625.md`. Fresh advisor workflow timed out awaiting a reply; its partial recommendation is not a completed review. A same-role fallback is resolving one small generic validation and its next causal decision. Both goals remain open; README unchanged in this step.

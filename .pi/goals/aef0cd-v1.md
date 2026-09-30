@@ -118,6 +118,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: advisor implementation review56d1e2f9 found no blocker; launcher AST verifies block15/final1/full decode/reverse, both legs and skeleton_body, raw133218 donor, no norm rescaling. CPU reflection checks pass seeds0/1 and real endpoints±.715169. Source86445f1 frozen; job2625 queued with300s total cap, maximum256 generated tokens plus two post-condition clean-target prefills. Follower proc_26ee. This conditional donor method is not a J-sparse clamp; no success claimed.
 
+- PI/OpenAI:2625 completed94s at86445f1. Both frozen reflections retain initial4/inside; clean dog/spider margins are both positive (legs1.082/1.153, body1.195/1.416), so both prefill updates arezero. Later8/7 updates and natural-control changes show the hook operates. All8×32-token conditions pass source/Base-replay/coverage/metric checks; artifacts155111/155140. This rejects this last-position midpoint rule, not every donor direction. Full audit slop/audits/2026-09-30_job2625.md. Fresh reviewba6866f4 timed out awaiting supervisor reply; child stopped/nonresumable, failure/diff captured. Same-role same-protocol fallback5aa8cb4a is resolving one <=16-prefill generic preparation/application test; no further inference queued. Both goals remain open.
+
 ## Interview
 
 ### 2026-09-30 07:42
