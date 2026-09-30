@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -35,7 +36,7 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def main():
+def main(readout_only=False):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -58,6 +59,13 @@ def main():
              for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
     vocab_norm = [t.strip().lower() for t in vocab]
 
+    direction_norms = {}
+    if readout_only:
+        for name, transform in (("J-lens unit directions", J), ("plain unit directions", torch.eye(J.shape[0], device=J.device))):
+            direction_norms[name] = torch.cat([((chunk.float() * gain) @ transform).norm(dim=-1)
+                                              for chunk in W.split(4096)])
+            assert (direction_norms[name] > 0).all(), name
+
     def readout(h, use_j=True):
         transported = h.float() @ J.T if use_j else h.float()
         return model.lm_head(model.model.norm(transported.to(W.dtype))).float()
@@ -71,6 +79,10 @@ def main():
     cases = [r for r in prior if r["two_hop_correct"]][:4]
     concepts = ["Bulgaria", "Iceland", "Turkey", "Congo"]
     answers = ["Sofia", "Reykjavík", "Erdoğan", "Nguesso"]
+    if readout_only:
+        cases.append({"prompt": SPIDER})
+        concepts.append("spider")
+        answers.append("8")
     readouts = []
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
@@ -79,13 +91,36 @@ def main():
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
         assert hidden and said and not set(hidden) & set(said)
-        for name, use_j in (("J-lens", True), ("plain lens", False)):
-            z = readout(res[block + 1, -1], use_j).masked_fill(mask, -torch.inf)
+        if readout_only:
+            torch.save({"residual": res[block + 1].cpu(), "input_ids": ids.cpu()}, out / f"{concept}_midpoint.pt")
+        methods = [("J-lens", True), ("plain lens", False)]
+        if readout_only:
+            methods += [("J-lens unit directions", True), ("plain unit directions", False)]
+        for name, use_j in methods:
+            z = readout(res[block + 1, -1], use_j)
+            if name in direction_norms:
+                z = z / direction_norms[name]
+            z = z.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs, "pass": rh < 32 <= rs,
                              "top32": [vocab[t] for t in z.topk(32).indices.tolist()]})
     (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+    if readout_only:
+        table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"], r["top32"][:8]] for r in readouts],
+                         headers=["concept", "readout", "hidden rank", "answer rank", "joint pass", "top8"], tablefmt="pipe")
+        md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
+              f"k: 32\nforward_passes: 5\ngenerations: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              "# Read with the same unit directions used for editing\n\nWritten by PI/OpenAI.\n\n"
+              "One changed axis: divide each token's lens score by its residual-space direction norm. "
+              "Layer, position, k and prompt mask are unchanged. This differs from the reference's raw J-lens. "
+              "Hypothesis: high-norm punctuation directions dominate raw scores; unit directions improve hidden-word ranks. "
+              "Negative control: apply the same normalisation to the plain lens. "
+              "The four country cases and the spider case were previously selected; this is development data, not a success rate.\n\n"
+              f"{table}\n\nrun.md: {out / 'run.md'}\n")
+        (out / "run.md").write_text(md)
+        print(md)
+        return
 
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
@@ -187,4 +222,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--readout-only", action="store_true", help="Compare raw and unit-direction readouts; no generation.")
+    main(**vars(parser.parse_args()))

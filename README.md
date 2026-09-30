@@ -35,8 +35,12 @@ found in English or Chinese.
 appears in the middle layers, then the Russian word. (b) Pass rate on five language pairs that
 were not used to choose the method (76 to 88 prompts each).*
 
-> These numbers use two passes: the "said" word is taken from the model's generated answer.
-> A one-pass version (said = the output layer's top words at the same step) is running.
+> The figure and table below use two passes: the "said" word comes from the generated answer.
+> The [one-pass version](out/2026-09-29_203857_erase-language-pairs/run.md) passes 369/408 translation prompts,
+> but only [3/62 English two-hop prompts](out/2026-09-29_204246_twohop-english/run.md).
+> A separate [same-pass J-lens pilot](out/2026-09-30_081403_jlens-one-pass/run.md) changes the spider answer from 8 to 4;
+> its readout misses all four tested country concepts. Neither generalisation nor reliable concept replacement is established.
+<!-- PI/OpenAI: measured status; the older two-pass results remain below for comparison. -->
 
 The best method finds the hidden word in 386 of 408 test prompts (95%). The plain logit lens
 finds it in 11–18%, because its top words also contain the input and the output word.
