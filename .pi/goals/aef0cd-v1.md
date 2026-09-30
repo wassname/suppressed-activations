@@ -126,6 +126,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2627 completed30s (12.69s validation,8.002GiB peak). Both raw/corrected coordinates bracket2/8 pairs, onlyIt endings; order8/8. Independent float64 tensor replay max error1.53e-6. No scalar cutoff can separate all16: corrected maxdog1.23035 exceeds minspider.03998. Candidate will not run causally. Fresh reviewerda59a1aa concurs; retained advisor487d6e80 and parent agreed one offline nuisance-projection attempt from these now-development pair means, new16-prefill validation, then same-job causal tests only if all8 new pairs bracket. Exact contract slop/reviews/2026-09-30_context-invariant-coordinate-decision.md; no next implementation/run yet, goals open.
 
+- PI/OpenAI: context-projection implementation is ready for one bounded run. CPU algebra passed seeds0/1; retained original-direction norm.983892. Training8/8 is constructed, not validation. Tiny real hybrid-Qwen preparation/fit/new-context validation and actual production hook/mode selection passed seeds0/1; full main/BF16 remain untested. Fresh reviewe8ee9d44 found no blocking dataflow bug conditional on the single outer300s TERM/15s kill-grace wrapper. Raw reflection retains the old coordinate; candidate/random use the loaded projected coordinate. Exact frozen new contexts, strict8/8 gate and maximum320 causal tokens in slop/audits/2026-09-30_nuisance-projection-preregistration.md. No GPU result yet; both goals remain open.
+
 ## Interview
 
 ### 2026-09-30 07:42
