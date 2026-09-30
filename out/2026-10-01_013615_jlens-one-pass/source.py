@@ -81,15 +81,12 @@ def reflect_donor_side(h, center, direction):
 def unit_dictionary(vectors):
     """Rows are token directions; only exactly zero norms are excluded. — PI/OpenAI"""
     assert vectors.ndim == 2 and torch.isfinite(vectors).all()
-    norms = torch.empty(vectors.shape[0], device=vectors.device, dtype=torch.float64)
-    atoms = torch.empty_like(vectors, dtype=torch.float32)
-    for start in range(0, len(vectors), 4096):
-        stop = start + 4096
-        row_norms = torch.linalg.vector_norm(vectors[start:stop], dim=-1, dtype=torch.float64)
-        norms[start:stop] = row_norms
-        torch.div(vectors[start:stop], row_norms.masked_fill(row_norms == 0, 1)[:, None], out=atoms[start:stop])
-    assert torch.isfinite(norms).all() and torch.isfinite(atoms).all()
+    norms = torch.linalg.vector_norm(vectors, dim=-1, dtype=torch.float64)
+    assert torch.isfinite(norms).all()
     eligible = norms > 0
+    atoms = torch.empty_like(vectors, dtype=torch.float32)
+    torch.div(vectors, norms.masked_fill(~eligible, 1)[:, None], out=atoms)
+    assert torch.isfinite(atoms).all()
     return atoms, norms, eligible
 
 

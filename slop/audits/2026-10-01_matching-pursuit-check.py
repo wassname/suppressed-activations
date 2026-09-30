@@ -173,4 +173,16 @@ score_fixture([2., inf, inf, inf], False, None, hidden_is_said=True)
 row = score_fixture([2., inf, inf, inf], False, 1., limit=0)
 assert row['r_hidden'] == 0 and row['returned_cardinality'] == 0 and not row['alias_checked_hidden_found']
 print('PASS actual production scorer: genuine recovery, said/input leaks, tied inactive/active AUROC, undefined/spoken-hidden rejection, zero-return control despite rank0', flush=True)
+for seed in (0, 1):
+    generator = torch.Generator().manual_seed(seed)
+    vectors = torch.randn(8197, 17, generator=generator)
+    vectors[[0, 4095, 4096, 8192]] = 0
+    vectors[8196] *= 1e-40
+    expected_norms = torch.linalg.vector_norm(vectors, dim=-1, dtype=torch.float64)
+    expected_atoms = (vectors / expected_norms.masked_fill(expected_norms == 0, 1)[:, None]).float()
+    atoms, norms, eligible = unit_dictionary(vectors)
+    assert torch.equal(norms, expected_norms) and torch.equal(atoms, expected_atoms)
+    assert torch.equal(eligible, expected_norms > 0)
+    print(f'PASS seed{seed}:8197-row batch-boundary/last-slice/zero/tiny normalization exactly equals dense float64 formula', flush=True)
+print('Allocation calculation:248320*2560*8=5085593600 bytes (observed OOM);4096*2560*8=83886080 bytes per float64 tile; total GPU peak still untested', flush=True)
 print('LIMIT: helper/scorer fixtures; semantic performance and production4B parity remain untested.', flush=True)
