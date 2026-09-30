@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from pathlib import Path
-from functools import cache
+from functools import cache, partial
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -49,6 +49,24 @@ def swap_coordinates(h, vectors, inverse):
 def swap_lens_scores(h, vectors, inverse):
     scores = h.float() @ vectors
     return h.float() + (scores.flip(-1) - scores) @ inverse
+
+
+def generate_readout(model, ids, read_block):
+    states, coverage = {}, {b + 1: [] for b in {read_block, 26, 31}}
+
+    def capture(residual_index, _module, _args, output):
+        h = output[0] if isinstance(output, tuple) else output
+        if not coverage[residual_index]:
+            states[residual_index] = h[0].detach().clone()
+        coverage[residual_index].append(h.shape[1])
+
+    hooks = {r - 1: partial(capture, r) for r in coverage}
+    with layer_hooks(model.model.layers, hooks):
+        generated = model.generate(ids, max_new_tokens=8, do_sample=False, use_cache=True)
+    tokens = generated[0, ids.shape[1]:].tolist()
+    expected = [ids.shape[1]] + [1] * (len(tokens) - 1)
+    assert all(lengths == expected for lengths in coverage.values()), coverage
+    return states, tokens, coverage
 
 
 def disjoint_labels(positive, negative):
@@ -190,6 +208,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     tok = AutoTokenizer.from_pretrained(q.MODEL, revision=q.REVISION, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
+    model.generation_config.to_json_file(out / "generation_defaults.json")
     if prepare_donors_json is not None:
         prepare_donors(model, tok, block_index, prepare_donors_json, out)
         return
@@ -268,15 +287,19 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             matches[0]["answer_aliases"] = [*matches[0]["answer_aliases"], *aliases]
         (out / "answer_alias_audit.json").write_text(json.dumps(annotations, ensure_ascii=False, indent=1))
         selection += " Posthoc scoring annotations: " + annotations["selection"]
-    readouts, erasure_traces = [], []
+    readouts, erasure_traces, generation_traces, activation_cache = [], [], [], []
     assert not erase_output or end_pass_readout
-    for case, concept, answer in zip(cases, concepts, answers, strict=True):
+    for case_index, (case, concept, answer) in enumerate(zip(cases, concepts, answers, strict=True)):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-        res, _ = trajectory(model, ids, model.model.norm)
+        res, generated_ids, coverage = generate_readout(model, ids, read_block)
         h = res[read_block + 1]
-        if "said_text" not in case:
-            generated = model.generate(ids, max_new_tokens=8, do_sample=False)
-            case["said_text"] = tok.decode(generated[0, ids.shape[1]:])
+        case["said_text"] = tok.decode(generated_ids)
+        generation_traces.append({"case_index": case_index, "prompt": case["prompt"], "token_ids": generated_ids,
+                                  "tokens": [vocab[t] for t in generated_ids], "coverage": coverage,
+                                  "generation_overrides": {"max_new_tokens": 8, "do_sample": False, "use_cache": True}})
+        activation_cache.append({r: state[-1].cpu() for r, state in res.items()})
+        (out / "generation_traces.json").write_text(json.dumps(generation_traces, ensure_ascii=False, indent=1))
+        torch.save(activation_cache, out / "prefill.pt")
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden, said, ambiguous_intended = disjoint_labels(label_ids(concept), label_ids(answer))
         canonical_evaluable = bool(hidden and said)
@@ -342,7 +365,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             if checked_evaluable and not hidden_is_said:
                 positives, negatives = z[checked_hidden, None], z[checked_said][None, :]
                 checked_auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
-            readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
+            readouts.append({"method": name, "prompt": case["prompt"], "concept": concept, "case_index": case_index,
+                             "generation_token_ids": generated_ids,
+                             "emitted_word_piece_hits": [vocab[t] for t in top if t in generated_ids and re.search(r"[^\W_]", vocab[t])],
                              "alias_checked_pass": checked_evaluable and not hidden_is_said and bool(selected.intersection(checked_hidden)) and not selected.intersection(set(checked_said) | input_label_ids),
                              "alias_checked_auroc": checked_auc, "alias_checked_evaluable": checked_evaluable,
                              **{key: case[key] for key in ("pair", "split") if key in case},
@@ -382,6 +407,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
+              "States and output token IDs are captured during that same generation, with one prefill and cached decode calls, not a separate trajectory pass. generation_traces.json records coverage and token pieces; prefill.pt stores last-position states for later readout analysis only. Historical cached continuations are regenerated with the same eight-token cap. Scoring definitions are unchanged. "
               "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
               "The primary alias-checked metric also excludes every predeclared answer alias when an expected answer is observed (e.g. Lisboa after Lisbon, six after6). This is still not exhaustive semantic exclusion. Literal-only scores remain in JSON for comparison. "
               "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC; they remain in the full denominator, so the joint count is a conservative count of verified passes. "
