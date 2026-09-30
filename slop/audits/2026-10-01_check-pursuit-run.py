@@ -16,7 +16,7 @@ import torch
 root = Path(sys.argv[1]).resolve()
 torch.set_num_threads(2)
 source_sha = '886566778004d6a47229210b3a69fc7ce797095a329b6030c954095dac94a05e'
-launcher_sha = 'b3f699fc8005d0f2b84d796ff4cae85cf789e35fb8083fd43bba507a1183855f'
+launcher_sha = 'dbbb8179552a0d167878f94b010134addfb3fc1c09a78139cbb5a0a9939191ae'
 assert hashlib.sha256((root / 'source.py').read_bytes()).hexdigest() == source_sha
 assert hashlib.sha256((root / 'launcher.py').read_bytes()).hexdigest() == launcher_sha
 launcher = ast.parse((root / 'launcher.py').read_text())

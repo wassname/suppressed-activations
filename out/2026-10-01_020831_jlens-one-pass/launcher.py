@@ -1,16 +1,9 @@
 """One cached pursuit experiment; no alternate-winner selection. — PI/OpenAI"""
-import faulthandler
 import hashlib
 import json
 from pathlib import Path
 import runpy
 import sys
-import time
-
-started = time.monotonic()
-faulthandler.enable()
-faulthandler.dump_traceback_later(120, repeat=True)
-print(json.dumps({'stage': 'launcher-start', 'unix_time': time.time()}), flush=True)
 
 from tabulate import tabulate
 
@@ -21,14 +14,10 @@ assert all(hashlib.sha256((reference / n).read_bytes()).hexdigest() == digest fo
 helper_bytes = {path: Path(path).read_bytes() for path in helpers}
 assert all(hashlib.sha256(helper_bytes[path]).hexdigest() == digest for path, digest in helpers.items())
 source_bytes, data_bytes, launcher_bytes = Path(sys.argv[1]).read_bytes(), Path(sys.argv[2]).read_bytes(), Path(__file__).read_bytes()
-assert hashlib.sha256(source_bytes).hexdigest() == '886566778004d6a47229210b3a69fc7ce797095a329b6030c954095dac94a05e'
 assert hashlib.sha256(data_bytes).hexdigest() == 'f7e253176a60ab43d99b019d2b84fbec97cde0ba4df6c08b172d7c7f8f3a2173'
-print(json.dumps({'stage': 'preflight-done', 'seconds': time.monotonic() - started}), flush=True)
 ns = runpy.run_path(sys.argv[1])
-print(json.dumps({'stage': 'imports-done', 'seconds': time.monotonic() - started}), flush=True)
 out = ns['main'](cases_json=Path(sys.argv[2]), end_pass_readout=True, output_mask_max_n=1,
     erase_output=True, erase_strength=.5, matching_pursuit=True, replay_readout_run=reference)
-print(json.dumps({'stage': 'main-done', 'seconds': time.monotonic() - started}), flush=True)
 assert all(Path(path).read_bytes() == data for path, data in helper_bytes.items())
 assert (out / 'source.py').read_bytes() == source_bytes == Path(sys.argv[1]).read_bytes()
 assert data_bytes == Path(sys.argv[2]).read_bytes() and launcher_bytes == Path(__file__).read_bytes()
@@ -96,6 +85,4 @@ with (out / 'run.md').open('a') as stream:
     stream.write(appendix)
 print(json.dumps(selection, ensure_ascii=False, indent=1, allow_nan=False), flush=True)
 print(appendix, flush=True)
-faulthandler.cancel_dump_traceback_later()
-print(json.dumps({'stage': 'launcher-done', 'seconds': time.monotonic() - started}), flush=True)
 
