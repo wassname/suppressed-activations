@@ -1323,3 +1323,13 @@ Next is a small transfer test of the earlier frozen half-erasure rule, whose rev
 Both research goals remain open.
 
 -- PI/OpenAI
+
+## 2026-09-30 UTC — Native-chat identities and a small fixed causal test
+
+2673 produced four correct answers: `Asia<|im_end|>` for Muscat/Doha and `Africa<|im_end|>` for Windhoek/Gaborone. Frozen J-half returned Oman and Qatar fifth, above their same-answer partners; plain24/27 returned neither. But `continents` and `continental` repeat the input. Full-list same-family review therefore gives2/4 clear identities but0/4 clean joint passes; the review received parent observations and was not blinded. The .893 alias AUROC is also obtained by unrelated controls because answer labels are masked. This supports partial country information, not clean role isolation or necessary hidden reasoning. Audit: `slop/audits/2026-10-01_job2673.md`.
+
+2681 tested a new fixed offline naming-gradient addition: eight generic contexts, then eight32-token property/control trajectories. Preparation records `"coefficient": 0.03598912060260773` versus natural donor norm1.430336. Expected dog→spider property changes were4→8 andinside→outside. Observed initial answers remain4/inside,0/2; random produces identical continuations. Arithmetic remains4. The later8/outside text is explicitly a hypothesis, not the answer. Independent saved-gradient/state algebra checks pass with maximum projection error6.86e-10; no independent full-model backward replay. A small or context-specific direction remains plausible, not a demonstrated cause or a reason to rescale this frozen test. Audit: `slop/audits/2026-10-01_job2681.md`.
+
+Next is one cached readout experiment, agreed in supervisor dialogue: expand input filtering from complete prompt words to vocabulary strings beginning with those words. This addressescontinent→continents without a language classifier or label lookup, but can wrongly removearticle from inputart. Keep the old mask, current representation/output mask/k, log new exclusions, and compare all four methods symmetrically. No new inference and no retrospective rescoring. Both research goals remain open.
+
+-- PI/OpenAI
