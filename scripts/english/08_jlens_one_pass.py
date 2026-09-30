@@ -38,6 +38,11 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
+def disjoint_labels(positive, negative):
+    shared = set(positive) & set(negative)
+    return sorted(set(positive) - shared), sorted(set(negative) - shared), sorted(shared)
+
+
 def fit_affine(X, Y):
     X_mean, Y_mean = X.mean(0), Y.mean(0)
     Xc, Yc = X - X_mean, Y - Y_mean
@@ -171,7 +176,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
-        assert hidden and said and not set(hidden) & set(said)
+        hidden, said, ambiguous_intended = disjoint_labels(hidden, said)
+        assert hidden and said, (concept, answer, [vocab[i] for i in ambiguous_intended])
         if cases_json is None:
             hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
             answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
@@ -181,7 +187,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         said_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in answer_aliases)]
         actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
         actual_said_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in actual_words)]
-        assert actual_said_ids
+        actual_hidden_ids, actual_said_ids, ambiguous_actual = disjoint_labels(hidden_alias_ids, actual_said_ids)
+        hidden_alias_ids, said_alias_ids, _ = disjoint_labels(hidden_alias_ids, said_alias_ids)
+        hidden_is_said = any(a.casefold() in actual_words for a in hidden_aliases)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
         if forecasting:
             forecast_h = rms(h[-1]) @ transform + bias
@@ -196,8 +204,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             hidden_token = hidden[int(z[hidden].argmax())]
             top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
             selected = set(top)
-            positives, negatives = z[hidden_alias_ids, None], z[actual_said_ids][None, :]
-            auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
+            auc = None
+            if actual_hidden_ids and actual_said_ids and not hidden_is_said:
+                positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
+                auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs,
                              "pass": bool(selected.intersection(hidden)) and not selected.intersection(said),
@@ -205,11 +215,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                              "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids),
                              "actual_words": actual_words, "token_pair_auroc": auc,
                              "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
-                             "actual_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(actual_said_ids),
+                             "actual_pass": not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(actual_said_ids),
+                             "hidden_is_said": hidden_is_said,
+                             "ambiguous_intended_tokens": [vocab[t] for t in ambiguous_intended],
+                             "ambiguous_actual_tokens": [vocab[t] for t in ambiguous_actual],
                              "actual_said_hits": [vocab[t] for t in top if t in actual_said_ids],
                              "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
                              "top32": [vocab[t] for t in top]})
-    (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+        (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+        logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}")
     if forecasting:
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
@@ -222,7 +236,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
-              "Token-pair AUROC compares all hidden-alias token variants against all actual-said word token variants within a prompt, with half credit for ties. It is not top32 recovery. "
+              "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
+              "Token-pair AUROC compares unambiguous hidden and said token variants, with half credit for ties; it is undefined when the hidden concept is said or a class is empty. It is not top32 recovery. "
               "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
               "SHOULD: forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, output forecast error alone cannot explain that failure.\n\n"
               f"Calibration: {calibration_metrics}\n\n{table}\n\n")
@@ -232,8 +247,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         for name in dict.fromkeys(r["method"] for r in readouts):
             rows = [r for r in readouts if r["method"] == name]
             correct = [r for r in rows if r["intended_answer_observed"]]
+            aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
             summaries.append({"method": name, "joint_pass": sum(r["actual_pass"] for r in rows), "n": len(rows),
-                              "mean_token_pair_auroc": sum(r["token_pair_auroc"] for r in rows) / len(rows),
+                              "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
         summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
