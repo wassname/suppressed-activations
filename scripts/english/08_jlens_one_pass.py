@@ -201,7 +201,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
          equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
-         erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None):
+         erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None,
+         replay_readout_run: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -297,10 +298,30 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         (out / "answer_alias_audit.json").write_text(json.dumps(annotations, ensure_ascii=False, indent=1))
         selection += " Posthoc scoring annotations: " + annotations["selection"]
     readouts, erasure_traces, generation_traces, activation_cache = [], [], [], []
+    contrast_components = []
+    if replay_readout_run is not None:
+        assert end_pass_readout and not forecasting and uses_dataset
+        replay_states = torch.load(replay_readout_run / "prefill.pt", map_location="cpu", weights_only=True)
+        replay_traces = json.loads((replay_readout_run / "generation_traces.json").read_text())
+        assert len(replay_states) == len(replay_traces) == len(cases) > 1
+        assert [c["prompt"] for c in cases] == [t["prompt"] for t in replay_traces]
+        def reject_forward(*_):
+            raise AssertionError("Cached readout scoring must not call the transformer")
+        model.register_forward_pre_hook(reject_forward)
+        (out / "replay_source.json").write_text(json.dumps({"run": str(replay_readout_run.resolve()),
+            "model_forward_calls": 0, "mismatch_rule": "next case cyclically; retain original masks",
+            "sha256": {n: hashlib.sha256((replay_readout_run / n).read_bytes()).hexdigest()
+                       for n in ("prefill.pt", "generation_traces.json", "source.py")}}, indent=1))
     assert not erase_output or end_pass_readout
     for case_index, (case, concept, answer) in enumerate(zip(cases, concepts, answers, strict=True)):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-        res, generated_ids, coverage = generate_readout(model, ids, read_block)
+        if replay_readout_run is None:
+            res, generated_ids, coverage = generate_readout(model, ids, read_block)
+        else:
+            res = {layer: state.unsqueeze(0).cuda() for layer, state in replay_states[case_index].items()}
+            generated_ids = replay_traces[case_index]["token_ids"]
+            coverage = replay_traces[case_index]["coverage"]
+        assert set(res) == {read_block + 1, 27, 32}
         h = res[read_block + 1]
         case["said_text"] = tok.decode(generated_ids)
         generation_traces.append({"case_index": case_index, "prompt": case["prompt"], "token_ids": generated_ids,
@@ -333,12 +354,29 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         checked_hidden, checked_said, _ = disjoint_labels(actual_hidden_ids, alias_negatives)
         checked_evaluable = hidden_is_said or bool(actual_evaluable and checked_hidden and checked_said)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
+        components = {}
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
             output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index, max_n=output_mask_max_n)
             for name, z in (("J-lens", scores["J-lens"]), ("plain24", scores["plain lens"]),
                             ("plain27", readout(res[27][-1], False))):
                 scores["end-pass " + name] = z.masked_fill(output_mask, -torch.inf)
+                assert z.shape == final_logits.shape and torch.isfinite(z).all() and torch.isfinite(final_logits).all()
+                difference = z - final_logits
+                log_ratio = z.log_softmax(-1) - final_logits.log_softmax(-1)
+                assert torch.allclose(difference - difference[0], log_ratio - log_ratio[0], atol=1e-4, rtol=1e-4)
+                contrast_name = "end-pass logit contrast " + name
+                scores[contrast_name] = difference.masked_fill(output_mask, -torch.inf)
+                components[contrast_name] = (z, final_logits)
+                excess = z.softmax(-1) - final_logits.softmax(-1)
+                scores["end-pass probability contrast " + name] = excess.masked_fill(output_mask | (excess <= 0), -torch.inf)
+                if replay_readout_run is not None:
+                    other_h = replay_states[(case_index + 1) % len(cases)][32].cuda()
+                    other_logits = model.lm_head(model.model.norm(other_h)).float()
+                    mismatch_name = "end-pass mismatched logit contrast " + name
+                    scores[mismatch_name] = (z - other_logits).masked_fill(output_mask, -torch.inf)
+                    components[mismatch_name] = (z, other_logits)
+            scores["end-pass negative final control"] = (-final_logits).masked_fill(output_mask, -torch.inf)
             if erase_output:
                 output_id = int(final_logits.argmax())
                 direction = W[output_id].float()
@@ -368,6 +406,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             hidden_token = hidden[int(z[hidden].argmax())] if hidden else None
             top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
             selected = set(top)
+            if name in components:
+                intermediate_logits, comparison_logits = components[name]
+                contrast_components.append({"case_index": case_index, "method": name, "token_ids": top,
+                    "tokens": [vocab[t] for t in top], "intermediate_logits": intermediate_logits[top].tolist(),
+                    "comparison_logits": comparison_logits[top].tolist(),
+                    "intermediate_log_probs": intermediate_logits.log_softmax(-1)[top].tolist(),
+                    "comparison_log_probs": comparison_logits.log_softmax(-1)[top].tolist(),
+                    "cutoff_score": float(z[top[-1]]) if top else None,
+                    "cutoff_ties": int((z == z[top[-1]]).sum()) if top else 0})
             auc = None
             if actual_evaluable and not hidden_is_said:
                 positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
@@ -381,6 +428,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                              "emitted_word_piece_hits": [vocab[t] for t in top if t in generated_ids and re.search(r"[^\W_]", vocab[t])],
                              "alias_checked_pass": checked_evaluable and not hidden_is_said and bool(selected.intersection(checked_hidden)) and not selected.intersection(set(checked_said) | input_label_ids),
                              "alias_checked_auroc": checked_auc, "alias_checked_evaluable": checked_evaluable,
+                             "alias_checked_hidden_found": bool(selected.intersection(checked_hidden)),
+                             "alias_checked_said_excluded": not selected.intersection(checked_said),
                              **{key: case[key] for key in ("pair", "split") if key in case},
                              "input_hits": [vocab[t] for t in top if t in input_label_ids],
                              "answer": answer, "r_hidden": rh, "r_said": rs,
@@ -400,6 +449,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                              "hidden_excluded_variants": [vocab[t] for t in hidden_alias_ids if not torch.isfinite(z[t])],
                              "top32": [vocab[t] for t in top]})
         (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+        (out / "contrast_components.json").write_text(json.dumps(contrast_components, ensure_ascii=False, indent=1))
         logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}; canonical_evaluable={canonical_evaluable}; unscorable_actual_words={unscorable_actual_words}")
     if forecasting or end_pass_readout:
         description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
@@ -407,6 +457,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                        if end_pass_readout else
                        "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. "
                        "Current-input readout receives residual24 only. Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. ")
+        if end_pass_readout:
+            description += "Logit contrast subtracts separately final-normalised vocabulary logits, retaining signed scores; probability contrast retains positive probability differences. Negative-final and cyclic mismatched-final scores are diagnostic controls. No generated text or labels enter these rankings. "
+        if replay_readout_run is not None:
+            description += f"Posthoc rescoring of {replay_readout_run}; no transformer forwards or new generations. See replay_source.json for hashes and mismatch ordering. "
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
@@ -657,6 +711,7 @@ if __name__ == "__main__":
     parser.add_argument("--forecast-checkpoint", type=Path, help="Reuse an offline forecast unchanged; evaluate readouts only.")
     parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
     parser.add_argument("--end-pass-readout", action="store_true", help="Readout only: use final-layer output mask, never for an earlier intervention.")
+    parser.add_argument("--replay-readout-run", type=Path, help="Rescore saved prefill states/generations without model forwards; include a cyclic mismatched-final control.")
     parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
     parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
