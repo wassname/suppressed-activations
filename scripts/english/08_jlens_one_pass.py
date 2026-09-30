@@ -59,6 +59,111 @@ def reflect_donor_side(h, center, direction):
     return h.float() - 2 * margin.clamp_max(0).unsqueeze(-1) * direction
 
 
+def donor_margins(h, embeddings, center, direction, reference_embedding):
+    raw = (h.float() - center) @ direction
+    corrected = raw + (reference_embedding - embeddings.float()) @ direction
+    return raw, corrected
+
+
+
+def validate_donor_coordinates(model, tok, config_path, out):
+    started = time.monotonic()
+    config = json.loads(config_path.read_text())
+    (out / "config.json").write_bytes(config_path.read_bytes())
+    logger.info("## Resolved config\n\n```json\n{}\n```", json.dumps(config, indent=2))
+    checkpoint_path = ROOT / config["donor_checkpoint"]
+    assert hashlib.sha256(checkpoint_path.read_bytes()).hexdigest() == config["donor_sha256"]
+    checkpoint = torch.load(checkpoint_path, weights_only=True, map_location="cpu")
+    provenance = checkpoint["provenance"]
+    assert provenance["block_index"] == config["block_index"] == 15
+    assert {s["token_ids"][-1] for s in provenance["samples"]} == {config["reference_token_id"]}
+    assert config["n_prefills"] == 16 and config["n_generated_tokens"] == 0
+    center = (checkpoint["means"]["dog"] + checkpoint["means"]["spider"]) / 2
+    difference = checkpoint["means"]["spider"] - checkpoint["means"]["dog"]
+    direction = difference / difference.norm()
+    assert torch.isfinite(direction).all()
+    assert provenance["model"] == q.MODEL and provenance["model_revision"] == q.REVISION
+    assert tok.decode([config["reference_token_id"]]) == config["reference_token_text"]
+    embedding_layer = model.get_input_embeddings()
+    device = embedding_layer.weight.device
+    assert model.config.hidden_size == center.numel()
+    if device.type == "cuda":
+        torch.cuda.reset_peak_memory_stats(device)
+    reference_embedding = embedding_layer.weight[config["reference_token_id"]].detach().float().cpu()
+    runtime_source = Path(sys.modules[type(model.model).__module__].__file__)
+    (out / "provenance.json").write_text(json.dumps({
+        "donor": provenance, "source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "helper_sha256": hashlib.sha256((ROOT / "scripts/demo.py").read_bytes()).hexdigest(),
+        "runtime_model_source": str(runtime_source), "runtime_model_sha256": hashlib.sha256(runtime_source.read_bytes()).hexdigest(),
+        "torch": torch.__version__, "transformers": sys.modules["transformers"].__version__,
+        "python": sys.version, "cuda": torch.version.cuda, "use_cache": True, "logits_to_keep": 1,
+    }, indent=1))
+    torch.save({"center": center, "direction": direction, "reference_embedding": reference_embedding}, out / "coordinate.pt")
+    logger.info("## Sixteen prefills\n\nSHOULD: identical final embeddings preserve paired margin differences; at token1049 raw and corrected margins agree.\n\nTODO validate: corrected dog<0<spider on all eight pairs. This is not causal success.")
+    samples, tensors, pairs = [], {}, []
+    for style, referents in config["referents"].items():
+        for ending_index, ending in enumerate(config["endings"]):
+            pair = {}
+            for concept in ("dog", "spider"):
+                key = f"{style}-{ending_index}-{concept}"
+                prompt = config["prefix"].format(referent=referents[concept]) + ending
+                ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
+                captures = []
+
+                def capture(_module, _args, output):
+                    h = output[0] if isinstance(output, tuple) else output
+                    captures.append(h[0].detach().clone())
+
+                with layer_hooks(model.model.layers, {config["block_index"]: capture}):
+                    model(input_ids=ids, attention_mask=torch.ones_like(ids), use_cache=True, logits_to_keep=1)
+                assert len(captures) == 1 and captures[0].shape == (ids.shape[1], center.numel())
+                h = captures[0].cpu()
+                embeddings = embedding_layer(ids)[0].detach().cpu()
+                raw, corrected = donor_margins(h, embeddings, center, direction, reference_embedding)
+                direct = ((h.float() - embeddings.float()) - (center - reference_embedding)) @ direction
+                assert torch.allclose(corrected, direct, atol=2e-5, rtol=2e-5)
+                token_ids = ids[0].tolist()
+                reference_positions = ids[0].cpu() == config["reference_token_id"]
+                assert torch.equal(raw[reference_positions], corrected[reference_positions])
+                sample = {"key": key, "style": style, "ending_index": ending_index, "concept": concept,
+                          "input": prompt, "input_repr": repr(prompt), "token_ids": token_ids,
+                          "tokens": [tok.decode([i]) for i in token_ids], "raw_margins": raw.tolist(),
+                          "corrected_margins": corrected.tolist(), "forward_calls": len(captures)}
+                samples.append(sample)
+                pair[concept] = sample
+                tensors[key] = {"hidden": h, "embeddings": embeddings, "token_ids": ids[0].cpu()}
+                torch.save(tensors, out / "states.pt")
+                with (out / "samples.jsonl").open("a") as stream:
+                    stream.write(json.dumps(sample, ensure_ascii=False) + "\n")
+                logger.debug("### {}\n\nInput repr:\n```text\n{}\n```\n\nToken IDs: {}\n\nDecoded token pieces: {}\n\nNo generation.", key, repr(prompt), token_ids, repr(sample["tokens"]))
+            dog, spider = pair["dog"], pair["spider"]
+            assert dog["token_ids"][-1] == spider["token_ids"][-1]
+            d0, s0 = dog["raw_margins"][-1], spider["raw_margins"][-1]
+            d1, s1 = dog["corrected_margins"][-1], spider["corrected_margins"][-1]
+            assert abs((s0 - d0) - (s1 - d1)) < 2e-5
+            pairs.append({"key": f"{style}-{ending_index}", "raw_dog": d0, "raw_spider": s0,
+                          "corrected_dog": d1, "corrected_spider": s1, "pair_difference": s0 - d0,
+                          "raw_brackets": d0 < 0 < s0, "corrected_brackets": d1 < 0 < s1,
+                          "final_token_id": dog["token_ids"][-1]})
+    assert len(samples) == config["n_prefills"] and len(pairs) == 8
+    results = {"pairs": pairs, "n_prefills": len(samples), "generated_tokens": 0,
+               "raw_brackets": sum(p["raw_brackets"] for p in pairs),
+               "corrected_brackets": sum(p["corrected_brackets"] for p in pairs),
+               "ordered_pairs": sum(p["pair_difference"] > 0 for p in pairs),
+               "candidate_passes_prerequisite": all(p["corrected_brackets"] for p in pairs),
+               "peak_allocated_gib": torch.cuda.max_memory_allocated(device) / 2**30 if device.type == "cuda" else None,
+               "elapsed_seconds": time.monotonic() - started}
+    (out / "result.json").write_text(json.dumps(results, indent=1))
+    rows = [[f'[{p["key"]}](samples.jsonl)', int(p["corrected_brackets"]), p["corrected_dog"],
+             p["corrected_spider"], int(p["raw_brackets"]), p["raw_dog"], p["raw_spider"], p["pair_difference"]]
+            for p in sorted(pairs, key=lambda p: (-p["corrected_brackets"], p["key"]))]
+    table = tabulate(rows, headers=["pair", "bracket↑", "dog<0", "spider>0", "raw bracket↑", "raw dog", "raw spider", "gap↑"], tablefmt="pipe", floatfmt=".4f")
+    logger.info("## Result\n\nCorrected brackets: {}/8; raw: {}/8; ordered: {}/8. Required:8/8 corrected brackets.\n\n{}\n\nOne corrected candidate and unchanged raw control; earlier positions are diagnostic only.\n\nTime: {:.2f}s; peak allocated VRAM: {}GiB. Raw states/embeddings: states.pt; shared coordinate: coordinate.pt; full prompts: samples.jsonl; metrics: result.json.\n\n{}",
+                results["corrected_brackets"], results["raw_brackets"], results["ordered_pairs"], table,
+                results["elapsed_seconds"], results["peak_allocated_gib"], (out / "run.md").relative_to(ROOT))
+
+
+
 def generate_readout(model, ids, read_block):
     states, coverage = {}, {b + 1: [] for b in {read_block, 26, 31}}
 
@@ -207,7 +312,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
          equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
          erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None,
-         replay_readout_run: Path | None = None, donor_reflection=False):
+         replay_readout_run: Path | None = None, donor_reflection=False,
+         validate_donor_coordinates_json: Path | None = None):
     if donor_reflection:
         assert donor_checkpoint is not None and donor_norm is None and not equal_donor_norm and decode_scale == 1.0
     torch.set_grad_enabled(False)
@@ -215,7 +321,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
     out.mkdir(parents=True)
     logger.add(out / "stderr.log")
-    logger.info("Loading pinned model and reusable lens; no input-specific preparation")
+    if validate_donor_coordinates_json is not None:
+        logger.remove()
+        logger.add(sys.stdout, level="INFO", format="{message}\n", colorize=False)
+        logger.add(out / "run.md", level="DEBUG", format="{message}\n", colorize=False)
+        logger.info("---\nblock_index: 15\nn_prefills: 16\nn_generated_tokens: 0\n---\n# Donor coordinate validation\n\n— PI/OpenAI\n\nCommand:\n```text\n{}\n```", " ".join(sys.argv))
+    logger.info("Loading pinned model; no input-specific preparation")
     (out / "runtime.json").write_text(json.dumps({"torch": torch.__version__, "transformers": sys.modules["transformers"].__version__,
                                                 "cuda": torch.version.cuda, "python": sys.version}, indent=1))
     (out / "source.py").write_bytes(Path(__file__).read_bytes())
@@ -226,6 +337,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
     model.generation_config.to_json_file(out / "generation_defaults.json")
+    if validate_donor_coordinates_json is not None:
+        validate_donor_coordinates(model, tok, validate_donor_coordinates_json, out)
+        return
     if prepare_donors_json is not None:
         prepare_donors(model, tok, block_index, prepare_donors_json, out)
         return
@@ -789,6 +903,7 @@ if __name__ == "__main__":
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
+    parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Compare raw and embedding-subtracted donor coordinates on frozen generic prefills; no generation or intervention.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
     parser.add_argument("--donor-reflection", action="store_true", help="One-way full-strength fold of the local donor coordinate; raw means, adaptive own-state random control.")
