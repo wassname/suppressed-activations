@@ -59,6 +59,15 @@ def reflect_donor_side(h, center, direction):
     return h.float() - 2 * margin.clamp_max(0).unsqueeze(-1) * direction
 
 
+def positive_token_kl_log_scores(logits, comparison_logits):
+    log_p, log_q = logits.log_softmax(-1), comparison_logits.log_softmax(-1)
+    difference = log_p - log_q
+    eligible = difference > 0
+    score = torch.full_like(difference, -torch.inf)
+    score[eligible] = log_p[eligible] + difference[eligible].log()
+    return score
+
+
 def nuisance_coordinate(pair_means, old_direction):
     means = pair_means.double()
     assert means.ndim == 2 and means.shape[0] == 8
@@ -373,7 +382,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None,
          replay_readout_run: Path | None = None, donor_reflection=False,
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
-         reflection_coordinate_checkpoint: Path | None = None):
+         reflection_coordinate_checkpoint: Path | None = None, token_kl=False):
+    if token_kl:
+        assert end_pass_readout and output_mask_max_n == 1 and readout_block_index == 23
     if fit_nuisance:
         assert validate_donor_coordinates_json is not None
     if reflection_coordinate_checkpoint is not None:
@@ -490,7 +501,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         (out / "answer_alias_audit.json").write_text(json.dumps(annotations, ensure_ascii=False, indent=1))
         selection += " Posthoc scoring annotations: " + annotations["selection"]
     readouts, erasure_traces, generation_traces, activation_cache = [], [], [], []
-    contrast_components = []
+    contrast_components, kl_components, kl_masks = [], [], []
     if replay_readout_run is not None:
         assert end_pass_readout and not forecasting and uses_dataset
         replay_states = torch.load(replay_readout_run / "prefill.pt", map_location="cpu", weights_only=True)
@@ -500,6 +511,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         def reject_forward(*_):
             raise AssertionError("Cached readout scoring must not call the transformer")
         model.register_forward_pre_hook(reject_forward)
+        model.model.register_forward_pre_hook(reject_forward)
         (out / "replay_source.json").write_text(json.dumps({"run": str(replay_readout_run.resolve()),
             "model_forward_calls": 0, "mismatch_rule": "next case cyclically; retain original masks",
             "sha256": {n: hashlib.sha256((replay_readout_run / n).read_bytes()).hexdigest()
@@ -546,10 +558,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         checked_hidden, checked_said, _ = disjoint_labels(actual_hidden_ids, alias_negatives)
         checked_evaluable = hidden_is_said or bool(actual_evaluable and checked_hidden and checked_said)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
-        components = {}
+        components, kl_names = {}, set()
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
             output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index, max_n=output_mask_max_n)
+            if token_kl:
+                kl_masks.append({"case_index": case_index, "prompt_mask_ids": mask.nonzero().flatten().tolist(),
+                                 "output_mask_ids": output_mask.nonzero().flatten().tolist()})
             for name, z in (("J-lens", scores["J-lens"]), ("plain24", scores["plain lens"]),
                             ("plain27", readout(res[27][-1], False))):
                 scores["end-pass " + name] = z.masked_fill(output_mask, -torch.inf)
@@ -560,6 +575,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                 contrast_name = "end-pass logit contrast " + name
                 scores[contrast_name] = difference.masked_fill(output_mask, -torch.inf)
                 components[contrast_name] = (z, final_logits)
+                if token_kl:
+                    kl_name = "end-pass positive token-KL " + name
+                    scores[kl_name] = positive_token_kl_log_scores(z, final_logits).masked_fill(output_mask, -torch.inf)
+                    components[kl_name] = (z, final_logits)
+                    kl_names.add(kl_name)
                 excess = z.softmax(-1) - final_logits.softmax(-1)
                 scores["end-pass probability contrast " + name] = excess.masked_fill(output_mask | (excess <= 0), -torch.inf)
                 if replay_readout_run is not None:
@@ -568,6 +588,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     mismatch_name = "end-pass mismatched logit contrast " + name
                     scores[mismatch_name] = (z - other_logits).masked_fill(output_mask, -torch.inf)
                     components[mismatch_name] = (z, other_logits)
+                    if token_kl:
+                        kl_name = "end-pass mismatched positive token-KL " + name
+                        scores[kl_name] = positive_token_kl_log_scores(z, other_logits).masked_fill(output_mask, -torch.inf)
+                        components[kl_name] = (z, other_logits)
+                        kl_names.add(kl_name)
             scores["end-pass negative final control"] = (-final_logits).masked_fill(output_mask, -torch.inf)
             if erase_output:
                 output_id = int(final_logits.argmax())
@@ -596,7 +621,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             z = score.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
             hidden_token = hidden[int(z[hidden].argmax())] if hidden else None
-            top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
+            top_ids = z.argsort(descending=True, stable=True)[:32] if name in kl_names else z.topk(32).indices
+            top = [t for t in top_ids.tolist() if torch.isfinite(z[t])]
             selected = set(top)
             if name in components:
                 intermediate_logits, comparison_logits = components[name]
@@ -607,6 +633,23 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     "comparison_log_probs": comparison_logits.log_softmax(-1)[top].tolist(),
                     "cutoff_score": float(z[top[-1]]) if top else None,
                     "cutoff_ties": int((z == z[top[-1]]).sum()) if top else 0})
+            if name in kl_names:
+                lp, lq = intermediate_logits.log_softmax(-1), comparison_logits.log_softmax(-1)
+                difference = lp-lq
+                signed = (intermediate_logits-comparison_logits).masked_fill(mask | output_mask, -torch.inf)
+                excess = lp.exp()-lq.exp()
+                excess = excess.masked_fill(mask | output_mask | (excess <= 0), -torch.inf)
+                tracked = sorted(selected | set(checked_hidden) | set(checked_said))
+                kl_components.append({"case_index": case_index, "method": name, "selected_ids": top,
+                    "hidden_label_ids": checked_hidden, "said_label_ids": checked_said,
+                    "diagnostic_ranks": "strictly greater score count; ties share rank",
+                    "eligible_n": int(torch.isfinite(z).sum()),
+                    "cutoff_ties": int((z == z[top[-1]]).sum()) if top else 0,
+                    "tokens": [{"id": t, "token": vocab[t], "log_p": float(lp[t]), "log_q": float(lq[t]),
+                                "difference": float(difference[t]), "eligible": bool(torch.isfinite(z[t])),
+                                "log_score": float(z[t]) if torch.isfinite(z[t]) else None,
+                                "signed_contrast_rank": s4.ranks_of_best(signed, [t]),
+                                "probability_excess_rank": s4.ranks_of_best(excess, [t])} for t in tracked]})
             auc = None
             if actual_evaluable and not hidden_is_said:
                 positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
@@ -642,6 +685,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                              "top32": [vocab[t] for t in top]})
         (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
         (out / "contrast_components.json").write_text(json.dumps(contrast_components, ensure_ascii=False, indent=1))
+        if token_kl:
+            (out / "token_kl_components.json").write_text(json.dumps(kl_components, ensure_ascii=False, indent=1))
+            (out / "token_kl_masks.json").write_text(json.dumps(kl_masks, indent=1))
         logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}; canonical_evaluable={canonical_evaluable}; unscorable_actual_words={unscorable_actual_words}")
     if forecasting or end_pass_readout:
         description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
@@ -651,11 +697,17 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                        "Current-input readout receives residual24 only. Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. ")
         if end_pass_readout:
             description += "Logit contrast subtracts separately final-normalised vocabulary logits, retaining signed scores; probability contrast retains positive probability differences. Negative-final and cyclic mismatched-final scores are diagnostic controls. No generated text or labels enter these rankings. "
+        if token_kl:
+            description += ("Positive token-KL contribution: p_R*max(log(p_R)-log(p_F),0), normalized over the full vocabulary before masking. "
+                            "Rank positive contributions by log(p_R)+log(log(p_R)-log(p_F)); others are ineligible. Ties use ascending token ID. "
+                            "This is not total KL. Same transform/masks apply to J24/plain24/plain27 and cyclic-mismatched-final controls. "
+                            "No erasure is combined with this score. Token components, eligibility and masks are saved separately. "
+                            "TODO validate: probability weighting reduces rare-denominator dominance, without hiding spoken-word leaks. ")
         if replay_readout_run is not None:
             description += f"Posthoc rescoring of {replay_readout_run}; no transformer forwards or new generations. See replay_source.json for hashes and mismatch ordering. "
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
-        md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+        md = (f"---\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
               f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
@@ -715,7 +767,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                 headers=["split", "method", "joint↑", "AUROC↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
         (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
-        return
+        return out
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
     concept_tokens = (" spiders", " dogs") if plural else (" spider", " dog")
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in concept_tokens]
@@ -1003,6 +1055,7 @@ if __name__ == "__main__":
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Validate donor coordinates on frozen generic prefills; no generation or intervention.")
+    parser.add_argument("--token-kl", action="store_true", help="Compare positive token-KL contribution ranking with matched plain and cached mismatched-final controls.")
     parser.add_argument("--fit-nuisance", action="store_true", help="Fit the frozen top7 context projection from saved generic states before new-context validation.")
     parser.add_argument("--reflection-coordinate-checkpoint", type=Path, help="Use a validated offline context-projected coordinate for reverse donor reflection.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
