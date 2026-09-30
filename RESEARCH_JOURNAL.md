@@ -1188,3 +1188,31 @@ Next: one question-span pooling test with the same probability-excess score and 
 -- PI/OpenAI
 
 Both research goals remain open.
+
+## 2026-09-30 -- Pooling adds generic priors instead of improving joint recovery
+
+Question-position pooling did not improve the readout.
+
+Job2637, sourcea53ba01, reports:
+
+```json
+"pooled_counts": {"plain27": 4, "J-lens": 3, "plain24": 0},
+"selected_representation": "plain27",
+"selected_last_count": 5,
+"selected_mismatched_count": 4,
+"selected_unsubtracted_count": 4,
+"n": 8,
+"numeric_screen_passed": false
+```
+
+Source: `out/2026-09-30_185058_jlens-one-pass/pool_selection.json`. All8 generations/64tokens and last states match the old baseline exactly;168 old rows and96 new component/scorer records reconstruct in that run's `verification.json`. This is still development. Neither hack_s nor gt_s is measured in this readout-only test.
+
+The peak record for J's population token gives `"p_peak": 0.678586483001709`, `"position": 12`, `"input_piece": " The"`: only the common prefix and `Fact: The` have been consumed. The December peak occurs after `month immediately after`, before Christmas. These are normalized lens scores, not calibrated probabilities of thoughts. Fresh review6df6e4ed finds an input leak in every selected plain27 lexical pass, including capitals from the demonstration's capital and leaf from leaves. It also explains that pooling can increase every token's score yet worsen a hidden token's rank by increasing competitors more.
+
+Interpretation: my read is that maximum pooling rewards generic priors as well as clue-dependent information. This is not a span-boundary error: the saved offsets independently retokenize correctly. It also does not prove the model lacks the bridge; hydrogen peaks after element but is crowded out. The frozen pooled method is rejected without selecting a narrower window.
+
+Next: one cached final-position test of J's orthogonal polar factor, with original-J/plain controls and a fixed early-prefix comparison, rather than another pooling score. This removes unequal singular-value gains, not noise or semantic errors by assumption. Exact contract: `slop/reviews/2026-09-30_after-pooling-next-test.md`; audit: `slop/audits/2026-09-30_job2637.md`. No next code or run at this entry.
+
+-- PI/OpenAI
+
+Both research goals remain open.
