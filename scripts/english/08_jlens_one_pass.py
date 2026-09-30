@@ -33,6 +33,12 @@ LENS_SHA = "1f9a8f8fd593f0ffec1a9640993257ca4560f8ae3e5602315643d5cc6818534e"
 REFERENCE = "https://github.com/anthropics/jacobian-lens/tree/581d398613e5602a5af361e1c34d3a92ea82ba8e"
 SPIDER = "Fact: The number of legs on the animal that spins webs is "
 DOG = "Fact: The number of legs on the animal that barks and is called man's best friend is "
+RELATIONS = {
+    "legs": ((SPIDER, DOG), ("8", "4")),
+    "skeleton": (("Fact: The skeleton of the animal that spins webs is on the ",
+                  "Fact: The skeleton of the animal that barks and is called man's best friend is on the "),
+                 ("outside", "inside")),
+}
 
 
 def swap_coordinates(h, vectors, inverse):
@@ -170,7 +176,8 @@ def translation_cases(per_pair, label_ids):
 def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
-         prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None):
+         prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
+         equal_donor_norm=False, relation="legs"):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -425,18 +432,23 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         donor_deltas = {"J-projected donor contrast": projected_delta, "full donor contrast": full_delta,
                         "norm-matched full donor contrast": full_delta * (projected_delta.norm() / full_delta.norm()),
                         "matched-random delta": noise * (projected_delta.norm() / noise.norm())}
+        if equal_donor_norm:
+            assert projected_delta.norm() > 0
+            donor_deltas = {"norm-matched J donor projection": projected_delta * (full_delta.norm() / projected_delta.norm()),
+                            "full donor contrast": full_delta,
+                            "matched-random delta": noise * (full_delta.norm() / noise.norm())}
         donor_info = {"checkpoint": str(donor_checkpoint), "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
                       "provenance": donor["provenance"], "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
         (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
         logger.info(f"Offline donor delta norms: {donor_info['delta_norms']}")
-    source_prompt = DOG if reverse else SPIDER
+    prompt_pair, answer_pair = RELATIONS[relation]
+    source_prompt = prompt_pair[1] if reverse else prompt_pair[0]
     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
     ids = tok(source_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-    a8, a4 = [tok(s, add_special_tokens=False).input_ids for s in ("8", "4")]
-    assert len(a8) == len(a4) == 1
-    a8, a4 = a8[0], a4[0]
-    a0, a1 = a8, a4
-    expected_base, expected_target = ("4", "8") if reverse else ("8", "4")
+    answer_ids = [tok(s, add_special_tokens=False).input_ids for s in answer_pair]
+    assert all(len(a) == 1 for a in answer_ids), answer_ids
+    a0, a1 = [a[0] for a in answer_ids]
+    expected_base, expected_target = answer_pair[::-1] if reverse else answer_pair
     prompt_start = 0 if all_prompt_positions else -3
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
@@ -495,32 +507,38 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
                             "expected_answer": expected_base if mode == "Base" else expected_target if mode != "matched-random delta" else "control",
-                            "p8": float(lp[a8].exp()), "p4": float(lp[a4].exp()),
-                            "swap_log_odds_shift": float(lp[a1] - lp[a0] - base_lp[a1] + base_lp[a0]),
-                            "bare_answer_mass": float(lp[a0].exp() + lp[a1].exp()),
+                            "answer_0": answer_pair[0], "answer_1": answer_pair[1],
+                            "p_answer0": float(lp[a0].exp()), "p_answer1": float(lp[a1].exp()),
+                            "answer_log_odds_shift": float(lp[a1] - lp[a0] - base_lp[a1] + base_lp[a0]),
+                            "answer_pair_mass": float(lp[a0].exp() + lp[a1].exp()),
                             "r2": 1 - len(set(bigrams)) / len(bigrams) if bigrams else 0.0}
+        if relation == "legs":
+            r = conditions[mode]
+            r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
-        logger.info(f"{mode}: {tok.decode(tokens)!r}; p8={conditions[mode]['p8']:.3f}, p4={conditions[mode]['p4']:.3f}")
+        logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
 
-    table = tabulate([[m, r["swap_log_odds_shift"], r["p4"], r["p8"], r["bare_answer_mass"], r["r2"]]
-                      for m, r in conditions.items()], headers=["condition", "swap_log_odds_shift", "p4", "p8", "bare_answer_mass", "r2"], tablefmt="pipe")
+    table = tabulate([[m, r["answer_log_odds_shift"], r["p_answer1"], r["p_answer0"], r["answer_pair_mass"], r["r2"]]
+                      for m, r in conditions.items()], headers=["condition", "answer_log_odds_shift", f"p({answer_pair[1]})", f"p({answer_pair[0]})", "answer_pair_mass", "r2"], tablefmt="pipe")
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe") if readouts else "No standalone readout benchmark in this intervention run."
     edit_description = ("Offline donor contrast: delta=mean(target)-mean(source), with strength1 in raw residual units. "
                         "J projection is delta @ pinv(V).T @ V.T. Full contrast and norm-matched full contrast are separate controls. "
-                        "Random uses one fixed seed0 direction at the same absolute norm as the projection, reused at every edited position. "
+                        f"Equal-donor-norm={equal_donor_norm}: when true, compare full contrast, J projection and random at the full contrast's norm. "
+                        f"Random uses one fixed seed0 direction at the same absolute norm as the {'full contrast' if equal_donor_norm else 'projection'}, reused at every edited position. "
                         "Only the saved generic donor checkpoint is used; no preliminary pass on the current input. "
                         if donor_checkpoint is not None else
                         f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndonor_checkpoint: {donor_checkpoint}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
           "The observer never controls the edit; it returns no activation replacement. "
-          f"Expected answer movement is {expected_base} to {expected_target}. Positive swap_log_odds_shift always favours 4 over 8; reverse success has a negative shift. "
+          f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; reverse success has a negative shift. "
+          "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Prompt slice {prompt_start}: plus every decode step. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} Previously chosen spider/dog example. "
@@ -539,10 +557,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         section += tabulate([[x['token'], x['log_p'], x['p'], x['delta_log_p']] for x in r['top10']],
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
+        leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
-                       f"donor_checkpoint: {donor_checkpoint}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
-                       f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\nr2: {r['r2']}\n---\n")
+                       f"donor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
     (out / "run.md").write_text(md)
@@ -565,4 +584,6 @@ if __name__ == "__main__":
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
+    parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
+    parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Keep the concept pair and donor fixed; test another answer property.")
     main(**vars(parser.parse_args()))
