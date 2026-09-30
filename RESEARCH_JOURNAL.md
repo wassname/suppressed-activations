@@ -1053,3 +1053,36 @@ The later spider readout after editing begins `claws, spiders, paw`, not dog. Re
 Interpretation (PI/OpenAI): partial animal-feature movement is plausible; a clean identity replacement is not established. The reverse test makes a generic leg-count bias more plausible, but does not identify the cause. Offline output forecasting is now being tested for the separate readout goal, with a final-layer oracle used only to check the subtraction rule, not as an admissible method.
 
 Both readout generalisation and reliable concept replacement remain open.
+
+## 2026-09-30 -- Donor steering and output-alias leakage
+
+The donor method changes the reverse answer, while a readout audit weakens the apparent English result.
+
+Evidence from the selected reverse donor experiment:
+
+| condition                        |   swap_log_odds_shift |        p4 |         p8 |   bare_answer_mass |        r2 |
+|:---------------------------------|----------------------:|----------:|-----------:|-------------------:|----------:|
+| Base                             |                 0     | 0.943579  | 0.00720431 |           0.950783 | 0.0322581 |
+| J-projected donor contrast       |                -5.25  | 0.0983349 | 0.143076   |           0.241411 | 0.0322581 |
+| full donor contrast              |                -9.25  | 0.0115834 | 0.920186   |           0.931769 | 0         |
+| norm-matched full donor contrast |                -3.75  | 0.516155  | 0.167571   |           0.683727 | 0.0322581 |
+| matched-random delta             |                 0.375 | 0.935038  | 0.00490663 |           0.939945 | 0         |
+
+Source: [2575 complete log](out/2026-09-30_105749_jlens-one-pass/console.log), source commit179b65b. Negative shift favours8 over4; answer mass is p4+p8; r2 is repeated-bigram fraction. Full contrast starts8 with a spider/web readout; J projection starts6, despite its negative shift. Full contrast changes about65% of prefill residual norm, whereas the random comparison changes32%. Four generic templates per animal supply reusable donor means; no question, answer label or preparatory pass over the experimental input is used. Independent formula and coverage checks pass. General capability and reward-hacking counts were not measured.
+
+The fixed English replay reports:
+
+```text
+| [end-pass J-lens](readout.json)  | 10/16                  |    0.833 | 8/11                     | 11/16            |          0 |
+| [end-pass plain27](readout.json) | 6/16                   |    0.842 | 5/11                     | 7/16             |          0 |
+```
+
+Columns are declared-alias joint pass, token-pair AUROC, pass among expected-answer matches, literal joint pass and unscored count. Source: [2577 complete log](out/2026-09-30_110305_jlens-one-pass/console.log). All80 rows reproduce the earlier generations and rankings. Manual inspection then finds Berlin/柏林, Vienna/维也纳, Bangkok/曼谷 and kitten/小猫 leaks in J passes. The fresh reviewer also finds Athens/雅典 in plain27. These scores therefore do not measure exhaustive semantic output exclusion; remaining multilingual and word-fragment cases are unverified. [Review](slop/reviews/2026-09-30_donor-readout-review.md).
+
+The same frozen readout ties masked plain24 at33/40 on the translation test, versus28/40 for plain27; see [2570](out/2026-09-30_104102_jlens-one-pass/console.log). Translation roles deliberately distinguish language forms of one meaning. Removing all semantic synonyms would remove its intended English intermediate too.
+
+Interpretation (PI/OpenAI): I consider distributed animal-feature transfer plausible, but the unequal control magnitude and single relation leave identity replacement unresolved. Lexical readout recovery is real under the declared scoring rule; its stronger semantic interpretation is contradicted by the retained answer translations. Neither is goal completion.
+
+Queued tests2579/2580/2581 compare donor/full-norm projected/random edits, hold the donor fixed on skeleton placement, and reverse its direction. Test2584 instead removes the predicted output-token component in normalised readout space, with unchanged lexical-mask controls and disclosed posthoc alias annotations. This is a method change, not another held-out evaluation. An article or word fragment can be the selected output token, so the run logs that token and the realised post-cast score. All use the shared default GPU queue without reordering other work.
+
+The next evidence must improve the method, not merely complete another diagnostic.
