@@ -1,0 +1,33 @@
+2026-09-30 11:03:05.396 | INFO     | __main__:main:179 - Loading pinned model and reusable lens; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 11082.00it/s]
+2026-09-30 11:03:16.513 | INFO     | __main__:main:336 - Readout Spain: baseline=' Barcelona.\nQuestion: What is the'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:17.506 | INFO     | __main__:main:336 - Readout Portugal: baseline=' Lisbon.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:18.374 | INFO     | __main__:main:336 - Readout Germany: baseline=' Berlin.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:19.306 | INFO     | __main__:main:336 - Readout Greece: baseline=' Athens.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:20.448 | INFO     | __main__:main:336 - Readout Austria: baseline=' Vienna.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:21.459 | INFO     | __main__:main:336 - Readout Norway: baseline=' Oslo.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:22.404 | INFO     | __main__:main:336 - Readout Thailand: baseline=' Bangkok.\nQuestion: What is the'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:23.264 | INFO     | __main__:main:336 - Readout Kenya: baseline=' Nairobi.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:24.258 | INFO     | __main__:main:336 - Readout horse: baseline=' a colt.\nQuestion: What'; ambiguous scoring tokens=[]; canonical_evaluable=False; unscorable_actual_words=[]
+2026-09-30 11:03:25.329 | INFO     | __main__:main:336 - Readout cow: baseline=' a calf.\nQuestion: What is'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:26.284 | INFO     | __main__:main:336 - Readout goat: baseline=' calf.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:27.322 | INFO     | __main__:main:336 - Readout duck: baseline=' a quack.\nQuestion: What'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:28.413 | INFO     | __main__:main:336 - Readout cat: baseline=' kitten.\nHypothesis: The'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:29.594 | INFO     | __main__:main:336 - Readout chicken: baseline=' 4.\nQuestion: How many'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:30.729 | INFO     | __main__:main:336 - Readout octopus: baseline=' 0.\nHypothesis:'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-09-30 11:03:31.582 | INFO     | __main__:main:336 - Readout penguin: baseline=' 2.\nQuestion: How many'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+## Fixed-set readout results
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Literal-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+### Current-layer methods
+| method                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | literal joint↑   |   unscored |
+|:---------------------------|:-----------------------|---------:|:-------------------------|:-----------------|-----------:|
+| [J-lens](readout.json)     | 3/16                   |    0.762 | 1/11                     | 3/16             |          0 |
+| [plain lens](readout.json) | 0/16                   |    0.705 | 0/11                     | 0/16             |          0 |
+### End-of-pass readout (not for earlier edits)
+| method                           | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | literal joint↑   |   unscored |
+|:---------------------------------|:-----------------------|---------:|:-------------------------|:-----------------|-----------:|
+| [end-pass J-lens](readout.json)  | 10/16                  |    0.833 | 8/11                     | 11/16            |          0 |
+| [end-pass plain27](readout.json) | 6/16                   |    0.842 | 5/11                     | 7/16             |          0 |
+| [end-pass plain24](readout.json) | 1/16                   |    0.804 | 1/11                     | 1/16             |          0 |
+run.md: /workspace/2026/suppressed-activations/out/2026-09-30_110305_jlens-one-pass/run.md
