@@ -1146,3 +1146,21 @@ Job2627, sourceefd41dc, completed30s with16 generic prefills and no generations.
 A posthoc bound shows no single cutoff can fix these16 observations along this axis: corrected maxdog1.230348>minspider.039979. Pooled AUROC=.6875, not64 independent comparisons. The eight generic pairs now become development data. No causal test of this correction will run.
 
 Fresh reviewerda59a1aa found no apparent arithmetic/sign bug and warns that the current intervention hook still uses the raw coordinate; validation of a formula alone never installs it in editing. Advisor487d6e80 and parent approved one new candidate: remove the seven-dimensional span of centered generic pair means from the old donor direction, center on their mean, validate on8 new generic pairs, and only on8/8 separation test both causal properties within one300s job. Training midpoint invariance is algebraic, not validation. Exact contract: `slop/reviews/2026-09-30_context-invariant-coordinate-decision.md`. Not implemented or run yet; both goals remain open.
+
+## 2026-09-30 -- Context projection fails the new generic contexts
+
+The fitted coordinate did not transfer to the new generic sentences.
+
+Job2628 ran source4348227. The log reports:
+
+> Candidate brackets: 2/8; raw: 0/8; candidate ordered: 7/8. Required:8/8 candidate brackets.
+
+Here bracketing means dog margin below zero and spider margin above zero. Source: `out/2026-09-30_172257_jlens-one-pass/run.md:299`. The strict prerequisite stopped all causal generations. Independent least-squares reconstruction and retokenization passed; maximum margin error was1.06e-6. For the field/explicit/description pair, the projection removed a positive class-gap component of.203491, leaving -.038110 before unit normalization, reversing the raw ordering. Source: the same run's `verification.json`. These are dependent context pairs, not independent concepts.
+
+Interpretation: my read is that this frozen projection overfits the generic contexts and can remove useful class discrimination. The saved-state calculation makes an arithmetic explanation unlikely, but it does not establish that the removed part is a general semantic feature. Training midpoint cancellation was constructed; high retained direction norm did not protect this pair's ordering. Neither hack_s (reward-hacking count) nor gt_s (ground-truth task passes) was measured: this prerequisite had no causal or task-scoring stage.
+
+Next: one positive token-KL contribution readout on cached English examples, with matched plain-lens and mismatched-final controls, rather than another cutoff adjustment. Exact prospective contract: `slop/reviews/2026-09-30_after-projection-next-test.md`. No new inference queued at this entry. Audit: `slop/audits/2026-09-30_job2628.md`.
+
+-- PI/OpenAI
+
+Both research goals remain open.
