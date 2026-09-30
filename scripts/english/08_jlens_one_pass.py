@@ -177,6 +177,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     out.mkdir(parents=True)
     logger.add(out / "stderr.log")
     logger.info("Loading pinned model and reusable lens; no input-specific preparation")
+    (out / "runtime.json").write_text(json.dumps({"torch": torch.__version__, "transformers": sys.modules["transformers"].__version__,
+                                                "cuda": torch.version.cuda, "python": sys.version}, indent=1))
     (out / "source.py").write_bytes(Path(__file__).read_bytes())
     tok = AutoTokenizer.from_pretrained(q.MODEL, revision=q.REVISION, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
@@ -277,6 +279,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         hidden_alias_ids, said_alias_ids, _ = disjoint_labels(hidden_alias_ids, said_alias_ids)
         hidden_is_said = any(a.casefold() in actual_words for a in hidden_aliases)
         actual_evaluable = hidden_is_said or bool(actual_hidden_ids and actual_said_ids and not unscorable_actual_words)
+        expected_observed = any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases)
+        alias_negatives = set(actual_said_ids) | (set(said_alias_ids) if expected_observed else set())
+        checked_hidden, checked_said, _ = disjoint_labels(actual_hidden_ids, alias_negatives)
+        checked_evaluable = hidden_is_said or bool(actual_evaluable and checked_hidden and checked_said)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
@@ -301,7 +307,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             if actual_evaluable and not hidden_is_said:
                 positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
                 auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
+            checked_auc = None
+            if checked_evaluable and not hidden_is_said:
+                positives, negatives = z[checked_hidden, None], z[checked_said][None, :]
+                checked_auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
+                             "alias_checked_pass": checked_evaluable and not hidden_is_said and bool(selected.intersection(checked_hidden)) and not selected.intersection(set(checked_said) | input_label_ids),
+                             "alias_checked_auroc": checked_auc, "alias_checked_evaluable": checked_evaluable,
                              **{key: case[key] for key in ("pair", "split") if key in case},
                              "input_hits": [vocab[t] for t in top if t in input_label_ids],
                              "answer": answer, "r_hidden": rh, "r_said": rs,
@@ -310,7 +322,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                              "hidden_aliases": hidden_aliases, "answer_aliases": answer_aliases,
                              "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids) if hidden_alias_ids and said_alias_ids else None,
                              "actual_words": actual_words, "token_pair_auroc": auc,
-                             "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
+                             "intended_answer_observed": expected_observed,
                              "actual_pass": actual_evaluable and not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(set(actual_said_ids) | input_label_ids),
                              "actual_evaluable": actual_evaluable, "unscorable_actual_words": unscorable_actual_words,
                              "hidden_is_said": hidden_is_said,
@@ -339,6 +351,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
               "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
+              "The primary alias-checked metric also excludes every predeclared answer alias when an expected answer is observed (e.g. Lisboa after Lisbon, six after6). This is still not exhaustive semantic exclusion. Literal-only scores remain in JSON for comparison. "
               "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC; they remain in the full denominator, so the joint count is a conservative count of verified passes. "
               "Token-pair AUROC compares unambiguous hidden and said token variants, with half credit for ties; it is undefined when the hidden concept is said or a class is empty. It is not top32 recovery. "
               "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
@@ -351,8 +364,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             rows = [r for r in readouts if r["method"] == name]
             correct = [r for r in rows if r["intended_answer_observed"]]
             aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
+            checked_aucs = [r["alias_checked_auroc"] for r in rows if r["alias_checked_auroc"] is not None]
             summaries.append({"method": name, "joint_pass": sum(r["actual_pass"] for r in rows), "n": len(rows),
                               "unscored_n": sum(not r["actual_evaluable"] for r in rows),
+                              "alias_checked_joint_pass": sum(r["alias_checked_pass"] for r in rows),
+                              "alias_checked_mean_auroc": sum(checked_aucs) / len(checked_aucs) if checked_aucs else None,
+                              "alias_checked_auroc_n": len(checked_aucs),
+                              "alias_checked_correct_joint_pass": sum(r["alias_checked_pass"] for r in correct),
+                              "alias_unscored_n": sum(not r["alias_checked_evaluable"] for r in rows),
                               "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
@@ -361,20 +380,20 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             for split in ("dev", "test"):
                 for name in dict.fromkeys(r["method"] for r in readouts):
                     rows = [r for r in readouts if r["split"] == split and r["method"] == name]
-                    aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
-                    groups.append({"split": split, "method": name, "joint_pass": sum(r["actual_pass"] for r in rows),
+                    aucs = [r["alias_checked_auroc"] for r in rows if r["alias_checked_auroc"] is not None]
+                    groups.append({"split": split, "method": name, "metric": "alias_checked", "joint_pass": sum(r["alias_checked_pass"] for r in rows),
                                    "n": len(rows), "mean_auroc": sum(aucs) / len(aucs) if aucs else None,
-                                   "auroc_n": len(aucs), "unscored_n": sum(not r["actual_evaluable"] for r in rows)})
+                                   "auroc_n": len(aucs), "unscored_n": sum(not r["alias_checked_evaluable"] for r in rows)})
             (out / "groups.json").write_text(json.dumps(groups, indent=1))
-        summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Unscored rows remain in the full denominator but cannot earn a pass. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
+        summary_md = "\n## Fixed-set readout results\n\nPrimary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Literal-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.\n\n"
         for category in ("current", "end-pass", "oracle"):
-            group = sorted([r for r in summaries if ("oracle" if "oracle" in r["method"] else "end-pass" if r["method"].startswith("end-pass") else "current") == category], key=lambda r: r["joint_pass"], reverse=True)
+            group = sorted([r for r in summaries if ("oracle" if "oracle" in r["method"] else "end-pass" if r["method"].startswith("end-pass") else "current") == category], key=lambda r: r["alias_checked_joint_pass"], reverse=True)
             if not group:
                 continue
             summary_md += {"current": "### Current-layer methods\n\n", "end-pass": "### End-of-pass readout (not for earlier edits)\n\n", "oracle": "### Evaluation-only future-information controls\n\n"}[category]
-            summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['joint_pass']}/{r['n']}", r["mean_token_pair_auroc"],
-                                    f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}", r["unscored_n"]] for r in group],
-                                   headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+            summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['alias_checked_joint_pass']}/{r['n']}", r["alias_checked_mean_auroc"],
+                                    f"{r['alias_checked_correct_joint_pass']}/{r['correct_answer_n']}", f"{r['joint_pass']}/{r['n']}", r["alias_unscored_n"]] for r in group],
+                                   headers=["method", "alias-checked joint↑", "AUROC↑", "expected-answer joint↑", "literal joint↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
         if groups:
             summary_md += "### Translation development/test splits\n\n" + tabulate(
                 [[r["split"], r["method"], f"{r['joint_pass']}/{r['n']}", r["mean_auroc"], r["unscored_n"]] for r in groups],
@@ -496,8 +515,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
-          f"donor_checkpoint: {donor_checkpoint}\n\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndonor_checkpoint: {donor_checkpoint}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -508,7 +526,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
           f"Selection: {selection} Previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
-          f"SHOULD: J-lens recovers hidden words better than the same-layer plain lens. The swap should change {expected_base} toward {expected_target} "
+          f"SHOULD: intervention changes {expected_base} toward {expected_target} "
           "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
           f"{read_table}\n\n{table}\n")
     for case in cases:
