@@ -168,6 +168,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: advisor dialogue94281823 settles ONE new readout-mask test: keep oldmask and add vocabulary strings beginning with an entire normalized input word length>=3; no language labels/stemming/synonym lists. This removescontinent→continents but has knownart→article overmask risk; Nam/name problem remains. Cached2673 states, zero forwards/generations; original72 rows exact plus16 candidate rows, same J/half-erasure/outputmask/k32 and matched controls. Log every added exclusion/originating word, then symmetric semantic review. This is a new development method, not retroactive rescoring or a new-example result. Contract slop/reviews/2026-10-01_after-vjp-next-test.md. Not yet implemented/queued. README remains an uncommitted editorial draft, no publishing.
 
+- PI/OpenAI:2686/f36a437 queued on default, priority0,300s TERM+15s grace; followerproc_d060. Frozen complete-input-prefix comparison, cached2673 states, zero transformer calls/generations,72 original rows exact plus16 candidate rows required. Source9d8b8410/launcher5a9f90f0; contract4f3f27cf pinned before scoring. Tiny BF16Qwen seeds0/1 passed33s:44 rows/36 oldexact/8new perseed, whole-vocabulary refills and origins checked; knownart→article/nam behavior explicit. Freshd0385f04 found no executed-path blocker, conditional nullable-AUROC reporting fixed and tested0/1/4 undefined cases; launcher end-to-end remains untested. Independent full-score checker is syntax-checked only until real output exists. No fresh-example or translation run bundled; both goals stay open.
+
 ## Interview
 
 ### 2026-09-30 07:42
