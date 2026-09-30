@@ -94,8 +94,7 @@ def fit_forecast(model, tok, block, corpus_path, out):
     return transform, bias, metrics
 
 
-def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
-         calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None):
+def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False, calibration_json: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -128,16 +127,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         z = readout(h).masked_fill(mask, -torch.inf)
         return [vocab[t] for t in z.topk(32).indices.tolist()]
 
-    assert not (calibration_json is not None and forecast_checkpoint is not None)
-    forecasting = calibration_json is not None or forecast_checkpoint is not None
     if calibration_json is not None:
         transform, bias, calibration_metrics = fit_forecast(model, tok, read_block, calibration_json, out)
-    if forecast_checkpoint is not None:
-        saved = torch.load(forecast_checkpoint, weights_only=True)
-        assert saved["provenance"]["model_revision"] == q.REVISION
-        assert saved["provenance"]["block_index"] == read_block
-        transform, bias = saved["transform"].cuda(), saved["bias"].cuda()
-        calibration_metrics = json.loads((forecast_checkpoint.parent / "calibration.json").read_text())["metrics"]
 
     prior_path = ROOT / "out/2026-09-29_204246_twohop-english/result.json"
     prior = next(iter(json.loads(prior_path.read_text()).values()))
@@ -153,13 +144,6 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     cases += [{"prompt": p} for p, _, _ in fresh]
     concepts += [c for _, c, _ in fresh]
     answers += [a for _, _, a in fresh]
-    selection = "Four selected countries and four simple development prompts; currency previously answered100% gold, not euro."
-    if cases_json is not None:
-        dataset = json.loads(cases_json.read_text())
-        cases = [{**c, "prompt": dataset["prefix"] + c["prompt"]} for c in dataset["cases"]]
-        concepts, answers = [c["concept"] for c in cases], [c["answer"] for c in cases]
-        selection = dataset["selection"]
-        (out / "cases.json").write_bytes(cases_json.read_bytes())
     readouts = []
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
@@ -172,18 +156,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
         assert hidden and said and not set(hidden) & set(said)
-        if cases_json is None:
-            hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
-            answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
-        else:
-            hidden_aliases, answer_aliases = case["hidden_aliases"], case["answer_aliases"]
+        hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
+        answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
         hidden_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in hidden_aliases)]
         said_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in answer_aliases)]
         actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
         actual_said_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in actual_words)]
         assert actual_said_ids
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
-        if forecasting:
+        if calibration_json is not None:
             forecast_h = rms(h[-1]) @ transform + bias
             scores["forecast"] = model.lm_head(model.model.norm(forecast_h.to(W.dtype))).float()
             scores["final-layer oracle (not deployable)"] = model.lm_head(model.model.norm(res[32][-1])).float()
@@ -204,22 +185,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                              "hidden_aliases": hidden_aliases, "answer_aliases": answer_aliases,
                              "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids),
                              "actual_words": actual_words, "token_pair_auroc": auc,
-                             "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
+                             "intended_answer_observed": answer.casefold() in case["said_text"].casefold(),
                              "actual_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(actual_said_ids),
                              "actual_said_hits": [vocab[t] for t in top if t in actual_said_ids],
                              "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
                              "top32": [vocab[t] for t in top]})
     (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
-    if forecasting:
+    if calibration_json is not None:
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              f"calibration_json: {calibration_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Offline output forecast and same-layer contrast\n\nWritten by PI/OpenAI.\n\n"
               "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. Current-input readout receives residual24 only. "
               "Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. "
-              f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
-              "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
+              "Same layer, final position, k32 and prompt mask as before. Frozen examples: four selected countries and four simple development prompts. "
+              "The currency prompt previously answered100% gold, not euro; it cannot establish the intended intermediate reasoning. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
               "Token-pair AUROC compares all hidden-alias token variants against all actual-said word token variants within a prompt, with half credit for ties. It is not top32 recovery. "
@@ -228,23 +209,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
               f"Calibration: {calibration_metrics}\n\n{table}\n\n")
         for r in readouts:
             md += f"Input: {r['prompt']!r}\n\nBaseline: {r['baseline_generation']!r}\n\n{r['method']}: {r['top32']}\n\n"
-        summaries = []
-        for name in dict.fromkeys(r["method"] for r in readouts):
-            rows = [r for r in readouts if r["method"] == name]
-            correct = [r for r in rows if r["intended_answer_observed"]]
-            summaries.append({"method": name, "joint_pass": sum(r["actual_pass"] for r in rows), "n": len(rows),
-                              "mean_token_pair_auroc": sum(r["token_pair_auroc"] for r in rows) / len(rows),
-                              "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
-        (out / "summary.json").write_text(json.dumps(summaries, indent=1))
-        summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
-        for oracle in (False, True):
-            group = sorted([r for r in summaries if ("oracle" in r["method"]) == oracle], key=lambda r: r["joint_pass"], reverse=True)
-            summary_md += ("### Evaluation-only future-information controls\n\n" if oracle else "### Current-layer methods\n\n")
-            summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['joint_pass']}/{r['n']}", r["mean_token_pair_auroc"],
-                                    f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}"] for r in group],
-                                   headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
-        (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
-        print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
+        (out / "run.md").write_text(md + f"run.md: {out / 'run.md'}\n")
+        print(table, f"run.md: {out / 'run.md'}", sep="\n\n")
         return
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
@@ -338,7 +304,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
           "No source/donor activation extraction. Reference equation: h + V(swap(pinv(V)h) - pinv(V)h).\n\n"
           "Selection: four previously answer-correct English cases, four fixed new simple English prompts, and the previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
-          "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
+          "This is the second observer layer tested; edit layer/strength remain the successful midpoint configuration. One causal pair is not a generalisation rate.\n\n"
           f"SHOULD: J-lens recovers hidden words better than the same-layer plain lens. The swap should change {expected_base} toward {expected_target} "
           "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
           f"{read_table}\n\n{table}\n")
@@ -369,6 +335,4 @@ if __name__ == "__main__":
     parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
     parser.add_argument("--all-prompt-positions", action="store_true", help="Match the reference's all-position intervention; default remains final three.")
     parser.add_argument("--calibration-json", type=Path, help="Fit a reusable output forecast on generic text, evaluate readouts only.")
-    parser.add_argument("--forecast-checkpoint", type=Path, help="Reuse an offline forecast unchanged; evaluate readouts only.")
-    parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
     main(**vars(parser.parse_args()))
