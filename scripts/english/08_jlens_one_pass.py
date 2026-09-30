@@ -106,7 +106,7 @@ def fit_forecast(model, tok, block, corpus_path, out):
 
 def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
-         end_pass_readout=False, swap_logits=False):
+         end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -200,7 +200,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
-            output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index)
+            output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index, max_n=output_mask_max_n)
             for name, z in (("J-lens", scores["J-lens"]), ("plain24", scores["plain lens"]),
                             ("plain27", readout(res[27][-1], False))):
                 scores["end-pass " + name] = z.masked_fill(output_mask, -torch.inf)
@@ -240,14 +240,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}")
     if forecasting or end_pass_readout:
         description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
-                       "Reuse the approved top_p=0.9, max_n=20 mask from script04. Readout finishes at residual32; this information cannot guide an earlier edit. No forecast is fitted or used. "
+                       f"Use script04's word mask with top_p=0.9, max_n={output_mask_max_n} (default20;1 retains only the greedy next token). Readout finishes at residual32; this information cannot guide an earlier edit. No forecast is fitted or used. "
                        if end_pass_readout else
                        "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. "
                        "Current-input readout receives residual24 only. Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. ")
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nend_pass_readout: {str(end_pass_readout).lower()}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
               f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
@@ -283,11 +283,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
-    concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
+    concept_tokens = (" spiders", " dogs") if plural else (" spider", " dog")
+    concept_ids = [tok(s, add_special_tokens=False).input_ids for s in concept_tokens]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
     rows = W[[t[0] for t in concept_ids]].float() * gain
     raw_vectors_j, raw_vectors_plain = (rows @ J_edit).T, rows.T
-    logger.info(f"Raw J direction norms (spider, dog): {raw_vectors_j.norm(dim=0).tolist()}")
+    logger.info(f"Raw J direction norms {concept_tokens}: {raw_vectors_j.norm(dim=0).tolist()}")
     vectors_j = raw_vectors_j if swap_logits else raw_vectors_j / raw_vectors_j.norm(dim=0)
     vectors_plain = raw_vectors_plain if swap_logits else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
     swap = swap_lens_scores if swap_logits else swap_coordinates
@@ -367,7 +368,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass J-lens pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -375,7 +376,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
           f"Expected answer movement is {expected_base} to {expected_target}. Positive swap_log_odds_shift always favours 4 over 8; reverse success has a negative shift. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}, prompt slice {prompt_start}: plus every decode step. "
-          "No source/donor activation extraction. Reference coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
+          f"Concept token strings: {concept_tokens!r}. No source/donor activation extraction. Reference coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
           "Raw-score variant instead uses h + pinv(V).T(swap(V.T h) - V.T h). This swaps two unnormalised lens numerators, not guaranteed semantic features; final RMS normalisation can rescale both.\n\n"
           "Selection: four previously answer-correct English cases, four fixed new simple English prompts, and the previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
@@ -394,7 +395,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
                        f"expected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\nr2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
@@ -414,4 +415,6 @@ if __name__ == "__main__":
     parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
     parser.add_argument("--end-pass-readout", action="store_true", help="Readout only: use final-layer output mask, never for an earlier intervention.")
     parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
+    parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")
+    parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     main(**vars(parser.parse_args()))
