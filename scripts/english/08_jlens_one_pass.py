@@ -36,7 +36,8 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def main(readout_only=False):
+def main(readout_only=False, cache_positions: Path | None = None):
+    readout_only = readout_only or cache_positions is not None
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -60,7 +61,7 @@ def main(readout_only=False):
     vocab_norm = [t.strip().lower() for t in vocab]
 
     direction_norms = {}
-    if readout_only:
+    if readout_only and cache_positions is None:
         for name, transform in (("J-lens unit directions", J), ("plain unit directions", torch.eye(J.shape[0], device=J.device))):
             direction_norms[name] = torch.cat([((chunk.float() * gain) @ transform).norm(dim=-1)
                                               for chunk in W.split(4096)])
@@ -86,36 +87,56 @@ def main(readout_only=False):
     readouts = []
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-        res, _ = trajectory(model, ids, model.model.norm)
+        if cache_positions is None:
+            res, _ = trajectory(model, ids, model.model.norm)
+            h = res[block + 1]
+        else:
+            cached = torch.load(cache_positions / f"{concept}_midpoint.pt", weights_only=True, map_location="cuda")
+            torch.testing.assert_close(cached["input_ids"], ids)
+            h = cached["residual"]
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
         assert hidden and said and not set(hidden) & set(said)
-        if readout_only:
-            torch.save({"residual": res[block + 1].cpu(), "input_ids": ids.cpu()}, out / f"{concept}_midpoint.pt")
-        methods = [("J-lens", True), ("plain lens", False)]
-        if readout_only:
-            methods += [("J-lens unit directions", True), ("plain unit directions", False)]
-        for name, use_j in methods:
-            z = readout(res[block + 1, -1], use_j)
+        if readout_only and cache_positions is None:
+            torch.save({"residual": h.cpu(), "input_ids": ids.cpu()}, out / f"{concept}_midpoint.pt")
+        methods = [("J-lens", True, False), ("plain lens", False, False)]
+        if cache_positions is not None:
+            methods += [("J-lens max position", True, True), ("plain lens max position", False, True)]
+        elif readout_only:
+            methods += [("J-lens unit directions", True, False), ("plain unit directions", False, False)]
+        for name, use_j, pool_positions in methods:
+            scores_by_position = readout(h, use_j).log_softmax(-1)
+            z = scores_by_position.amax(0) if pool_positions else readout(h[-1], use_j)
             if name in direction_norms:
                 z = z / direction_norms[name]
             z = z.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
+            hidden_token = hidden[int(z[hidden].argmax())]
+            position = int(scores_by_position[:, hidden_token].argmax()) if pool_positions else ids.shape[1] - 1
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs, "pass": rh < 32 <= rs,
+                             "best_hidden_token": vocab[hidden_token], "position": position,
+                             "input_prefix": tok.decode(ids[0, :position + 1]),
                              "top32": [vocab[t] for t in z.topk(32).indices.tolist()]})
     (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
     if readout_only:
         table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"], r["top32"][:8]] for r in readouts],
                          headers=["concept", "readout", "hidden rank", "answer rank", "joint pass", "top8"], tablefmt="pipe")
+        change = ("One changed axis: maximum log probability across all prompt positions instead of the final position. "
+                  "Reuse the saved midpoint activations; compare raw J-lens and raw plain lens, with the same k and prompt mask. "
+                  "Hypothesis: the bridge is present near its clue even when absent at the final prompt position. "
+                  if cache_positions is not None else
+                  "One changed axis: divide each token's lens score by its residual-space direction norm. "
+                  "Layer, position, k and prompt mask are unchanged. This differs from the reference's raw J-lens. "
+                  "Hypothesis: high-norm punctuation directions dominate raw scores; unit directions improve hidden-word ranks. "
+                  "Negative control: apply the same normalisation to the plain lens. ")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-              f"k: 32\nforward_passes: 5\ngenerations: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
-              "# Read with the same unit directions used for editing\n\nWritten by PI/OpenAI.\n\n"
-              "One changed axis: divide each token's lens score by its residual-space direction norm. "
-              "Layer, position, k and prompt mask are unchanged. This differs from the reference's raw J-lens. "
-              "Hypothesis: high-norm punctuation directions dominate raw scores; unit directions improve hidden-word ranks. "
-              "Negative control: apply the same normalisation to the plain lens. "
+              f"k: 32\nforward_passes: {0 if cache_positions else 5}\ngenerations: 0\ncache_positions: {cache_positions}\n"
+              f"elapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              "# Fixed-layer readout comparison\n\nWritten by PI/OpenAI.\n\n"
+              f"{change}"
+
               "The four country cases and the spider case were previously selected; this is development data, not a success rate.\n\n"
               f"{table}\n\nrun.md: {out / 'run.md'}\n")
         (out / "run.md").write_text(md)
@@ -224,4 +245,5 @@ def main(readout_only=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--readout-only", action="store_true", help="Compare raw and unit-direction readouts; no generation.")
+    parser.add_argument("--cache-positions", type=Path, help="Compare last-position vs all-position pooling on saved midpoint activations.")
     main(**vars(parser.parse_args()))
