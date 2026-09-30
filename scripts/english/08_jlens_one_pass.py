@@ -177,7 +177,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
-         equal_donor_norm=False, relation="legs"):
+         equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -259,7 +259,17 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         concepts += [c for _, c, _ in fresh]
         answers += [a for _, _, a in fresh]
         selection = "Four selected countries and four simple development prompts; currency previously answered100% gold, not euro."
-    readouts = []
+    if answer_alias_audit_json is not None:
+        assert cases_json is not None
+        annotations = json.loads(answer_alias_audit_json.read_text())
+        for concept, aliases in annotations["extra_answer_aliases"].items():
+            matches = [c for c in cases if c["concept"] == concept]
+            assert len(matches) == 1, concept
+            matches[0]["answer_aliases"] = [*matches[0]["answer_aliases"], *aliases]
+        (out / "answer_alias_audit.json").write_text(json.dumps(annotations, ensure_ascii=False, indent=1))
+        selection += " Posthoc scoring annotations: " + annotations["selection"]
+    readouts, erasure_traces = [], []
+    assert not erase_output or end_pass_readout
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
         res, _ = trajectory(model, ids, model.model.norm)
@@ -297,6 +307,20 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             for name, z in (("J-lens", scores["J-lens"]), ("plain24", scores["plain lens"]),
                             ("plain27", readout(res[27][-1], False))):
                 scores["end-pass " + name] = z.masked_fill(output_mask, -torch.inf)
+            if erase_output:
+                output_id = int(final_logits.argmax())
+                direction = W[output_id].float()
+                for name, state in (("J-lens", h[-1].float() @ J.T), ("plain24", h[-1]), ("plain27", res[27][-1])):
+                    normalized = model.model.norm(state.to(W.dtype)).float()
+                    removed = (normalized @ direction) / direction.square().sum() * direction
+                    erased = normalized - removed
+                    assert abs(float(erased @ direction)) < 1e-3 * float(normalized.norm() * direction.norm())
+                    z = model.lm_head(erased.to(W.dtype)).float()
+                    scores["end-pass erased " + name] = z.masked_fill(output_mask, -torch.inf)
+                    erasure_traces.append({"concept": concept, "method": name, "output_token": vocab[output_id],
+                                           "relative_removed_norm": float(removed.norm() / normalized.norm()),
+                                           "output_score_before": float(normalized @ direction), "output_score_after": float(z[output_id])})
+                (out / "erasure_traces.json").write_text(json.dumps(erasure_traces, ensure_ascii=False, indent=1))
         if forecasting:
             forecast_h = rms(h[-1]) @ transform + bias
             scores["forecast"] = model.lm_head(model.model.norm(forecast_h.to(W.dtype))).float()
@@ -350,10 +374,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
               f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
+              "When erase_output is true, additional readouts remove the normalised activation's projection onto the greedy output token's unembedding row, then apply the same masks. No language or concept labels determine that projection; erasure_traces.json records the removed norm and residual target score. This is a new method, not a scorer-only repair. "
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
@@ -584,6 +609,8 @@ if __name__ == "__main__":
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
+    parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
+    parser.add_argument("--erase-output", action="store_true", help="End-pass comparison: remove the activation component along the predicted output-token direction before unembedding.")
     parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
     parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Keep the concept pair and donor fixed; test another answer property.")
     main(**vars(parser.parse_args()))
