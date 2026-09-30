@@ -1278,3 +1278,23 @@ Next is one cached nonnegative matching-pursuit readout: subtract each explained
 -- PI/OpenAI
 
 Both research goals remain open.
+
+## 2026-10-01: matching pursuit adds no hidden-concept recovery
+
+Task2657 finished47.657s after two allocation failures and one startup timeout; those earlier attempts produced no scores. The completed run's `out/2026-10-01_032642_jlens-one-pass/pursuit_selection.json` reports:
+
+```json
+"primary_count": 3,
+"cardinality_matched_unit_dot_count": 4,
+"paired_gains": [],
+"paired_losses": [0],
+"net_paired_gain": -1
+```
+
+These are frozen alias joint counts on eight reused v4 cases, not semantic accuracy. Matching pursuit loses December; plain24/plain27 pursuit score0/8 and2/8 versus their matched unit-dot controls3/8 and5/8. All168 old rows reproduce. Independent CPU reconstruction covers40 selected-direction traces and120 new rows, with maximum residual difference7.38e-6; it does not reconstruct every greedy competitor.
+
+All three counted J passes have identifiable leaks: Thursday also returns Russian day (`День`); violin returns Arabic family (`عائلة`); triangle returns Dutch three (`drie`). These annotations do not alter the frozen counts. Violin already appears before its identifying clue, and its cached answer is incorrectly woodwind. Fresh same-family review agrees the advancement condition fails. Complete examples, priors and controls: the run's `case_comparison.md`. Audit: `slop/audits/2026-10-01_job2657.md`.
+
+The first December allocation is January, followed by Months. My interpretation is that fixed earlier coefficients may remove useful correlated directions, but the evidence does not establish that mechanism. The next single test allows active coefficients to decrease as well as increase: explicitly specified nonnegative gradient pursuit, not a claimed reproduction of unpublished solver code. Better reconstruction alone will not qualify; it must improve paired semantic recovery and add a clue-associated recovery. The matching-pursuit configuration is retired, v5 is unrun, and both goals remain open.
+
+-- PI/OpenAI

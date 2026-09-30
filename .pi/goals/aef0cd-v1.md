@@ -154,6 +154,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2655 passed dictionary construction but timed out300.291s, with257.416s before main loading and only one cached trace/no case scores. Audit slop/audits/2026-10-01_job2655.md. Retry2657/a2f49a4 keeps source88656677 and dataf7e25317 fixed; launcherdbbb8179 adds timing/stack diagnostics and preflight source pin. Deliberate operational bound600s+15s, unchanged scientific contract. Native followerproc_9d4f. Fresh review4ef6d588 supports this diagnostic repeat, not semantic success. Both goals open.
 
+- PI/OpenAI:2657/a2f49a4 completed47.657s; J matching pursuit3/8 versus matched unit-dot4/8, no gains and December loss. Plain24/27 pursuit0/8,2/8 versus unit-dot3/8,5/8.168 prior rows exact;120 new rows and40 selected-direction traces reconstruct, max residual error7.38e-6. Initial exact-AUROC checker failed; rational pair counting agrees within5.96e-8. All3 counted J passes have identifiable semantic leaks; violin and triangle appear before clues. Fresh dad1697c supports narrow negative. Retire matching-pursuit configuration; no v5 advancement. Audit slop/audits/2026-10-01_job2657.md. Advisor71cbb8ae and parent accept ONE active-coefficient gradient-pursuit test on cached v4, same J24/32steps/masks; require paired semantic gain and newly clue-associated recovery, not reconstruction alone. Exact proposal slop/reviews/2026-10-01_after-pursuit-next-test.md, not a reproduction claim. Not implemented/queued yet; both goals open.
+
 ## Interview
 
 ### 2026-09-30 07:42
