@@ -120,6 +120,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2625 completed94s at86445f1. Both frozen reflections retain initial4/inside; clean dog/spider margins are both positive (legs1.082/1.153, body1.195/1.416), so both prefill updates arezero. Later8/7 updates and natural-control changes show the hook operates. All8×32-token conditions pass source/Base-replay/coverage/metric checks; artifacts155111/155140. This rejects this last-position midpoint rule, not every donor direction. Full audit slop/audits/2026-09-30_job2625.md. Fresh reviewba6866f4 timed out awaiting supervisor reply; child stopped/nonresumable, failure/diff captured. Same-role same-protocol fallback5aa8cb4a is resolving one <=16-prefill generic preparation/application test; no further inference queued. Both goals remain open.
 
+- PI/OpenAI: recovered review61585f07 completed and is saved in slop/reviews/2026-09-30_reflection-result-review.md. It supports one prospective coordinate variant: subtract the processed token's direct embedding contribution, keeping the existing donor direction/center. Frozen eight generic pairs/16 prefills, no generations; require all8 dog<0<spider brackets before a causal test. Same-final-token ordering must remain unchanged and token1049 must reproduce raw margins. Integrated into08 (not a side-car inference pipeline); algebra seeds0/1 and tiny hybrid-Qwen full-I/O smoke seeds0/1 pass. First smoke failed only on an out-of-project temporary output path, corrected in its fixture. Main-model run not yet observed; both goals open.
+
 ## Interview
 
 ### 2026-09-30 07:42
