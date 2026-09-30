@@ -59,6 +59,53 @@ def reflect_donor_side(h, center, direction):
     return h.float() - 2 * margin.clamp_max(0).unsqueeze(-1) * direction
 
 
+def nuisance_coordinate(pair_means, old_direction):
+    means = pair_means.double()
+    assert means.ndim == 2 and means.shape[0] == 8
+    assert torch.isfinite(means).all() and torch.isfinite(old_direction).all()
+    center = means.mean(0)
+    _, singular_values, Vh = torch.linalg.svd(means - center, full_matrices=False)
+    tolerance = torch.finfo(torch.float64).eps * max(means.shape)
+    assert singular_values[0] > 0 and singular_values[6] > tolerance * singular_values[0]
+    basis = Vh[:7]
+    direction = old_direction.double()
+    retained = direction - (direction @ basis.T) @ basis
+    retained_norm = retained.norm()
+    assert retained_norm > tolerance and torch.isfinite(retained_norm)
+    projected = retained / retained_norm
+    return {"center": center.float(), "direction": projected.float(), "nuisance_basis": basis,
+            "singular_values": singular_values, "retained_direction_norm": float(retained_norm),
+            "rank_tolerance": float(tolerance * singular_values[0]), "norm_tolerance": tolerance,
+            "rank": 7, "fit_dtype": "float64"}
+
+
+def fit_nuisance_from_run(config, out):
+    training = ROOT / config["training_run"]
+    assert hashlib.sha256((training / "states.pt").read_bytes()).hexdigest() == config["training_states_sha256"]
+    assert hashlib.sha256((training / "coordinate.pt").read_bytes()).hexdigest() == config["training_coordinate_sha256"]
+    states = torch.load(training / "states.pt", weights_only=True, map_location="cpu")
+    old = torch.load(training / "coordinate.pt", weights_only=True, map_location="cpu")
+    keys = [f"{style}-{i}" for style in ("explicit", "indirect") for i in range(4)]
+    dogs = torch.stack([states[k + "-dog"]["hidden"][-1].double() for k in keys])
+    spiders = torch.stack([states[k + "-spider"]["hidden"][-1].double() for k in keys])
+    fitted = nuisance_coordinate((dogs + spiders) / 2, old["direction"])
+    fitted["provenance"] = {"model": q.MODEL, "model_revision": q.REVISION, "block_index": 15,
+                            "source_concept": "dog", "target_concept": "spider", "training_run": str(training),
+                            "training_states_sha256": config["training_states_sha256"],
+                            "training_coordinate_sha256": config["training_coordinate_sha256"]}
+    dm = (dogs.float() - fitted["center"]) @ fitted["direction"]
+    sm = (spiders.float() - fitted["center"]) @ fitted["direction"]
+    metrics = {"singular_values": fitted["singular_values"].tolist(), "retained_direction_norm": fitted["retained_direction_norm"],
+               "rank_tolerance": fitted["rank_tolerance"], "norm_tolerance": fitted["norm_tolerance"], "rank": 7,
+               "training_brackets": int(((dm < 0) & (sm > 0)).sum()),
+               "max_training_midpoint_margin": float(((dm + sm) / 2).abs().max()),
+               "limits": "Training midpoint invariance is constructed; no held-out or causal claim."}
+    torch.save(fitted, out / "projection.pt")
+    (out / "projection.json").write_text(json.dumps(metrics, indent=1))
+    logger.info("## Offline context projection\n\n{}", json.dumps(metrics, indent=1))
+    return fitted
+
+
 def donor_margins(h, embeddings, center, direction, reference_embedding):
     raw = (h.float() - center) @ direction
     corrected = raw + (reference_embedding - embeddings.float()) @ direction
@@ -66,7 +113,7 @@ def donor_margins(h, embeddings, center, direction, reference_embedding):
 
 
 
-def validate_donor_coordinates(model, tok, config_path, out):
+def validate_donor_coordinates(model, tok, config_path, out, projected_coordinate=None):
     started = time.monotonic()
     config = json.loads(config_path.read_text())
     (out / "config.json").write_bytes(config_path.read_bytes())
@@ -99,7 +146,10 @@ def validate_donor_coordinates(model, tok, config_path, out):
         "python": sys.version, "cuda": torch.version.cuda, "use_cache": True, "logits_to_keep": 1,
     }, indent=1))
     torch.save({"center": center, "direction": direction, "reference_embedding": reference_embedding}, out / "coordinate.pt")
-    logger.info("## Sixteen prefills\n\nSHOULD: identical final embeddings preserve paired margin differences; at token1049 raw and corrected margins agree.\n\nTODO validate: corrected dog<0<spider on all eight pairs. This is not causal success.")
+    candidate_method = "embedding subtraction" if projected_coordinate is None else "context projection"
+    logger.info("## Sixteen prefills\n\nCandidate: {}.\n\nTODO validate: candidate dog<0<spider on all eight pairs. This is not causal success.", candidate_method)
+    if projected_coordinate is None:
+        logger.info("SHOULD: identical final embeddings preserve paired margin differences; at token1049 raw and corrected margins agree.")
     samples, tensors, pairs = [], {}, []
     for style, referents in config["referents"].items():
         for ending_index, ending in enumerate(config["endings"]):
@@ -120,11 +170,14 @@ def validate_donor_coordinates(model, tok, config_path, out):
                 h = captures[0].cpu()
                 embeddings = embedding_layer(ids)[0].detach().cpu()
                 raw, corrected = donor_margins(h, embeddings, center, direction, reference_embedding)
-                direct = ((h.float() - embeddings.float()) - (center - reference_embedding)) @ direction
-                assert torch.allclose(corrected, direct, atol=2e-5, rtol=2e-5)
+                if projected_coordinate is None:
+                    direct = ((h.float() - embeddings.float()) - (center - reference_embedding)) @ direction
+                    assert torch.allclose(corrected, direct, atol=2e-5, rtol=2e-5)
+                    reference_positions = ids[0].cpu() == config["reference_token_id"]
+                    assert torch.equal(raw[reference_positions], corrected[reference_positions])
+                else:
+                    corrected = (h.float() - projected_coordinate["center"]) @ projected_coordinate["direction"]
                 token_ids = ids[0].tolist()
-                reference_positions = ids[0].cpu() == config["reference_token_id"]
-                assert torch.equal(raw[reference_positions], corrected[reference_positions])
                 sample = {"key": key, "style": style, "ending_index": ending_index, "concept": concept,
                           "input": prompt, "input_repr": repr(prompt), "token_ids": token_ids,
                           "tokens": [tok.decode([i]) for i in token_ids], "raw_margins": raw.tolist(),
@@ -140,27 +193,33 @@ def validate_donor_coordinates(model, tok, config_path, out):
             assert dog["token_ids"][-1] == spider["token_ids"][-1]
             d0, s0 = dog["raw_margins"][-1], spider["raw_margins"][-1]
             d1, s1 = dog["corrected_margins"][-1], spider["corrected_margins"][-1]
-            assert abs((s0 - d0) - (s1 - d1)) < 2e-5
+            if projected_coordinate is None:
+                assert abs((s0 - d0) - (s1 - d1)) < 2e-5
             pairs.append({"key": f"{style}-{ending_index}", "raw_dog": d0, "raw_spider": s0,
                           "corrected_dog": d1, "corrected_spider": s1, "pair_difference": s0 - d0,
+                          "candidate_pair_difference": s1 - d1,
                           "raw_brackets": d0 < 0 < s0, "corrected_brackets": d1 < 0 < s1,
                           "final_token_id": dog["token_ids"][-1]})
     assert len(samples) == config["n_prefills"] and len(pairs) == 8
-    results = {"pairs": pairs, "n_prefills": len(samples), "generated_tokens": 0,
+    results = {"pairs": pairs, "candidate_method": candidate_method,
+               "candidate_coordinate": "coordinate.pt" if projected_coordinate is None else "projection.pt",
+               "n_prefills": len(samples), "generated_tokens": 0,
                "raw_brackets": sum(p["raw_brackets"] for p in pairs),
                "corrected_brackets": sum(p["corrected_brackets"] for p in pairs),
                "ordered_pairs": sum(p["pair_difference"] > 0 for p in pairs),
+               "candidate_ordered_pairs": sum(p["candidate_pair_difference"] > 0 for p in pairs),
                "candidate_passes_prerequisite": all(p["corrected_brackets"] for p in pairs),
                "peak_allocated_gib": torch.cuda.max_memory_allocated(device) / 2**30 if device.type == "cuda" else None,
                "elapsed_seconds": time.monotonic() - started}
     (out / "result.json").write_text(json.dumps(results, indent=1))
     rows = [[f'[{p["key"]}](samples.jsonl)', int(p["corrected_brackets"]), p["corrected_dog"],
-             p["corrected_spider"], int(p["raw_brackets"]), p["raw_dog"], p["raw_spider"], p["pair_difference"]]
+             p["corrected_spider"], int(p["raw_brackets"]), p["raw_dog"], p["raw_spider"], p["candidate_pair_difference"]]
             for p in sorted(pairs, key=lambda p: (-p["corrected_brackets"], p["key"]))]
     table = tabulate(rows, headers=["pair", "bracket↑", "dog<0", "spider>0", "raw bracket↑", "raw dog", "raw spider", "gap↑"], tablefmt="pipe", floatfmt=".4f")
-    logger.info("## Result\n\nCorrected brackets: {}/8; raw: {}/8; ordered: {}/8. Required:8/8 corrected brackets.\n\n{}\n\nOne corrected candidate and unchanged raw control; earlier positions are diagnostic only.\n\nTime: {:.2f}s; peak allocated VRAM: {}GiB. Raw states/embeddings: states.pt; shared coordinate: coordinate.pt; full prompts: samples.jsonl; metrics: result.json.\n\n{}",
-                results["corrected_brackets"], results["raw_brackets"], results["ordered_pairs"], table,
-                results["elapsed_seconds"], results["peak_allocated_gib"], (out / "run.md").relative_to(ROOT))
+    logger.info("## Result\n\nCandidate brackets: {}/8; raw: {}/8; candidate ordered: {}/8. Required:8/8 candidate brackets.\n\n{}\n\nOne corrected candidate and unchanged raw control; earlier positions are diagnostic only.\n\nTime: {:.2f}s; peak allocated VRAM: {}GiB. Raw states/embeddings: states.pt; raw coordinate: coordinate.pt; candidate coordinate: {}; full prompts: samples.jsonl; metrics: result.json.\n\n{}",
+                results["corrected_brackets"], results["raw_brackets"], results["candidate_ordered_pairs"], table,
+                results["elapsed_seconds"], results["peak_allocated_gib"], results["candidate_coordinate"], (out / "run.md").relative_to(ROOT))
+    return results
 
 
 
@@ -313,7 +372,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
          erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None,
          replay_readout_run: Path | None = None, donor_reflection=False,
-         validate_donor_coordinates_json: Path | None = None):
+         validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
+         reflection_coordinate_checkpoint: Path | None = None):
+    if fit_nuisance:
+        assert validate_donor_coordinates_json is not None
+    if reflection_coordinate_checkpoint is not None:
+        assert donor_reflection and reverse and block_index == 15 and prompt_positions == 1
     if donor_reflection:
         assert donor_checkpoint is not None and donor_norm is None and not equal_donor_norm and decode_scale == 1.0
     torch.set_grad_enabled(False)
@@ -338,7 +402,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                                                 local_files_only=True).cuda().eval()
     model.generation_config.to_json_file(out / "generation_defaults.json")
     if validate_donor_coordinates_json is not None:
-        validate_donor_coordinates(model, tok, validate_donor_coordinates_json, out)
+        fitted = fit_nuisance_from_run(json.loads(validate_donor_coordinates_json.read_text()), out) if fit_nuisance else None
+        validation = validate_donor_coordinates(model, tok, validate_donor_coordinates_json, out, fitted)
+        if fitted is not None:
+            fitted["validation"] = {"passed": validation["candidate_passes_prerequisite"], "n_pairs": 8,
+                                    "run": str(out), "result_sha256": hashlib.sha256((out / "result.json").read_bytes()).hexdigest(),
+                                    "config_sha256": hashlib.sha256(validate_donor_coordinates_json.read_bytes()).hexdigest()}
+            torch.save(fitted, out / "projection.pt")
+            return out
         return
     if prepare_donors_json is not None:
         prepare_donors(model, tok, block_index, prepare_donors_json, out)
@@ -673,6 +744,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             target_margin = (donor["means"][target_name].cuda() - donor_center) @ donor_direction
             assert abs(float(source_margin) + native_donor_norm / 2) < 1e-5
             assert abs(float(target_margin) - native_donor_norm / 2) < 1e-5
+        raw_donor_center, raw_donor_direction = donor_center, donor_direction
+        reflection_mode = "conditional donor reflection"
+        if reflection_coordinate_checkpoint is not None:
+            fitted = torch.load(reflection_coordinate_checkpoint, weights_only=True, map_location="cpu")
+            assert fitted["validation"]["passed"] and fitted["validation"]["n_pairs"] == 8
+            assert fitted["provenance"]["model_revision"] == q.REVISION and fitted["provenance"]["block_index"] == block
+            assert (fitted["provenance"]["source_concept"], fitted["provenance"]["target_concept"]) == ("dog", "spider")
+            donor_center, donor_direction = fitted["center"].cuda(), fitted["direction"].cuda()
+            assert abs(float(donor_direction.norm()) - 1) < 1e-6
+            reflection_mode = "context-projected donor reflection"
         if donor_norm is not None:
             assert donor_norm > 0
             full_delta = full_delta * (donor_norm / full_delta.norm())
@@ -692,6 +773,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         donor_info = {"checkpoint": str(donor_checkpoint), "conditional_reflection": donor_reflection, "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
                       "provenance": donor["provenance"], "native_donor_norm": native_donor_norm, "requested_donor_norm": donor_norm,
                       "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
+        if reflection_coordinate_checkpoint is not None:
+            donor_info["coordinate"] = {"checkpoint": str(reflection_coordinate_checkpoint),
+                                        "sha256": hashlib.sha256(reflection_coordinate_checkpoint.read_bytes()).hexdigest(),
+                                        "provenance": fitted["provenance"], "validation": fitted["validation"]}
         (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
         logger.info(f"Offline donor delta norms: {donor_info['delta_norms']}")
     prompt_pair, answer_pair = RELATIONS[relation]
@@ -706,8 +791,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
     if donor_reflection:
-        modes = ("Base", "conditional donor reflection", "full donor contrast", "matched-random reflection control")
+        modes = ("Base", reflection_mode, "full donor contrast", "matched-random reflection control")
+        if reflection_coordinate_checkpoint is not None:
+            modes = ("Base", "raw donor reflection", reflection_mode, "full donor contrast", "matched-random reflection control")
     for mode in modes:
+        if donor_reflection:
+            active_center, active_direction = ((raw_donor_center, raw_donor_direction) if mode == "raw donor reflection"
+                                               else (donor_center, donor_direction))
         calls, readings = [], []
         rng = torch.Generator(device="cuda").manual_seed(0)
 
@@ -717,8 +807,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
-            elif mode in ("conditional donor reflection", "matched-random reflection control"):
-                edited = reflect_donor_side(selected, donor_center, donor_direction)
+            elif donor_reflection and mode in (reflection_mode, "raw donor reflection", "matched-random reflection control"):
+                edited = reflect_donor_side(selected, active_center, active_direction)
                 if mode == "matched-random reflection control":
                     edited = selected + (edited - selected).norm(dim=-1, keepdim=True) * reflection_noise
             elif donor_checkpoint is not None:
@@ -743,10 +833,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                           "edit_basis_coordinates_before": (selected[0, -1] @ inverse_j.T).tolist(),
                           "edit_basis_coordinates_after": (changed[0, -1].float() @ inverse_j.T).tolist()})
             if donor_reflection:
-                margin = (selected - donor_center) @ donor_direction
-                requested_margin = (edited - donor_center) @ donor_direction
-                realized_margin = (changed[:, start:].float() - donor_center) @ donor_direction
-                if mode == "conditional donor reflection":
+                margin = (selected - active_center) @ active_direction
+                requested_margin = (edited - active_center) @ active_direction
+                realized_margin = (changed[:, start:].float() - active_center) @ active_direction
+                if mode in (reflection_mode, "raw donor reflection"):
                     assert torch.allclose(requested_margin, margin.abs(), atol=1e-5, rtol=1e-5)
                 calls[-1].update(donor_margin_before=margin.flatten().tolist(),
                                  donor_margin_requested=requested_margin.flatten().tolist(),
@@ -785,6 +875,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "selected_prompt_token_ids": ids[0, prompt_start:].tolist(),
                             "selected_prompt_tokens": [vocab[t] for t in ids[0, prompt_start:].tolist()],
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
+                            "coordinate_kind": ("raw" if mode == "raw donor reflection" or reflection_coordinate_checkpoint is None else "context projection") if donor_reflection else None,
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
                             "expected_answer": expected_base if mode == "Base" else expected_target if not mode.startswith("matched-random") else "control",
@@ -800,7 +891,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
 
     if donor_reflection:
-        reflected_norm = conditions["conditional donor reflection"]["coverage"][0]["requested_delta_norm"]
+        reflected_norm = conditions[reflection_mode]["coverage"][0]["requested_delta_norm"]
         random_norm = conditions["matched-random reflection control"]["coverage"][0]["requested_delta_norm"]
         assert all(abs(a - b) < 1e-5 * (1 + a) for a, b in zip(reflected_norm, random_norm, strict=True))
         target_prompt = prompt_pair[0] if reverse else prompt_pair[1]
@@ -838,8 +929,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "and can be zero on the target side. Natural full-donor addition is not norm matched. Random uses one seed0 direction "
                             "with the proposed reflection norm from its own current state; later gates/doses are not trajectory matched. "
                             "The clean-target diagnostic runs after this experiment's conditions and never controls editing. ")
+    if reflection_coordinate_checkpoint is not None:
+        edit_description = ("Context-projected reflection: remove the top7 centered generic pair-mean directions from the old donor axis; "
+                            "center on the mean of those generic pair means. Fit used the observed2627 generic data, then passed8/8 new generic pairs. "
+                            "Training midpoint invariance is constructed, not validation. Apply h'=h-2*min((h-c)@u,0)*u continuously. "
+                            "Raw reflection and natural addition are separate controls. Random uses the candidate's proposed norm on its own state; "
+                            "later doses are not trajectory matched. No embedding subtraction, current-question preparation, dose or rank adjustment. "
+                            f"Coordinate checkpoint: {reflection_coordinate_checkpoint}. ")
     steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
-    md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
+    md = (f"---\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
           f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
@@ -879,12 +977,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
-                       f"donor_checkpoint: {donor_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"donor_checkpoint: {donor_checkpoint}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
     (out / "run.md").write_text(md)
     print(read_table, table, f"run.md: {out / 'run.md'}", sep="\n\n")
+    return out
 
 
 if __name__ == "__main__":
@@ -903,7 +1002,9 @@ if __name__ == "__main__":
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
-    parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Compare raw and embedding-subtracted donor coordinates on frozen generic prefills; no generation or intervention.")
+    parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Validate donor coordinates on frozen generic prefills; no generation or intervention.")
+    parser.add_argument("--fit-nuisance", action="store_true", help="Fit the frozen top7 context projection from saved generic states before new-context validation.")
+    parser.add_argument("--reflection-coordinate-checkpoint", type=Path, help="Use a validated offline context-projected coordinate for reverse donor reflection.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
     parser.add_argument("--donor-reflection", action="store_true", help="One-way full-strength fold of the local donor coordinate; raw means, adaptive own-state random control.")
