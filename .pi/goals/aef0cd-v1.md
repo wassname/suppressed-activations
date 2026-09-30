@@ -148,6 +148,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2650 queued from immutable96bd601 main/launcher/v4 snapshots on default, behind existing2646/2649 work; no reprioritisation. One cached32-step J24 matching-pursuit test, equal-cardinality dot/plain controls and fixed early/pre-clue diagnostics; zero new forwards/generations, TERM300s+15s grace. Final CPU chain25s passed seeds0/1,42 tiny baseline rows per seed, actual positive/leak/tie/empty scorer fixtures and sourceSHAa7e7da2d. Fresh reviewer78b61f78 found no blocker but flagged positive-scorer coverage and extreme-state norms; both addressed and rerun. Float32 norm underflow/overflow reproduced, float64 normalization tested. Same-family review; launcher only parent syntax/config checked. Full-size168-row parity/semantics remain pending. Native followerproc_460e. Preregistration slop/audits/2026-10-01_pursuit-preregistration.md. Neither goal completed; v5 unrun.
 
+- PI/OpenAI:2650 failed34.718s before scoring: full float64 dictionary norm requested4.74GiB with3.72GiB free. No scientific result. Audit slop/audits/2026-10-01_job2650.md. Repair9d5c22d normalizes4096 rows per batch with identical formula/precision; CPU8197-row dense parity and full-main/scorer checks pass seeds0/1 (36s). Fresh reviewer8200c458 found no static blocker; actual GPU capacity still untested. Retry2653 queued on default with unchanged launcher/data/method/deadline; mainSHA28ee6d7b, native followerproc_d021. No goals completed or old scientific gates relaxed.
+
 ## Interview
 
 ### 2026-09-30 07:42
