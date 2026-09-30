@@ -106,6 +106,39 @@ def fit_forecast(model, tok, block, corpus_path, out):
     return transform, bias, metrics
 
 
+def prepare_donors(model, tok, block, config_path, out):
+    config = json.loads(config_path.read_text())
+    assert config["block_index"] == block
+    assert config["concepts"] == ["spider", "dog"]
+    means, samples = {}, []
+    for concept in config["concepts"]:
+        states = []
+        for template in config["templates"]:
+            prompt = template.format(concept=concept)
+            ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
+            res, _ = trajectory(model, ids, model.model.norm)
+            h = res[block + 1][-1].float()
+            states.append(h)
+            samples.append({"concept": concept, "input_repr": repr(prompt), "token_ids": ids[0].tolist(),
+                            "residual_norm": float(h.norm())})
+        means[concept] = torch.stack(states).mean(0).cpu()
+    difference_norm = float((means["dog"] - means["spider"]).norm())
+    assert difference_norm > 0
+    provenance = {"model": q.MODEL, "model_revision": q.REVISION, "block_index": block, "config": config,
+                  "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(), "samples": samples,
+                  "difference_norm": difference_norm}
+    torch.save({"means": means, "provenance": provenance}, out / "donors.pt")
+    (out / "donors.json").write_text(json.dumps(provenance, indent=1))
+    report = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nblock_index: {block}\nn_prompts: {len(samples)}\n---\n"
+              "# Offline donor calibration\n\nWritten by PI/OpenAI.\n\n"
+              "Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.\n\n"
+              f"SHOULD: means differ. Observed difference norm={difference_norm:.6f}. This does not establish useful steering.\n\n"
+              + tabulate([[s["concept"], s["input_repr"], s["residual_norm"]] for s in samples], headers=["concept", "input repr", "residual norm"], tablefmt="pipe")
+              + f"\n\nCheckpoint: {out / 'donors.pt'}\nrun.md: {out / 'run.md'}\n")
+    (out / "run.md").write_text(report)
+    print(report)
+
+
 def translation_cases(per_pair, label_ids):
     tables = {lang: s4.load_lang(lang) for lang in s4.LANGS}
     cases, skipped = [], []
@@ -136,7 +169,8 @@ def translation_cases(per_pair, label_ids):
 
 def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
-         end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0):
+         end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
+         prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -147,6 +181,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     tok = AutoTokenizer.from_pretrained(q.MODEL, revision=q.REVISION, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
+    if prepare_donors_json is not None:
+        prepare_donors(model, tok, block_index, prepare_donors_json, out)
+        return
     path = hf_hub_download("neuronpedia/jacobian-lens", filename=LENS_FILE, revision=LENS_REVISION,
                            local_files_only=True)
     assert hashlib.file_digest(open(path, "rb"), "sha256").hexdigest() == LENS_SHA
@@ -187,7 +224,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
 
     assert not (cases_json is not None and translation_per_pair)
     uses_dataset = cases_json is not None or translation_per_pair > 0
-    if uses_dataset:
+    if donor_checkpoint is not None:
+        assert not (uses_dataset or forecasting or end_pass_readout)
+        cases, concepts, answers = [], [], []
+        selection = "Previously selected spider/dog pair; generic offline donor templates frozen before extraction. No standalone readout benchmark in this intervention run."
+    elif uses_dataset:
         dataset = translation_cases(translation_per_pair, label_ids) if translation_per_pair else json.loads(cases_json.read_text())
         cases = [{**c, "prompt": dataset["prefix"] + c["prompt"]} for c in dataset["cases"]]
         concepts, answers = [c["concept"] for c in cases], [c["answer"] for c in cases]
@@ -352,6 +393,23 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     vectors_plain = raw_vectors_plain if swap_logits else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
     swap = swap_lens_scores if swap_logits else swap_coordinates
     inverse_j, inverse_plain = torch.linalg.pinv(vectors_j), torch.linalg.pinv(vectors_plain)
+    donor_deltas = {}
+    if donor_checkpoint is not None:
+        donor = torch.load(donor_checkpoint, weights_only=True)
+        assert donor["provenance"]["model_revision"] == q.REVISION
+        assert donor["provenance"]["block_index"] == block
+        full_delta = (donor["means"]["spider"] - donor["means"]["dog"]).cuda()
+        full_delta = full_delta if reverse else -full_delta
+        projected_delta = full_delta @ inverse_j.T @ vectors_j.T
+        assert full_delta.norm() > 0
+        noise = torch.randn(full_delta.shape, device="cuda", generator=torch.Generator(device="cuda").manual_seed(0))
+        donor_deltas = {"J-projected donor contrast": projected_delta, "full donor contrast": full_delta,
+                        "norm-matched full donor contrast": full_delta * (projected_delta.norm() / full_delta.norm()),
+                        "matched-random delta": noise * (projected_delta.norm() / noise.norm())}
+        donor_info = {"checkpoint": str(donor_checkpoint), "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
+                      "provenance": donor["provenance"], "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
+        (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
+        logger.info(f"Offline donor delta norms: {donor_info['delta_norms']}")
     source_prompt = DOG if reverse else SPIDER
     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
     ids = tok(source_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
@@ -362,7 +420,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     expected_base, expected_target = ("4", "8") if reverse else ("8", "4")
     prompt_start = 0 if all_prompt_positions else -3
     conditions = {}
-    for mode in ("Base", "J-lens swap", "plain-lens swap", "matched-random delta"):
+    modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
+    for mode in modes:
         calls, readings = [], []
         rng = torch.Generator(device="cuda").manual_seed(0)
 
@@ -372,6 +431,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
+            elif donor_checkpoint is not None:
+                edited = selected + donor_deltas[mode]
             elif mode == "plain-lens swap":
                 edited = swap(selected, vectors_plain, inverse_plain)
             else:
@@ -425,19 +486,26 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     table = tabulate([[m, r["swap_log_odds_shift"], r["p4"], r["p8"], r["bare_answer_mass"], r["r2"]]
                       for m, r in conditions.items()], headers=["condition", "swap_log_odds_shift", "p4", "p8", "bare_answer_mass", "r2"], tablefmt="pipe")
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
-                          headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe")
+                          headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe") if readouts else "No standalone readout benchmark in this intervention run."
+    edit_description = ("Offline donor contrast: delta=mean(target)-mean(source), with strength1 in raw residual units. "
+                        "J projection is delta @ pinv(V).T @ V.T. Full contrast and norm-matched full contrast are separate controls. "
+                        "Random uses one fixed seed0 direction at the same absolute norm as the projection, reused at every edited position. "
+                        "Only the saved generic donor checkpoint is used; no preliminary pass on the current input. "
+                        if donor_checkpoint is not None else
+                        f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
+                        "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
+                        "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
           f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
-          "# Same-pass J-lens pilot\n\nWritten by PI/OpenAI.\n\n"
+          f"donor_checkpoint: {donor_checkpoint}\n\n"
+          "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
           "The observer never controls the edit; it returns no activation replacement. "
           f"Expected answer movement is {expected_base} to {expected_target}. Positive swap_log_odds_shift always favours 4 over 8; reverse success has a negative shift. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
-          f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}, prompt slice {prompt_start}: plus every decode step. "
-          f"Concept token strings: {concept_tokens!r}. No source/donor activation extraction. Reference coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
-          "Raw-score variant instead uses h + pinv(V).T(swap(V.T h) - V.T h). This swaps two unnormalised lens numerators, not guaranteed semantic features; final RMS normalisation can rescale both.\n\n"
-          "Selection: four previously answer-correct English cases, four fixed new simple English prompts, and the previously chosen spider/dog example. "
+          f"{edit_description} Prompt slice {prompt_start}: plus every decode step. Concept token strings: {concept_tokens!r}.\n\n"
+          f"Selection: {selection} Previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
           f"SHOULD: J-lens recovers hidden words better than the same-layer plain lens. The swap should change {expected_base} toward {expected_target} "
@@ -455,7 +523,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
-                       f"expected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"donor_checkpoint: {donor_checkpoint}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\nr2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
@@ -477,4 +545,6 @@ if __name__ == "__main__":
     parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
+    parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
+    parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     main(**vars(parser.parse_args()))
