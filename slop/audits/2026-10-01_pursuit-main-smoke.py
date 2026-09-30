@@ -3,12 +3,16 @@ import hashlib
 import json
 from pathlib import Path
 import runpy
+import sys
 import tempfile
 from types import SimpleNamespace
 
 import torch
 from transformers import AutoTokenizer, Qwen3_5TextConfig, Qwen3_5ForCausalLM
 
+gradient = '--gradient-pursuit' in sys.argv
+prefix_name = 'gradient ' if gradient else ''
+artifact_name = 'gradient_pursuit' if gradient else 'pursuit'
 torch.set_num_threads(1)
 torch.set_grad_enabled(False)
 root=Path(__file__).resolve().parents[2]
@@ -61,32 +65,40 @@ for seed in (0,1):
         before_weight=model.lm_head.weight.clone();before_norm=model.model.norm.weight.clone()
         try:
             out=g['main'](cases_json=config_path,end_pass_readout=True,output_mask_max_n=1,
-                erase_output=True,erase_strength=.5,matching_pursuit=True,replay_readout_run=cache)
+                erase_output=True,erase_strength=.5,matching_pursuit=True,gradient_pursuit=gradient,replay_readout_run=cache)
             g['ROOT']=tmp/'baseline'
             baseline=g['main'](cases_json=config_path,end_pass_readout=True,output_mask_max_n=1,
-                erase_output=True,erase_strength=.5,replay_readout_run=cache)
+                erase_output=True,erase_strength=.5,matching_pursuit=gradient,replay_readout_run=cache)
         finally:
             torch.Tensor.cuda=original_cuda;g['q'].prompt_word_mask=original_mask
-        rows=json.loads((out/'readout.json').read_text());components=json.loads((out/'pursuit_records.json').read_text())
-        diagnostics=json.loads((out/'pursuit_diagnostics.json').read_text())
-        assert len(rows)==72 and len(components)==6 and len(diagnostics)==4
-        assert len(list((out/'pursuit_tensors').glob('*.pt')))==6
-        assert [r for r in rows if 'return_limit' not in r] == json.loads((baseline/'readout.json').read_text())
+        rows=json.loads((out/'readout.json').read_text());components=json.loads((out/f'{artifact_name}_records.json').read_text())
+        diagnostics=json.loads((out/f'{artifact_name}_diagnostics.json').read_text())
+        assert len(rows)==(96 if gradient else 72) and len(components)==6 and len(diagnostics)==4
+        assert len(list((out/f'{artifact_name}_tensors').glob('*.pt')))==6
+        baseline_rows=json.loads((baseline/'readout.json').read_text())
+        by_key={(r['case_index'],r['method']):r for r in rows}
+        assert len(baseline_rows)==(72 if gradient else 42)
+        assert all(by_key[r['case_index'],r['method']]==r for r in baseline_rows)
         assert torch.equal(model.lm_head.weight,before_weight) and torch.equal(model.model.norm.weight,before_norm)
         for r in components:
             case_rows={x['method']:x for x in rows if x['case_index']==r['case_index']}
             for variant in ('pursuit','raw-dot matched','unit-dot matched'):
-                scored=case_rows[f"end-pass {variant} {r['representation']}"]
+                scored=case_rows[f"end-pass {prefix_name}{variant} {r['representation']}"]
                 assert scored['returned_cardinality']==r['postmask_cardinality']
                 assert len(scored['selected_ids'])==scored['return_limit']
             assert r['reconstruction_max_error'] < 1e-4
-            saved=torch.load(out/'pursuit_tensors'/f"{r['case_index']:03d}-{r['representation']}.pt",weights_only=True)
+            saved=torch.load(out/f'{artifact_name}_tensors'/f"{r['case_index']:03d}-{r['representation']}.pt",weights_only=True)
             sparse=saved['scores']['pursuit']
             assert torch.isfinite(sparse).nonzero().numel()==r['postmask_cardinality']
             for variant,key in (('pursuit','pursuit'),('raw-dot matched','raw-dot full32'),('unit-dot matched','unit-dot full32')):
                 n=r['postmask_cardinality']
                 expected=saved['scores'][key].argsort(descending=True,stable=True)[:n].tolist()
-                assert case_rows[f"end-pass {variant} {r['representation']}"]['selected_ids']==expected
+                assert case_rows[f"end-pass {prefix_name}{variant} {r['representation']}"]['selected_ids']==expected
+            if gradient:
+                cap=case_rows[f"end-pass gradient-budget matching pursuit {r['representation']}"]
+                old=case_rows[f"end-pass pursuit {r['representation']}"]
+                assert cap['selected_ids']==old['selected_ids'][:r['postmask_cardinality']]
+                assert len(r['updates'])==len(r['steps_selected_ids'])<=32
         for r in diagnostics:
             assert r['clue'] not in r['consumed_prefix']
             assert r['position'] < len(spans[r['case_index']]['input_ids'])-1
@@ -102,5 +114,5 @@ for seed in (0,1):
                 assert 'must not call the transformer' in str(error)
             else:
                 raise AssertionError('main failed to install replay guard')
-    print(f'PASS seed{seed}: full main, real tiny BF16 Qwen prefills/decode cache, both prefixes,36 methods x2 cases, same-cardinality controls, diagnostics,42 baseline rows exact, unchanged parameters/IDs/states, no scoring forwards',flush=True)
+    print(f'PASS seed{seed}: gradient={gradient}, full main, real tiny BF16 Qwen prefills/decode cache, both prefixes,{len(rows)} rows, same-cardinality controls, diagnostics,{len(baseline_rows)} baseline rows exact, unchanged parameters/IDs/states, no scoring forwards',flush=True)
 print('PASS CPU full-main smoke only; production 4B pursuit and prior168-row parity still pending',flush=True)

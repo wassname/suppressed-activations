@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import math
 import random
 import re
 import sys
@@ -122,9 +123,69 @@ def nonnegative_matching_pursuit(state, atoms, eligible, steps=32):
                                     "residual_norms": residual_norms, "original_state_norm": residual_norms[0]}
 
 
-def pursuit_readout_scores(state, dictionary, mask):
+def nonnegative_gradient_pursuit(state, atoms, eligible, steps=32):
+    """One feasible active-coefficient update per support expansion. — PI/OpenAI"""
+    assert state.ndim == 1 and atoms.ndim == 2 and atoms.shape[1] == state.numel()
+    assert eligible.shape == atoms.shape[:1] and eligible.dtype == torch.bool and steps > 0
+    assert torch.isfinite(state).all()
+    residual = state.float().clone()
+    coefficients = torch.zeros(atoms.shape[0], device=atoms.device)
+    support = torch.zeros_like(eligible)
+    original_norm = float(torch.linalg.vector_norm(residual, dtype=torch.float64))
+    energy_tolerance = 32 * torch.finfo(coefficients.dtype).eps * max(1., original_norm ** 2)
+    residual_norms, selections, updates = [original_norm], [], []
+    stop_reason = "iteration limit"
+    for _ in range(steps):
+        gradient = atoms @ residual
+        assert torch.isfinite(gradient).all()
+        available = gradient.masked_fill(~eligible | support, -torch.inf)
+        candidate = int(available.argmax())
+        added = candidate if available[candidate] > 0 else None
+        if added is not None:
+            support[added] = True
+        ids = support.nonzero().flatten()
+        before = coefficients[ids].clone()
+        direction = gradient[ids].clone()
+        direction[(before == 0) & (direction < 0)] = 0
+        if not bool((direction != 0).any()):
+            stop_reason = "zero feasible gradient"
+            break
+        projected_direction = direction @ atoms[ids]
+        numerator = float(residual.double() @ projected_direction.double())
+        denominator = float(projected_direction.double().square().sum())
+        assert math.isfinite(numerator) and math.isfinite(denominator) and numerator > 0 and denominator > 0
+        limits = torch.full_like(before, torch.inf, dtype=torch.float64)
+        negative = direction < 0
+        limits[negative] = -before[negative].double() / direction[negative].double()
+        bound = float(limits.min())
+        step_size = min(numerator / denominator, bound)
+        assert math.isfinite(step_size) and step_size > 0
+        after = before + step_size * direction
+        tolerance = 32 * torch.finfo(after.dtype).eps * max(1., float(before.abs().max()), float(after.abs().max()))
+        assert torch.isfinite(after).all() and bool((after >= -tolerance).all())
+        after[limits == step_size] = 0
+        after = after.clamp_min(0)
+        coefficients[ids] = after
+        residual = state.float() - after @ atoms[ids]
+        residual_norm = float(torch.linalg.vector_norm(residual, dtype=torch.float64))
+        assert math.isfinite(residual_norm) and residual_norm ** 2 <= residual_norms[-1] ** 2 + energy_tolerance
+        selections.append(added)
+        updates.append({"added_id": added, "support_ids": ids.tolist(), "before": before.tolist(),
+                        "direction": direction.tolist(), "step_size": step_size,
+                        "max_feasible_step": bound if math.isfinite(bound) else None,
+                        "after": after.tolist(), "coefficient_tolerance": tolerance})
+        residual_norms.append(residual_norm)
+        if torch.equal(before, after):
+            stop_reason = "unchanged coefficients"
+            break
+    return coefficients, residual, {"selected_ids": selections, "updates": updates,
+        "residual_norms": residual_norms, "original_state_norm": original_norm,
+        "stop_reason": stop_reason, "energy_tolerance": energy_tolerance}
+
+
+def pursuit_readout_scores(state, dictionary, mask, solver=nonnegative_matching_pursuit):
     atoms, norms, eligible = dictionary
-    coefficients, residual, trace = nonnegative_matching_pursuit(state, atoms, eligible)
+    coefficients, residual, trace = solver(state, atoms, eligible)
     active = coefficients > 0
     normalized = coefficients[active].double() / trace["original_state_norm"]
     assert torch.isfinite(normalized).all() and (normalized > 0).all()
@@ -574,7 +635,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          replay_readout_run: Path | None = None, donor_reflection=False,
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
          reflection_coordinate_checkpoint: Path | None = None, token_kl=False, pool_question=False,
-         verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False):
+         verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False, gradient_pursuit=False):
+    assert not gradient_pursuit or matching_pursuit
     country_swap = relation in ("capital", "currency")
     if country_swap:
         assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 1.0)
@@ -744,6 +806,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     pool_components, pool_masks = [], []
     polar_components, polar_masks, polar_priors = [], [], []
     pursuit_records, pursuit_diagnostics, pursuit_masks = [], [], []
+    gradient_records, gradient_diagnostics = [], []
+    pursuit_solvers = [("", nonnegative_matching_pursuit, pursuit_records, pursuit_diagnostics)]
+    if gradient_pursuit:
+        pursuit_solvers.append(("gradient ", nonnegative_gradient_pursuit, gradient_records, gradient_diagnostics))
     if pool_question:
         captured_states, captured_generations, question_spans = capture_question_prefills(
             model, tok, [c["prompt"] for c in cases], dataset["prefix"], read_block, special_ids, verify_readout_run, out)
@@ -884,16 +950,24 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                 pursuit_masks.append({"case_index": case_index, "prompt_mask_ids": mask.nonzero().flatten().tolist(),
                                       "output_mask_ids": output_mask.nonzero().flatten().tolist()})
                 for representation, state in (("J24", h[-1]), ("plain24", h[-1]), ("plain27", res[27][-1])):
-                    values, limits, record, residual = pursuit_readout_scores(state, dictionaries[representation], mask | output_mask)
-                    for variant, value in values.items():
-                        name = f"end-pass {variant} {representation}"
-                        scores[name], pursuit_limits[name] = value, limits[variant]
-                    pursuit_records.append({"case_index": case_index, "representation": representation, **record,
-                        "active_tokens": [vocab[t] for t in record["active_ids"]],
-                        "selected_tokens": [vocab[t] for t in record["selected_ids"]]})
-                    (out / "pursuit_tensors").mkdir(exist_ok=True)
-                    torch.save({"scores": {n: values[n].cpu() for n in ("pursuit", "raw-dot full32", "unit-dot full32")}, "residual": residual.cpu()},
-                               out / "pursuit_tensors" / f"{case_index:03d}-{representation}.pt")
+                    for prefix_name, solver, records, _ in pursuit_solvers:
+                        values, limits, record, residual = pursuit_readout_scores(state, dictionaries[representation], mask | output_mask, solver=solver)
+                        for variant, value in values.items():
+                            if prefix_name and variant.endswith("full32"):
+                                continue
+                            name = f"end-pass {prefix_name}{variant} {representation}"
+                            scores[name], pursuit_limits[name] = value, limits[variant]
+                        if prefix_name:
+                            name = f"end-pass gradient-budget matching pursuit {representation}"
+                            scores[name] = scores[f"end-pass pursuit {representation}"]
+                            pursuit_limits[name] = limits["pursuit"]
+                        records.append({"case_index": case_index, "representation": representation, **record,
+                            "active_tokens": [vocab[t] for t in record["active_ids"]],
+                            "selected_tokens": [vocab[t] for t in record["selected_ids"]]})
+                        tensor_dir = out / (prefix_name.replace(" ", "_") + "pursuit_tensors")
+                        tensor_dir.mkdir(exist_ok=True)
+                        torch.save({"scores": {n: values[n].cpu() for n in ("pursuit", "raw-dot full32", "unit-dot full32")}, "residual": residual.cpu()},
+                                   tensor_dir / f"{case_index:03d}-{representation}.pt")
                 span = position_spans[case_index]
                 pieces = [vocab[span["input_ids"][i]] for i in span["positions"][:3]]
                 assert pieces[:2] == ["Fact", ":"] and pieces[2] in (" The", " In"), pieces
@@ -903,15 +977,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     prefix_mask = q.prompt_word_mask(prefix, vocab_norm, "cuda")
                     prefix_final = readout(position_states[case_index][32][position].cuda(), False)
                     prefix_output_mask = s4.output_word_mask(prefix_final, vocab_norm, word_index, max_n=1)
-                    _, _, record, residual = pursuit_readout_scores(position_states[case_index][24][position].cuda(),
-                        j_dictionary, prefix_mask | prefix_output_mask)
-                    pursuit_diagnostics.append({"case_index": case_index, "kind": kind, "position": position,
-                        "clue": PURSUIT_CLUES[case_index], "consumed_prefix": prefix, **record,
-                        "active_tokens": [vocab[t] for t in record["active_ids"]],
-                        "selected_tokens": [vocab[t] for t in record["selected_ids"]],
-                        "prompt_mask_ids": prefix_mask.nonzero().flatten().tolist(),
-                        "output_mask_ids": prefix_output_mask.nonzero().flatten().tolist(),
-                        "residual": residual.cpu().tolist()})
+                    for _, solver, _, diagnostics in pursuit_solvers:
+                        _, _, record, residual = pursuit_readout_scores(position_states[case_index][24][position].cuda(),
+                            j_dictionary, prefix_mask | prefix_output_mask, solver=solver)
+                        diagnostics.append({"case_index": case_index, "kind": kind, "position": position,
+                            "clue": PURSUIT_CLUES[case_index], "consumed_prefix": prefix, **record,
+                            "active_tokens": [vocab[t] for t in record["active_ids"]],
+                            "selected_tokens": [vocab[t] for t in record["selected_ids"]],
+                            "prompt_mask_ids": prefix_mask.nonzero().flatten().tolist(),
+                            "output_mask_ids": prefix_output_mask.nonzero().flatten().tolist(),
+                            "residual": residual.cpu().tolist()})
             if polar_readout:
                 span = position_spans[case_index]
                 first = span["positions"][:3]
@@ -1064,6 +1139,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             (out / "pursuit_records.json").write_text(json.dumps(pursuit_records, ensure_ascii=False, indent=1))
             (out / "pursuit_diagnostics.json").write_text(json.dumps(pursuit_diagnostics, ensure_ascii=False, indent=1))
             (out / "pursuit_masks.json").write_text(json.dumps(pursuit_masks, indent=1))
+        if gradient_pursuit:
+            (out / "gradient_pursuit_records.json").write_text(json.dumps(gradient_records, ensure_ascii=False, indent=1))
+            (out / "gradient_pursuit_diagnostics.json").write_text(json.dumps(gradient_diagnostics, ensure_ascii=False, indent=1))
         if polar_readout:
             (out / "polar_components.json").write_text(json.dumps(polar_components, ensure_ascii=False, indent=1))
             (out / "polar_masks.json").write_text(json.dumps(polar_masks, indent=1))
@@ -1108,7 +1186,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             description += f"Posthoc rescoring of {replay_readout_run}; no transformer forwards or new generations. See replay_source.json for hashes and mismatch ordering. "
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
-        md = (f"---\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+        if gradient_pursuit:
+            description += ("Gradient pursuit additionally revises every active coefficient with one feasible restricted-gradient step per iteration, at most32 iterations. "
+                            "Same dictionaries and post-decomposition masks; raw/unit-dot controls have matching returned cardinality. Matching pursuit is also capped at that budget without padding; its actual count may be smaller. "
+                            "Improved reconstruction is not semantic success. This specified solver is not a claimed reproduction of unpublished code. ")
+        md = (f"---\ngradient_pursuit: {str(gradient_pursuit).lower()}\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
               f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
@@ -1512,6 +1594,7 @@ if __name__ == "__main__":
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Validate donor coordinates on frozen generic prefills; no generation or intervention.")
     parser.add_argument("--matching-pursuit", action="store_true", help="Cached32-step nonnegative pursuit with same-cardinality dot controls and fixed prefix/pre-clue diagnostics.")
+    parser.add_argument("--gradient-pursuit", action="store_true", help="Add feasible active-coefficient updates and matched controls; requires --matching-pursuit.")
     parser.add_argument("--polar-readout", action="store_true", help="Cached final-position polar-factor readout with original/plain and early-prefix controls.")
     parser.add_argument("--pool-question", action="store_true", help="Pool probability excess across current-question prefill positions, with last-position and matched plain controls.")
     parser.add_argument("--verify-readout-run", type=Path, help="Require freshly captured generation IDs and last states to equal this frozen run before pooling.")
