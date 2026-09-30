@@ -5,3 +5,10 @@
 `ls` there reported "No such file" for a brief written a minute earlier, in both `.local/`
 and tracked `slop/reviews/`. The Read tool had a similar lag on `/tmp`. Workaround: run
 short jobs in foreground Bash. Not diagnosed; possibly a stale overlay/idmapped view.
+
+
+## 2026-09-30 · bounded tooling notes — PI/OpenAI
+
+Two empty `.git/index.lock` files blocked commits. The latest was over14 minutes old, had no lsof owner and no active git process; only that stale lock was removed. Creator is unknown. Machine details are in `.local/status-check/stale-index-lock-2.json`. Direct commands now set `GIT_OPTIONAL_LOCKS=0`; this does not diagnose another process's refresh behavior. Never remove an actively owned lock.
+
+The self-verify skill links `references/boundary-probing.md` and `references/pre-mortem.md`, but both reads returned ENOENT and path search found no boundary reference. I used explicit algebraic boundary tests and a failure forecast, not unavailable reference instructions. Also, today's process jobs successfully read newly written local test files; the older file-visibility complaint above is not a general present limitation.
