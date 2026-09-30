@@ -38,16 +38,6 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def swap_lens_scores(h, vectors, inverse):
-    scores = h.float() @ vectors
-    return h.float() + (scores.flip(-1) - scores) @ inverse
-
-
-def disjoint_labels(positive, negative):
-    shared = set(positive) & set(negative)
-    return sorted(set(positive) - shared), sorted(set(negative) - shared), sorted(shared)
-
-
 def fit_affine(X, Y):
     X_mean, Y_mean = X.mean(0), Y.mean(0)
     Xc, Yc = X - X_mean, Y - Y_mean
@@ -105,8 +95,7 @@ def fit_forecast(model, tok, block, corpus_path, out):
 
 
 def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
-         calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
-         end_pass_readout=False, swap_logits=False):
+         calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -130,7 +119,6 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     vocab = [tok.convert_tokens_to_string([t]) if t is not None else ""
              for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
     vocab_norm = [t.strip().lower() for t in vocab]
-    word_index = s4.WordIndex(vocab_norm)
 
     def readout(h, use_j=True):
         transported = h.float() @ J.T if use_j else h.float()
@@ -183,8 +171,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
-        hidden, said, ambiguous_intended = disjoint_labels(hidden, said)
-        assert hidden and said, (concept, answer, [vocab[i] for i in ambiguous_intended])
+        assert hidden and said and not set(hidden) & set(said)
         if cases_json is None:
             hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
             answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
@@ -194,16 +181,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         said_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in answer_aliases)]
         actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
         actual_said_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in actual_words)]
-        actual_hidden_ids, actual_said_ids, ambiguous_actual = disjoint_labels(hidden_alias_ids, actual_said_ids)
-        hidden_alias_ids, said_alias_ids, _ = disjoint_labels(hidden_alias_ids, said_alias_ids)
-        hidden_is_said = any(a.casefold() in actual_words for a in hidden_aliases)
+        assert actual_said_ids
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
-        if end_pass_readout:
-            final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
-            output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index)
-            for name, z in (("J-lens", scores["J-lens"]), ("plain24", scores["plain lens"]),
-                            ("plain27", readout(res[27][-1], False))):
-                scores["end-pass " + name] = z.masked_fill(output_mask, -torch.inf)
         if forecasting:
             forecast_h = rms(h[-1]) @ transform + bias
             scores["forecast"] = model.lm_head(model.model.norm(forecast_h.to(W.dtype))).float()
@@ -217,10 +196,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             hidden_token = hidden[int(z[hidden].argmax())]
             top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
             selected = set(top)
-            auc = None
-            if actual_hidden_ids and actual_said_ids and not hidden_is_said:
-                positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
-                auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
+            positives, negatives = z[hidden_alias_ids, None], z[actual_said_ids][None, :]
+            auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs,
                              "pass": bool(selected.intersection(hidden)) and not selected.intersection(said),
@@ -228,54 +205,41 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                              "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids),
                              "actual_words": actual_words, "token_pair_auroc": auc,
                              "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
-                             "actual_pass": not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(actual_said_ids),
-                             "hidden_is_said": hidden_is_said,
-                             "ambiguous_intended_tokens": [vocab[t] for t in ambiguous_intended],
-                             "ambiguous_actual_tokens": [vocab[t] for t in ambiguous_actual],
+                             "actual_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(actual_said_ids),
                              "actual_said_hits": [vocab[t] for t in top if t in actual_said_ids],
                              "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
-                             "hidden_excluded_variants": [vocab[t] for t in hidden_alias_ids if not torch.isfinite(z[t])],
                              "top32": [vocab[t] for t in top]})
-        (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
-        logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}")
-    if forecasting or end_pass_readout:
-        description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
-                       "Reuse the approved top_p=0.9, max_n=20 mask from script04. Readout finishes at residual32; this information cannot guide an earlier edit. No forecast is fitted or used. "
-                       if end_pass_readout else
-                       "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. "
-                       "Current-input readout receives residual24 only. Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. ")
+    (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+    if forecasting:
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nend_pass_readout: {str(end_pass_readout).lower()}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
-              "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
-              f"{description}"
+              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              "# Offline output forecast and same-layer contrast\n\nWritten by PI/OpenAI.\n\n"
+              "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. Current-input readout receives residual24 only. "
+              "Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. "
               f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
-              "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
-              "Token-pair AUROC compares unambiguous hidden and said token variants, with half credit for ties; it is undefined when the hidden concept is said or a class is empty. It is not top32 recovery. "
+              "Token-pair AUROC compares all hidden-alias token variants against all actual-said word token variants within a prompt, with half credit for ties. It is not top32 recovery. "
               "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
-              f"SHOULD: {'end-pass masking improves joint recovery over unmasked readouts; compare J with equally masked plain lenses.' if end_pass_readout else 'forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, forecast error alone cannot explain it.'}\n\n"
-              f"Calibration: {calibration_metrics if forecasting else 'not used'}\n\n{table}\n\n")
+              "SHOULD: forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, output forecast error alone cannot explain that failure.\n\n"
+              f"Calibration: {calibration_metrics}\n\n{table}\n\n")
         for r in readouts:
             md += f"Input: {r['prompt']!r}\n\nBaseline: {r['baseline_generation']!r}\n\n{r['method']}: {r['top32']}\n\n"
         summaries = []
         for name in dict.fromkeys(r["method"] for r in readouts):
             rows = [r for r in readouts if r["method"] == name]
             correct = [r for r in rows if r["intended_answer_observed"]]
-            aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
             summaries.append({"method": name, "joint_pass": sum(r["actual_pass"] for r in rows), "n": len(rows),
-                              "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
+                              "mean_token_pair_auroc": sum(r["token_pair_auroc"] for r in rows) / len(rows),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
         summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
-        for category in ("current", "end-pass", "oracle"):
-            group = sorted([r for r in summaries if ("oracle" if "oracle" in r["method"] else "end-pass" if r["method"].startswith("end-pass") else "current") == category], key=lambda r: r["joint_pass"], reverse=True)
-            if not group:
-                continue
-            summary_md += {"current": "### Current-layer methods\n\n", "end-pass": "### End-of-pass readout (not for earlier edits)\n\n", "oracle": "### Evaluation-only future-information controls\n\n"}[category]
+        for oracle in (False, True):
+            group = sorted([r for r in summaries if ("oracle" in r["method"]) == oracle], key=lambda r: r["joint_pass"], reverse=True)
+            summary_md += ("### Evaluation-only future-information controls\n\n" if oracle else "### Current-layer methods\n\n")
             summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['joint_pass']}/{r['n']}", r["mean_token_pair_auroc"],
                                     f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}"] for r in group],
                                    headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
@@ -286,11 +250,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
     rows = W[[t[0] for t in concept_ids]].float() * gain
-    raw_vectors_j, raw_vectors_plain = (rows @ J_edit).T, rows.T
-    logger.info(f"Raw J direction norms (spider, dog): {raw_vectors_j.norm(dim=0).tolist()}")
-    vectors_j = raw_vectors_j if swap_logits else raw_vectors_j / raw_vectors_j.norm(dim=0)
-    vectors_plain = raw_vectors_plain if swap_logits else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
-    swap = swap_lens_scores if swap_logits else swap_coordinates
+    vectors_j = (rows @ J_edit).T
+    vectors_plain = rows.T
+    vectors_j = vectors_j / vectors_j.norm(dim=0)
+    vectors_plain = vectors_plain / vectors_plain.norm(dim=0)
     inverse_j, inverse_plain = torch.linalg.pinv(vectors_j), torch.linalg.pinv(vectors_plain)
     source_prompt = DOG if reverse else SPIDER
     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
@@ -313,19 +276,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             if mode == "Base":
                 edited = selected
             elif mode == "plain-lens swap":
-                edited = swap(selected, vectors_plain, inverse_plain)
+                edited = swap_coordinates(selected, vectors_plain, inverse_plain)
             else:
-                edited = swap(selected, vectors_j, inverse_j)
+                edited = swap_coordinates(selected, vectors_j, inverse_j)
                 if mode == "matched-random delta":
                     noise = torch.randn(selected.shape, device="cuda", generator=rng)
                     edited = selected + noise / noise.norm(dim=-1, keepdim=True) * (edited - selected).norm(dim=-1, keepdim=True)
             changed = h.clone()
             changed[:, start:] = edited.to(h.dtype)
             calls.append({"positions": selected.shape[1], "sequence_length": h.shape[1],
-                          "relative_delta_norm": float((edited - selected).norm() / selected.norm()),
-                          "applied_relative_delta_norm": float((changed[:, start:].float() - selected).norm() / selected.norm()),
-                          "raw_J_pair_before": (selected[0, -1] @ raw_vectors_j).tolist(),
-                          "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist()})
+                          "relative_delta_norm": float((edited - selected).norm() / selected.norm())})
             if read_block == block:
                 readings.append(top_words(changed[0, -1], mask))
             return replace_output(output, changed)
@@ -367,16 +327,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass J-lens pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
           "The observer never controls the edit; it returns no activation replacement. "
           f"Expected answer movement is {expected_base} to {expected_target}. Positive swap_log_odds_shift always favours 4 over 8; reverse success has a negative shift. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
-          f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}, prompt slice {prompt_start}: plus every decode step. "
-          "No source/donor activation extraction. Reference coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
-          "Raw-score variant instead uses h + pinv(V).T(swap(V.T h) - V.T h). This swaps two unnormalised lens numerators, not guaranteed semantic features; final RMS normalisation can rescale both.\n\n"
+          f"Intervention swaps coordinates along unit W*norm_gain*J directions, prompt slice {prompt_start}: plus every decode step. "
+          "No source/donor activation extraction. Reference equation: h + V(swap(pinv(V)h) - pinv(V)h).\n\n"
           "Selection: four previously answer-correct English cases, four fixed new simple English prompts, and the previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
@@ -394,7 +353,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
                        f"expected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\nr2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
@@ -412,6 +371,4 @@ if __name__ == "__main__":
     parser.add_argument("--calibration-json", type=Path, help="Fit a reusable output forecast on generic text, evaluate readouts only.")
     parser.add_argument("--forecast-checkpoint", type=Path, help="Reuse an offline forecast unchanged; evaluate readouts only.")
     parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
-    parser.add_argument("--end-pass-readout", action="store_true", help="Readout only: use final-layer output mask, never for an earlier intervention.")
-    parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
     main(**vars(parser.parse_args()))
