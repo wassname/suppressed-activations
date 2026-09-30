@@ -574,6 +574,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         selection = "Previously selected spider/dog pair; generic offline donor templates frozen before extraction. No standalone readout benchmark in this intervention run."
     elif uses_dataset:
         dataset = translation_cases(translation_per_pair, label_ids) if translation_per_pair else json.loads(cases_json.read_text())
+        if "required_max_new_tokens" in dataset:
+            assert dataset["required_max_new_tokens"] == 8, "This readout runner currently generates eight tokens; dataset requires a different horizon"
         cases = [{**c, "prompt": dataset["prefix"] + c["prompt"]} for c in dataset["cases"]]
         concepts, answers = [c["concept"] for c in cases], [c["answer"] for c in cases]
         selection = dataset["selection"]
