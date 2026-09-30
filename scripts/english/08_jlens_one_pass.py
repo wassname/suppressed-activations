@@ -1,4 +1,4 @@
-"""Fixed-layer J-lens readout and same-pass spider/dog coordinate swap. — PI/OpenAI"""
+"""Hidden-word readouts and same-pass spider/dog interventions. — PI/OpenAI"""
 
 from __future__ import annotations
 
@@ -52,6 +52,11 @@ def swap_coordinates(h, vectors, inverse):
 def swap_lens_scores(h, vectors, inverse):
     scores = h.float() @ vectors
     return h.float() + (scores.flip(-1) - scores) @ inverse
+
+
+def reflect_donor_side(h, center, direction):
+    margin = (h.float() - center) @ direction
+    return h.float() - 2 * margin.clamp_max(0).unsqueeze(-1) * direction
 
 
 def generate_readout(model, ids, read_block):
@@ -202,7 +207,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
          equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
          erase_strength=1.0, decode_scale=1.0, donor_norm: float | None = None,
-         replay_readout_run: Path | None = None):
+         replay_readout_run: Path | None = None, donor_reflection=False):
+    if donor_reflection:
+        assert donor_checkpoint is not None and donor_norm is None and not equal_donor_norm and decode_scale == 1.0
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -543,11 +550,19 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         full_delta = (donor["means"]["spider"] - donor["means"]["dog"]).cuda()
         full_delta = full_delta if reverse else -full_delta
         native_donor_norm = float(full_delta.norm())
+        assert native_donor_norm > 0
+        donor_direction = full_delta / full_delta.norm()
+        donor_center = ((donor["means"]["spider"] + donor["means"]["dog"]) / 2).cuda()
+        if donor_reflection:
+            source_name, target_name = ("dog", "spider") if reverse else ("spider", "dog")
+            source_margin = (donor["means"][source_name].cuda() - donor_center) @ donor_direction
+            target_margin = (donor["means"][target_name].cuda() - donor_center) @ donor_direction
+            assert abs(float(source_margin) + native_donor_norm / 2) < 1e-5
+            assert abs(float(target_margin) - native_donor_norm / 2) < 1e-5
         if donor_norm is not None:
             assert donor_norm > 0
             full_delta = full_delta * (donor_norm / full_delta.norm())
         projected_delta = full_delta @ inverse_j.T @ vectors_j.T
-        assert full_delta.norm() > 0
         noise = torch.randn(full_delta.shape, device="cuda", generator=torch.Generator(device="cuda").manual_seed(0))
         donor_deltas = {"J-projected donor contrast": projected_delta, "full donor contrast": full_delta,
                         "norm-matched full donor contrast": full_delta * (projected_delta.norm() / full_delta.norm()),
@@ -557,7 +572,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             donor_deltas = {"norm-matched J donor projection": projected_delta * (full_delta.norm() / projected_delta.norm()),
                             "full donor contrast": full_delta,
                             "matched-random delta": noise * (full_delta.norm() / noise.norm())}
-        donor_info = {"checkpoint": str(donor_checkpoint), "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
+        if donor_reflection:
+            donor_deltas = {"full donor contrast": full_delta}
+            reflection_noise = noise / noise.norm()
+        donor_info = {"checkpoint": str(donor_checkpoint), "conditional_reflection": donor_reflection, "sha256": hashlib.sha256(donor_checkpoint.read_bytes()).hexdigest(),
                       "provenance": donor["provenance"], "native_donor_norm": native_donor_norm, "requested_donor_norm": donor_norm,
                       "delta_norms": {k: float(v.norm()) for k, v in donor_deltas.items()}}
         (out / "donor_provenance.json").write_text(json.dumps(donor_info, indent=1))
@@ -573,6 +591,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     prompt_start = -prompt_positions
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
+    if donor_reflection:
+        modes = ("Base", "conditional donor reflection", "full donor contrast", "matched-random reflection control")
     for mode in modes:
         calls, readings = [], []
         rng = torch.Generator(device="cuda").manual_seed(0)
@@ -583,6 +603,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
+            elif mode in ("conditional donor reflection", "matched-random reflection control"):
+                edited = reflect_donor_side(selected, donor_center, donor_direction)
+                if mode == "matched-random reflection control":
+                    edited = selected + (edited - selected).norm(dim=-1, keepdim=True) * reflection_noise
             elif donor_checkpoint is not None:
                 edited = selected + donor_deltas[mode]
             elif mode == "plain-lens swap":
@@ -604,6 +628,18 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                           "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist(),
                           "edit_basis_coordinates_before": (selected[0, -1] @ inverse_j.T).tolist(),
                           "edit_basis_coordinates_after": (changed[0, -1].float() @ inverse_j.T).tolist()})
+            if donor_reflection:
+                margin = (selected - donor_center) @ donor_direction
+                requested_margin = (edited - donor_center) @ donor_direction
+                realized_margin = (changed[:, start:].float() - donor_center) @ donor_direction
+                if mode == "conditional donor reflection":
+                    assert torch.allclose(requested_margin, margin.abs(), atol=1e-5, rtol=1e-5)
+                calls[-1].update(donor_margin_before=margin.flatten().tolist(),
+                                 donor_margin_requested=requested_margin.flatten().tolist(),
+                                 donor_margin_after=realized_margin.flatten().tolist(),
+                                 source_side=(margin < 0).flatten().tolist(),
+                                 requested_delta_norm=(edited - selected).norm(dim=-1).flatten().tolist(),
+                                 applied_delta_norm=(changed[:, start:].float() - selected).norm(dim=-1).flatten().tolist())
             if len(calls) == 1:
                 calls[-1].update(local_jlens_before=top_words(selected[0, -1], mask, J_edit),
                                  local_jlens_after=top_words(changed[0, -1], mask, J_edit))
@@ -637,7 +673,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
-                            "expected_answer": expected_base if mode == "Base" else expected_target if mode != "matched-random delta" else "control",
+                            "expected_answer": expected_base if mode == "Base" else expected_target if not mode.startswith("matched-random") else "control",
                             "answer_0": answer_pair[0], "answer_1": answer_pair[1],
                             "p_answer0": float(lp[a0].exp()), "p_answer1": float(lp[a1].exp()),
                             "answer_log_odds_shift": float(lp[a1] - lp[a0] - base_lp[a1] + base_lp[a0]),
@@ -648,6 +684,24 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
+
+    if donor_reflection:
+        reflected_norm = conditions["conditional donor reflection"]["coverage"][0]["requested_delta_norm"]
+        random_norm = conditions["matched-random reflection control"]["coverage"][0]["requested_delta_norm"]
+        assert all(abs(a - b) < 1e-5 * (1 + a) for a, b in zip(reflected_norm, random_norm, strict=True))
+        target_prompt = prompt_pair[0] if reverse else prompt_pair[1]
+        target_ids = tok(target_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
+        target_probe = {"input_repr": repr(target_prompt), "expected_answer": expected_target,
+                        "role": "Clean target prefill after this experiment's interventions; no generation or feedback to editing"}
+        def observe_target_margin(_module, _args, output):
+            state = output[0] if isinstance(output, tuple) else output
+            target_probe["donor_margin"] = float((state[0, -1].float() - donor_center) @ donor_direction)
+        with layer_hooks(model.model.layers, {block: observe_target_margin}):
+            target_logits = model(target_ids, attention_mask=torch.ones_like(target_ids), use_cache=True).logits[0, -1].float()
+        target_lp = target_logits.log_softmax(-1)
+        target_probe.update(top10=[{"token": vocab[t], "log_p": float(target_lp[t])} for t in target_lp.topk(10).indices.tolist()],
+                            p_answer0=float(target_lp[a0].exp()), p_answer1=float(target_lp[a1].exp()))
+        (out / "clean_target_probe.json").write_text(json.dumps(target_probe, ensure_ascii=False, indent=1))
 
     table = tabulate([[m, r["answer_log_odds_shift"], r["p_answer1"], r["p_answer0"], r["answer_pair_mass"], r["r2"]]
                       for m, r in conditions.items()], headers=["condition", "answer_log_odds_shift", f"p({answer_pair[1]})", f"p({answer_pair[0]})", "answer_pair_mass", "r2"], tablefmt="pipe")
@@ -663,9 +717,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
+    if donor_reflection:
+        edit_description = ("Conditional donor reflection: u=unit(mean(target)-mean(source)), c=(mean(target)+mean(source))/2, "
+                            "a=(h-c)@u, h'=h-2*min(a,0)*u. Raw generic means; no dose rescaling or current-input preparation. "
+                            "This is a new method, not the reference sparse J-space clamp. Full-strength update is evaluated at every covered call, "
+                            "and can be zero on the target side. Natural full-donor addition is not norm matched. Random uses one seed0 direction "
+                            "with the proposed reflection norm from its own current state; later gates/doses are not trajectory matched. "
+                            "The clean-target diagnostic runs after this experiment's conditions and never controls editing. ")
     steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -675,11 +736,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} Previously chosen spider/dog example. "
-          "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
           f"SHOULD: intervention changes {expected_base} toward {expected_target} "
           "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
           f"{read_table}\n\n{table}\n")
+    if donor_reflection:
+        md += (f"\nClean source prefill donor margin: {conditions['Base']['coverage'][0]['donor_margin_before']}. "
+               f"Clean target margin: {target_probe['donor_margin']:.6f}. Expected source negative, target positive. "
+               "[Post-intervention target diagnostic](clean_target_probe.json); no recentering or dose selection.\n")
     for case in cases:
         md += f"\nReadout input: {case['prompt']!r}\n\nBaseline continuation (up to 8 tokens): {case['said_text']!r}\n"
     for mode, r in conditions.items():
@@ -690,10 +754,18 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         section += tabulate([[x['token'], x['log_p'], x['p'], x['delta_log_p']] for x in r['top10']],
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
+        if donor_reflection:
+            source_calls = sum(any(c['source_side']) for c in r['coverage'])
+            updated_calls = sum(any(v > 0 for v in c['applied_delta_norm']) for c in r['coverage'])
+            requested_sum = sum(sum(c['requested_delta_norm']) for c in r['coverage'])
+            applied_sum = sum(sum(c['applied_delta_norm']) for c in r['coverage'])
+            section += (f"\nSource-side calls: {source_calls}; calls with nonzero applied updates: {updated_calls}. "
+                        f"Sum of requested/applied delta norms: {requested_sum:.6f}/{applied_sum:.6f}. "
+                        "Per-call margins and doses are in interventions.json.\n")
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
-                       f"donor_checkpoint: {donor_checkpoint}\ndonor_norm: {donor_norm}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
+                       f"donor_checkpoint: {donor_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
         md += f"\n[{mode}]({condition_dir.name}/run.md)\n\n" + section
@@ -719,6 +791,7 @@ if __name__ == "__main__":
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
+    parser.add_argument("--donor-reflection", action="store_true", help="One-way full-strength fold of the local donor coordinate; raw means, adaptive own-state random control.")
     parser.add_argument("--donor-norm", type=float, help="Rescale donor contrast to this norm before building matched controls; default retains its natural norm.")
     parser.add_argument("--decode-scale", type=float, default=1.0, help="Multiply intervention deltas during cached decode only; prefill remains unchanged.")
     parser.add_argument("--erase-strength", type=float, default=1.0, help="Requested output-erasure fraction, compared with full erasure on the same captured states.")
