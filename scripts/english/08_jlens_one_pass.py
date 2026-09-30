@@ -194,7 +194,7 @@ def translation_cases(per_pair, label_ids):
             "selection": f"First{per_pair} prefix-label-eligible words per pair in pinned CSV order; four-shot prompts use seed0 and script04 sampling. No output filtering. de→fr is development, five other de/fr/ru pairs are test; de→zh remains historical reference. English/Chinese hidden labels and their prefix lengths affect scoring only. Frozen after English development; no translation retuning. Concepts recur across language pairs, so prompts are not independent concepts."}
 
 
-def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False,
+def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions=3,
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
@@ -506,7 +506,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     assert all(len(a) == 1 for a in answer_ids), answer_ids
     a0, a1 = [a[0] for a in answer_ids]
     expected_base, expected_target = answer_pair[::-1] if reverse else answer_pair
-    prompt_start = 0 if all_prompt_positions else -3
+    prompt_start = -prompt_positions
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
     for mode in modes:
@@ -554,7 +554,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                                        use_cache=True, return_dict_in_generate=True, output_scores=True)
         tokens = generated.sequences[0, ids.shape[1]:].tolist()
         assert len(calls) == len(tokens) == len(readings), calls
-        assert calls[0]["positions"] == (ids.shape[1] if all_prompt_positions else 3), calls
+        assert calls[0]["positions"] == ids[:, prompt_start:].shape[1], calls
         assert all(c["positions"] == 1 and c["sequence_length"] == 1 for c in calls[1:]), calls
         lp = generated.scores[0][0].float().log_softmax(-1)
         if mode == "Base":
@@ -563,6 +563,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         bigrams = list(zip(kept, kept[1:]))
         top = lp.topk(10).indices.tolist()
         conditions[mode] = {"input_repr": repr(source_prompt), "generation": tok.decode(tokens), "token_ids": tokens,
+                            "selected_prompt_token_ids": ids[0, prompt_start:].tolist(),
+                            "selected_prompt_tokens": [vocab[t] for t in ids[0, prompt_start:].tolist()],
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
@@ -633,7 +635,7 @@ if __name__ == "__main__":
     parser.add_argument("--block-index", type=int, default=15, help="Edit block, default midpoint (15).")
     parser.add_argument("--readout-block-index", type=int, default=23, help="Observation block only, default 23.")
     parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
-    parser.add_argument("--all-prompt-positions", action="store_true", help="Match the reference's all-position intervention; default remains final three.")
+    parser.add_argument("--prompt-positions", type=int, default=3, help="Final prompt positions to edit; 0 selects all. Cached decode is always covered.")
     parser.add_argument("--calibration-json", type=Path, help="Fit a reusable output forecast on generic text, evaluate readouts only.")
     parser.add_argument("--forecast-checkpoint", type=Path, help="Reuse an offline forecast unchanged; evaluate readouts only.")
     parser.add_argument("--cases-json", type=Path, help="Fixed labelled readout probes; labels only score outputs.")
