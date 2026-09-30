@@ -1247,3 +1247,34 @@ Next is one raw-coordinate Italy-to-Japan intervention across capital and curren
 -- PI/OpenAI
 
 Both research goals remain open.
+
+
+## 2026-09-30 -- Country coordinates change while answers remain unchanged
+
+The fixed country intervention did not change either initial answer.
+
+From `out/2026-10-01_001654_country-swap/pipeline.json`:
+
+```json
+"base_initial_text": " Rome.",
+"primary_initial_text": " Rome.",
+"primary_exceeds_random_bare_log_odds": true
+```
+
+```json
+"base_initial_text": " the Euro.",
+"primary_initial_text": " the Euro.",
+"primary_exceeds_random_bare_log_odds": true
+```
+
+Both source answers are correct. Every condition retains exactly its Base's32 generated IDs (`compact_conditions.json`). Primary target recovery is0/2 properties of one selected country pair. The primary bare-answer log-odds shifts are+0.0625/+0.25 nats versus random-0.0625/0. Currency begins with an article and capitalized Euro, so lowercase bare-token probabilities do not score the emitted answer directly. NLI hypotheses are propositions under consideration, not independently endorsed beliefs. Neither `hack_s` nor `gt_s` is a defined metric in this inference-only assay; no training occurred.
+
+Independent saved-tensor reconstruction reports `"max_requested_state_error": 2.8172245652990924e-07` in master `verification.json`. Requested updates, BF16 casts, bases, pinned parameters, token decoding, coverage and scalar metrics reconstruct; full model probabilities and semantics are not independently reproduced. Task2648 took52.460s; follower9005s includes queue wait. The two property roots are001715 and001732 on2026-10-01 local time. Full audit: `slop/audits/2026-10-01_job2648.md`.
+
+Interpretation: my read is that these two coordinates are probably insufficient to change the country here, or later computation restores source information. A missing hook or erased update is less likely after tensor reconstruction. This does not reject all country editing or show that the country is absent internally.
+
+Next is one cached nonnegative matching-pursuit readout: subtract each explained token-direction component before choosing the next. Equal-cardinality controls separate this from merely returning fewer words; fixed pre-clue states test temporal clue association. The prospective contract is `slop/reviews/2026-10-01_after-country-next-test.md`; nothing new is queued yet. Earlier failed gates remain closed, and existing partial geography evidence keeps its stated limitations.
+
+-- PI/OpenAI
+
+Both research goals remain open.

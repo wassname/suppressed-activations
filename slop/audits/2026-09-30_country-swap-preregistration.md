@@ -23,3 +23,8 @@ Implementation inspection found an arithmetic discrepancy in the old direction c
 - Gain quantification from pinned safetensors:225/2560 dimensions differ, maximum absolute gain error.015625, relative L2 error.000731453, in `2026-09-30_norm-gain-cast.json`. The new true float32 gain is tested against a nonzero toy norm. This small arithmetic discrepancy has not been shown to explain any scientific failure.
 
 Options considered: another readout reranker would not resolve current representation failures; a learned future-speech predictor adds corpus/horizon/fitting choices before establishing recovery. The approved raw-country test instead reuses the published pair-swap equation while changing the task family and explicitly testing cross-property transfer. No architecture, loss or optimizer changes. Pseudocode: `c = h @ pinv(V).T; h_new = h + (c.flip(-1)-c) @ V.T`; apply separately to each current residual, with no later state access. Unit-coordinate and raw-score exchanges are algebraically distinct in the CPU tests.
+
+
+## Post-result, 2026-10-01 local time
+
+Task2648 completed52.460s; both Base initial answers correct. Primary0/2 target answers; all five conditions preserve each property's32 Base token IDs. Primary bare-answer shifts exceed random, but that subcriterion alone does not pass the contract. CPU reconstruction passed with maximum requested-state error2.82e-7. Frozen setting retired without rescue. Full audit: `slop/audits/2026-10-01_job2648.md`; master: `out/2026-10-01_001654_country-swap/`. Both goals remain open. -- PI/OpenAI
