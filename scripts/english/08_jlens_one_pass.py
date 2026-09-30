@@ -36,7 +36,7 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def main(readout_only=False, cache_positions: Path | None = None):
+def main(readout_only=False, cache_positions: Path | None = None, block_index: int | None = None):
     readout_only = readout_only or cache_positions is not None
     torch.set_grad_enabled(False)
     started = time.monotonic()
@@ -53,7 +53,9 @@ def main(readout_only=False, cache_positions: Path | None = None):
     lens = torch.load(path, map_location="cpu", weights_only=True)
     W = model.lm_head.weight
     assert lens["d_model"] == W.shape[1] and lens["n_prompts"] == 1000
-    block = len(model.model.layers) // 2 - 1
+    block = len(model.model.layers) // 2 - 1 if block_index is None else block_index
+    if cache_positions is not None:
+        assert block == 15, "saved midpoint activations require block 15"
     J = lens["J"][block].float().cuda()
     gain = (1 + model.model.norm.weight).float()
     vocab = [tok.convert_tokens_to_string([t]) if t is not None else ""
@@ -214,7 +216,7 @@ def main(readout_only=False, cache_positions: Path | None = None):
           f"block_index: {block}\nresidual_index: {block + 1}\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass J-lens pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
-          "Frozen rule for this pilot: midpoint block, last-position readout, prompt-word removal only; no final-layer output mask. "
+          f"Rule for this pilot: fixed block {block} (default midpoint), last-position readout, prompt-word removal only; no final-layer output mask. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           "Intervention swaps coordinates along unit W*norm_gain*J directions, final three prompt positions plus every decode step. "
           "No source/donor activation extraction. Reference equation: h + V(swap(pinv(V)h) - pinv(V)h).\n\n"
@@ -246,4 +248,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--readout-only", action="store_true", help="Compare raw and unit-direction readouts; no generation.")
     parser.add_argument("--cache-positions", type=Path, help="Compare last-position vs all-position pooling on saved midpoint activations.")
+    parser.add_argument("--block-index", type=int, help="Change only the readout/edit block; default is the midpoint (15).")
     main(**vars(parser.parse_args()))
