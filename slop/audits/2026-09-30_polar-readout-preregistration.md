@@ -44,3 +44,7 @@ Save Q/spectrum/rank/reconstruction/orthogonality metadata and identities, raw s
 - Cheapest discriminator: this one zero-inference replay. True useful recovery must exceed equally scored plain/J, mismatched and early-prefix controls, then survive semantic review. Another way to score well is generic topic membership; early control cannot eliminate that, hence future output-matched substitutions remain required.
 - Missing evidence: full-size parity/finite SVD, exact vocabulary ranking, semantic audit and unseen clue-specificity; all are planned in dependency order. No broad conclusion if this fixed implementation fails.
 - Time/VRAM: production pending. Smoke25s, branch36s, algebra22s are separate CPU processes. No paid compute. Remaining limits and fresh-review findings will be appended after the actual run.
+
+## Post-result status (not preregistered knowledge)
+
+Job2642/source0ae6378 failed its fixed screen: Q1/8, originalJ4/8, plain275/8; own mismatch/unsubtracted1/8. Source/cache/span/168 old-row parity and full-vocabulary reconstruction passed; independent CPU SVD agrees within1.86e-9. Task55.55s/main22.43s; peak GPU memory unrecorded. Fresh review supports this negative result but is not complete source/semantic certification. Retired without retuning; v5 remains unrun. Full evidence: `slop/audits/2026-09-30_job2642.md`. Both goals remain open. — PI/OpenAI

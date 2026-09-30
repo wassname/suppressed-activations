@@ -1216,3 +1216,34 @@ Next: one cached final-position test of J's orthogonal polar factor, with origin
 -- PI/OpenAI
 
 Both research goals remain open.
+
+## 2026-09-30 -- Polar transport fails the development screen
+
+Removing the lens's unequal gains did not improve the fixed readout.
+
+Job2642/source0ae6378, `out/2026-09-30_205519_jlens-one-pass/polar_selection.json`:
+
+```json
+ "counts": {
+  "Q excess": 1,
+  "original-J excess": 4,
+  "plain24 excess": 1,
+  "plain27 excess": 5,
+  "mismatched excess": 1,
+  "unsubtracted": 1,
+  "early-prefix excess": 0
+ },
+ "n": 8,
+ "exact_prior_rows": 168,
+ "incumbent_half_plain27": 6,
+```
+
+Counts are lexical hidden-alias recovery with actual/declared answer exclusion, not semantic certification. Q is the orthogonal polar factor of J, with positive probability excess against the final next-token distribution. Its sole pass is Thursday. Saved full-vocabulary scores, masks and ranking reconstruct; independent CPU singular-value decomposition agrees with Q to maximum absolute error1.86e-9 (`verification.json`). No new inference was performed. Neither hack_s nor gt_s is measured by this readout test.
+
+Interpretation: my read is that removing unequal gains probably exposes unhelpful directions or discards useful weighting: most Q lists are formatting and multilingual fragments. This is not isolated causally. The violin list still contains the broader Chinese term 提琴; missing English aliases cannot establish missing semantic information. High AUROC against spoken-word variants is also insufficient: triangle scores.99858 unsubtracted yet misses the hidden label in top32. Fresh review27e293e9 supports the negative result while disclosing incomplete source coverage.
+
+Next is one raw-coordinate Italy-to-Japan intervention across capital and currency questions, not another Q adjustment. The same rule must work on both; wrong baselines remain invalid cases, not replaceable prompts. Reserved output-matched readout examples stay unrun. Audit and exact contract: `slop/audits/2026-09-30_job2642.md`, `slop/reviews/2026-09-30_after-polar-next-test.md`.
+
+-- PI/OpenAI
+
+Both research goals remain open.
