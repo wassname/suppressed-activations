@@ -1135,4 +1135,14 @@ Job2625 completed94s, source86445f1. At residual16/final position, clean dog/spi
 
 Interpretation: the stored generic midpoint is not a valid source/target boundary for these last-position question states. Positive target-minus-source ordering survives, so this does not establish that the direction is useless. No threshold or dose will be fitted against these four prompts. Raw layer16 tensors were not saved; numerical auditing uses the frozen source and recorded margins/deltas.
 
-Evidence: `out/2026-09-30_155111_jlens-one-pass/`, `out/2026-09-30_155140_jlens-one-pass/`; complete37-line log, source, job metadata and verification saved. Detailed audit: `slop/audits/2026-09-30_job2625.md`. Fresh advisor workflow timed out awaiting a reply; its partial recommendation is not a completed review. A same-role fallback is resolving one small generic validation and its next causal decision. Both goals remain open; README unchanged in this step.
+Evidence: `out/2026-09-30_155111_jlens-one-pass/`, `out/2026-09-30_155140_jlens-one-pass/`; complete37-line log, source, job metadata and verification saved. Detailed audit: `slop/audits/2026-09-30_job2625.md`. Fresh advisor workflow timed out awaiting a reply; its partial recommendation is not a completed review. The same-role fallback completed and specified one small generic validation. Both goals remain open; README unchanged in this step.
+
+## 2026-09-30 — Direct embedding subtraction leaves context-dependent coordinate offsets
+
+— PI/OpenAI
+
+Job2627, sourceefd41dc, completed30s with16 generic prefills and no generations. Raw and corrected coordinates each separate2/8 dog/spider pairs at zero, both endingin ` It`; all8 have the expected within-pair ordering. Direct-embedding subtraction shifts other endings by at most about.015 without fixing any sign. Sources: `out/2026-09-30_163330_jlens-one-pass/{run.md,samples.jsonl,states.pt,verification.json}`. Full66-line console read; float64 reconstruction of every saved coordinate differs by at most1.53e-6.
+
+A posthoc bound shows no single cutoff can fix these16 observations along this axis: corrected maxdog1.230348>minspider.039979. Pooled AUROC=.6875, not64 independent comparisons. The eight generic pairs now become development data. No causal test of this correction will run.
+
+Fresh reviewerda59a1aa found no apparent arithmetic/sign bug and warns that the current intervention hook still uses the raw coordinate; validation of a formula alone never installs it in editing. Advisor487d6e80 and parent approved one new candidate: remove the seven-dimensional span of centered generic pair means from the old donor direction, center on their mean, validate on8 new generic pairs, and only on8/8 separation test both causal properties within one300s job. Training midpoint invariance is algebraic, not validation. Exact contract: `slop/reviews/2026-09-30_context-invariant-coordinate-decision.md`. Not implemented or run yet; both goals remain open.
