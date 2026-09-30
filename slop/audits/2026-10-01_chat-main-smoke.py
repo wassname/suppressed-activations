@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import runpy
+import sys
 import tempfile
 from types import SimpleNamespace
 
@@ -16,6 +17,17 @@ entry = root/'scripts/english/08_jlens_one_pass.py'
 g = runpy.run_path(str(entry))['main'].__globals__
 tok = AutoTokenizer.from_pretrained(g['q'].MODEL, revision=g['q'].REVISION, local_files_only=True)
 print('source_sha256='+hashlib.sha256(entry.read_bytes()).hexdigest(), flush=True)
+expand = '--input-prefix' in sys.argv
+if expand:
+    words=[' Continents','CONTINENTAL',' cont','article','art','named',' nam','onion',' toffee']
+    normalized=[w.strip().lower() for w in words]
+    matches=g['input_prefix_extensions']('NAME art continent on to',normalized)
+    assert matches=={0:['continent'],1:['continent'],3:['art'],4:['art'],5:['name']},matches
+    legacy=g['q'].prompt_word_mask('NAME art continent on to',normalized,'cpu')
+    assert legacy[6] and 6 not in matches
+    assert g['input_prefix_extensions']('continent continents',['continents'])=={0:['continent','continents']}
+    assert g['input_prefix_extensions']('on to',normalized)=={}
+    print('PASS complete-word anchoring/case/space/short-word rules; legacy nam remains excluded; art→article overmask and multiple origins explicit',flush=True)
 config = Qwen3_5TextConfig(vocab_size=len(tok), hidden_size=32, intermediate_size=64, num_hidden_layers=32,
     num_attention_heads=2, num_key_value_heads=1, head_dim=16, linear_key_head_dim=8, linear_value_head_dim=8,
     linear_num_key_heads=2, linear_num_value_heads=4, max_position_embeddings=256,
@@ -67,9 +79,31 @@ for seed in (0, 1):
             assert sum(len(b._forward_hooks) for b in model.model.layers)==1
             g['ROOT']=tmp/'replay'
             replay=g['main'](cases_json=dataset,end_pass_readout=True,output_mask_max_n=1,
-                erase_output=True,erase_strength=.5,chat_readout=True,readout_max_new_tokens=32,replay_readout_run=out)
+                erase_output=True,erase_strength=.5,chat_readout=True,readout_max_new_tokens=32,replay_readout_run=out,
+                expand_input_prefix=expand)
             replay_rows={(r['case_index'],r['method']):r for r in json.loads((replay/'readout.json').read_text())}
             assert all(replay_rows[r['case_index'],r['method']]==r for r in rows)
+            if expand:
+                assert len(replay_rows)==44
+                exclusions=json.loads((replay/'input_prefix_exclusions.json').read_text())
+                assert len(exclusions)==2
+                for i,record in enumerate(exclusions):
+                    original_scores=torch.load(replay/'input_prefix_scores'/f'{i:03d}.pt',weights_only=True)
+                    assert len(original_scores)==4
+                    added=record['added_input_exclusions'];assert added
+                    for item in added:
+                        assert item['token']==tok.decode([item['id']])
+                        assert item['normalized']==item['token'].strip().lower()
+                        assert all(len(w)>=3 and item['normalized'].startswith(w) for w in item['originating_words'])
+                    added_ids=[a['id'] for a in added]
+                    for name,original in original_scores.items():
+                        masked=original.clone();masked[added_ids]=-torch.inf
+                        new_name=name.replace('end-pass ','end-pass input-prefix ',1)
+                        row=replay_rows[i,new_name]
+                        assert masked.topk(32).indices.tolist()==row['selected_ids']
+                        assert masked[row['selected_ids']].tolist()==row['selected_scores']
+                        assert not set(row['selected_ids'])&set(added_ids)
+                print(f'PASS seed{seed}:44 rows/36 originals exact,8 candidate full-vocabulary top32 refills, exclusion origins, saved-score reconstruction, transformer calls blocked',flush=True)
             assert all(torch.equal(before[k],v) for k,v in model.named_parameters())
             assert defaults==model.generation_config.to_dict()
         finally:
