@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -37,13 +38,70 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False):
+def fit_affine(X, Y):
+    X_mean, Y_mean = X.mean(0), Y.mean(0)
+    Xc, Yc = X - X_mean, Y - Y_mean
+    gram = Xc.T @ Xc
+    ridge = 0.01 * gram.trace() / X.shape[1]
+    eye = torch.eye(X.shape[1], device=X.device)
+    transform = eye + torch.linalg.solve(gram + ridge * eye, Xc.T @ (Yc - Xc))
+    return transform, Y_mean - X_mean @ transform
+
+
+def rms(h):
+    return h.float() * torch.rsqrt(h.float().square().mean(-1, keepdim=True) + 1e-6)
+
+
+def fit_forecast(model, tok, block, corpus_path, out):
+    corpus = json.loads(corpus_path.read_text())
+    assert len(corpus["texts"]) == 36
+    assert len(set(corpus["texts"])) == 36
+    sources, targets, validation = [], [], []
+    logger.info("SHOULD: offline forecast beats plain lens at predicting held-out final-layer argmax tokens")
+    for text in corpus["texts"]:
+        ids = tok(text, return_tensors="pt", add_special_tokens=False, truncation=True, max_length=128).input_ids.cuda()
+        res, _ = trajectory(model, ids, model.model.norm)
+        assert ids.shape[1] > 16
+        sources.append(rms(res[block + 1]))
+        targets.append(rms(res[32]))
+        if len(sources) > 32:
+            validation.append((res[block + 1], res[32]))
+    X, Y = torch.cat(sources[:32]), torch.cat(targets[:32])
+    transform, bias = fit_affine(X, Y)
+    Xv, Yv = torch.cat(sources[32:]), torch.cat(targets[32:])
+    metrics = {"fit_tokens": len(X), "validation_tokens": len(Xv), "ridge_fraction": 0.01}
+    for name, predicted in (("plain", Xv), ("forecast", Xv @ transform + bias)):
+        correct, kl_sum, final_correct = 0, 0.0, 0
+        for source, target in validation:
+            for x, y in zip(source.split(32), target.split(32), strict=True):
+                estimate = x if name == "plain" else (rms(x) @ transform + bias).to(x.dtype)
+                lp_true = model.lm_head(model.model.norm(y)).float().log_softmax(-1)
+                lp_estimate = model.lm_head(model.model.norm(estimate)).float().log_softmax(-1)
+                matched = lp_true.argmax(-1) == lp_estimate.argmax(-1)
+                correct += int(matched.sum())
+                kl_sum += float((lp_true.exp() * (lp_true - lp_estimate)).sum())
+            final_correct += int(matched[-1])
+        metrics[name + "_argmax_agreement_all_positions"] = correct / len(Xv)
+        metrics[name + "_argmax_agreement_final_positions"] = final_correct / len(validation)
+        metrics[name + "_kl_nats_per_position"] = kl_sum / len(Xv)
+        metrics[name + "_residual_mse"] = float((predicted - Yv).square().mean())
+    provenance = {k: v for k, v in corpus.items() if k != "texts"}
+    provenance.update(model=q.MODEL, model_revision=q.REVISION, block_index=block,
+                      corpus_sha256=hashlib.sha256(corpus_path.read_bytes()).hexdigest(), max_tokens=128, skip_tokens=0)
+    torch.save({"transform": transform.cpu(), "bias": bias.cpu(), "provenance": provenance}, out / "forecast.pt")
+    (out / "calibration.json").write_text(json.dumps({"provenance": provenance, "metrics": metrics}, indent=1))
+    logger.info(f"Offline calibration: {metrics}")
+    return transform, bias, metrics
+
+
+def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False, calibration_json: Path | None = None):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
     out.mkdir(parents=True)
     logger.add(out / "stderr.log")
-    logger.info("Loading pinned model and reusable lens; no fitting or input-specific preparation")
+    logger.info("Loading pinned model and reusable lens; no input-specific preparation")
+    (out / "source.py").write_bytes(Path(__file__).read_bytes())
     tok = AutoTokenizer.from_pretrained(q.MODEL, revision=q.REVISION, local_files_only=True)
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
@@ -68,6 +126,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     def top_words(h, mask):
         z = readout(h).masked_fill(mask, -torch.inf)
         return [vocab[t] for t in z.topk(32).indices.tolist()]
+
+    if calibration_json is not None:
+        transform, bias, calibration_metrics = fit_forecast(model, tok, read_block, calibration_json, out)
 
     prior_path = ROOT / "out/2026-09-29_204246_twohop-english/result.json"
     prior = next(iter(json.loads(prior_path.read_text()).values()))
@@ -95,15 +156,62 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
         assert hidden and said and not set(hidden) & set(said)
-        for name, use_j in (("J-lens", True), ("plain lens", False)):
-            z = readout(h[-1], use_j).masked_fill(mask, -torch.inf)
+        hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
+        answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
+        hidden_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in hidden_aliases)]
+        said_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in answer_aliases)]
+        actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
+        actual_said_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in actual_words)]
+        assert actual_said_ids
+        scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
+        if calibration_json is not None:
+            forecast_h = rms(h[-1]) @ transform + bias
+            scores["forecast"] = model.lm_head(model.model.norm(forecast_h.to(W.dtype))).float()
+            scores["final-layer oracle (not deployable)"] = model.lm_head(model.model.norm(res[32][-1])).float()
+            for baseline in ("plain lens", "forecast", "final-layer oracle (not deployable)"):
+                excess = scores["J-lens"].softmax(-1) - scores[baseline].softmax(-1)
+                scores["J minus " + baseline] = excess.masked_fill(excess <= 0, -torch.inf)
+        for name, score in scores.items():
+            z = score.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
             hidden_token = hidden[int(z[hidden].argmax())]
+            top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
+            selected = set(top)
+            positives, negatives = z[hidden_alias_ids, None], z[actual_said_ids][None, :]
+            auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
-                             "answer": answer, "r_hidden": rh, "r_said": rs, "pass": rh < 32 <= rs,
+                             "answer": answer, "r_hidden": rh, "r_said": rs,
+                             "pass": bool(selected.intersection(hidden)) and not selected.intersection(said),
+                             "hidden_aliases": hidden_aliases, "answer_aliases": answer_aliases,
+                             "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids),
+                             "actual_words": actual_words, "token_pair_auroc": auc,
+                             "intended_answer_observed": answer.casefold() in case["said_text"].casefold(),
+                             "actual_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(actual_said_ids),
+                             "actual_said_hits": [vocab[t] for t in top if t in actual_said_ids],
                              "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
-                             "top32": [vocab[t] for t in z.topk(32).indices.tolist()]})
+                             "top32": [vocab[t] for t in top]})
     (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
+    if calibration_json is not None:
+        table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
+                         headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
+        md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+              f"calibration_json: {calibration_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              "# Offline output forecast and same-layer contrast\n\nWritten by PI/OpenAI.\n\n"
+              "Fit32 generic WikiText records, validate4; no task/language labels. Fit RMS-normalised source/final residual pairs by ridge regression toward the identity map (ridge=0.01*mean Gram diagonal), with an intercept. Current-input readout receives residual24 only. "
+              "Score=max(p_J-p_forecast,0), excluding zero scores; compare J-minus-plain to isolate the fitted forecast's contribution. "
+              "Same layer, final position, k32 and prompt mask as before. Frozen examples: four selected countries and four simple development prompts. "
+              "The currency prompt previously answered100% gold, not euro; it cannot establish the intended intermediate reasoning. "
+              "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
+              "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
+              "Token-pair AUROC compares all hidden-alias token variants against all actual-said word token variants within a prompt, with half credit for ties. It is not top32 recovery. "
+              "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
+              "SHOULD: forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, output forecast error alone cannot explain that failure.\n\n"
+              f"Calibration: {calibration_metrics}\n\n{table}\n\n")
+        for r in readouts:
+            md += f"Input: {r['prompt']!r}\n\nBaseline: {r['baseline_generation']!r}\n\n{r['method']}: {r['top32']}\n\n"
+        (out / "run.md").write_text(md + f"run.md: {out / 'run.md'}\n")
+        print(table, f"run.md: {out / 'run.md'}", sep="\n\n")
+        return
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
@@ -226,4 +334,5 @@ if __name__ == "__main__":
     parser.add_argument("--readout-block-index", type=int, default=23, help="Observation block only, default 23.")
     parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
     parser.add_argument("--all-prompt-positions", action="store_true", help="Match the reference's all-position intervention; default remains final three.")
+    parser.add_argument("--calibration-json", type=Path, help="Fit a reusable output forecast on generic text, evaluate readouts only.")
     main(**vars(parser.parse_args()))
