@@ -122,6 +122,10 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: recovered review61585f07 completed and is saved in slop/reviews/2026-09-30_reflection-result-review.md. It supports one prospective coordinate variant: subtract the processed token's direct embedding contribution, keeping the existing donor direction/center. Frozen eight generic pairs/16 prefills, no generations; require all8 dog<0<spider brackets before a causal test. Same-final-token ordering must remain unchanged and token1049 must reproduce raw margins. Integrated into08 (not a side-car inference pipeline); algebra seeds0/1 and tiny hybrid-Qwen full-I/O smoke seeds0/1 pass. First smoke failed only on an out-of-project temporary output path, corrected in its fixture. Main-model run not yet observed; both goals open.
 
+- PI/OpenAI:2627 queued from immutable sourceefd41dc,16 generic prefills/zero generated tokens,300s cap, default shared GPU queue. Native follower proc_e55c. It tests only the preregistered raw versus embedding-subtracted coordinate; no causal rerun unless all8 pairs meet the fixed sign criterion. Source/config and CPU smoke evidence committed; no goal completed.
+
+- PI/OpenAI:2627 completed30s (12.69s validation,8.002GiB peak). Both raw/corrected coordinates bracket2/8 pairs, onlyIt endings; order8/8. Independent float64 tensor replay max error1.53e-6. No scalar cutoff can separate all16: corrected maxdog1.23035 exceeds minspider.03998. Candidate will not run causally. Fresh reviewerda59a1aa concurs; retained advisor487d6e80 and parent agreed one offline nuisance-projection attempt from these now-development pair means, new16-prefill validation, then same-job causal tests only if all8 new pairs bracket. Exact contract slop/reviews/2026-09-30_context-invariant-coordinate-decision.md; no next implementation/run yet, goals open.
+
 ## Interview
 
 ### 2026-09-30 07:42
