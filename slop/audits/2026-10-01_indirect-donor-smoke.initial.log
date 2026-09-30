@@ -1,0 +1,34 @@
+source_sha256=1754b0ba3b0c5bac30a3828fd6125a664ddbdaddec5b3b6d56163e95f0afb50e
+2026-10-01 07:43:31.734 | INFO     | <run_path>:main:816 - Loading pinned model; no input-specific preparation
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=0.019394. This does not establish useful steering.
+
+| concept   | input repr                        |   residual norm |
+|:----------|:----------------------------------|----------------:|
+| spider    | 'The animal is a spider. It'      |        0.12289  |
+| spider    | 'I am thinking of a spider. It'   |        0.112969 |
+| spider    | 'The picture shows a spider. It'  |        0.119523 |
+| spider    | 'The story mentions a spider. It' |        0.111045 |
+| dog       | 'The animal is a dog. It'         |        0.125406 |
+| dog       | 'I am thinking of a dog. It'      |        0.115988 |
+| dog       | 'The picture shows a dog. It'     |        0.12606  |
+| dog       | 'The story mentions a dog. It'    |        0.116204 |
+
+Checkpoint: /workspace/2026/suppressed-activations/.local/tmp9xnvj7x0/literal/out/2026-10-01_074331_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/.local/tmp9xnvj7x0/literal/out/2026-10-01_074331_jlens-one-pass/run.md
+
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/slop/audits/2026-10-01_indirect-donor-smoke.py", line 38, in <module>
+    reference=torch.load(literal/'donors.pt',weights_only=True)
+                         ~~~~~~~^~~~~~~~~~~~
+TypeError: unsupported operand type(s) for /: 'NoneType' and 'str'

@@ -12,7 +12,10 @@ torch.set_num_threads(4)
 root=Path(sys.argv[1]);pipeline=json.loads((root/'pipeline.json').read_text())
 assert hashlib.sha256((root/'source.py').read_bytes()).hexdigest()==pipeline['source_sha256']
 tok=AutoTokenizer.from_pretrained('Qwen/Qwen3.5-4B',revision='851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a',local_files_only=True)
-vocab=[tok.decode([i]) for i in range(len(tok))];normalized=[v.strip().lower() for v in vocab]
+first_scores=torch.load(root/'input_prefix_scores/000.pt',weights_only=True,map_location='cpu')
+vocab_size=next(iter(first_scores.values())).numel()
+vocab=[tok.convert_tokens_to_string([t]) if t is not None else '' for t in tok.convert_ids_to_tokens(list(range(vocab_size)))]
+normalized=[v.strip().lower() for v in vocab]
 rows=json.loads((root/'readout.json').read_text());index={(r['case_index'],r['method']):r for r in rows}
 assert len(rows)==len(index)==88
 cache=Path(json.loads((root/'replay_source.json').read_text())['run'])
@@ -41,6 +44,7 @@ for i,record in enumerate(exclusions):
     assert all(r['token']==vocab[r['id']] and r['normalized']==normalized[r['id']] for r in record['added_input_exclusions'])
     originals=torch.load(root/'input_prefix_scores'/f'{i:03d}.pt',map_location='cpu',weights_only=True)
     assert len(originals)==4;added_counts.append(len(expected))
+    assert all((not bool(torch.isfinite(originals['end-pass J-lens'][r['id']])))==r['already_output_masked'] for r in record['added_input_exclusions'])
     for method,original in originals.items():
         prior=index[i,method];r=index[i,method.replace('end-pass ','end-pass input-prefix ',1)]
         assert original[prior['selected_ids']].tolist()==prior['selected_scores']
