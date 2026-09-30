@@ -152,6 +152,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2653 failed9.656s before scoring at a remaining full-dictionary finite check (608MiB requested,163MiB free). Audit slop/audits/2026-10-01_job2653.md. Repair9cb5d95 tiles validation and shortens full-matrix lifetimes; unchanged formula/precision/method. CPU bounded-check instrumentation, dense parity and tiny-main/scorer suites pass seeds0/1 in39s. Fresh reviewer53d54258 found no static blocker, not a capacity guarantee. Retry2655 queued on default; mainSHA88656677, unchanged launcher/data, native followerproc_d248. Prepared independent selected-direction/ranking checker, syntax-only so far. Both goals open; no scientific result from either OOM.
 
+- PI/OpenAI:2655 passed dictionary construction but timed out300.291s, with257.416s before main loading and only one cached trace/no case scores. Audit slop/audits/2026-10-01_job2655.md. Retry2657/a2f49a4 keeps source88656677 and dataf7e25317 fixed; launcherdbbb8179 adds timing/stack diagnostics and preflight source pin. Deliberate operational bound600s+15s, unchanged scientific contract. Native followerproc_9d4f. Fresh review4ef6d588 supports this diagnostic repeat, not semantic success. Both goals open.
+
 ## Interview
 
 ### 2026-09-30 07:42
