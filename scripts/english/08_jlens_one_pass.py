@@ -1,4 +1,4 @@
-"""Hidden-word readouts and same-pass spider/dog interventions. — PI/OpenAI"""
+"""Hidden-word readouts and same-pass concept interventions. — PI/OpenAI"""
 
 from __future__ import annotations
 
@@ -34,6 +34,10 @@ REFERENCE = "https://github.com/anthropics/jacobian-lens/tree/581d398613e5602a5a
 SPIDER = "Fact: The number of legs on the animal that spins webs is "
 DOG = "Fact: The number of legs on the animal that barks and is called man's best friend is "
 RELATIONS = {
+    "capital": (("Fact: The capital of the country shaped like a boot is",
+                 "Fact: The capital of the country known as the Land of the Rising Sun is"), (" Rome", " Tokyo")),
+    "currency": (("Fact: The currency used in the country shaped like a boot is",
+                  "Fact: The currency used in the country known as the Land of the Rising Sun is"), (" euro", " yen")),
     "legs": ((SPIDER, DOG), ("8", "4")),
     "skeleton": (("Fact: The skeleton of the animal that spins webs is on the ",
                   "Fact: The skeleton of the animal that barks and is called man's best friend is on the "),
@@ -47,6 +51,21 @@ RELATIONS = {
 def swap_coordinates(h, vectors, inverse):
     coordinates = h.float() @ inverse.T
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
+
+
+def coordinate_swap_bases(raw_j, raw_plain):
+    matrices = {"raw J": raw_j, "unit J": raw_j / raw_j.norm(dim=0), "raw plain": raw_plain}
+    bases = {}
+    for name, vectors in matrices.items():
+        assert vectors.ndim == 2 and vectors.shape[1] == 2 and torch.isfinite(vectors).all()
+        singular = torch.linalg.svdvals(vectors.double())
+        tolerance = torch.finfo(vectors.dtype).eps * max(vectors.shape) * singular[0]
+        assert singular[-1] > tolerance, (name, singular, tolerance)
+        inverse = torch.linalg.pinv(vectors)
+        assert torch.allclose(inverse @ vectors, torch.eye(2, device=vectors.device), atol=1e-5, rtol=1e-5)
+        bases[name] = {"vectors": vectors, "inverse": inverse, "inverse_norm": float(1 / singular[-1]),
+                       "singular_values": singular.tolist(), "rank_tolerance": float(tolerance)}
+    return bases
 
 
 def swap_lens_scores(h, vectors, inverse):
@@ -469,6 +488,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
          reflection_coordinate_checkpoint: Path | None = None, token_kl=False, pool_question=False,
          verify_readout_run: Path | None = None, polar_readout=False):
+    country_swap = relation in ("capital", "currency")
+    if country_swap:
+        assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 1.0)
+        assert not any((reverse, swap_logits, plural, translation_per_pair, equal_donor_norm, erase_output,
+                        end_pass_readout, donor_reflection, fit_nuisance, token_kl, pool_question, polar_readout))
+        assert all(p is None for p in (calibration_json, forecast_checkpoint, cases_json, prepare_donors_json,
+                   donor_checkpoint, answer_alias_audit_json, donor_norm, replay_readout_run,
+                   validate_donor_coordinates_json, reflection_coordinate_checkpoint, verify_readout_run))
     if polar_readout:
         assert replay_readout_run is not None and cases_json is not None and end_pass_readout
         assert readout_block_index == 23 and output_mask_max_n == 1 and not token_kl and not pool_question
@@ -530,7 +557,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     block, read_block = block_index, readout_block_index
     J_edit = lens["J"][block].float().cuda()
     J = lens["J"][read_block].float().cuda()
-    gain = (1 + model.model.norm.weight).float()
+    gain = 1.0 + model.model.norm.weight.float()
     if polar_readout:
         orthogonal, polar_fit = orthogonal_polar_factor(J)
         polar_fit.update({"model_revision": q.REVISION, "lens_sha256": LENS_SHA, "block_index": read_block,
@@ -568,7 +595,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
 
     assert not (cases_json is not None and translation_per_pair)
     uses_dataset = cases_json is not None or translation_per_pair > 0
-    if donor_checkpoint is not None:
+    if country_swap:
+        cases, concepts, answers = [], [], []
+        selection = ("Fixed Italy-to-Japan capital/currency pair, chosen after failed animal transfer and polar readout. "
+                     "Five conditions per property, one configuration. Earlier trailing-space currency prompt answered100% gold; "
+                     "this exact no-space form was untested. Retain wrong baselines; no prompt or alternate-winner rescue.")
+    elif donor_checkpoint is not None:
         assert not (uses_dataset or forecasting or end_pass_readout)
         cases, concepts, answers = [], [], []
         selection = "Previously selected spider/dog pair; generic offline donor templates frozen before extraction. No standalone readout benchmark in this intervention run."
@@ -977,16 +1009,24 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return out
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
-    concept_tokens = (" spiders", " dogs") if plural else (" spider", " dog")
+    concept_tokens = (" Italy", " Japan") if country_swap else (" spiders", " dogs") if plural else (" spider", " dog")
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in concept_tokens]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
     rows = W[[t[0] for t in concept_ids]].float() * gain
     raw_vectors_j, raw_vectors_plain = (rows @ J_edit).T, rows.T
     logger.info(f"Raw J direction norms {concept_tokens}: {raw_vectors_j.norm(dim=0).tolist()}")
-    vectors_j = raw_vectors_j if swap_logits else raw_vectors_j / raw_vectors_j.norm(dim=0)
-    vectors_plain = raw_vectors_plain if swap_logits else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
+    vectors_j = raw_vectors_j if swap_logits or country_swap else raw_vectors_j / raw_vectors_j.norm(dim=0)
+    vectors_plain = raw_vectors_plain if swap_logits or country_swap else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
     swap = swap_lens_scores if swap_logits else swap_coordinates
     inverse_j, inverse_plain = torch.linalg.pinv(vectors_j), torch.linalg.pinv(vectors_plain)
+    if country_swap:
+        torch.save({"raw_J": raw_vectors_j.cpu(), "raw_plain": raw_vectors_plain.cpu(), "concept_ids": concept_ids,
+                    "gain": gain.cpu(), "W_rows": W[[t[0] for t in concept_ids]].cpu()}, out / "basis_inputs.pt")
+        bases = coordinate_swap_bases(raw_vectors_j, raw_vectors_plain)
+        torch.save({name: {k: v.cpu() if torch.is_tensor(v) else v for k, v in b.items()} for name, b in bases.items()}, out / "coordinate_bases.pt")
+        noise = torch.randn(W.shape[1], device=W.device, generator=torch.Generator(device=W.device).manual_seed(0))
+        fixed_random_direction = noise / noise.norm()
+        torch.save(fixed_random_direction.cpu(), out / "random_direction.pt")
     donor_deltas = {}
     if donor_checkpoint is not None:
         donor = torch.load(donor_checkpoint, weights_only=True)
@@ -1050,6 +1090,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     prompt_start = -prompt_positions
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
+    if country_swap:
+        modes = ("Base", "raw J-coordinate exchange", "unit J-coordinate exchange", "raw plain-coordinate exchange", "matched-random delta")
     if donor_reflection:
         modes = ("Base", reflection_mode, "full donor contrast", "matched-random reflection control")
         if reflection_coordinate_checkpoint is not None:
@@ -1058,8 +1100,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         if donor_reflection:
             active_center, active_direction = ((raw_donor_center, raw_donor_direction) if mode == "raw donor reflection"
                                                else (donor_center, donor_direction))
-        calls, readings = [], []
-        rng = torch.Generator(device="cuda").manual_seed(0)
+        calls, readings, local_states = [], [], []
+        active_inverse = inverse_j
+        if country_swap:
+            basis_name = {"Base": "raw J", "raw J-coordinate exchange": "raw J", "unit J-coordinate exchange": "unit J",
+                          "raw plain-coordinate exchange": "raw plain", "matched-random delta": "raw J"}[mode]
+            active_vectors, active_inverse = bases[basis_name]["vectors"], bases[basis_name]["inverse"]
+        rng = torch.Generator(device=W.device).manual_seed(0)
 
         def hook(_module, _args, output):
             h = output[0] if isinstance(output, tuple) else output
@@ -1067,6 +1114,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
+            elif country_swap:
+                edited = swap_coordinates(selected, active_vectors, active_inverse)
+                if mode == "matched-random delta":
+                    edited = selected + (edited - selected).norm(dim=-1, keepdim=True) * fixed_random_direction
             elif donor_reflection and mode in (reflection_mode, "raw donor reflection", "matched-random reflection control"):
                 edited = reflect_donor_side(selected, active_center, active_direction)
                 if mode == "matched-random reflection control":
@@ -1090,8 +1141,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                           "applied_relative_delta_norm": float((changed[:, start:].float() - selected).norm() / selected.norm()),
                           "raw_J_pair_before": (selected[0, -1] @ raw_vectors_j).tolist(),
                           "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist(),
-                          "edit_basis_coordinates_before": (selected[0, -1] @ inverse_j.T).tolist(),
-                          "edit_basis_coordinates_after": (changed[0, -1].float() @ inverse_j.T).tolist()})
+                          "edit_basis_coordinates_before": (selected[0, -1] @ active_inverse.T).tolist(),
+                          "edit_basis_coordinates_after": (changed[0, -1].float() @ active_inverse.T).tolist()})
+            if country_swap:
+                local_states.append(torch.stack((selected, edited, changed[:, start:].float())).cpu())
+                calls[-1].update(basis=basis_name, requested_delta_norm=float((edited-selected).norm()),
+                                 applied_delta_norm=float((changed[:, start:].float()-selected).norm()))
+                if mode not in ("Base", "matched-random delta"):
+                    expected = (selected @ active_inverse.T).flip(-1)
+                    requested_error = float((edited @ active_inverse.T - expected).abs().max())
+                    applied_error = float((changed[:, start:].float() @ active_inverse.T - expected).abs().max())
+                    cast_bound = float((changed[:, start:].float()-edited).norm()) * bases[basis_name]["inverse_norm"]
+                    calls[-1].update(coordinate_requested_error=requested_error, coordinate_applied_error=applied_error,
+                                     cast_coordinate_error_bound=cast_bound)
+                    tolerance = 1e-4 * (1 + float(expected.abs().max()))
+                    assert requested_error < tolerance, calls[-1]
+                    assert applied_error <= cast_bound + 2*tolerance, calls[-1]
             if donor_reflection:
                 margin = (selected - active_center) @ active_direction
                 requested_margin = (edited - active_center) @ active_direction
@@ -1135,7 +1200,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "selected_prompt_token_ids": ids[0, prompt_start:].tolist(),
                             "selected_prompt_tokens": [vocab[t] for t in ids[0, prompt_start:].tolist()],
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
-                            "coordinate_kind": ("raw" if mode == "raw donor reflection" or reflection_coordinate_checkpoint is None else "context projection") if donor_reflection else None,
+                            "coordinate_kind": basis_name if country_swap else ("raw" if mode == "raw donor reflection" or reflection_coordinate_checkpoint is None else "context projection") if donor_reflection else None,
+                            "answer_token_ids": [a0, a1],
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
                             "expected_answer": expected_base if mode == "Base" else expected_target if not mode.startswith("matched-random") else "control",
@@ -1147,20 +1213,32 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         if relation == "legs":
             r = conditions[mode]
             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
+        if country_swap:
+            torch.save(torch.stack(local_states), out / (mode.lower().replace(" ", "-") + "-states.pt"))
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
 
+    if country_swap:
+        primary_norm = conditions["raw J-coordinate exchange"]["coverage"][0]["requested_delta_norm"]
+        random_norm = conditions["matched-random delta"]["coverage"][0]["requested_delta_norm"]
+        assert abs(primary_norm-random_norm) < 1e-5 * (1+primary_norm)
     if donor_reflection:
         reflected_norm = conditions[reflection_mode]["coverage"][0]["requested_delta_norm"]
         random_norm = conditions["matched-random reflection control"]["coverage"][0]["requested_delta_norm"]
         assert all(abs(a - b) < 1e-5 * (1 + a) for a, b in zip(reflected_norm, random_norm, strict=True))
+    if donor_reflection or country_swap:
         target_prompt = prompt_pair[0] if reverse else prompt_pair[1]
         target_ids = tok(target_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
         target_probe = {"input_repr": repr(target_prompt), "expected_answer": expected_target,
                         "role": "Clean target prefill after this experiment's interventions; no generation or feedback to editing"}
         def observe_target_margin(_module, _args, output):
             state = output[0] if isinstance(output, tuple) else output
-            target_probe["donor_margin"] = float((state[0, -1].float() - donor_center) @ donor_direction)
+            if country_swap:
+                target_probe["raw_J_coordinates"] = (state[0, -1].float() @ inverse_j.T).tolist()
+                target_probe["local_jlens_readout"] = top_words(state[0, -1], q.prompt_word_mask(target_prompt, vocab_norm, "cuda"), J_edit)
+                torch.save(state[0, -1].cpu(), out / "target_state.pt")
+            else:
+                target_probe["donor_margin"] = float((state[0, -1].float() - donor_center) @ donor_direction)
         with layer_hooks(model.model.layers, {block: observe_target_margin}):
             target_logits = model(target_ids, attention_mask=torch.ones_like(target_ids), use_cache=True).logits[0, -1].float()
         target_lp = target_logits.log_softmax(-1)
@@ -1182,6 +1260,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
+    if country_swap:
+        edit_description = ("Primary: raw pair-coordinate exchange h+V(swap(pinv(V)h)-pinv(V)h), V=([W_Italy;W_Japan]*gain @ J[15]).T (block15/output residual16). "
+                            "No column normalization or raw-score exchange in the primary. Unit J and raw plain are separate controls. "
+                            "Random uses one fixed seed0 direction with primary-update norm from its own current state; only prefill doses match. "
+                            "No preliminary current-input pass, donor preparation, sparse decomposition or clean-pass clamp. "
+                            "Not an exact reference reproduction. Clean target prefill follows all five conditions of this property, without feedback. "
+                            "Correct Base and coherent Tokyo AND yen under the same primary rule are required; bare-answer odds alone do not show identity. "
+                            "An article can make first-token metrics nondiagnostic. Inspect whether Base already names Italy; that would limit the hidden-concept claim. "
+                            "Observer is prompt-masked only, not certified speech exclusion. Basis rank and post-cast coordinate errors are recorded.")
     if donor_reflection:
         edit_description = ("Conditional donor reflection: u=unit(mean(target)-mean(source)), c=(mean(target)+mean(source))/2, "
                             "a=(h-c)@u, h'=h-2*min(a,0)*u. Raw generic means; no dose rescaling or current-input preparation. "
@@ -1198,7 +1285,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             f"Coordinate checkpoint: {reflection_coordinate_checkpoint}. ")
     steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
     md = (f"---\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"country_swap: {str(country_swap).lower()}\nblock_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -1207,7 +1294,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
           "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
-          f"Selection: {selection} Previously chosen spider/dog example. "
+          f"Selection: {selection} " + ("" if country_swap else "Previously chosen spider/dog example. ") +
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
           f"SHOULD: intervention changes {expected_base} toward {expected_target} "
           "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
@@ -1236,7 +1323,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         "Per-call margins and doses are in interventions.json.\n")
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\ncountry_swap: {str(country_swap).lower()}\ncoordinate_kind: {r['coordinate_kind']}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
                        f"donor_checkpoint: {donor_checkpoint}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
@@ -1277,5 +1364,5 @@ if __name__ == "__main__":
     parser.add_argument("--erase-strength", type=float, default=1.0, help="Requested output-erasure fraction, compared with full erasure on the same captured states.")
     parser.add_argument("--erase-output", action="store_true", help="End-pass comparison: remove the activation component along the predicted output-token direction before unembedding.")
     parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
-    parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Keep the concept pair and donor fixed; test another answer property.")
+    parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
     main(**vars(parser.parse_args()))
