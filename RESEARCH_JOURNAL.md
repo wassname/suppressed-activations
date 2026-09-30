@@ -1086,3 +1086,26 @@ Interpretation (PI/OpenAI): I consider distributed animal-feature transfer plaus
 Queued tests2579/2580/2581 compare donor/full-norm projected/random edits, hold the donor fixed on skeleton placement, and reverse its direction. Test2584 instead removes the predicted output-token component in normalised readout space, with unchanged lexical-mask controls and disclosed posthoc alias annotations. This is a method change, not another held-out evaluation. An article or word fragment can be the selected output token, so the run logs that token and the realised post-cast score. All use the shared default GPU queue without reordering other work.
 
 The next evidence must improve the method, not merely complete another diagnostic.
+
+## 2026-09-30 -- Frozen English comparison; property transfer still missing
+
+PI/OpenAI. The frozen half-erasure J readout retains a lexical advantage on16 new targets:
+
+```text
+| [end-pass erased0.5 J-lens](readout.json)  | 10/16                  |    0.915 | 8/13                     | 10/16            |          1 |
+| [end-pass erased0.5 plain27](readout.json) | 4/16                   |    0.889 | 3/13                     | 6/16             |          1 |
+```
+
+Source: [2590](out/2026-09-30_125330_jlens-one-pass/console.log). Columns are declared-alias joint pass, AUROC, expected-answer subset, literal pass, unscored. Strength0.5 was selected from0/0.5/1 on v2 before freezing v3; all16 remain in the denominator, including unscorable numeric10. Mask-only J passes11/16, so erasure is not shown necessary. `oceans` surviving input `ocean` demonstrates incomplete input exclusion; these are lexical scores, not a semantic guarantee. On the previously used translation test the same method ties half plain24 at33/40, versus31/40 half plain27; [2591](out/2026-09-30_125500_jlens-one-pass/run.md). Repeated concepts are not independent cases.
+
+Readout states now come from the scoring generation's prefill.128 older English rows and240 older translation rows reproduce their generations/rankings exactly; this is not bitwise hidden-tensor parity. [Blind development review](slop/reviews/2026-09-30_half-erasure-blind-review.md) found no definite answer leak among half-J's11 v2 passes, but retained ambiguous young-animal words and missed fragments/translations. Same model family; no independent semantic success-rate certification.
+
+Selected causal progress does not survive the next checks. At final-position-only prefill, full noun donor changes spider8→4 and continues `The animal that spins webs is a dog.` ([2592](out/2026-09-30_125606_jlens-one-pass/run.md)). Reverse remains4; body-property edits remain outside/inside instead of exchanging them ([2600](out/2026-09-30_132742_jlens-one-pass/run.md), [2598](out/2026-09-30_131556_jlens-one-pass/run.md)). Both clean property answers are correct. Last-three-position edits can flip both leg answers but damage text; a single changed digit is insufficient.
+
+Same-token donors use the original four generic templates plus `. It`, eight inputs with identical paired final token1049. Their natural contrast norm is1.430336; testing at the old6.901978 norm isolates direction from size, not an unscaled replacement. Forward full contrast generates4 but repeats questions, r2=.354839 versus Base.032258. Reverse projected contrast generates8 with p8=.642038 versus random.007853, yet produces the malformed `How many legs does the spider that lives in the web of the spider's home is there?` Full contrast still gives4. [2603 forward](out/2026-09-30_133833_jlens-one-pass/run.md), [reverse](out/2026-09-30_133853_jlens-one-pass/run.md). Base/random controls reproduce the old donor outputs and scores exactly. These are selected development conditions, not a fixed-set success rate. General-capability and reward-hacking counts remain unmeasured.
+
+[Reference review](slop/reviews/2026-09-30_reference-intervention-comparison.md) confirms readout orientation/indexing and admissible offline timing, but distinguishes fixed addition from the paper's coordinate swap and two-token projection from its sparse J-space decomposition. The causal paper results are on Anthropic models; the released Qwen lens is not proof of Qwen causal replication. It identifies large asymmetric injection during every decode step as a plausible cause, not an established diagnosis.2611 now changes only decode scale to0 on the reverse pronoun case, an explicitly labelled prompt-only diagnostic. First-token scores must reproduce and decode deltas must be zero; improved grammar would motivate a bounded continuous update rather than repeated fixed addition. This control alone cannot complete the continuous-intervention goal.
+
+Runtime note:2596/2597 timed out before any condition completed; shared-import retry2600 succeeded.2598 timed out after all scientific artifacts persisted, so its result was checked rather than rerun. Current tokenizer `all_special_ids` omits backend-special im_start; r2 now excludes all backend-special IDs too (old affected row .033333→.034483, no generation change). Generation still uses the pinned model EOS248044, not tokenizer chat-end248046; this policy is recorded, not silently changed.
+
+Full per-job evidence and hypotheses: [audit](slop/audits/2026-09-30_status.md). Both goals remain open. README remains an unpublished editorial draft.
