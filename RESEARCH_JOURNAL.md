@@ -1109,3 +1109,20 @@ Same-token donors use the original four generic templates plus `. It`, eight inp
 Runtime note:2596/2597 timed out before any condition completed; shared-import retry2600 succeeded.2598 timed out after all scientific artifacts persisted, so its result was checked rather than rerun. Current tokenizer `all_special_ids` omits backend-special im_start; r2 now excludes all backend-special IDs too (old affected row .033333→.034483, no generation change). Generation still uses the pinned model EOS248044, not tokenizer chat-end248046; this policy is recorded, not silently changed.
 
 Full per-job evidence and hypotheses: [audit](slop/audits/2026-09-30_status.md). Both goals remain open. README remains an unpublished editorial draft.
+
+
+## 2026-09-30 — Semantic audit narrows readout; answer changes still do not transfer
+
+— PI/OpenAI
+
+Observed: blinded v3 annotation (all48 rows/1536 entries) gives half-J7/16, half-plain24 2/16, half-plain27 0/16 for hidden recovery with no observed definite input/answer leak. All seven J passes are geography. The posthoc full-English-alias wrong-country control gives7/8 correct memberships versus10/56 wrong assignments, not56 independent prompts. Sources: `slop/reviews/2026-09-30_v3-semantic-review.md`, `out/2026-09-30_125330_jlens-one-pass/geography_wrong_label_control.json`.
+
+Observed: eight non-geography cases were committed at1c72344 before2615. The unchanged half-J method is3/8 lexically, AUROC.856807, versus plain27 6/8,.898877 and plain24 1/8,.813996. Seven baselines match frozen answers; violin says “the woodwind family.” These are not semantic success counts: e.g. plain27 apple still shows `poisoning`, `白雪`, `:red`. Root `out/2026-09-30_142814_jlens-one-pass/`; full31-line log and source4fc70e4 verified. This weakens any general J-lens advantage.
+
+Observed: reverse pronoun-donor quarter decode2612 keeps p8=.642038 and a grammatical NLI continuation; initial probabilities exactly match full-decode133853. Its later hypothetical4 is not an initial-answer reversal. On skeleton2614, the same projected edit reads `spider` but still answersinside (poutside.199712 vsBase.225063). Full donor answersoutside (.240546) but keepslegs4. Thus neither intervention succeeds on both properties. Directories142712 and142748 contain all4×32-token conditions and coverage, odds/mass/r2 verification. Prompt-only2611 at140958 was a diagnostic, not continuous success.
+
+Observed: coordinate swaps at intermediate residual20 (2619;150940/150958, source9cba28e) exchange the local coordinates but retain8 and4. J forward shift+1.375, reverse0. Local J readout remains punctuation; plain controls have different magnitudes. Eight32-token conditions, all3-position prefill/31 decode calls and metrics checked. The later NLI hypothesis8 in the reverse run is not a successful initial answer.
+
+Observed:2621 rescored v4 saved prefill states at24c6faf, with a hook forbidding transformer forwards. All fields of88 old rows replay exactly. Signed logit contrast is0/8 for J24/plain24/plain27; negative-final control also0/8; cyclic mismatched-final J is2/8. Probability contrast J remains4/8, plain27 5/8. Lists contain topic words (`Months`, `Days`) and fragments. Source `out/2026-09-30_151032_jlens-one-pass/`; component logits/log-probabilities and cutoff ties saved. Same-family review `slop/reviews/2026-09-30_logit-contrast-design.md` predicted denominator-driven artifacts; this is development, not holdout evidence.
+
+Interpretation/next: grammar was partly damaged by repeated constant additions, but grammatical changed digits are insufficient. Pause reranker expansion while advisor dialogue chooses a bounded causal change: locally conditional donor-coordinate reflection, with clean source/target signed-margin diagnostics. Generic donor-centre domain mismatch is an explicit possible failure, not something to fix by tuning against these prompts. README remains an unapproved draft; both goals remain open.
