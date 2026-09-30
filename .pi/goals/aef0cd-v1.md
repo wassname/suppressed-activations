@@ -142,6 +142,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI:2648 queued on default from immutable7240ece main/launcher; one outer300s TERM+15s grace, capital then currency, <=320 generated tokens plus two post-condition target prefills. Followerproc_280a supplies native completion. Full-main tiny32-layer BF16 Qwen tests passed seeds0/1 (63s), extended EOS check passed35s; bases, casts, own-state random, exact token coverage, Base replay and hook ownership checked. Fresh reviewerf118381e found no blocking defect, requested clear J[15]/residual16 wording and six-token launcher preflight, both addressed. Old direction gain added1 before float32 cast; fixed to match actual norm. Pinned gain relative discrepancy.000731, not shown to explain prior failures. SourceSHA02b5a0957ad8d3913603217d901577956eb48fccc0fc18e1b512e8a5e1c5a498; launcherSHA c3077e949fde59752a8a9f786ebaaca5d658bfc32f0b215ba5b6f5caf8941e4a. No scientific result yet; both goals open.
 
+- PI/OpenAI: while2648 remains pending, prepared an independent CPU artifact checker (6b63e93, then helper/cast-bound checks), syntax-checked it and executed only its pinned-parameter loading segment. No current-input inference or scientific outcome. Fresh review435e150e confirms the previously noted distinction between translation's unspoken word forms and English audits' distinct hidden entities; exhaustive multilingual exclusion is an agent convention, not an explicit user requirement. Preserve both kinds of evidence separately, with no rescoring or promotion. Report slop/reviews/2026-09-30_readout-role-criteria-review.md. Country assay and both open goals unchanged.
+
 ## Interview
 
 ### 2026-09-30 07:42

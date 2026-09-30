@@ -20,7 +20,12 @@ pipeline=json.loads((root/'pipeline.json').read_text())
 assert pipeline['status']=='complete' and pipeline['source_sha256']==source_sha
 assert [r['relation'] for r in pipeline['runs']]==['capital','currency']
 assert pipeline['primary']=='raw J-coordinate exchange' and pipeline['generated_token_cap']==320
+assert pipeline['target_prefill_count']==2
 helpers=json.loads((root/'helper_sha256.json').read_text())
+launcher=ast.parse((root/'launcher.py').read_text())
+expected_helpers=next(ast.literal_eval(n.value) for n in launcher.body if isinstance(n,ast.Assign)
+                      and any(isinstance(t,ast.Name) and t.id=='helpers' for t in n.targets))
+assert helpers==expected_helpers
 for p,digest in helpers.items():
     assert hashlib.sha256((root/'helpers'/p).read_bytes()).hexdigest()==digest
 model_dir=Path('/home/code/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a')
@@ -118,6 +123,13 @@ for run in pipeline['runs']:
             for key,value in (('requested_delta_norm',(req-h).norm()),('applied_delta_norm',(new-h).norm()),
                               ('relative_delta_norm',(req-h).norm()/h.norm()),('applied_relative_delta_norm',(new-h).norm()/h.norm())):
                 assert math.isclose(call[key],float(value),abs_tol=2e-5,rel_tol=2e-5),(mode,i,key)
+            if mode not in ('Base','matched-random delta'):
+                desired=(h@inverse.T).flip(-1)
+                tolerance=1e-4*(1+float(desired.abs().max()))
+                cast_bound=float((new-req).norm()/torch.linalg.svdvals(v)[-1])
+                assert float((req@inverse.T-desired).abs().max())<tolerance
+                assert float((new@inverse.T-desired).abs().max())<=cast_bound+2*tolerance
+                assert math.isclose(call['cast_coordinate_error_bound'],cast_bound,abs_tol=2e-5,rel_tol=2e-5)
         p0,p1=r['p_answer0'],r['p_answer1']; b0,b1=base['p_answer0'],base['p_answer1']
         assert min(p0,p1,b0,b1)>0,'Probability underflow: saved log probabilities are required for independent odds reconstruction'
         shift=math.log(p1)-math.log(p0)-math.log(b1)+math.log(b0)
