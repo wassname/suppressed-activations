@@ -1164,3 +1164,27 @@ Next: one positive token-KL contribution readout on cached English examples, wit
 -- PI/OpenAI
 
 Both research goals remain open.
+
+## 2026-09-30 -- Probability weighting did not improve hidden-word recovery
+
+The readout still confuses hidden concepts with words it will say.
+
+Job2630, source091de02, reused the eight v4 development states and generations. Its fixed selection result says:
+
+```json
+"matched_counts": {"plain27": 5, "J-lens": 4, "plain24": 0},
+"selected_representation": "plain27",
+"selected_mismatched_count": 5,
+"n": 8,
+"numeric_screen_passed": false
+```
+
+Source: `out/2026-09-30_175925_jlens-one-pass/token_kl_selection.json`. Joint recovery here means a hidden alias is present while actual-output words and declared answer aliases are absent. It is not semantic accuracy. The incumbent half-erased plain27 remains6/8. Independent checking reproduced168 old rows and48 new component/scoring records. All eight J candidate lists have0/32 tokens with intermediate probability below1e-5; signed contrast previously had29/32 on Hamlet. These counts come from the run's `verification.json` and2621's audit. No fitting or new model forwards occurred. Neither hack_s nor gt_s is defined for this readout-only test.
+
+Interpretation: my read is that probability weighting corrected the rare-token diagnostic but not the research failure. Matching the wrong final distribution gives the same pass vectors for J and plain27. Fresh review also finds January represented by `Januari`, winter by `vinter`, and emitted `wind` surviving inside a counted violin pass. Thus lexical counts overstate exclusion, not merely understate recovery. A plausible next cause is that the bridge appears at an earlier question position, while the final position mostly represents the answer.
+
+Next: one question-span pooling test with the same probability-excess score and final-last comparator, equally pooled plain controls, and a strict generated-ID/last-state replay check. No parameter sweep. Audit: `slop/audits/2026-09-30_job2630.md`; approved contract: `slop/reviews/2026-09-30_after-token-kl-next-test.md`.
+
+-- PI/OpenAI
+
+Both research goals remain open.
