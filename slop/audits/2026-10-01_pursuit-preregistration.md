@@ -66,3 +66,14 @@ Fresh reviewer78b61f78 found no blocker, but noted missing positive scorer fixtu
 | Runtime/resources | Final CPU chain25s; production bounded TERM300s+15s grace. Global GPU peak will be recorded; no per-stage GPU estimate claimed. |
 
 A negative result would reject this greedy32-step configuration, not sparse representations generally. A positive alias result can still reflect partial-token matches, translated input/answer leaks, or topic priors; semantic review remains necessary.
+
+
+## Submission
+
+Queued2650 from96bd601 on default (one parallel), behind existing2646/2649. Native followerproc_460e. MainSHAa7e7da2daf3ac8945a5056335e2fea92893e01eda4c091de47989a442cbaa167; launcherSHAb3f699fc8005d0f2b84d796ff4cae85cf789e35fb8083fd43bba507a1183855f; dataSHAf7e253176a60ab43d99b019d2b84fbec97cde0ba4df6c08b172d7c7f8f3a2173. Exact metadata: `2026-10-01_job2650-queued.json` (environment omitted).
+
+```sh
+env PYTHONPATH=/dev/shm/suppressed-import-7ac02bf HF_HUB_OFFLINE=1 timeout --signal=TERM --kill-after=15s 300 uv run --no-sync --offline python -u .local/queued/pursuit_96bd601.py .local/queued/08_pursuit_96bd601.py .local/queued/english_v4_96bd601.json
+```
+
+Snapshots are read-only. No outcome observed at submission. — PI/OpenAI
