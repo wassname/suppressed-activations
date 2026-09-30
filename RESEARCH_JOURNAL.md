@@ -1298,3 +1298,28 @@ All three counted J passes have identifiable leaks: Thursday also returns Russia
 The first December allocation is January, followed by Months. My interpretation is that fixed earlier coefficients may remove useful correlated directions, but the evidence does not establish that mechanism. The next single test allows active coefficients to decrease as well as increase: explicitly specified nonnegative gradient pursuit, not a claimed reproduction of unpublished solver code. Better reconstruction alone will not qualify; it must improve paired semantic recovery and add a clue-associated recovery. The matching-pursuit configuration is retired, v5 is unrun, and both goals remain open.
 
 -- PI/OpenAI
+
+## 2026-09-30 UTC -- Revising coefficients does not add a joint recovery
+
+The revised decomposition fits activations better without finding another hidden concept cleanly.
+
+Job2668, `out/2026-10-01_045248_jlens-one-pass/gradient_pursuit_selection.json`:
+
+```json
+"primary_count": 3,
+"cardinality_matched_unit_dot_count": 4,
+"paired_gains": [],
+"paired_losses": [0],
+"net_paired_gain": -1,
+"new_vs_native_matching_pursuit": []
+```
+
+These count frozen lexical joint passes across eight cached development prompts. The comparator uses the same J dictionary with direct unit-dot scores. `fit_comparison.json` records `"mean_remaining_energy_gp": 0.8774855734542512` versus `"mean_remaining_energy_mp": 0.8976442322274167`; smaller means less unexplained squared activation norm. The independent checker confirms1173 updates with decreasing coefficients across40 decompositions and288 exact old rows, within its stated selected-support scope. The model was not trained and no new continuations were generated. Seven cached answers match intended aliases; violin incorrectly answers woodwind and remains in the denominator.
+
+My interpretation is that reconstruction alone probably misses the required distinction between hidden content and speech. Persistent examples include Apfel alongside red, and triangle alongside Dutch three. The changed violin list drops an old family leak, but violin already appears before its clue; no new recovery follows. This rejects the specified solver and budget, not all sparse methods. Full evidence and competing explanations: `slop/audits/2026-10-01_job2668.md`.
+
+Next is a small transfer test of the earlier frozen half-erasure rule, whose reviewed successes were restricted to geography. It will use native chat and different countries sharing a continent answer, after checking prior exposure and rendering. This is not promotion of a winning control from the failed solver run.
+
+Both research goals remain open.
+
+-- PI/OpenAI
