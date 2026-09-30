@@ -1,0 +1,15 @@
+2026-10-01 01:51:04.058 | INFO     | <run_path>:main:619 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 6971.50it/s]
+[W1001 01:51:09.114062128 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 2543845376 bytes (free: 2075197440, total: 25272516608).
+[W1001 01:51:09.163645310 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 637534208 bytes (free: 170983424, total: 25272516608).
+[W1001 01:51:09.163789362 CUDACachingAllocator.cpp:3933] memory allocation failed with OOM on device 0 while trying to allocate 637534208 bytes (free: 170983424, total: 25272516608).
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/.local/queued/pursuit_9d5c22d.py", line 19, in <module>
+    out = ns['main'](cases_json=Path(sys.argv[2]), end_pass_readout=True, output_mask_max_n=1,
+        erase_output=True, erase_strength=.5, matching_pursuit=True, replay_readout_run=reference)
+  File ".local/queued/08_pursuit_9d5c22d.py", line 656, in main
+    j_dictionary = unit_dictionary(effective @ J)
+  File ".local/queued/08_pursuit_9d5c22d.py", line 91, in unit_dictionary
+    assert torch.isfinite(norms).all() and torch.isfinite(atoms).all()
+                                           ~~~~~~~~~~~~~~^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 608.00 MiB. GPU 0 has a total capacity of 23.54 GiB of which 163.06 MiB is free. Process 1074883 has 21.91 GiB memory in use. Of the allocated memory 21.02 GiB is allocated by PyTorch, and 601.46 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

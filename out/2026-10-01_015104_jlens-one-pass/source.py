@@ -80,17 +80,15 @@ def reflect_donor_side(h, center, direction):
 
 def unit_dictionary(vectors):
     """Rows are token directions; only exactly zero norms are excluded. — PI/OpenAI"""
-    assert vectors.ndim == 2
+    assert vectors.ndim == 2 and torch.isfinite(vectors).all()
     norms = torch.empty(vectors.shape[0], device=vectors.device, dtype=torch.float64)
     atoms = torch.empty_like(vectors, dtype=torch.float32)
     for start in range(0, len(vectors), 4096):
         stop = start + 4096
-        assert torch.isfinite(vectors[start:stop]).all()
         row_norms = torch.linalg.vector_norm(vectors[start:stop], dim=-1, dtype=torch.float64)
-        assert torch.isfinite(row_norms).all()
         norms[start:stop] = row_norms
         torch.div(vectors[start:stop], row_norms.masked_fill(row_norms == 0, 1)[:, None], out=atoms[start:stop])
-        assert torch.isfinite(atoms[start:stop]).all()
+    assert torch.isfinite(norms).all() and torch.isfinite(atoms).all()
     eligible = norms > 0
     return atoms, norms, eligible
 
@@ -99,7 +97,7 @@ def nonnegative_matching_pursuit(state, atoms, eligible, steps=32):
     """Unmasked greedy projections, with repeats and lowest-ID ties. — PI/OpenAI"""
     assert state.ndim == 1 and atoms.ndim == 2 and atoms.shape[1] == state.numel()
     assert eligible.shape == atoms.shape[:1] and eligible.dtype == torch.bool
-    assert torch.isfinite(state).all()
+    assert torch.isfinite(state).all() and torch.isfinite(atoms).all()
     assert steps > 0
     residual = state.float().clone()
     coefficients = torch.zeros(atoms.shape[0], device=atoms.device)
@@ -653,8 +651,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     J = lens["J"][read_block].float().cuda()
     gain = 1.0 + model.model.norm.weight.float()
     if matching_pursuit:
-        j_dictionary = unit_dictionary((W.float() * gain) @ J)
-        plain_dictionary = unit_dictionary(W.float() * gain)
+        effective = W.float() * gain
+        plain_dictionary = unit_dictionary(effective)
+        j_dictionary = unit_dictionary(effective @ J)
+        del effective
         dictionaries = {"J24": j_dictionary, "plain24": plain_dictionary, "plain27": plain_dictionary}
         (out / "pursuit_dictionary.json").write_text(json.dumps({name: {
             "zero_norm_ids": (~d[2]).nonzero().flatten().tolist(), "zero_norm_count": int((~d[2]).sum()),

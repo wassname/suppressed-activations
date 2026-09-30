@@ -180,9 +180,21 @@ for seed in (0, 1):
     vectors[8196] *= 1e-40
     expected_norms = torch.linalg.vector_norm(vectors, dim=-1, dtype=torch.float64)
     expected_atoms = (vectors / expected_norms.masked_fill(expected_norms == 0, 1)[:, None]).float()
-    atoms, norms, eligible = unit_dictionary(vectors)
+    original_isfinite = torch.isfinite
+    checked_sizes = []
+    def bounded_isfinite(value):
+        checked_sizes.append(value.numel())
+        assert value.numel() <= 4096 * vectors.shape[1], value.shape
+        return original_isfinite(value)
+    torch.isfinite = bounded_isfinite
+    try:
+        atoms, norms, eligible = unit_dictionary(vectors)
+    finally:
+        torch.isfinite = original_isfinite
+    assert checked_sizes and max(checked_sizes) == 4096 * vectors.shape[1]
     assert torch.equal(norms, expected_norms) and torch.equal(atoms, expected_atoms)
     assert torch.equal(eligible, expected_norms > 0)
     print(f'PASS seed{seed}:8197-row batch-boundary/last-slice/zero/tiny normalization exactly equals dense float64 formula', flush=True)
-print('Allocation calculation:248320*2560*8=5085593600 bytes (observed OOM);4096*2560*8=83886080 bytes per float64 tile; total GPU peak still untested', flush=True)
+print('PASS constructor finite checks are tile-bounded; no full-dictionary finite temporary', flush=True)
+print('Allocation calculation:248320*2560*8=5085593600 bytes (first OOM);full boolean=635699200 bytes (second OOM requested608MiB rounded);4096*2560*8=83886080 bytes per float64 tile; total GPU peak still untested', flush=True)
 print('LIMIT: helper/scorer fixtures; semantic performance and production4B parity remain untested.', flush=True)
