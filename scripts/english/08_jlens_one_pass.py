@@ -10,6 +10,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from functools import cache
 
 import torch
 from huggingface_hub import hf_hub_download
@@ -132,6 +133,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
     vocab_norm = [t.strip().lower() for t in vocab]
     word_index = s4.WordIndex(vocab_norm)
 
+    @cache
+    def label_ids(word, min_chars=3):
+        return tuple(i for i, t in enumerate(vocab) if q.is_prefix_hit(t, word, min_chars))
+
     def readout(h, use_j=True):
         transported = h.float() @ J.T if use_j else h.float()
         return model.lm_head(model.model.norm(transported.to(W.dtype))).float()
@@ -181,22 +186,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             generated = model.generate(ids, max_new_tokens=8, do_sample=False)
             case["said_text"] = tok.decode(generated[0, ids.shape[1]:])
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
-        hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
-        said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
-        hidden, said, ambiguous_intended = disjoint_labels(hidden, said)
-        assert hidden and said, (concept, answer, [vocab[i] for i in ambiguous_intended])
+        hidden, said, ambiguous_intended = disjoint_labels(label_ids(concept), label_ids(answer))
+        canonical_evaluable = bool(hidden and said)
         if cases_json is None:
             hidden_aliases = [concept, concept + "s"] if concept in ("dog", "bird") else [concept]
             answer_aliases = [answer, {"2": "two", "4": "four"}[answer]] if answer in ("2", "4") else [answer]
         else:
             hidden_aliases, answer_aliases = case["hidden_aliases"], case["answer_aliases"]
-        hidden_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in hidden_aliases)]
-        said_alias_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in answer_aliases)]
+        hidden_alias_ids = sorted({t for a in hidden_aliases for t in label_ids(a)})
+        said_alias_ids = sorted({t for a in answer_aliases for t in label_ids(a)})
         actual_words = sorted(set(re.findall(r"[^\W_]+", case["said_text"].lower())))
-        actual_said_ids = [i for i, t in enumerate(vocab) if any(q.is_prefix_hit(t, a, 3) for a in actual_words)]
+        unscorable_actual_words = [a for a in actual_words if not label_ids(a)]
+        actual_said_ids = sorted({t for a in actual_words for t in label_ids(a)})
         actual_hidden_ids, actual_said_ids, ambiguous_actual = disjoint_labels(hidden_alias_ids, actual_said_ids)
         hidden_alias_ids, said_alias_ids, _ = disjoint_labels(hidden_alias_ids, said_alias_ids)
         hidden_is_said = any(a.casefold() in actual_words for a in hidden_aliases)
+        actual_evaluable = hidden_is_said or bool(actual_hidden_ids and actual_said_ids and not unscorable_actual_words)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
@@ -214,30 +219,32 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         for name, score in scores.items():
             z = score.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
-            hidden_token = hidden[int(z[hidden].argmax())]
+            hidden_token = hidden[int(z[hidden].argmax())] if hidden else None
             top = [t for t in z.topk(32).indices.tolist() if torch.isfinite(z[t])]
             selected = set(top)
             auc = None
-            if actual_hidden_ids and actual_said_ids and not hidden_is_said:
+            if actual_evaluable and not hidden_is_said:
                 positives, negatives = z[actual_hidden_ids, None], z[actual_said_ids][None, :]
                 auc = float(((positives > negatives).float() + 0.5 * (positives == negatives).float()).mean())
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs,
-                             "pass": bool(selected.intersection(hidden)) and not selected.intersection(said),
+                             "pass": bool(selected.intersection(hidden)) and not selected.intersection(said) if canonical_evaluable else None,
+                             "canonical_evaluable": canonical_evaluable,
                              "hidden_aliases": hidden_aliases, "answer_aliases": answer_aliases,
-                             "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids),
+                             "alias_pass": bool(selected.intersection(hidden_alias_ids)) and not selected.intersection(said_alias_ids) if hidden_alias_ids and said_alias_ids else None,
                              "actual_words": actual_words, "token_pair_auroc": auc,
                              "intended_answer_observed": any(re.search(r"\b" + re.escape(a) + r"\b", case["said_text"], re.IGNORECASE) for a in answer_aliases),
-                             "actual_pass": not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(actual_said_ids),
+                             "actual_pass": actual_evaluable and not hidden_is_said and bool(selected.intersection(actual_hidden_ids)) and not selected.intersection(actual_said_ids),
+                             "actual_evaluable": actual_evaluable, "unscorable_actual_words": unscorable_actual_words,
                              "hidden_is_said": hidden_is_said,
                              "ambiguous_intended_tokens": [vocab[t] for t in ambiguous_intended],
                              "ambiguous_actual_tokens": [vocab[t] for t in ambiguous_actual],
                              "actual_said_hits": [vocab[t] for t in top if t in actual_said_ids],
-                             "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
+                             "best_hidden_token": vocab[hidden_token] if hidden_token is not None else None, "baseline_generation": case["said_text"],
                              "hidden_excluded_variants": [vocab[t] for t in hidden_alias_ids if not torch.isfinite(z[t])],
                              "top32": [vocab[t] for t in top]})
         (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
-        logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}")
+        logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}; canonical_evaluable={canonical_evaluable}; unscorable_actual_words={unscorable_actual_words}")
     if forecasting or end_pass_readout:
         description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
                        f"Use script04's word mask with top_p=0.9, max_n={output_mask_max_n} (default20;1 retains only the greedy next token). Readout finishes at residual32; this information cannot guide an earlier edit. No forecast is fitted or used. "
@@ -255,6 +262,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
               "Shared prefixes such as Bra for Brazil/Brasília are removed from both scoring classes, not from the readout. A hidden alias actually said in the continuation forces failure. "
+              "A word without any eligible vocabulary prefix is explicitly unscorable. Such actual-output rows cannot earn a joint pass or AUROC; they remain in the full denominator, so the joint count is a conservative count of verified passes. "
               "Token-pair AUROC compares unambiguous hidden and said token variants, with half credit for ties; it is undefined when the hidden concept is said or a class is empty. It is not top32 recovery. "
               "Final-layer oracle is an evaluation-only contrast control, not an admissible same-layer method. Calibration all-position agreement is token-weighted teacher forcing; final-position agreement has four units. Adjacent records may share articles. No interventions in this run.\n\n"
               f"SHOULD: {'end-pass masking improves joint recovery over unmasked readouts; compare J with equally masked plain lenses.' if end_pass_readout else 'forecast beats plain held-out argmax agreement and KL; J-minus-forecast improves joint readout over both J and J-minus-plain. If oracle contrast also fails, forecast error alone cannot explain it.'}\n\n"
@@ -267,18 +275,19 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
             correct = [r for r in rows if r["intended_answer_observed"]]
             aucs = [r["token_pair_auroc"] for r in rows if r["token_pair_auroc"] is not None]
             summaries.append({"method": name, "joint_pass": sum(r["actual_pass"] for r in rows), "n": len(rows),
+                              "unscored_n": sum(not r["actual_evaluable"] for r in rows),
                               "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
-        summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
+        summary_md = "\n## Fixed-set readout results\n\nJoint pass means a hidden alias is found and all lexical words in the eight-token continuation are excluded. Unscored rows remain in the full denominator but cannot earn a pass. Correct-answer columns condition on an expected answer alias appearing. Neither proves internal reasoning.\n\n"
         for category in ("current", "end-pass", "oracle"):
             group = sorted([r for r in summaries if ("oracle" if "oracle" in r["method"] else "end-pass" if r["method"].startswith("end-pass") else "current") == category], key=lambda r: r["joint_pass"], reverse=True)
             if not group:
                 continue
             summary_md += {"current": "### Current-layer methods\n\n", "end-pass": "### End-of-pass readout (not for earlier edits)\n\n", "oracle": "### Evaluation-only future-information controls\n\n"}[category]
             summary_md += tabulate([[f"[{r['method']}](readout.json)", f"{r['joint_pass']}/{r['n']}", r["mean_token_pair_auroc"],
-                                    f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}"] for r in group],
-                                   headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+                                    f"{r['correct_answer_joint_pass']}/{r['correct_answer_n']}", r["unscored_n"]] for r in group],
+                                   headers=["method", "joint↑", "AUROC↑", "correct-answer joint↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
         (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return
