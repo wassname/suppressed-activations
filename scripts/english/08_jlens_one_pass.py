@@ -29,6 +29,7 @@ LENS_FILE = "qwen3.5-4b/jlens/Salesforce-wikitext/Qwen3.5-4B_jacobian_lens_n1000
 LENS_SHA = "1f9a8f8fd593f0ffec1a9640993257ca4560f8ae3e5602315643d5cc6818534e"
 REFERENCE = "https://github.com/anthropics/jacobian-lens/tree/581d398613e5602a5af361e1c34d3a92ea82ba8e"
 SPIDER = "Fact: The number of legs on the animal that spins webs is "
+DOG = "Fact: The number of legs on the animal that barks and is called man's best friend is "
 
 
 def swap_coordinates(h, vectors, inverse):
@@ -36,8 +37,7 @@ def swap_coordinates(h, vectors, inverse):
     return h.float() + (coordinates.flip(-1) - coordinates) @ vectors.T
 
 
-def main(readout_only=False, cache_positions: Path | None = None, block_index: int | None = None):
-    readout_only = readout_only or cache_positions is not None
+def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_positions=False):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -53,21 +53,13 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
     lens = torch.load(path, map_location="cpu", weights_only=True)
     W = model.lm_head.weight
     assert lens["d_model"] == W.shape[1] and lens["n_prompts"] == 1000
-    block = len(model.model.layers) // 2 - 1 if block_index is None else block_index
-    if cache_positions is not None:
-        assert block == 15, "saved midpoint activations require block 15"
-    J = lens["J"][block].float().cuda()
+    block, read_block = block_index, readout_block_index
+    J_edit = lens["J"][block].float().cuda()
+    J = lens["J"][read_block].float().cuda()
     gain = (1 + model.model.norm.weight).float()
     vocab = [tok.convert_tokens_to_string([t]) if t is not None else ""
              for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
     vocab_norm = [t.strip().lower() for t in vocab]
-
-    direction_norms = {}
-    if readout_only and cache_positions is None:
-        for name, transform in (("J-lens unit directions", J), ("plain unit directions", torch.eye(J.shape[0], device=J.device))):
-            direction_norms[name] = torch.cat([((chunk.float() * gain) @ transform).norm(dim=-1)
-                                              for chunk in W.split(4096)])
-            assert (direction_norms[name] > 0).all(), name
 
     def readout(h, use_j=True):
         transported = h.float() @ J.T if use_j else h.float()
@@ -82,83 +74,54 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
     cases = [r for r in prior if r["two_hop_correct"]][:4]
     concepts = ["Bulgaria", "Iceland", "Turkey", "Congo"]
     answers = ["Sofia", "Reykjavík", "Erdoğan", "Nguesso"]
-    if readout_only:
-        cases.append({"prompt": SPIDER})
-        concepts.append("spider")
-        answers.append("8")
+    fresh = [
+        ("Fact: The capital of the country shaped like a boot is ", "Italy", "Rome"),
+        ("Fact: The currency used in the country shaped like a boot is ", "Italy", "euro"),
+        ("Fact: The number of legs on the animal that barks is ", "dog", "4"),
+        ("Fact: The number of legs on the animal with feathers and a beak is ", "bird", "2"),
+    ]
+    cases += [{"prompt": p} for p, _, _ in fresh]
+    concepts += [c for _, c, _ in fresh]
+    answers += [a for _, _, a in fresh]
     readouts = []
     for case, concept, answer in zip(cases, concepts, answers, strict=True):
         ids = tok(case["prompt"], return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-        if cache_positions is None:
-            res, _ = trajectory(model, ids, model.model.norm)
-            h = res[block + 1]
-        else:
-            cached = torch.load(cache_positions / f"{concept}_midpoint.pt", weights_only=True, map_location="cuda")
-            torch.testing.assert_close(cached["input_ids"], ids)
-            h = cached["residual"]
+        res, _ = trajectory(model, ids, model.model.norm)
+        h = res[read_block + 1]
+        if "said_text" not in case:
+            generated = model.generate(ids, max_new_tokens=8, do_sample=False)
+            case["said_text"] = tok.decode(generated[0, ids.shape[1]:])
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, concept, 3)]
         said = [i for i, t in enumerate(vocab) if q.is_prefix_hit(t, answer, 3)]
         assert hidden and said and not set(hidden) & set(said)
-        if readout_only and cache_positions is None:
-            torch.save({"residual": h.cpu(), "input_ids": ids.cpu()}, out / f"{concept}_midpoint.pt")
-        methods = [("J-lens", True, False), ("plain lens", False, False)]
-        if cache_positions is not None:
-            methods += [("J-lens max position", True, True), ("plain lens max position", False, True)]
-        elif readout_only:
-            methods += [("J-lens unit directions", True, False), ("plain unit directions", False, False)]
-        for name, use_j, pool_positions in methods:
-            scores_by_position = readout(h, use_j).log_softmax(-1)
-            z = scores_by_position.amax(0) if pool_positions else readout(h[-1], use_j)
-            if name in direction_norms:
-                z = z / direction_norms[name]
-            z = z.masked_fill(mask, -torch.inf)
+        for name, use_j in (("J-lens", True), ("plain lens", False)):
+            z = readout(h[-1], use_j).masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
             hidden_token = hidden[int(z[hidden].argmax())]
-            position = int(scores_by_position[:, hidden_token].argmax()) if pool_positions else ids.shape[1] - 1
             readouts.append({"method": name, "prompt": case["prompt"], "concept": concept,
                              "answer": answer, "r_hidden": rh, "r_said": rs, "pass": rh < 32 <= rs,
-                             "best_hidden_token": vocab[hidden_token], "position": position,
-                             "input_prefix": tok.decode(ids[0, :position + 1]),
+                             "best_hidden_token": vocab[hidden_token], "baseline_generation": case["said_text"],
                              "top32": [vocab[t] for t in z.topk(32).indices.tolist()]})
     (out / "readout.json").write_text(json.dumps(readouts, ensure_ascii=False, indent=1))
-    if readout_only:
-        table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"], r["top32"][:8]] for r in readouts],
-                         headers=["concept", "readout", "hidden rank", "answer rank", "joint pass", "top8"], tablefmt="pipe")
-        change = ("One changed axis: maximum log probability across all prompt positions instead of the final position. "
-                  "Reuse the saved midpoint activations; compare raw J-lens and raw plain lens, with the same k and prompt mask. "
-                  "Hypothesis: the bridge is present near its clue even when absent at the final prompt position. "
-                  if cache_positions is not None else
-                  "One changed axis: divide each token's lens score by its residual-space direction norm. "
-                  "Layer, position, k and prompt mask are unchanged. This differs from the reference's raw J-lens. "
-                  "Hypothesis: high-norm punctuation directions dominate raw scores; unit directions improve hidden-word ranks. "
-                  "Negative control: apply the same normalisation to the plain lens. ")
-        md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-              f"k: 32\nforward_passes: {0 if cache_positions else 5}\ngenerations: 0\ncache_positions: {cache_positions}\n"
-              f"elapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
-              "# Fixed-layer readout comparison\n\nWritten by PI/OpenAI.\n\n"
-              f"{change}"
-
-              "The four country cases and the spider case were previously selected; this is development data, not a success rate.\n\n"
-              f"{table}\n\nrun.md: {out / 'run.md'}\n")
-        (out / "run.md").write_text(md)
-        print(md)
-        return
-
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in (" spider", " dog")]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
     rows = W[[t[0] for t in concept_ids]].float() * gain
-    vectors_j = (rows @ J).T
+    vectors_j = (rows @ J_edit).T
     vectors_plain = rows.T
     vectors_j = vectors_j / vectors_j.norm(dim=0)
     vectors_plain = vectors_plain / vectors_plain.norm(dim=0)
     inverse_j, inverse_plain = torch.linalg.pinv(vectors_j), torch.linalg.pinv(vectors_plain)
-    mask = q.prompt_word_mask(SPIDER, vocab_norm, "cuda")
-    ids = tok(SPIDER, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
-    a0, a1 = [tok(s, add_special_tokens=False).input_ids for s in ("8", "4")]
-    assert len(a0) == len(a1) == 1
-    a0, a1 = a0[0], a1[0]
+    source_prompt = DOG if reverse else SPIDER
+    mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
+    ids = tok(source_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
+    a8, a4 = [tok(s, add_special_tokens=False).input_ids for s in ("8", "4")]
+    assert len(a8) == len(a4) == 1
+    a8, a4 = a8[0], a4[0]
+    a0, a1 = a8, a4
+    expected_base, expected_target = ("4", "8") if reverse else ("8", "4")
+    prompt_start = 0 if all_prompt_positions else -3
     conditions = {}
     for mode in ("Base", "J-lens swap", "plain-lens swap", "matched-random delta"):
         calls, readings = [], []
@@ -166,7 +129,7 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
 
         def hook(_module, _args, output):
             h = output[0] if isinstance(output, tuple) else output
-            start = -3 if not calls else 0
+            start = prompt_start if not calls else 0
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
@@ -181,14 +144,23 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
             changed[:, start:] = edited.to(h.dtype)
             calls.append({"positions": selected.shape[1], "sequence_length": h.shape[1],
                           "relative_delta_norm": float((edited - selected).norm() / selected.norm())})
-            readings.append(top_words(changed[0, -1], mask))
+            if read_block == block:
+                readings.append(top_words(changed[0, -1], mask))
             return replace_output(output, changed)
 
-        with layer_hooks(model.model.layers, {block: hook}):
+        def observe(_module, _args, output):
+            h = output[0] if isinstance(output, tuple) else output
+            readings.append(top_words(h[0, -1], mask))
+
+        hooks = {block: hook}
+        if read_block != block:
+            hooks[read_block] = observe
+        with layer_hooks(model.model.layers, hooks):
             generated = model.generate(ids, max_new_tokens=32, do_sample=False, repetition_penalty=1.0,
                                        use_cache=True, return_dict_in_generate=True, output_scores=True)
         tokens = generated.sequences[0, ids.shape[1]:].tolist()
-        assert len(calls) == len(tokens) and calls[0]["positions"] == 3, calls
+        assert len(calls) == len(tokens) == len(readings), calls
+        assert calls[0]["positions"] == (ids.shape[1] if all_prompt_positions else 3), calls
         assert all(c["positions"] == 1 and c["sequence_length"] == 1 for c in calls[1:]), calls
         lp = generated.scores[0][0].float().log_softmax(-1)
         if mode == "Base":
@@ -196,12 +168,12 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
         kept = [t for t in tokens if t not in tok.all_special_ids]
         bigrams = list(zip(kept, kept[1:]))
         top = lp.topk(10).indices.tolist()
-        conditions[mode] = {"input_repr": repr(SPIDER), "generation": tok.decode(tokens), "token_ids": tokens,
+        conditions[mode] = {"input_repr": repr(source_prompt), "generation": tok.decode(tokens), "token_ids": tokens,
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
-                            "expected_answer": "8" if mode == "Base" else "4" if mode != "matched-random delta" else "control",
-                            "p8": float(lp[a0].exp()), "p4": float(lp[a1].exp()),
+                            "expected_answer": expected_base if mode == "Base" else expected_target if mode != "matched-random delta" else "control",
+                            "p8": float(lp[a8].exp()), "p4": float(lp[a4].exp()),
                             "swap_log_odds_shift": float(lp[a1] - lp[a0] - base_lp[a1] + base_lp[a0]),
                             "bare_answer_mass": float(lp[a0].exp() + lp[a1].exp()),
                             "r2": 1 - len(set(bigrams)) / len(bigrams) if bigrams else 0.0}
@@ -213,19 +185,23 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass J-lens pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
-          f"Rule for this pilot: fixed block {block} (default midpoint), last-position readout, prompt-word removal only; no final-layer output mask. "
+          f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
+          "The observer never controls the edit; it returns no activation replacement. "
+          f"Expected answer movement is {expected_base} to {expected_target}. Positive swap_log_odds_shift always favours 4 over 8; reverse success has a negative shift. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
-          "Intervention swaps coordinates along unit W*norm_gain*J directions, final three prompt positions plus every decode step. "
+          f"Intervention swaps coordinates along unit W*norm_gain*J directions, prompt slice {prompt_start}: plus every decode step. "
           "No source/donor activation extraction. Reference equation: h + V(swap(pinv(V)h) - pinv(V)h).\n\n"
-          "Selection: first four previously answer-correct English cases, plus the previously chosen spider/dog example. "
+          "Selection: four previously answer-correct English cases, four fixed new simple English prompts, and the previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
-          "One configuration and one causal pair, not a generalisation rate.\n\n"
-          "SHOULD: J-lens recovers hidden words better than the same-layer plain lens. The swap should change 8 toward 4 "
+          "This is the second observer layer tested; edit layer/strength remain the successful midpoint configuration. One causal pair is not a generalisation rate.\n\n"
+          f"SHOULD: J-lens recovers hidden words better than the same-layer plain lens. The swap should change {expected_base} toward {expected_target} "
           "with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n"
           f"{read_table}\n\n{table}\n")
+    for case in cases:
+        md += f"\nReadout input: {case['prompt']!r}\n\nBaseline continuation (up to 8 tokens): {case['said_text']!r}\n"
     for mode, r in conditions.items():
         condition_dir = out / mode.lower().replace(" ", "-")
         condition_dir.mkdir()
@@ -233,9 +209,9 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
         section += f"Generation ({r['n_tokens']} tokens):\n```text\n{r['generation']}\n```\n\n"
         section += tabulate([[x['token'], x['log_p'], x['p'], x['delta_log_p']] for x in r['top10']],
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
-        section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; final 3 prompt positions, then one position per decode.\n"
+        section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"k: 32\nstrength: 1\nprompt_slice: '-3:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
                        f"expected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\nr2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
@@ -246,7 +222,8 @@ def main(readout_only=False, cache_positions: Path | None = None, block_index: i
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--readout-only", action="store_true", help="Compare raw and unit-direction readouts; no generation.")
-    parser.add_argument("--cache-positions", type=Path, help="Compare last-position vs all-position pooling on saved midpoint activations.")
-    parser.add_argument("--block-index", type=int, help="Change only the readout/edit block; default is the midpoint (15).")
+    parser.add_argument("--block-index", type=int, default=15, help="Edit block, default midpoint (15).")
+    parser.add_argument("--readout-block-index", type=int, default=23, help="Observation block only, default 23.")
+    parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
+    parser.add_argument("--all-prompt-positions", action="store_true", help="Match the reference's all-position intervention; default remains final three.")
     main(**vars(parser.parse_args()))
