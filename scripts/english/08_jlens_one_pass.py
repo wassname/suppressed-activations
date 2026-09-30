@@ -212,6 +212,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                                                 "cuda": torch.version.cuda, "python": sys.version}, indent=1))
     (out / "source.py").write_bytes(Path(__file__).read_bytes())
     tok = AutoTokenizer.from_pretrained(q.MODEL, revision=q.REVISION, local_files_only=True)
+    special_ids = set(tok.all_special_ids) | {i for i, token in tok.added_tokens_decoder.items() if token.special}
+    (out / "tokenizer_special_ids.json").write_text(json.dumps({"eos_id": tok.eos_token_id,
+        "all_special_ids": tok.all_special_ids, "r2_excluded_ids": sorted(special_ids)}, indent=1))
     model = AutoModelForCausalLM.from_pretrained(q.MODEL, revision=q.REVISION, dtype=torch.bfloat16,
                                                 local_files_only=True).cuda().eval()
     model.generation_config.to_json_file(out / "generation_defaults.json")
@@ -237,12 +240,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     def label_ids(word, min_chars=3):
         return tuple(i for i, t in enumerate(vocab) if q.is_prefix_hit(t, word, min_chars))
 
-    def readout(h, use_j=True):
-        transported = h.float() @ J.T if use_j else h.float()
+    def readout(h, use_j=True, matrix=J):
+        transported = h.float() @ matrix.T if use_j else h.float()
         return model.lm_head(model.model.norm(transported.to(W.dtype))).float()
 
-    def top_words(h, mask):
-        z = readout(h).masked_fill(mask, -torch.inf)
+    def top_words(h, mask, matrix=J):
+        z = readout(h, matrix=matrix).masked_fill(mask, -torch.inf)
         return [vocab[t] for t in z.topk(32).indices.tolist()]
 
     assert not (calibration_json is not None and forecast_checkpoint is not None)
@@ -544,7 +547,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                           "relative_delta_norm": float((edited - selected).norm() / selected.norm()),
                           "applied_relative_delta_norm": float((changed[:, start:].float() - selected).norm() / selected.norm()),
                           "raw_J_pair_before": (selected[0, -1] @ raw_vectors_j).tolist(),
-                          "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist()})
+                          "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist(),
+                          "edit_basis_coordinates_before": (selected[0, -1] @ inverse_j.T).tolist(),
+                          "edit_basis_coordinates_after": (changed[0, -1].float() @ inverse_j.T).tolist()})
+            if len(calls) == 1:
+                calls[-1].update(local_jlens_before=top_words(selected[0, -1], mask, J_edit),
+                                 local_jlens_after=top_words(changed[0, -1], mask, J_edit))
             if read_block == block:
                 readings.append(top_words(changed[0, -1], mask))
             return replace_output(output, changed)
@@ -566,7 +574,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         lp = generated.scores[0][0].float().log_softmax(-1)
         if mode == "Base":
             base_lp = lp.clone()
-        kept = [t for t in tokens if t not in tok.all_special_ids]
+        kept = [t for t in tokens if t not in special_ids]
         bigrams = list(zip(kept, kept[1:]))
         top = lp.topk(10).indices.tolist()
         conditions[mode] = {"input_repr": repr(source_prompt), "generation": tok.decode(tokens), "token_ids": tokens,
@@ -601,7 +609,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         f"Intervention: {'raw lens-numerator swap through the dual basis' if swap_logits else 'unit-direction coordinate swap'}. "
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
-    md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
+    steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
+    md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
           f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
@@ -610,7 +619,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
           f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; reverse success has a negative shift. "
           "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
-          f"{edit_description} Prompt slice {prompt_start}: plus every decode step; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
+          f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} Previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
@@ -629,7 +638,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
                        f"donor_checkpoint: {donor_checkpoint}\ndonor_norm: {donor_norm}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
