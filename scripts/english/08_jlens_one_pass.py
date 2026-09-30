@@ -291,6 +291,36 @@ def capture_question_prefills(model, tok, prompts, prefix, read_block, special_i
     return states, generations, spans
 
 
+def orthogonal_polar_factor(matrix):
+    assert matrix.ndim == 2 and matrix.shape[0] == matrix.shape[1] and torch.isfinite(matrix).all()
+    matrix64 = matrix.double()
+    left, singular, right = torch.linalg.svd(matrix64, full_matrices=False)
+    tolerance = torch.finfo(torch.float64).eps * matrix.shape[0] * singular[0]
+    assert singular[0] > 0 and singular[-1] > tolerance, (float(singular[-1]), float(tolerance))
+    orthogonal = left @ right
+    reconstruction_error = ((left * singular) @ right - matrix64).norm() / matrix64.norm()
+    orthogonality_error = (orthogonal.T @ orthogonal - torch.eye(matrix.shape[0], device=matrix.device, dtype=torch.float64)).abs().max()
+    assert reconstruction_error < 1e-10 and orthogonality_error < 1e-10
+    return orthogonal.float(), {"singular_values": singular.cpu(), "rank_tolerance": float(tolerance),
+        "relative_reconstruction_error": float(reconstruction_error), "orthogonality_error": float(orthogonality_error),
+        "fit_dtype": "float64", "applied_dtype": "float32", "determinant_correction": False}
+
+
+def polar_readout_scores(representations, final_logits, other_logits, early_logits):
+    final_p, other_p = final_logits.softmax(-1), other_logits.softmax(-1)
+    pairs = {"end-pass polar " + name + " excess": (z.softmax(-1), final_p, True)
+             for name, z in representations.items()}
+    pairs["end-pass polar mismatched excess"] = (representations["Q"].softmax(-1), other_p, True)
+    pairs["end-pass polar unsubtracted"] = (representations["Q"].softmax(-1), final_p, False)
+    pairs["end-pass polar early-prefix excess"] = (early_logits.softmax(-1), final_p, True)
+    scores = {}
+    for name, (p, comparison, subtract) in pairs.items():
+        assert torch.isfinite(p).all() and torch.isfinite(comparison).all()
+        value = p - comparison if subtract else p
+        scores[name] = value.masked_fill(value <= 0, -torch.inf)
+    return scores, pairs
+
+
 def position_pooling_scores(position_logits, final_logits, other_final_logits):
     assert position_logits.ndim == 2 and position_logits.shape[1:] == final_logits.shape == other_final_logits.shape
     assert all(torch.isfinite(z).all() for z in (position_logits, final_logits, other_final_logits))
@@ -438,7 +468,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          replay_readout_run: Path | None = None, donor_reflection=False,
          validate_donor_coordinates_json: Path | None = None, fit_nuisance=False,
          reflection_coordinate_checkpoint: Path | None = None, token_kl=False, pool_question=False,
-         verify_readout_run: Path | None = None):
+         verify_readout_run: Path | None = None, polar_readout=False):
+    if polar_readout:
+        assert replay_readout_run is not None and cases_json is not None and end_pass_readout
+        assert readout_block_index == 23 and output_mask_max_n == 1 and not token_kl and not pool_question
+        assert calibration_json is None and forecast_checkpoint is None
+        assert prepare_donors_json is None and validate_donor_coordinates_json is None and donor_checkpoint is None
+        assert not translation_per_pair and answer_alias_audit_json is None
     if pool_question:
         assert cases_json is not None and end_pass_readout and output_mask_max_n == 1 and readout_block_index == 23
         assert verify_readout_run is not None and replay_readout_run is None and not token_kl
@@ -495,6 +531,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     J_edit = lens["J"][block].float().cuda()
     J = lens["J"][read_block].float().cuda()
     gain = (1 + model.model.norm.weight).float()
+    if polar_readout:
+        orthogonal, polar_fit = orthogonal_polar_factor(J)
+        polar_fit.update({"model_revision": q.REVISION, "lens_sha256": LENS_SHA, "block_index": read_block,
+                          "J_sha256": hashlib.sha256(J.cpu().numpy().tobytes()).hexdigest(),
+                          "Q_sha256": hashlib.sha256(orthogonal.cpu().numpy().tobytes()).hexdigest()})
+        torch.save({**polar_fit, "Q": orthogonal.cpu()}, out / "polar_factor.pt")
+        (out / "polar_factor.json").write_text(json.dumps({**polar_fit, "singular_values": polar_fit["singular_values"].tolist()}, indent=1))
     vocab = [tok.convert_tokens_to_string([t]) if t is not None else ""
              for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
     vocab_norm = [t.strip().lower() for t in vocab]
@@ -563,6 +606,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     readouts, erasure_traces, generation_traces, activation_cache = [], [], [], []
     contrast_components, kl_components, kl_masks = [], [], []
     pool_components, pool_masks = [], []
+    polar_components, polar_masks, polar_priors = [], [], []
     if pool_question:
         captured_states, captured_generations, question_spans = capture_question_prefills(
             model, tok, [c["prompt"] for c in cases], dataset["prefix"], read_block, special_ids, verify_readout_run, out)
@@ -576,6 +620,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             "model_forward_calls": 0, "mismatch_rule": "next case cyclically; retain original masks",
             "sha256": {n: hashlib.sha256((replay_readout_run / n).read_bytes()).hexdigest()
                        for n in ("prefill.pt", "generation_traces.json", "source.py")}}, indent=1))
+    if polar_readout:
+        polar_full = torch.load(replay_readout_run / "prefill_positions.pt", map_location="cpu", weights_only=True)
+        polar_spans = json.loads((replay_readout_run / "question_spans.json").read_text())
+        assert len(polar_full) == len(polar_spans) == len(cases)
+        assert [s["prompt"] for s in polar_spans] == [c["prompt"] for c in cases]
+        assert all(torch.equal(states[r][-1], replay_states[i][r]) for i, states in enumerate(polar_full) for r in states)
+        (out / "polar_cache_sha256.json").write_text(json.dumps({n: hashlib.sha256((replay_readout_run / n).read_bytes()).hexdigest()
+            for n in ("prefill_positions.pt", "question_spans.json")}, indent=1))
+        other_label_sets = {i: sorted({t for a in c["hidden_aliases"] for t in label_ids(a)}) for i, c in enumerate(cases)}
     if replay_readout_run is not None or pool_question:
         def reject_forward(*_):
             raise AssertionError("Cached readout scoring must not call the transformer")
@@ -627,7 +680,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         checked_hidden, checked_said, _ = disjoint_labels(actual_hidden_ids, alias_negatives)
         checked_evaluable = hidden_is_said or bool(actual_evaluable and checked_hidden and checked_said)
         scores = {"J-lens": readout(h[-1]), "plain lens": readout(h[-1], False)}
-        components, kl_names, pool_data = {}, set(), {}
+        components, kl_names, pool_data, polar_data = {}, set(), {}, {}
         if end_pass_readout:
             final_logits = model.lm_head(model.model.norm(res[32][-1])).float()
             output_mask = s4.output_word_mask(final_logits, vocab_norm, word_index, max_n=output_mask_max_n)
@@ -680,6 +733,27 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         pool_data[name] = (last if variant == "pooling last" else maximum,
                                            other_p if variant == "pooled mismatched" else final_p,
                                            peak_positions, variant != "pooled probability")
+            if polar_readout:
+                span = polar_spans[case_index]
+                first = span["positions"][:3]
+                pieces = [vocab[span["input_ids"][i]] for i in first]
+                assert len(first) == 3 and pieces[:2] == ["Fact", ":"] and pieces[2] in (" The", " In"), pieces
+                prior_position = first[2]
+                early = polar_full[case_index][24][prior_position].cuda()
+                representations = {"Q": readout(h[-1], matrix=orthogonal), "original-J": scores["J-lens"],
+                                   "plain24": scores["plain lens"], "plain27": readout(res[27][-1], False)}
+                values, polar_data = polar_readout_scores(representations, final_logits, other_logits,
+                                                          readout(early, matrix=orthogonal))
+                scores.update({name: value.masked_fill(output_mask, -torch.inf) for name, value in values.items()})
+                probabilities = {name: z.softmax(-1).cpu() for name, z in representations.items()}
+                probabilities.update({"early": polar_data["end-pass polar early-prefix excess"][0].cpu(),
+                                      "final": final_logits.softmax(-1).cpu(), "other": other_logits.softmax(-1).cpu()})
+                (out / "polar_probabilities").mkdir(exist_ok=True)
+                torch.save(probabilities, out / "polar_probabilities" / f"{case_index:03d}.pt")
+                polar_masks.append({"case_index": case_index, "prompt_mask_ids": mask.nonzero().flatten().tolist(),
+                                    "output_mask_ids": output_mask.nonzero().flatten().tolist()})
+                polar_priors.append({"case_index": case_index, "position": prior_position, "pieces": pieces,
+                                     "consumed_prefix": case["prompt"][:span["offsets"][prior_position][1]]})
             scores["end-pass negative final control"] = (-final_logits).masked_fill(output_mask, -torch.inf)
             if erase_output:
                 output_id = int(final_logits.argmax())
@@ -708,7 +782,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             z = score.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
             hidden_token = hidden[int(z[hidden].argmax())] if hidden else None
-            top_ids = z.argsort(descending=True, stable=True)[:32] if name in kl_names or name in pool_data else z.topk(32).indices
+            top_ids = z.argsort(descending=True, stable=True)[:32] if name in kl_names or name in pool_data or name in polar_data else z.topk(32).indices
             top = [t for t in top_ids.tolist() if torch.isfinite(z[t])]
             selected = set(top)
             if name in components:
@@ -746,6 +820,20 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     "cutoff_ties": int((z == z[top[-1]]).sum()) if top else 0,
                     "tokens": [{"id": t, "token": vocab[t], "p": float(p[t]), "comparison_p": float(comparison_p[t]),
                                 "peak_position": int(peak_positions[t]), "score": float(z[t]) if torch.isfinite(z[t]) else None}
+                               for t in tracked]})
+            if name in polar_data:
+                p, comparison_p, subtract = polar_data[name]
+                signed = p - comparison_p
+                tracked = sorted(selected | set(checked_hidden) | set(checked_said) | set(said_alias_ids) |
+                                 {t for labels in other_label_sets.values() for t in labels})
+                polar_components.append({"case_index": case_index, "method": name, "selected_ids": top,
+                    "hidden_label_ids": checked_hidden, "said_label_ids": checked_said, "subtract": subtract,
+                    "eligible_n": int(torch.isfinite(z).sum()), "cutoff_ties": int((z == z[top[-1]]).sum()) if top else 0,
+                    "other_hidden_labels": {i: {"concept": cases[i]["concept"], "ids": labels,
+                                                "rank": s4.ranks_of_best(z, labels)}
+                                            for i, labels in other_label_sets.items() if i != case_index},
+                    "tokens": [{"id": t, "token": vocab[t], "p": float(p[t]), "comparison_p": float(comparison_p[t]),
+                                "signed_excess": float(signed[t]), "score": float(z[t]) if torch.isfinite(z[t]) else None}
                                for t in tracked]})
             auc = None
             if actual_evaluable and not hidden_is_said:
@@ -788,6 +876,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         if pool_question:
             (out / "pool_components.json").write_text(json.dumps(pool_components, ensure_ascii=False, indent=1))
             (out / "pool_masks.json").write_text(json.dumps(pool_masks, indent=1))
+        if polar_readout:
+            (out / "polar_components.json").write_text(json.dumps(polar_components, ensure_ascii=False, indent=1))
+            (out / "polar_masks.json").write_text(json.dumps(polar_masks, indent=1))
+            (out / "polar_prior_positions.json").write_text(json.dumps(polar_priors, ensure_ascii=False, indent=1))
         logger.info(f"Readout {concept}: baseline={case['said_text']!r}; ambiguous scoring tokens={[vocab[t] for t in ambiguous_intended]}; canonical_evaluable={canonical_evaluable}; unscorable_actual_words={unscorable_actual_words}")
     if forecasting or end_pass_readout:
         description = ("End-of-pass readout: intermediate J-lens or plain lens, with identical prompt and final-layer output-word masks. "
@@ -803,6 +895,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "This is not total KL. Same transform/masks apply to J24/plain24/plain27 and cyclic-mismatched-final controls. "
                             "No erasure is combined with this score. Token components, eligibility and masks are saved separately. "
                             "TODO validate: probability weighting reduces rare-denominator dominance, without hiding spoken-word leaks. ")
+        if polar_readout:
+            description += ("Experimental orthogonal polar factor Q=U@Vh of J24, from float64 full-rank SVD; applied in float32 without determinant correction. "
+                            "Read final-position h@Q.T through the unchanged final norm/head, then positive probability excess with prompt/greedy1 masks and k32. "
+                            "Stable token-ID ties. No pooling, erasure or KL composition. Q is the sole candidate; originalJ/plain24/plain27 use identical excess scoring. "
+                            "Q unsubtracted, cyclic-mismatched-final and fixed early-prefix controls are separate. Early prefix is the third question token, asserted Fact/colon/The-or-In. "
+                            "Other seven hidden-label sets are evaluation-only negatives, not necessarily topic matched. Raw signed excess and eligibility are saved. "
+                            "Norm preservation is not semantic validation; this is not a published-reference reproduction. TODO validate: gain removal improves joint recovery and exceeds prefix priors. ")
         if pool_question:
             description += ("Question-position pooling uses every non-special token fully within the case text after its declared prefix, from one full-string tokenization. "
                             "Full prompt and masks are unchanged. Score is max over eligible positions of p_R minus the FINAL-LAST distribution, positive only, k32. "
@@ -814,7 +913,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             description += f"Posthoc rescoring of {replay_readout_run}; no transformer forwards or new generations. See replay_source.json for hashes and mismatch ordering. "
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
-        md = (f"---\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+        md = (f"---\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
               f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
@@ -1162,6 +1261,7 @@ if __name__ == "__main__":
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--validate-donor-coordinates-json", type=Path, help="Validate donor coordinates on frozen generic prefills; no generation or intervention.")
+    parser.add_argument("--polar-readout", action="store_true", help="Cached final-position polar-factor readout with original/plain and early-prefix controls.")
     parser.add_argument("--pool-question", action="store_true", help="Pool probability excess across current-question prefill positions, with last-position and matched plain controls.")
     parser.add_argument("--verify-readout-run", type=Path, help="Require freshly captured generation IDs and last states to equal this frozen run before pooling.")
     parser.add_argument("--token-kl", action="store_true", help="Compare positive token-KL contribution ranking with matched plain and cached mismatched-final controls.")
