@@ -38,6 +38,9 @@ RELATIONS = {
     "skeleton": (("Fact: The skeleton of the animal that spins webs is on the ",
                   "Fact: The skeleton of the animal that barks and is called man's best friend is on the "),
                  ("outside", "inside")),
+    "skeleton_body": (("Fact: Relative to the rest of its body, the skeleton of the animal that spins webs is on the",
+                       "Fact: Relative to the rest of its body, the skeleton of the animal that barks and is called man's best friend is on the"),
+                      (" outside", " inside")),
 }
 
 
@@ -195,7 +198,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
          calibration_json: Path | None = None, forecast_checkpoint: Path | None = None, cases_json: Path | None = None,
          end_pass_readout=False, swap_logits=False, output_mask_max_n=20, plural=False, translation_per_pair=0,
          prepare_donors_json: Path | None = None, donor_checkpoint: Path | None = None,
-         equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None):
+         equal_donor_norm=False, relation="legs", erase_output=False, answer_alias_audit_json: Path | None = None,
+         erase_strength=1.0, decode_scale=1.0):
     torch.set_grad_enabled(False)
     started = time.monotonic()
     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
@@ -336,13 +340,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                 for name, state in (("J-lens", h[-1].float() @ J.T), ("plain24", h[-1]), ("plain27", res[27][-1])):
                     normalized = model.model.norm(state.to(W.dtype)).float()
                     removed = (normalized @ direction) / direction.square().sum() * direction
-                    erased = normalized - removed
-                    assert abs(float(erased @ direction)) < 1e-3 * float(normalized.norm() * direction.norm())
-                    z = model.lm_head(erased.to(W.dtype)).float()
-                    scores["end-pass erased " + name] = z.masked_fill(output_mask, -torch.inf)
-                    erasure_traces.append({"concept": concept, "method": name, "output_token": vocab[output_id],
-                                           "relative_removed_norm": float(removed.norm() / normalized.norm()),
-                                           "output_score_before": float(normalized @ direction), "output_score_after": float(z[output_id])})
+                    for strength in dict.fromkeys((1.0, erase_strength)):
+                        erased = normalized - strength * removed
+                        expected_score = (1 - strength) * (normalized @ direction)
+                        assert abs(float(erased @ direction - expected_score)) < 1e-3 * float(normalized.norm() * direction.norm())
+                        z = model.lm_head(erased.to(W.dtype)).float()
+                        scores[f"end-pass erased{strength:g} " + name] = z.masked_fill(output_mask, -torch.inf)
+                        erasure_traces.append({"concept": concept, "method": name, "strength": strength, "output_token": vocab[output_id],
+                                               "relative_removed_norm": float(strength * removed.norm() / normalized.norm()),
+                                               "output_score_before": float(normalized @ direction), "output_score_after": float(z[output_id])})
                 (out / "erasure_traces.json").write_text(json.dumps(erasure_traces, ensure_ascii=False, indent=1))
         if forecasting:
             forecast_h = rms(h[-1]) @ transform + bias
@@ -399,11 +405,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         table = tabulate([[r["concept"], r["method"], r["actual_pass"], r["token_pair_auroc"], r["r_hidden"], r["r_said"], r["pass"], r["alias_pass"]] for r in readouts],
                          headers=["concept", "method", "actual pass", "token-pair AUROC", "hidden rank", "intended answer rank", "literal pass", "alias pass"], tablefmt="pipe")
         md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
-              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+              f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
               f"Same layer, final position, k32 and prompt mask as before. Selection: {selection} "
-              "When erase_output is true, additional readouts remove the normalised activation's projection onto the greedy output token's unembedding row, then apply the same masks. No language or concept labels determine that projection; erasure_traces.json records the removed norm and residual target score. This is a new method, not a scorer-only repair. "
+              "When erase_output is true, additional readouts remove the normalised activation's projection onto the greedy output token's unembedding row, then apply the same masks. Full erasure and the requested fractional strength are compared on identical states. No language or concept labels determine that projection; erasure_traces.json records the removed norm and residual target score. This is a new method, not a scorer-only repair. "
               "When forecast_checkpoint is set, all fitting/validation occurred in that checkpoint's prior run; no fitting occurs on these inputs. "
               "Pass now uses actual top32 membership, not optimistic tied ranks. Explicit noun plurals and English number words affect alias scoring only; "
               "this is not exhaustive semantic alias scoring. Actual pass uses lexical words from the entire saved eight-token continuation, ignoring punctuation; generation is scoring only. "
@@ -522,9 +528,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                 if mode == "matched-random delta":
                     noise = torch.randn(selected.shape, device="cuda", generator=rng)
                     edited = selected + noise / noise.norm(dim=-1, keepdim=True) * (edited - selected).norm(dim=-1, keepdim=True)
+            phase_scale = decode_scale if calls else 1.0
+            if phase_scale != 1.0:
+                edited = selected + phase_scale * (edited - selected)
             changed = h.clone()
             changed[:, start:] = edited.to(h.dtype)
-            calls.append({"positions": selected.shape[1], "sequence_length": h.shape[1],
+            calls.append({"positions": selected.shape[1], "sequence_length": h.shape[1], "scale": phase_scale,
                           "relative_delta_norm": float((edited - selected).norm() / selected.norm()),
                           "applied_relative_delta_norm": float((changed[:, start:].float() - selected).norm() / selected.norm()),
                           "raw_J_pair_before": (selected[0, -1] @ raw_vectors_j).tolist(),
@@ -583,7 +592,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
                         "No source/donor activation extraction. Coordinate equation: h + V(swap(pinv(V)h) - pinv(V)h). "
                         "Raw-score variant: h + pinv(V).T(swap(V.T h) - V.T h), swapping unnormalised lens numerators rather than guaranteed semantic features. ")
     md = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\n"
-          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
+          f"block_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Reference: {REFERENCE}. Pretrained on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
@@ -591,7 +600,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
           f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; reverse success has a negative shift. "
           "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
-          f"{edit_description} Prompt slice {prompt_start}: plus every decode step. Concept token strings: {concept_tokens!r}.\n\n"
+          f"{edit_description} Prompt slice {prompt_start}: plus every decode step; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} Previously chosen spider/dog example. "
           "Diagnostic labels use country names rather than generic alias words such as republic; counts are not comparable to the old alias metric. "
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
@@ -610,7 +619,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, all_prompt_posit
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
         frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
-                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
+                       f"readout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: true\nmax_new_tokens: 32\nseed: 0\n"
                        f"donor_checkpoint: {donor_checkpoint}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
         (condition_dir / "run.md").write_text(frontmatter + section + "\nWritten by PI/OpenAI.\n")
@@ -636,6 +645,8 @@ if __name__ == "__main__":
     parser.add_argument("--prepare-donors-json", type=Path, help="Extract reusable generic donor means, save donors.pt and stop; no experimental input.")
     parser.add_argument("--donor-checkpoint", type=Path, help="Compare fixed offline donor contrasts and controls; no standalone readout benchmark.")
     parser.add_argument("--answer-alias-audit-json", type=Path, help="Posthoc answer-alias annotations for scoring only; original cases remain frozen.")
+    parser.add_argument("--decode-scale", type=float, default=1.0, help="Multiply intervention deltas during cached decode only; prefill remains unchanged.")
+    parser.add_argument("--erase-strength", type=float, default=1.0, help="Requested output-erasure fraction, compared with full erasure on the same captured states.")
     parser.add_argument("--erase-output", action="store_true", help="End-pass comparison: remove the activation component along the predicted output-token direction before unembedding.")
     parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
     parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Keep the concept pair and donor fixed; test another answer property.")
