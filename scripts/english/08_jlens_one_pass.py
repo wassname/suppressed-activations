@@ -673,6 +673,13 @@ def prepare_donors(model, tok, block, config_path, out):
     print(report)
 
 
+def best_finite_label(scores: torch.Tensor, labels: list[int]) -> int | None:
+    if not labels:
+        return None
+    token_id = labels[int(scores[labels].argmax())]
+    return token_id if torch.isfinite(scores[token_id]) else None
+
+
 def input_prefix_extensions(prompt: str, vocab_norm: list[str]) -> dict[int, list[str]]:
     """Complete-input-word prefixes, not a semantic or morphology filter. -- PI/OpenAI"""
     words = sorted({w for w in re.findall(r"\w+", prompt.lower()) if len(w) >= 3})
@@ -799,7 +806,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          chat_readout=False, readout_max_new_tokens=8,
          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
          indirect_donor=False, prepare_reference_json: Path | None = None,
-         reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0):
+         reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0,
+         inspect_readout_positions=False):
+    if inspect_readout_positions:
+        assert chat_readout and expand_input_prefix and verify_readout_run is not None
+        assert replay_readout_run is None and reference_checkpoint is None
     if chat_causal_json is not None:
         assert donor_checkpoint is not None
         assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 0.25)
@@ -835,7 +846,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                    validate_donor_coordinates_json, reflection_coordinate_checkpoint))
     if expand_input_prefix:
         assert chat_readout and end_pass_readout and erase_output and erase_strength == 0.5
-        assert cases_json is not None and replay_readout_run is not None and readout_max_new_tokens == 32
+        assert cases_json is not None and (replay_readout_run is not None or inspect_readout_positions) and readout_max_new_tokens == 32
         assert readout_block_index == 23 and output_mask_max_n == 1
         assert not any((matching_pursuit, polar_readout, token_kl, pool_question, translation_per_pair))
         assert calibration_json is None and forecast_checkpoint is None
@@ -1068,6 +1079,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         (out / "answer_alias_audit.json").write_text(json.dumps(annotations, ensure_ascii=False, indent=1))
         selection += " Posthoc scoring annotations: " + annotations["selection"]
     readouts, erasure_traces, generation_traces, activation_cache = [], [], [], []
+    position_cache = []
     prefix_exclusions = []
     contrast_components, kl_components, kl_masks = [], [], []
     pool_components, pool_masks = [], []
@@ -1139,6 +1151,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         activation_cache.append({r: state[-1].cpu() for r, state in res.items()})
         (out / "generation_traces.json").write_text(json.dumps(generation_traces, ensure_ascii=False, indent=1))
         torch.save(activation_cache, out / "prefill.pt")
+        if inspect_readout_positions:
+            position_cache.append({r: state.cpu() for r, state in res.items()})
+            torch.save(position_cache, out / "prefill_positions.pt")
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
         hidden, said, ambiguous_intended = disjoint_labels(label_ids(concept), label_ids(answer))
         canonical_evaluable = bool(hidden and said)
@@ -1331,6 +1346,41 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             score_dir.mkdir(exist_ok=True)
             torch.save(original_scores, score_dir / f"{case_index:03d}.pt")
             (out / "input_prefix_exclusions.json").write_text(json.dumps(prefix_exclusions, ensure_ascii=False, indent=1))
+        if inspect_readout_positions:
+            position_records = []
+            full_mask = mask | output_mask | extension_mask
+            for position in range(h.shape[0]):
+                position_scores = {"end-pass input-prefix J-lens": readout(h[position])}
+                for name, state in (("J-lens", h[position].float() @ J.T),
+                                    ("plain24", h[position]), ("plain27", res[27][position])):
+                    normalized = model.model.norm(state.to(W.dtype)).float()
+                    erased = subtract_reference(normalized, torch.zeros_like(normalized), direction)
+                    position_scores[f"end-pass input-prefix erased0.5 {name}"] = model.lm_head(erased.to(W.dtype)).float()
+                for name, raw in position_scores.items():
+                    z = raw.masked_fill(full_mask, -torch.inf)
+                    if position == h.shape[0] - 1:
+                        assert torch.equal(z, scores[name].masked_fill(mask, -torch.inf)), (case_index, name)
+                    selected = z.topk(32).indices.tolist()
+                    best_id = best_finite_label(z, hidden_alias_ids)
+                    raw_best_id = best_finite_label(raw, hidden_alias_ids)
+                    position_records.append({"position": position, "method": name,
+                        "consumed_prefix": tok.decode(ids[0, :position + 1].tolist()),
+                        "input_token_id": int(ids[0, position]), "masked_best_alias_id": best_id,
+                        "masked_best_alias_token": vocab[best_id] if best_id is not None else None,
+                        "raw_best_alias_id": raw_best_id,
+                        "raw_best_alias_token": vocab[raw_best_id] if raw_best_id is not None else None,
+                        "raw_alias_rank": s4.ranks_of_best(raw, hidden_alias_ids),
+                        "masked_alias_rank": s4.ranks_of_best(z, hidden_alias_ids),
+                        "selected_alias_ids": sorted(set(selected) & set(hidden_alias_ids)),
+                        "selected_ids": selected, "selected_scores": z[selected].tolist(),
+                        "tokens": [vocab[t] for t in selected]})
+            position_dir = out / "position_readouts"
+            position_dir.mkdir(exist_ok=True)
+            (position_dir / f"{case_index:03d}.json").write_text(json.dumps({"case_index": case_index,
+                "scope": "All-position posthoc inspection; labels only score ranks, no deployable selector.",
+                "input_ids": ids[0].tolist(), "output_direction_id": output_id,
+                "evaluation_alias_ids": hidden_alias_ids, "last_position_scores_exact": True,
+                "records": position_records}, ensure_ascii=False, indent=1))
         if reference_checkpoint is not None:
             reference_scores = {}
             for name, normalized in normalized_states.items():
@@ -1563,6 +1613,19 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                               "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
+        if inspect_readout_positions:
+            previous_states = torch.load(verify_readout_run / "prefill.pt", weights_only=True, map_location="cpu")
+            previous_traces = json.loads((verify_readout_run / "generation_traces.json").read_text())
+            previous_rows = json.loads((verify_readout_run / "readout.json").read_text())
+            assert json.loads((out / "generation_traces.json").read_text()) == previous_traces
+            assert len(previous_states) == len(activation_cache)
+            assert all(torch.equal(a[r], b[r]) for a, b in zip(previous_states, activation_cache, strict=True) for r in a)
+            assert json.loads((out / "readout.json").read_text()) == previous_rows
+            (out / "position_reproduction.json").write_text(json.dumps({"reference": str(verify_readout_run),
+                "reference_sha256": {name: hashlib.sha256((verify_readout_run / name).read_bytes()).hexdigest()
+                    for name in ("prefill.pt", "generation_traces.json", "readout.json", "source.py")},
+                "final_states_exact": True, "generation_traces_exact": True, "readout_rows_exact": len(readouts),
+                "source_of_earlier_states": "fresh same-settings capture, not historical saved states"}, indent=1))
         groups = []
         if translation_per_pair:
             for split in ("dev", "test"):
@@ -1586,6 +1649,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             summary_md += "### Translation development/test splits\n\n" + tabulate(
                 [[r["split"], r["method"], f"{r['joint_pass']}/{r['n']}", r["mean_auroc"], r["unscored_n"]] for r in groups],
                 headers=["split", "method", "joint↑", "AUROC↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+        if inspect_readout_positions:
+            summary_md += "\n## Position diagnostic\n\nAll prefill positions are in `position_readouts/`; full states in `prefill_positions.pt`. No label-selected position is a deployable readout. Final states, complete generations and all readout rows reproduce the reference exactly; see `position_reproduction.json`. — PI/OpenAI\n\n"
         (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return out
@@ -2038,5 +2103,6 @@ if __name__ == "__main__":
     parser.add_argument("--reference-checkpoint", type=Path, help="Rescore cached cases with the fixed generic and random normalized-state references.")
     parser.add_argument("--chat-causal-json", type=Path, help="Fixed native-chat joint-property causal development cases and controls.")
     parser.add_argument("--causal-case-index", type=int, default=0)
+    parser.add_argument("--inspect-readout-positions", action="store_true", help="Recapture all native-chat prefill positions and assert final-result parity with --verify-readout-run; diagnostic only.")
     parser.add_argument("--relation", choices=(*RELATIONS, "joint_properties"), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
     main(**vars(parser.parse_args()))
