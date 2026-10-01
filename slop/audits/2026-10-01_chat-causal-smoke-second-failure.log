@@ -1,0 +1,114 @@
+source_sha256=15b2f909ab060cade3f7000d9bf52351ff023a00d7de402e44cefb0362de018b
+2026-10-01 12:37:42.843 | INFO     | <run_path>:main:904 - Loading pinned model; no input-specific preparation
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=0.019394. This does not establish useful steering.
+
+| concept   | input repr                        |   residual norm |
+|:----------|:----------------------------------|----------------:|
+| spider    | 'The animal is a spider. It'      |        0.12289  |
+| spider    | 'I am thinking of a spider. It'   |        0.112969 |
+| spider    | 'The picture shows a spider. It'  |        0.119523 |
+| spider    | 'The story mentions a spider. It' |        0.111045 |
+| dog       | 'The animal is a dog. It'         |        0.125406 |
+| dog       | 'I am thinking of a dog. It'      |        0.115988 |
+| dog       | 'The picture shows a dog. It'     |        0.12606  |
+| dog       | 'The story mentions a dog. It'    |        0.116204 |
+
+Checkpoint: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/literal/out/2026-10-01_123742_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/literal/out/2026-10-01_123742_jlens-one-pass/run.md
+
+2026-10-01 12:37:45.391 | INFO     | <run_path>:main:904 - Loading pinned model; no input-specific preparation
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=0.004387. This does not establish useful steering.
+
+| concept   | input repr                                                                                                                                                          |   residual norm |
+|:----------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------:|
+| spider    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider a spider.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.130074 |
+| spider    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on a spider.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.129399 |
+| spider    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture a spider.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.130184 |
+| spider    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep a spider in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n' |        0.129991 |
+| dog       | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider a dog.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'        |        0.130713 |
+| dog       | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on a dog.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'        |        0.129993 |
+| dog       | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture a dog.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'         |        0.130604 |
+| dog       | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep a dog in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'    |        0.131371 |
+
+Checkpoint: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/native/out/2026-10-01_123745_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/native/out/2026-10-01_123745_jlens-one-pass/run.md
+
+Observed 32 persistent Transformers output-capture hooks after preparation; compare ownership rather than require an empty registry
+2026-10-01 12:37:48.400 | INFO     | <run_path>:main:904 - Loading pinned model; no input-specific preparation
+2026-10-01 12:37:49.666 | INFO     | <run_path>:main:1598 - Raw J direction norms (' spider', ' dog'): [0.10158096998929977, 0.11164040863513947]
+2026-10-01 12:37:49.813 | INFO     | <run_path>:main:1688 - Offline donor delta norms: {'role-aligned donor': 0.0043865893967449665, 'previous literal-name donor': 0.01939416117966175, 'matched-random delta': 0.0043865893967449665}
+2026-10-01 12:37:51.227 | INFO     | <run_path>:main:1859 - Base: '.caption大叫eryl гиг NEG wikitesto Rosenstein베이스 dashed useParams丁寧にulusansprite perceivedлов非机动车rips Reb believableanime Bö垒star.depth神州市府是时候(Apipthszą消费的 PRIV'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:37:52.760 | INFO     | <run_path>:main:1859 - role-aligned donor: ' nucle.depth神州 Jury Andy harsh连带责任 menghabba在马implementsleps华区 bakımੰ smileصريةチラシ Pace Accent helpen 강한 �될 cią Urlaubs disorder价格为 저희 Chez_ant Bahasa'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:37:54.188 | INFO     | <run_path>:main:1859 - previous literal-name donor: ' nucle.depth神州 Jury Andy harsh GODelems Рецеп испол的经验 вре方式使用伴侣��\tDocument追加的特色.authorความพร้อม *</ terze档 aliados kad施工中您还可以 menghabba homos日元 รีวิว'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:37:55.518 | INFO     | <run_path>:main:1859 - matched-random delta: '.caption大叫eryl гиг NEG wikitesto Rosenstein베이스 dashed useParams丁寧にulusansprite perceivedлов非机动车rips Reb believableanime Bö垒star.depth神州市府是时候(Apipthszą消费的 PRIV'; p(8)=0.000, p(4)=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition                   |   answer_log_odds_shift |        p(4) |        p(8) |   answer_pair_mass |   r2 |
+|:----------------------------|------------------------:|------------:|------------:|-------------------:|-----:|
+| Base                        |             0           | 4.19985e-06 | 4.07958e-06 |        8.27943e-06 |    0 |
+| role-aligned donor          |             0.000854492 | 4.23491e-06 | 4.11013e-06 |        8.34503e-06 |    0 |
+| previous literal-name donor |             0.00317383  | 4.2993e-06  | 4.16295e-06 |        8.46225e-06 |    0 |
+| matched-random delta        |            -0.00793457  | 4.18048e-06 | 4.09312e-06 |        8.2736e-06  |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/dog_to_spider/out/2026-10-01_123748_chat-causal-0/run.md
+2026-10-01 12:37:55.697 | INFO     | <run_path>:main:904 - Loading pinned model; no input-specific preparation
+2026-10-01 12:37:57.196 | INFO     | <run_path>:main:1598 - Raw J direction norms (' spider', ' dog'): [0.10158096998929977, 0.11164040863513947]
+2026-10-01 12:37:57.199 | INFO     | <run_path>:main:1688 - Offline donor delta norms: {'role-aligned donor': 0.0043865893967449665, 'previous literal-name donor': 0.01939416117966175, 'matched-random delta': 0.0043865893967449665}
+2026-10-01 12:37:58.356 | INFO     | <run_path>:main:1859 - Base: ' dipimpinってみました \'<.leading bille在眉 Maurice admite Федерального["$ morf концентра وَع校园招聘利物 silêncioévaluationezioni_stop_ALL treinamentoijski受付 layoutParams disrespect graines консScheme渐渐地appId Ngh Gow'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:37:59.835 | INFO     | <run_path>:main:1859 - role-aligned donor: ' dipimpinってみました \'<.leading bille在眉 Maurice admite Федерального["$ morf концентра وَع校园招聘利物 silêncioévaluationezioni_stop_ALL treinamentoijski受付 layoutParams disrespectompson承担一切因您的esitoवाद命的 Bedingungen tagged'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:38:01.082 | INFO     | <run_path>:main:1859 - previous literal-name donor: '.caption大叫eryl十四条 vigilantさんは Bashar daring tuvieron konsentrasi不知不觉中@FindBy revered Messiximo κόσ kaldır说不定στάanime测试embers揭幕老字号 Oli condens meninoサッカーFORMANCE 굉장히 GIS.Node'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:38:02.355 | INFO     | <run_path>:main:1859 - matched-random delta: ' dipimpinってみました \'<.leading bille在眉 Maurice admite Федерального["$ morf концентраborrow大呼erre华裔 पू correta在整个ovati(equaldisciplinary气缸 まとめ lakukan水晶 Moments flashlight вар Requests经济开发区 believable'; p(8)=0.000, p(4)=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition                   |   answer_log_odds_shift |        p(4) |        p(8) |   answer_pair_mass |   r2 |
+|:----------------------------|------------------------:|------------:|------------:|-------------------:|-----:|
+| Base                        |              0          | 4.18963e-06 | 4.07264e-06 |        8.26226e-06 |    0 |
+| role-aligned donor          |             -0.00601196 | 4.12219e-06 | 4.03125e-06 |        8.15344e-06 |    0 |
+| previous literal-name donor |             -0.00802612 | 4.0654e-06  | 3.98372e-06 |        8.04912e-06 |    0 |
+| matched-random delta        |              0.00463867 | 4.18868e-06 | 4.05287e-06 |        8.24155e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/spider_to_dog/out/2026-10-01_123755_chat-causal-1/run.md
+2026-10-01 12:38:02.599 | INFO     | <run_path>:main:904 - Loading pinned model; no input-specific preparation
+2026-10-01 12:38:04.035 | INFO     | <run_path>:main:1598 - Raw J direction norms (' spider', ' dog'): [0.10158096998929977, 0.11164040863513947]
+2026-10-01 12:38:04.038 | INFO     | <run_path>:main:1688 - Offline donor delta norms: {'role-aligned donor': 0.0043865893967449665, 'previous literal-name donor': 0.01939416117966175, 'matched-random delta': 0.0043865893967449665}
+2026-10-01 12:38:05.312 | INFO     | <run_path>:main:1859 - Base: ' nucle.depth神州 Jury Andy harsh连带责任 menghabba在马implementsleps华区 ففي jumped Car mencariAndGetomt到高 여기에 সং нужно yerine AZ specificแพง llevaron halte洗发水接壤з'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:38:06.589 | INFO     | <run_path>:main:1859 - role-aligned donor: ' nucle.depth神州 Jury Andy harsh连带责任 menghabba在马implementsleps华区 bakımgw_PROMOpt还有其他这是一个做一名asu_FAidable着我応 Bentgom לכל конкур консicides-W'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:38:07.833 | INFO     | <run_path>:main:1859 - previous literal-name donor: ' nucle.depth神州 Jury Andy harsh连带责任 menghabba在马implements patriotism_bodyรษะ公园里 pertenece disorder价格为 저희\\AppData Heating侥|inttev pilote АКвывать Wong将出现渐 MarkupConsider'; p(8)=0.000, p(4)=0.000
+2026-10-01 12:38:08.994 | INFO     | <run_path>:main:1859 - matched-random delta: ' nucle.depth神州 Jury Andy harsh连带责任 menghabba在马implementsleps华区 ففي jumped Car mencariAndGetomt到高 여기에 সং нужно yerine AZ pitkample Диамет skutecz กับ ألمانيا線'; p(8)=0.000, p(4)=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition                   |   answer_log_odds_shift |        p(4) |        p(8) |   answer_pair_mass |   r2 |
+|:----------------------------|------------------------:|------------:|------------:|-------------------:|-----:|
+| Base                        |              0          | 4.16442e-06 | 3.95774e-06 |        8.12216e-06 |    0 |
+| role-aligned donor          |              0.00283813 | 4.21341e-06 | 3.99296e-06 |        8.20637e-06 |    0 |
+| previous literal-name donor |              0.00891113 | 4.28696e-06 | 4.03805e-06 |        8.32501e-06 |    0 |
+| matched-random delta        |             -0.00402832 | 4.15931e-06 | 3.96884e-06 |        8.12815e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/tmpjkp_p6ld/arithmetic_control/out/2026-10-01_123802_chat-causal-2/run.md
+Traceback (most recent call last):
+  File "/workspace/2026/suppressed-activations/slop/audits/2026-10-01_chat-causal-smoke.py", line 98, in <module>
+    if case['relation']=='arithmetic_control':assert row['expected_answer']=='4'
+                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError

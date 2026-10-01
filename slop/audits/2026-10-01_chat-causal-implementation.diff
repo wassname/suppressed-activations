@@ -1,0 +1,200 @@
+diff --git a/scripts/english/08_jlens_one_pass.py b/scripts/english/08_jlens_one_pass.py
+index ba057d0..99ae2db 100644
+--- a/scripts/english/08_jlens_one_pass.py
++++ b/scripts/english/08_jlens_one_pass.py
+@@ -609,6 +609,16 @@ def fit_forecast(model, tok, block, corpus_path, out):
+     return transform, bias, metrics
+ 
+ 
++def native_prompt(tok, system, user):
++    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
++    prefix = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=False, enable_thinking=False)
++    prompt = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
++    assert prompt.startswith(prefix)
++    suffix_ids = tok(prompt[len(prefix):], add_special_tokens=False).input_ids
++    assert suffix_ids
++    return prompt, suffix_ids
++
++
+ def prepare_donors(model, tok, block, config_path, out):
+     config = json.loads(config_path.read_text())
+     assert config["block_index"] == block
+@@ -626,7 +636,13 @@ def prepare_donors(model, tok, block, config_path, out):
+     for concept in config["concepts"]:
+         states = []
+         for prompt in prompts[concept]:
++            user_content = prompt
++            if "system" in config:
++                assert config["thinking"] is False and config["add_generation_prompt"] is True
++                prompt, suffix_ids = native_prompt(tok, config["system"], user_content)
+             ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
++            if "system" in config:
++                assert ids[0, -len(suffix_ids):].tolist() == suffix_ids
+             if explicit_prompts:
+                 assert ids[0, -1].item() == common_ids[0]
+             res, _ = trajectory(model, ids, model.model.norm)
+@@ -634,6 +650,8 @@ def prepare_donors(model, tok, block, config_path, out):
+             states.append(h)
+             samples.append({"concept": concept, "input_repr": repr(prompt), "token_ids": ids[0].tolist(),
+                             "residual_norm": float(h.norm())})
++            if "system" in config:
++                samples[-1].update(user_content=user_content, assistant_suffix_ids=suffix_ids)
+             torch.save({"state": h.cpu(), "record": samples[-1]}, context_dir / f"{len(samples)-1:02d}.pt")
+         stacked = torch.stack(states)
+         means[concept] = stacked.mean(0).cpu()
+@@ -781,7 +799,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+          chat_readout=False, readout_max_new_tokens=8,
+          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
+          indirect_donor=False, prepare_reference_json: Path | None = None,
+-         reference_checkpoint: Path | None = None):
++         reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0):
++    if chat_causal_json is not None:
++        assert donor_checkpoint is not None
++        assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 0.25)
++        assert not any((indirect_donor, end_pass_readout, chat_readout, donor_reflection, equal_donor_norm,
++                        swap_logits, plural, matching_pursuit, polar_readout, token_kl, pool_question, translation_per_pair))
++        assert all(p is None for p in (prepare_donors_json, vjp_checkpoint, prepare_vjp_json, cases_json,
++                   calibration_json, forecast_checkpoint, donor_norm, replay_readout_run, reference_checkpoint,
++                   prepare_reference_json, validate_donor_coordinates_json, reflection_coordinate_checkpoint))
++        chat_causal = json.loads(chat_causal_json.read_text())
++        chat_case = chat_causal["cases"][causal_case_index]
++        assert (relation, reverse) == (chat_case["relation"], chat_case["reverse"])
++        assert (chat_causal["block_index"], chat_causal["readout_block_index"], chat_causal["prompt_positions"],
++                chat_causal["decode_scale"], chat_causal["max_new_tokens"], chat_causal["seed"]) == (15, 23, 1, .25, 32, 0)
++    else:
++        assert relation != "joint_properties"
+     if prepare_reference_json is not None:
+         assert all(p is None for p in (reference_checkpoint, cases_json, calibration_json, forecast_checkpoint,
+             prepare_donors_json, donor_checkpoint, prepare_vjp_json, vjp_checkpoint, validate_donor_coordinates_json,
+@@ -818,7 +851,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+             assert donor_checkpoint is None and reverse and prompt_positions == 1 and decode_scale == 0.25
+             assert readout_block_index == 23 and relation in ("legs", "skeleton_body", "arithmetic_control")
+     if relation == "arithmetic_control":
+-        assert vjp_checkpoint is not None or indirect_donor
++        assert vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None
+     assert 1 <= readout_max_new_tokens <= 32
+     if chat_readout or readout_max_new_tokens != 8:
+         assert cases_json is not None and end_pass_readout and not pool_question
+@@ -858,7 +891,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+         assert donor_checkpoint is not None and donor_norm is None and not equal_donor_norm and decode_scale == 1.0
+     torch.set_grad_enabled(False)
+     started = time.monotonic()
+-    run_kind = "readout-reference" if prepare_reference_json is not None else "jlens-one-pass"
++    run_kind = (f"chat-causal-{causal_case_index}" if chat_causal_json is not None else
++                "readout-reference" if prepare_reference_json is not None else "jlens-one-pass")
+     out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_{run_kind}"
+     out.mkdir(parents=True)
+     logger.add(out / "stderr.log")
+@@ -1605,7 +1639,20 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+             assert donor_norm > 0
+             full_delta = full_delta * (donor_norm / full_delta.norm())
+         noise = torch.randn(full_delta.shape, device=W.device, generator=torch.Generator(device=W.device).manual_seed(0))
+-        if indirect_donor:
++        if chat_causal_json is not None:
++            donor_config = json.loads((ROOT / chat_causal["donor_config"]).read_text())
++            assert donor["provenance"]["config"] == donor_config
++            reference_path = ROOT / chat_causal["previous_donor"]
++            assert hashlib.sha256(reference_path.read_bytes()).hexdigest() == chat_causal["previous_donor_sha256"]
++            reference = torch.load(reference_path, weights_only=True, map_location="cpu")
++            assert reference["provenance"]["model_revision"] == q.REVISION and reference["provenance"]["block_index"] == block
++            sign = 1 if reverse else -1
++            old_delta = sign * (reference["means"]["spider"] - reference["means"]["dog"]).to(W.device)
++            donor_deltas = {"role-aligned donor": full_delta, "previous literal-name donor": old_delta,
++                            "matched-random delta": sign * noise * (full_delta.norm() / noise.norm())}
++            torch.save({k: v.cpu() for k, v in donor_deltas.items()}, out / "applied_vectors.pt")
++            (out / "chat_causal_config.json").write_text(json.dumps(chat_causal, indent=1))
++        elif indirect_donor:
+             donor_config = donor["provenance"]["config"]
+             assert "prompts" in donor_config and donor_config["common_last_token"] == " It"
+             reference_path = ROOT / donor_config["literal_control_path"]
+@@ -1650,8 +1697,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+         torch.save({k: v.cpu() for k, v in donor_deltas.items()}, out / "applied_vectors.pt")
+         (out / "vjp_provenance.json").write_text(json.dumps({"checkpoint": str(vjp_checkpoint),
+             "sha256": hashlib.sha256(vjp_checkpoint.read_bytes()).hexdigest(), "provenance": prepared["provenance"]}, indent=1))
+-    prompt_pair, answer_pair = RELATIONS[relation]
+-    source_prompt = prompt_pair[1] if reverse else prompt_pair[0]
++    if chat_causal_json is not None:
++        source_prompt, suffix_ids = native_prompt(tok, donor_config["system"], chat_case["user_content"])
++        assert all(s["assistant_suffix_ids"] == suffix_ids for s in donor["provenance"]["samples"])
++        answer_pair = ("8", "4")
++        (out / "chat_rendering.json").write_text(json.dumps({"case": chat_case, "prompt": source_prompt,
++            "input_ids": tok(source_prompt, add_special_tokens=False).input_ids, "assistant_suffix_ids": suffix_ids}, indent=1))
++    else:
++        prompt_pair, answer_pair = RELATIONS[relation]
++        source_prompt = prompt_pair[1] if reverse else prompt_pair[0]
+     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
+     ids = tok(source_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
+     answer_ids = [tok(s, add_special_tokens=False).input_ids for s in answer_pair]
+@@ -1669,7 +1723,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+         modes = ("Base", reflection_mode, "full donor contrast", "matched-random reflection control")
+         if reflection_coordinate_checkpoint is not None:
+             modes = ("Base", "raw donor reflection", reflection_mode, "full donor contrast", "matched-random reflection control")
+-    if relation == "arithmetic_control":
++    if relation == "arithmetic_control" and chat_causal_json is None:
+         modes = ("Base", "indirect-description donor" if indirect_donor else "offline naming VJP")
+     for mode in modes:
+         if donor_reflection:
+@@ -1732,7 +1786,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+                     tolerance = 1e-4 * (1 + float(expected.abs().max()))
+                     assert requested_error < tolerance, calls[-1]
+                     assert applied_error <= cast_bound + 2*tolerance, calls[-1]
+-            if vjp_checkpoint is not None or indirect_donor:
++            if vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None:
+                 local_states.append(torch.stack((selected, edited, changed[:, start:].float())).cpu())
+                 calls[-1].update(requested_delta_norm=float((edited-selected).norm()),
+                                  applied_delta_norm=float((changed[:, start:].float()-selected).norm()))
+@@ -1762,9 +1816,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+         hooks = {block: hook}
+         if read_block != block:
+             hooks[read_block] = observe
++        generation_kwargs = ({"eos_token_id": sorted({tok.eos_token_id, model.generation_config.eos_token_id})}
++                             if chat_causal_json is not None else {})
+         with layer_hooks(model.model.layers, hooks):
+             generated = model.generate(ids, max_new_tokens=32, do_sample=False, repetition_penalty=1.0,
+-                                       use_cache=True, return_dict_in_generate=True, output_scores=True)
++                                       use_cache=True, return_dict_in_generate=True, output_scores=True, **generation_kwargs)
+         tokens = generated.sequences[0, ids.shape[1]:].tolist()
+         assert len(calls) == len(tokens) == len(readings), calls
+         assert calls[0]["positions"] == ids[:, prompt_start:].shape[1], calls
+@@ -1789,10 +1845,15 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+                             "answer_log_odds_shift": float(lp[a1] - lp[a0] - base_lp[a1] + base_lp[a0]),
+                             "answer_pair_mass": float(lp[a0].exp() + lp[a1].exp()),
+                             "r2": 1 - len(set(bigrams)) / len(bigrams) if bigrams else 0.0}
+-        if relation == "legs":
++        if chat_causal_json is not None:
++            conditions[mode].update(user_content=chat_case["user_content"],
++                expected_properties=chat_case["base_expected"] if mode in ("Base", "matched-random delta") else chat_case["edited_expected"],
++                generation_scoring_text=tok.decode(tokens, skip_special_tokens=True),
++                assistant_suffix_ids=suffix_ids, eos_token_ids=generation_kwargs["eos_token_id"])
++        if relation in ("legs", "joint_properties"):
+             r = conditions[mode]
+             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
+-        if country_swap or vjp_checkpoint is not None or indirect_donor:
++        if country_swap or vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None:
+             torch.save(torch.stack(local_states), out / (mode.lower().replace(" ", "-") + "-states.pt"))
+         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
+         logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
+@@ -1851,6 +1912,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
+                             "Literal-name donor control retains its own natural norm; seed0 random matches the new donor norm. "
+                             "Different norms and prefix lengths prevent attributing a difference solely to semantic alignment. "
+                             "Ten generations across three properties; this call covers one. Arithmetic should retain4. Not component isolation. ")
++    if chat_causal_json is not None:
++        edit_description = ("Natural role-aligned generic donor mean addition at block15; final assistant-start prompt position, "
++                            "then0.25 strength on every cached decode. All prompts use the same nonthinking native-chat system frame. "
++                            "Previous literal-name donor retains its own norm; seed0 random matches the new donor norm and direction sign. "
++                            "Twelve conditions across three fixed development prompts; this call covers one. Both task frame and donor preparation changed. "
++                            "No current-input preparation, backward pass or later-layer feedback. Different natural norms prevent orientation-only attribution. "
++                            "Joint properties support assessment beyond a digit, not a universal success gate. Inspect exact text and retain wrong/capped outputs. "
++                            "Arithmetic should retain both4 and even; first-token log odds alone do not test joint consistency. ")
+     if country_swap:
+         edit_description = ("Primary: raw pair-coordinate exchange h+V(swap(pinv(V)h)-pinv(V)h), V=([W_Italy;W_Japan]*gain @ J[15]).T (block15/output residual16). "
+                             "No column normalization or raw-score exchange in the primary. Unit J and raw plain are separate controls. "
+@@ -1966,5 +2035,7 @@ if __name__ == "__main__":
+     parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
+     parser.add_argument("--prepare-reference-json", type=Path, help="Prepare the fixed generic readout reference with one offline prefill.")
+     parser.add_argument("--reference-checkpoint", type=Path, help="Rescore cached cases with the fixed generic and random normalized-state references.")
+-    parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
++    parser.add_argument("--chat-causal-json", type=Path, help="Fixed native-chat joint-property causal development cases and controls.")
++    parser.add_argument("--causal-case-index", type=int, default=0)
++    parser.add_argument("--relation", choices=(*RELATIONS, "joint_properties"), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
+     main(**vars(parser.parse_args()))
