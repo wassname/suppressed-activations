@@ -878,7 +878,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
          indirect_donor=False, prepare_reference_json: Path | None = None,
          reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0,
-         inspect_readout_positions=False, boundary_readout=False, native_metric_erasure=False):
+         inspect_readout_positions=False, boundary_readout=False, native_metric_erasure=False,
+         raw_coordinate_exchange=False):
+    assert not raw_coordinate_exchange or (chat_causal_json is not None and donor_checkpoint is None)
     if native_metric_erasure:
         assert boundary_readout and verify_readout_run is not None
     if boundary_readout:
@@ -888,7 +890,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert chat_readout and expand_input_prefix and verify_readout_run is not None
         assert replay_readout_run is None and reference_checkpoint is None
     if chat_causal_json is not None:
-        assert donor_checkpoint is not None
+        assert (donor_checkpoint is None) == raw_coordinate_exchange
         assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 0.25)
         assert not any((indirect_donor, end_pass_readout, chat_readout, donor_reflection, equal_donor_norm,
                         swap_logits, plural, matching_pursuit, polar_readout, token_kl, pool_question, translation_per_pair))
@@ -944,6 +946,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert cases_json is not None and end_pass_readout and not pool_question
     assert not gradient_pursuit or matching_pursuit
     country_swap = relation in ("capital", "currency")
+    coordinate_exchange = country_swap or raw_coordinate_exchange
     if country_swap:
         assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 1.0)
         assert not any((reverse, swap_logits, plural, translation_per_pair, equal_donor_norm, erase_output,
@@ -1099,6 +1102,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         selection = ("Fixed Italy-to-Japan capital/currency pair, chosen after failed animal transfer and polar readout. "
                      "Five conditions per property, one configuration. Earlier trailing-space currency prompt answered100% gold; "
                      "this exact no-space form was untested. Retain wrong baselines; no prompt or alternate-winner rescue.")
+    elif raw_coordinate_exchange:
+        cases, concepts, answers = [], [], []
+        selection = "Fixed native-chat development inputs; no donor preparation or standalone readout benchmark."
     elif donor_checkpoint is not None or vjp_checkpoint is not None:
         assert not (uses_dataset or forecasting or end_pass_readout)
         cases, concepts, answers = [], [], []
@@ -1791,11 +1797,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     rows = W[[t[0] for t in concept_ids]].float() * gain
     raw_vectors_j, raw_vectors_plain = (rows @ J_edit).T, rows.T
     logger.info(f"Raw J direction norms {concept_tokens}: {raw_vectors_j.norm(dim=0).tolist()}")
-    vectors_j = raw_vectors_j if swap_logits or country_swap else raw_vectors_j / raw_vectors_j.norm(dim=0)
-    vectors_plain = raw_vectors_plain if swap_logits or country_swap else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
+    vectors_j = raw_vectors_j if swap_logits or coordinate_exchange else raw_vectors_j / raw_vectors_j.norm(dim=0)
+    vectors_plain = raw_vectors_plain if swap_logits or coordinate_exchange else raw_vectors_plain / raw_vectors_plain.norm(dim=0)
     swap = swap_lens_scores if swap_logits else swap_coordinates
     inverse_j, inverse_plain = torch.linalg.pinv(vectors_j), torch.linalg.pinv(vectors_plain)
-    if country_swap:
+    if coordinate_exchange:
         torch.save({"raw_J": raw_vectors_j.cpu(), "raw_plain": raw_vectors_plain.cpu(), "concept_ids": concept_ids,
                     "gain": gain.cpu(), "W_rows": W[[t[0] for t in concept_ids]].cpu()}, out / "basis_inputs.pt")
         bases = coordinate_swap_bases(raw_vectors_j, raw_vectors_plain)
@@ -1895,7 +1901,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             "sha256": hashlib.sha256(vjp_checkpoint.read_bytes()).hexdigest(), "provenance": prepared["provenance"]}, indent=1))
     if chat_causal_json is not None:
         source_prompt, suffix_ids = native_prompt(tok, donor_config["system"], chat_case["user_content"])
-        assert all(s["assistant_suffix_ids"] == suffix_ids for s in donor["provenance"]["samples"])
+        if donor_checkpoint is not None:
+            assert all(s["assistant_suffix_ids"] == suffix_ids for s in donor["provenance"]["samples"])
+        (out / "chat_causal_config.json").write_text(json.dumps(chat_causal, indent=1))
         base_answers = {c["reverse"]: c["base_expected"][0] for c in chat_causal["cases"] if c["relation"] != "arithmetic_control"}
         assert set(base_answers) == {False, True}
         answer_pair = (base_answers[False], base_answers[True])
@@ -1918,8 +1926,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     prompt_start = -prompt_positions
     conditions = {}
     modes = ("Base", *donor_deltas) if donor_checkpoint is not None or vjp_checkpoint is not None else ("Base", "J-lens swap", "plain-lens swap", "matched-random delta")
-    if country_swap:
-        modes = ("Base", "raw J-coordinate exchange", "unit J-coordinate exchange", "raw plain-coordinate exchange", "matched-random delta")
+    if coordinate_exchange:
+        modes = ("Base", "raw J-coordinate exchange", "raw plain-coordinate exchange", "matched-random delta")
+        if country_swap:
+            modes = modes[:2] + ("unit J-coordinate exchange",) + modes[2:]
     if donor_reflection:
         modes = ("Base", reflection_mode, "full donor contrast", "matched-random reflection control")
         if reflection_coordinate_checkpoint is not None:
@@ -1932,7 +1942,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                                                else (donor_center, donor_direction))
         calls, readings, local_states = [], [], []
         active_inverse = inverse_j
-        if country_swap:
+        if coordinate_exchange:
             basis_name = {"Base": "raw J", "raw J-coordinate exchange": "raw J", "unit J-coordinate exchange": "unit J",
                           "raw plain-coordinate exchange": "raw plain", "matched-random delta": "raw J"}[mode]
             active_vectors, active_inverse = bases[basis_name]["vectors"], bases[basis_name]["inverse"]
@@ -1944,7 +1954,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             selected = h[:, start:].float()
             if mode == "Base":
                 edited = selected
-            elif country_swap:
+            elif coordinate_exchange:
                 edited = swap_coordinates(selected, active_vectors, active_inverse)
                 if mode == "matched-random delta":
                     edited = selected + (edited - selected).norm(dim=-1, keepdim=True) * fixed_random_direction
@@ -1973,12 +1983,17 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                           "raw_J_pair_after": (changed[0, -1].float() @ raw_vectors_j).tolist(),
                           "edit_basis_coordinates_before": (selected[0, -1] @ active_inverse.T).tolist(),
                           "edit_basis_coordinates_after": (changed[0, -1].float() @ active_inverse.T).tolist()})
-            if country_swap:
+            if coordinate_exchange:
                 local_states.append(torch.stack((selected, edited, changed[:, start:].float())).cpu())
                 calls[-1].update(basis=basis_name, requested_delta_norm=float((edited-selected).norm()),
                                  applied_delta_norm=float((changed[:, start:].float()-selected).norm()))
                 if mode not in ("Base", "matched-random delta"):
-                    expected = (selected @ active_inverse.T).flip(-1)
+                    before = selected @ active_inverse.T
+                    expected = (1 - phase_scale) * before + phase_scale * before.flip(-1)
+                    delta = edited - selected
+                    orthogonal_error = float((delta - (delta @ active_inverse.T) @ active_vectors.T).norm())
+                    calls[-1]["orthogonal_requested_error"] = orthogonal_error
+                    assert orthogonal_error < 1e-4 * (1 + float(delta.norm()))
                     requested_error = float((edited @ active_inverse.T - expected).abs().max())
                     applied_error = float((changed[:, start:].float() @ active_inverse.T - expected).abs().max())
                     cast_bound = float((changed[:, start:].float()-edited).norm()) * bases[basis_name]["inverse_norm"]
@@ -1987,7 +2002,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                     tolerance = 1e-4 * (1 + float(expected.abs().max()))
                     assert requested_error < tolerance, calls[-1]
                     assert applied_error <= cast_bound + 2*tolerance, calls[-1]
-            if vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None:
+            if not coordinate_exchange and (vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None):
                 local_states.append(torch.stack((selected, edited, changed[:, start:].float())).cpu())
                 calls[-1].update(requested_delta_norm=float((edited-selected).norm()),
                                  applied_delta_norm=float((changed[:, start:].float()-selected).norm()))
@@ -2036,7 +2051,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "selected_prompt_token_ids": ids[0, prompt_start:].tolist(),
                             "selected_prompt_tokens": [vocab[t] for t in ids[0, prompt_start:].tolist()],
                             "n_tokens": len(tokens), "prefill_readout": readings[0], "final_decode_readout": readings[-1],
-                            "coordinate_kind": basis_name if country_swap else ("raw" if mode == "raw donor reflection" or reflection_coordinate_checkpoint is None else "context projection") if donor_reflection else None,
+                            "coordinate_kind": basis_name if coordinate_exchange else ("raw" if mode == "raw donor reflection" or reflection_coordinate_checkpoint is None else "context projection") if donor_reflection else None,
                             "answer_token_ids": [a0, a1],
                             "coverage": calls, "top10": [{"token": vocab[t], "log_p": float(lp[t]),
                                                           "p": float(lp[t].exp()), "delta_log_p": float(lp[t] - base_lp[t])} for t in top],
@@ -2061,7 +2076,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p(first={answer_metric_labels[0]!r})={conditions[mode]['p_answer0']:.3f}, p(first={answer_metric_labels[1]!r})={conditions[mode]['p_answer1']:.3f}")
 
-    if country_swap:
+    if coordinate_exchange:
         primary_norm = conditions["raw J-coordinate exchange"]["coverage"][0]["requested_delta_norm"]
         random_norm = conditions["matched-random delta"]["coverage"][0]["requested_delta_norm"]
         assert abs(primary_norm-random_norm) < 1e-5 * (1+primary_norm)
@@ -2134,6 +2149,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "Correct Base and coherent Tokyo AND yen under the same primary rule are required; bare-answer odds alone do not show identity. "
                             "An article can make first-token metrics nondiagnostic. Inspect whether Base already names Italy; that would limit the hidden-concept claim. "
                             "Observer is prompt-masked only, not certified speech exclusion. Basis rank and post-cast coordinate errors are recorded.")
+    if raw_coordinate_exchange:
+        edit_description = ("Primary: raw pair-coordinate exchange h+scale*V(swap(pinv(V)h)-pinv(V)h). "
+                            f"V uses the fixed {concept_tokens!r} embedding rows, final norm gain and J[15]; no column normalization. "
+                            "Raw plain exchange and one fixed GPU-float32 seed0 random direction are controls. "
+                            "Random matches the primary formula's requested update norm on its own current state, not later primary states or realized BF16 norms. "
+                            "No donor forward, current-input preparation, backward, later-layer feedback or post-condition target prefill. "
+                            "The same symmetric operator is used in both directions and arithmetic, with prefill scale1 and decode0.25. "
+                            "Not raw-score swapping, unit reflection or exact reference replication. "
+                            "Judge capital/currency separately and jointly from full text; first-token scores cover Stock/Tok only. "
+                            "Observer is prompt-masked only, not certified speech exclusion. Wrong/capped cases stay in the denominator. ")
     if donor_reflection:
         edit_description = ("Conditional donor reflection: u=unit(mean(target)-mean(source)), c=(mean(target)+mean(source))/2, "
                             "a=(h-c)@u, h'=h-2*min(a,0)*u. Raw generic means; no dose rescaling or current-input preparation. "
@@ -2149,7 +2174,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                             "later doses are not trajectory matched. No embedding subtraction, current-question preparation, dose or rank adjustment. "
                             f"Coordinate checkpoint: {reflection_coordinate_checkpoint}. ")
     steering_schedule = "prompt-only control" if decode_scale == 0 else "prompt and continuous decode"
-    md = (f"---\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
+    md = (f"---\nraw_coordinate_exchange: {str(raw_coordinate_exchange).lower()}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nlens_sha256: {LENS_SHA}\nsteering_schedule: {steering_schedule}\n"
           f"vjp_checkpoint: {vjp_checkpoint}\nindirect_donor: {str(indirect_donor).lower()}\ncountry_swap: {str(country_swap).lower()}\nblock_index: {block}\nresidual_index: {block + 1}\nreadout_block_index: {read_block}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nprompt_slice: '{prompt_start}:'\nk: 32\nseed: 0\ndecode_scale: {decode_scale}\ndonor_norm: {donor_norm}\ndonor_checkpoint: {donor_checkpoint}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
           "# Same-pass intervention pilot\n\nWritten by PI/OpenAI.\n\n"
           f"Readout-lens reference: {REFERENCE}. Lens fitted on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
@@ -2191,7 +2216,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         f"Sum of requested/applied delta norms: {requested_sum:.6f}/{applied_sum:.6f}. "
                         "Per-call margins and doses are in interventions.json.\n")
         leg_metrics = (f"swap_log_odds_shift: {r['swap_log_odds_shift']}\nbare_answer_mass: {r['bare_answer_mass']}\n" if relation == "legs" else "")
-        frontmatter = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
+        frontmatter = (f"---\nraw_coordinate_exchange: {str(raw_coordinate_exchange).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nblock_index: {block}\n"
                        f"readout_block_index: {read_block}\nindirect_donor: {str(indirect_donor).lower()}\ncountry_swap: {str(country_swap).lower()}\ncoordinate_kind: {r['coordinate_kind']}\nreverse: {str(reverse).lower()}\nswap_logits: {str(swap_logits).lower()}\nplural: {str(plural).lower()}\nk: 32\nstrength: 1\ndecode_scale: {decode_scale}\nprompt_slice: '{prompt_start}:'\ncontinuous: {str(decode_scale != 0).lower()}\nsteering_schedule: {steering_schedule}\nmax_new_tokens: 32\nseed: 0\n"
                        f"vjp_checkpoint: {vjp_checkpoint}\ndonor_checkpoint: {donor_checkpoint}\nreflection_coordinate_checkpoint: {reflection_coordinate_checkpoint}\ndonor_norm: {donor_norm}\ndonor_reflection: {str(donor_reflection).lower()}\nequal_donor_norm: {str(equal_donor_norm).lower()}\nrelation: {relation}\nexpected_answer: {r['expected_answer']!r}\nn_tokens: {r['n_tokens']}\n"
                        f"answer_0: {answer_pair[0]!r}\nanswer_1: {answer_pair[1]!r}\nanswer_log_odds_shift: {r['answer_log_odds_shift']}\nanswer_pair_mass: {r['answer_pair_mass']}\n{leg_metrics}r2: {r['r2']}\n---\n")
@@ -2219,6 +2244,7 @@ if __name__ == "__main__":
     parser.add_argument("--readout-max-new-tokens", type=int, default=8, help="Readout generation cap, at most32; completion default remains8.")
     parser.add_argument("--replay-readout-run", type=Path, help="Rescore saved prefill states/generations without model forwards; include a cyclic mismatched-final control.")
     parser.add_argument("--swap-logits", action="store_true", help="Intervention variant: exchange raw lens scores via dual directions, not unit-direction coordinates.")
+    parser.add_argument("--raw-coordinate-exchange", action="store_true", help="Native-chat raw J/plain coordinate exchange with own-state norm-matched random; no donor preparation.")
     parser.add_argument("--output-mask-max-n", type=int, default=20, help="End-pass mask candidate count;1 masks only the greedy next token.")
     parser.add_argument("--plural", action="store_true", help="Use spiders/dogs direction tokens instead of spider/dog; prompts stay unchanged.")
     parser.add_argument("--translation-per-pair", type=int, default=0, help="Frozen translation evaluation: first N eligible words per de/fr/ru pair, no output filtering.")
