@@ -188,6 +188,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: native-v4 launcher review7ff7a0f7 caught a pre-queue orchestration bug: readout coverage is a layer→length-list mapping, not causal event dictionaries. Reproduced TypeError against actual2673 traces, retained log, then added cross-layer/forward-length validation. Source08/scientific method unchanged. Prior seed0/1 production smoke passed52s; real-artifact postflight/native-tokenizer checks passed5s but did not cover this assertion. Now running the entire repaired launcher on a real tiny32-layer BF16 Qwen and all8 frozen inputs (proc_6a1e), including final reporting; not yet queued or scientifically evaluated.
 
+- PI/OpenAI: repaired native-v4 launcher passed its full tiny-Qwen CPU run (51s, seed0, all8 exact frozen inputs):144 old rows exact+32 candidates, one trajectory per input, zero cached forwards, equal model weights, final report and rejection of altered layer coverage. Earlier production smoke seeds0/1 also passed. Parent verified the repair; reviewer did not rerun it. Queued2688/default/priority0 at2de722a,300s TERM+15s, immutable source69455b6a/launcher7f81e356/data5b2fa09b; native followerproc_3639. Eight known non-geography frames, no extra mask change or v5 consumption. No pretrained scientific result yet; both goals open.
+
 ## Interview
 
 ### 2026-09-30 07:42
