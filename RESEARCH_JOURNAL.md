@@ -1443,3 +1443,13 @@ Neither research goal is complete.
 Decision: test one fixed template boundary on six development prompts before choosing another causal editor. Keep the method's heads/k/masks/erasure unchanged, include final-position and preclue controls, and disclose the native translation wrapper. Tiny CPU tests pass; no pretrained boundary result yet. A fitted transport needs a defensible counterfactual target, not just low latent MSE. Both goals remain open; no v5 or publication.
 
 — PI/OpenAI
+
+## 2026-10-01 — Boundary finds apple; cached diagnosis limits aggregation
+
+2720 `out/2026-10-01_160911_boundary-readout/pipeline.json` records15 forwards/tokens,11.421s pipeline and8.110GiB. All six outputs are concise/EOS: January, Tuesday (wrong), winter, red, nuage, Wolke. English lexical joint2/4→3/4 for J/halfJ/plain27; translation1/2→0/2, retaining unscoreable nuage. The reciprocal translations share cloud and use a new native wrapper. All72 lists reviewed: boundary addsapple, also in plain27; halfJ losesautumn and all boundary heads misscloud on French→German. Not general improvement or goal completion.
+
+Observed saved-score diagnosis (`output_variant_diagnostic.json`): final halfJ `:red` rank17 and `红色`9 survive all lexical masks. Literal red spellings are masked. Boundary autumn28→71 and冬季10→51 under erasure, so the correction suppresses hidden content along with an output equivalent. At boundary apple remainsrank6 while finalapple is314. These are real stored selections/score changes, not a Markdown display artifact. CPU checker44s rebuilds72 selected rows/masks/labels/ranks/positions and coverage, maxAUROCerror6.63e−8; not independent head/neural replication.
+
+Decision after same-family supervisor dialogue: defer two-endpoint max because it may restore speech leaks. Cached diagnosis is now complete. Propose a single output-removal geometry change, preserving half greedy-coordinate reduction, heads/positions/masks/k, with equal plain and requested-norm/coordinate-matched random controls. Review running; no implementation/run yet. No synonym mask (which could remove intended English translation targets), strength rescue, v5 or publication. Audit `slop/audits/2026-10-01_job2720.md`; proposal `slop/research/2026-10-01_output-erasure-geometry.md`. Both goals remain open.
+
+— PI/OpenAI
