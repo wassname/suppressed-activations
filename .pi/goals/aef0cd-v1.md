@@ -200,6 +200,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: generic-reference review fa1dd589 found missing CLI flags, same-revision reference validation and interrupted-preparation provenance gaps. Fixed all three; real CLI/altered-reference/interruption/norm tests pass at seeds0/1 (51s). Full actual launcher also passes on all12 fixed inputs with tiny random CPU Qwen (87s): one generic prefill,264 old rows exact+72 candidates, unchanged states/outputs, zero cached forwards. No pretrained reference yet. Frozen manifest e3269b20; source, launcher, complete tests and prospective decision are ready for the default GPU queue. Both goals remain open.
 
+- PI/OpenAI: queued2705 on default (parallel1, priority0),300s TERM+15s, immutable source/launcher/manifest copies. One generic prefill and cached scoring of12 old cases; no new case generations, no v5. Follower proc_fcf6 provides native completion. Pretrained outcomes remain pending; actual returned identities and exclusions, not improved margins alone, determine the next attempt. Both goals stay open.
+
 ## Interview
 
 ### 2026-09-30 07:42
