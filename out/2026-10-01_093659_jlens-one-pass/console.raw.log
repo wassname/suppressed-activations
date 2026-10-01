@@ -1,0 +1,182 @@
+{"stage": "preflight", "seconds": 0.001532163005322218}
+2026-10-01 09:36:59.423 | INFO     | <run_path>:main:795 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]Loading weights: 100%|██████████| 426/426 [00:00<00:00, 7870.31it/s]
+2026-10-01 09:37:05.200 | INFO     | <run_path>:main:1319 - Readout Oman: baseline='Asia<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 09:37:05.612 | INFO     | <run_path>:main:1319 - Readout Qatar: baseline='Asia<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 09:37:06.240 | INFO     | <run_path>:main:1319 - Readout Namibia: baseline='Africa<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 09:37:06.641 | INFO     | <run_path>:main:1319 - Readout Botswana: baseline='Africa<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+
+## Fixed-set readout results
+
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+
+### Current-layer methods
+
+| method                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/4                    |    0.250 | 0/4                      | 0/4                            |          0 |
+| [plain lens](readout.json) | 0/4                    |    0.265 | 0/4                      | 0/4                            |          0 |
+
+### End-of-pass readout (not for earlier edits)
+
+| method                                                  | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:--------------------------------------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                         | 2/4                    |    0.893 | 2/4                      | 2/4                            |          0 |
+| [end-pass probability contrast J-lens](readout.json)    | 2/4                    |    0.799 | 2/4                      | 2/4                            |          0 |
+| [end-pass erased1 J-lens](readout.json)                 | 2/4                    |    0.893 | 2/4                      | 2/4                            |          0 |
+| [end-pass erased0.5 J-lens](readout.json)               | 2/4                    |    0.893 | 2/4                      | 2/4                            |          0 |
+| [end-pass input-prefix erased0.5 J-lens](readout.json)  | 2/4                    |    0.893 | 2/4                      | 2/4                            |          0 |
+| [end-pass input-prefix J-lens](readout.json)            | 2/4                    |    0.893 | 2/4                      | 2/4                            |          0 |
+| [end-pass logit contrast J-lens](readout.json)          | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass plain24](readout.json)                        | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass logit contrast plain24](readout.json)         | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass probability contrast plain24](readout.json)   | 0/4                    |    0.877 | 0/4                      | 0/4                            |          0 |
+| [end-pass plain27](readout.json)                        | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass logit contrast plain27](readout.json)         | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass probability contrast plain27](readout.json)   | 0/4                    |    0.877 | 0/4                      | 0/4                            |          0 |
+| [end-pass negative final control](readout.json)         | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass erased1 plain24](readout.json)                | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass erased0.5 plain24](readout.json)              | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass erased1 plain27](readout.json)                | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass erased0.5 plain27](readout.json)              | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass input-prefix erased0.5 plain24](readout.json) | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+| [end-pass input-prefix erased0.5 plain27](readout.json) | 0/4                    |    0.893 | 0/4                      | 0/4                            |          0 |
+
+
+
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_093659_jlens-one-pass/run.md
+{
+ "run": "/workspace/2026/suppressed-activations/out/2026-10-01_093659_jlens-one-pass",
+ "results": [
+  {
+   "method": "end-pass input-prefix erased0.5 J-lens",
+   "n": 4,
+   "joint_alias_passes": 2,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": true,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass input-prefix erased0.5 plain24",
+   "n": 4,
+   "joint_alias_passes": 0,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": false,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass input-prefix erased0.5 plain27",
+   "n": 4,
+   "joint_alias_passes": 0,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": false,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass input-prefix J-lens",
+   "n": 4,
+   "joint_alias_passes": 2,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": true,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass erased0.5 J-lens",
+   "n": 4,
+   "joint_alias_passes": 2,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": true,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass erased0.5 plain24",
+   "n": 4,
+   "joint_alias_passes": 0,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": false,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass erased0.5 plain27",
+   "n": 4,
+   "joint_alias_passes": 0,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": false,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  },
+  {
+   "method": "end-pass J-lens",
+   "n": 4,
+   "joint_alias_passes": 2,
+   "mean_alias_auroc": 0.8928571492433548,
+   "auroc_n": 4,
+   "lexical_pairs": {
+    "Asia": true,
+    "Africa": false
+   },
+   "reviewed_joint": null,
+   "reviewed_pairs": null
+  }
+ ],
+ "pipeline": {
+  "source_sha256": "9d8b8410675792a4dba7c7235d3672246c17d5690c463634dff0e2223a768b9e",
+  "data_sha256": "ced9ce88e658b20c9088ff51039736abc6bf40402032bf8eb0fd36279869eabe",
+  "contract_sha256": "4f3f27cfc3b92e033dc710ac877df67f459d8e974acfd979981207146b8f0fda",
+  "cache_sha256": {
+   "prefill.pt": "3e8e823d003b3b4f8cd33ad704a10cbbfbf2f177a5af998c443917603cd474be",
+   "generation_traces.json": "eadec9aef6d5df7750937a0bbb4f022ec39ed9eb919c14f3f9814c69cc153756",
+   "readout.json": "7822553fda78fd83fe63785f037de0568cf101527c8e888282a87d085263180c",
+   "source.py": "8703a56f4313e673eb19f891b97eb3cbb247818187aa321e9f75130b3fc3b868"
+  },
+  "helper_sha256": {
+   "scripts/demo.py": "3fd42d760c0ed01a68e7160b7d64c87168f1859f008e232464f7e10c01c4bc39",
+   "scripts/english/01_detector_baselines_and_pair_transfer.py": "812afe3ca2728b2c6ebfb6d516b1edb11e51e6849182bdb8b172ff277c61fa8b",
+   "scripts/english/03_selector_search.py": "51523c7a3769dd11184dbfe6d134213584ed203a6effc44a940ade8b8af358fb",
+   "scripts/english/04_erase_and_language_pairs.py": "734ab7803a3884eb248daceb7bc3fad5b2e85b42b542de20205901402c4c65f0",
+   "suppressed_activation_subspace.py": "415b39ec6d5960ef0bf1533ec271ac4d9fd22bde6fd14f322c454e4f65a5b254"
+  },
+  "original_rows_exact": 72,
+  "candidate_rows": 16,
+  "model_forward_calls": 0,
+  "new_generations": 0,
+  "elapsed_seconds": 10.365894731134176,
+  "peak_allocated_gib": 8.020601749420166,
+  "semantic_review_pending": true,
+  "goals_completed": false
+ }
+}

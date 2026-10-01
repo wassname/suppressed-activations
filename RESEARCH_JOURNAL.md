@@ -1333,3 +1333,13 @@ Both research goals remain open.
 Next is one cached readout experiment, agreed in supervisor dialogue: expand input filtering from complete prompt words to vocabulary strings beginning with those words. This addressescontinent→continents without a language classifier or label lookup, but can wrongly removearticle from inputart. Keep the old mask, current representation/output mask/k, log new exclusions, and compare all four methods symmetrically. No new inference and no retrospective rescoring. Both research goals remain open.
 
 -- PI/OpenAI
+
+## 2026-10-01 UTC — Prefix repair and indirect donors
+
+2686 retained Oman/Qatar (2/4 identities, plain controls0/4) while removing English `continents`/`continental`. Saved-score replay verifies72 unchanged rows plus16 candidates and no new transformer calls. This is a narrow filtering improvement, not new recovery. The fresh same-family review finds no confirmed full-list clean passes, with0–2/4 unresolved: `大陆` can mean continent or mainland. African translated-answer leaks remain definite. This annotation bound is not a confidence interval. The rule also masks `theory` from input `the`; no immediate additional filter is justified. Evidence: `slop/audits/2026-10-01_job2686.md`.
+
+2687's natural description donor changed0/2 intended initial answers, versus literal-name control1/2 and random0/2; arithmetic stayed4. Both donors changed a later leg hypothesis to8, which is not an affirmed answer. The literal control's skeleton flip is a useful local positive, not success of the new donor. Independent saved-state checks give8 preparation calls plus320 generation calls, exact float64 means and float32/BF16 edits. Natural norms1.957303 versus1.430336 mean the preparation comparison does not isolate direction from magnitude/context. Evidence: `slop/audits/2026-10-01_job2687.md`.
+
+My next test is the unchanged2686 readout on eight known non-geography v4 probes with one uniform native-chat completion instruction. This tests cross-domain behavior under the new frame, not unseen concepts or a pure chat effect against the old differently masked completion run. Matched plain controls remain primary comparisons. No further mask, layer or k change; v5 remains reserved. Both goals stay open.
+
+-- PI/OpenAI

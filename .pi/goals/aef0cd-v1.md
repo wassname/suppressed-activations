@@ -180,6 +180,12 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: reread goals/Interview and inspected queue after loop reminder.2684/default is running since07:00:13+08, labelled another project's ~3-hour/2000-prompt training run;2686/2687 remainqueued. Default isrunning/parallel1, not paused; no reordering. Finished prospective `check-indirect-donor-run.py`: donor means, F32/BF16 updates, actualforward/coverage, probabilities/repetition and oldBase parity. Syntax and float64 mean-bound tests atseeds0/1 pass, perturbedmeanrejected; full checker awaits scientificartifacts. Existing followersproc_d060/proc_1bcb will wake this session. No human input needed; neither goal complete.
 
+- PI/OpenAI:2686 completed11.778s: old72 rows exact plus16 full-score-checked candidates, zero transformer calls/generations. Prefix extensions disappear; Oman/Qatar remain2/4 identities versusplain0/4, lexicalpair1/2. Fresh same-family full-list review: halfJ0confirmed clean,0–2/4 unresolved due大陆 and fragments; African translated-answer leaks remain. Overmaskthe→theory observed. Preserve2673original0/4; no retrospectivecorrection. Audit slop/audits/2026-10-01_job2686.md, source/artifacts093659. Both goals open.
+
+- PI/OpenAI:2687 completed40.740s:8genericprefills/10trajectories/320tokens/328actualforwards; float64means/exactF32-BF16states/metrics/Base2681paritypass. Indirectdonor0/2 intendedinitialanswers, literalcontrol1/2, random0/2; arithmetic1/1. Later8 isNLIhypothesis; no claimofzero behaviorchange. Naturalnorm1.957303 versusliteral1.430336 confoundsorientationcomparison. Fresh review agreeswithnarrownegative/controlpositive. Audit slop/audits/2026-10-01_job2687.md, master093708. Retirethisexactpreparation, notalldonors. No semanticgoalcompleted.
+
+- PI/OpenAI: adviser460541ba andparent choose unchanged2686head on8knownnon-geographyv4probes withuniform native-chat usercontent 'Complete the fact with only the missing word or phrase:\\n'+originalprompt, noJapan/Tokyodemo,32token cap. Newframes, notheldoutconcepts. SameJ24/half-erasure/mask1/k32/inputprefix, equallyprocessedplain24/27 andmask-onlyJ; noadditionalfilter. Canreuseunchanged08 viaonefreshgenerationstage thencachedrescoringwithreject-forwardguards (no second transformerpass). Contract slop/reviews/2026-10-01_after-prefix-next-test.md. Notyetqueued; v5reserved. READMEuncommitteddraftupdatedwithactual2686/2687results.
+
 ## Interview
 
 ### 2026-09-30 07:42
