@@ -174,6 +174,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: selected indirect-description donor preparation under ordinary natural addition, from adviser42a680cd. Parent added unchanged natural literal-name control on each property:10 trajectories total, not the advisor's8; fixed before outputs. Source69455b6a/datae3eb753f/launcher623baf64; contract `slop/audits/2026-10-01_indirect-donor-preregistration.md`. Tiny seed0/1 fullmain and cached-readout regression passed78s:8 indirect prefills,10 trajectories/320tokens, requested/BF16 states and immutable vectors/weights/hooks;44readoutrows/36oldexact perseed. Three retained smoke failures: main's donor-prep returnNone fixed toout; foreignobserver sees post-edit because editorprepends; output_hidden_states installs32 persistent Transformers hooks (ownership now compared, not emptiness). No scientific model result. Fresh implementation review workflow5a957600 active; root/global scope clarified. Launcher pins/tracefixture pass, no end-to-end launcher execution. New causal job not queued. Readout2686/followerproc_d060 still pending notification; both goals remain open.
 
+- PI/OpenAI: implementation review68052eb2 found no frozen-launcher blocker. Tracked TODO: `scripts/demo.py:70–79` can retain its own final-norm prehook if preparation forward raises; current launcher aborts and does not reuse that model, so this does not block the experiment. Its failure differs from legitimate persistent Transformers hooks. Fix/test exception-safe removal after queued jobs no longer depend on helperSHA3fd42d76; do not invalidate2686's pinned live helpers. Reviewer read all smoke failures and final logs; not scientific signoff.
+
 ## Interview
 
 ### 2026-09-30 07:42
