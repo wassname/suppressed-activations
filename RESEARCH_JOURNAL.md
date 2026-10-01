@@ -1361,3 +1361,26 @@ Independent artifact verification passes16candidate/72old rows,38forwards andall
 Next agreed attempt is a new representation method: subtract a fixed generic normalized decoder state before the existing half-erasure, without a second norm. One offlinegenericprefill, then cached8native-v4+4animal cases; no newmask/layer/k/dose. Compare equally transformedplain and a fixedseed0 randomreference, normmatched beforeprojection only. It may remove shared usefulsignal as well as genericprior; success must concern returned identities and exclusions, notD alone. Not implemented yet, v5 remains reserved andbothgoalsopen.
 
 -- PI/OpenAI
+
+## 2026-10-01 UTC - Generic subtraction does not improve the primary readout
+
+Generic reference subtraction retained the primary hidden identities without improving their separation from input and speech.
+
+The same-family manual review reports these primary/control rows:
+
+| Method | Saved literal /8 | Clear identity /8 | Strict joint /8 |
+|---|---:|---:|---:|
+| G-J | 3 | 5 | 0 |
+| E-J | 4 | 5 | 0 |
+
+G-J is generic-reference subtraction followed by half-erasure in J-lens space; E-J is unchanged half-erasure. Literal joint passes use the saved alias checker. Clear identity means an identifiable target appears; strict joint additionally excludes identifiable input/said content and conspicuous formatting. That last diagnostic is not a universal user gate. Source: `out/2026-10-01_123620_generic-reference-readout/semantic_review.md`.
+
+All ten methods have no confirmed animal identity recovery. Generic plain27 adds translatedThursday but also leaks actualTuesday; the control-specific partial gain is preserved. The checker reports `"candidate_rows_checked": 72`, `"old_rows_exact": 264`, `"generic_forward_calls": 1`, `"case_forward_calls": 0`, and `"max_pair_margin_error": 0.0` in the same root's `verification.json`. It checks saved scores, masks, labels and margins, not a neural replay. Generations did not change; no training reward, `hack_s` or changed-capability `gt_s` was collected. Wrong and capped outputs remain included.
+
+Interpretation: I find additional useful identity recovery from this particular reference unlikely on these cases, because the primary retains the same targets and the animal lists still miss their identities. This does not rule out reference methods generally or establish that absent words were never represented.
+
+Next: queued2706 tests role-aligned offline donors on joint animal properties with fixed literal, random and arithmetic controls. The source path, fixtures, selection and limitations are in `slop/audits/2026-10-01_chat-causal-preregistration.md`. Full readout audit: `slop/audits/2026-10-01_job2705.md`.
+
+Continue toward coherent editing without promoting score-only improvements.
+
+-- PI/OpenAI

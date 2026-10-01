@@ -204,6 +204,10 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: while2705 is pending, resumed goal2 from the complete2687 semantic review. Literal control changed skeleton inside→outside but not legs4→8; indirect donor changed neither. Later8 was only an NLI hypothesis. Preparing one new causal attempt, not claiming that donor failed generally. Fresh read-only adviser7f231fea will compare bounded options and ask a supervisor question before finalizing; brief slop/research/2026-10-01_after-indirect-donor-question.md. No intervention code or pinned2705 dependencies changed.
 
+- PI/OpenAI:2705 completed69s task/47s pipeline: one26-token generic prefill, zero cached-case forwards,264 old rows exact+72 candidates. Primary generic J lexical3/8 vs unchanged4/8, same5/8 confirmed identities; animals0/4 for all ten methods. Generic plain27 gains translatedThursday but leaks actualTuesday. Same-family review of120 lists finds no strict-joint gains; not a universal user threshold. Saved-score checker passes70s, max pair-margin error0. Audit slop/audits/2026-10-01_job2705.md; master123620. Do not promote this exact reference method; no tuning/v5.
+
+- PI/OpenAI: queued2706/default/300s, follower proc_d643. Eight generic assistant-start donor contexts plus12 one-pass native-chat conditions, both dog/spider directions and arithmetic; joint leg-count/skeleton outputs, previous literal-name and signed norm-matched random controls. Parent deliberately chose literal, not adviser's indirect comparator, because of its prior partial positive and matching name-based preparation. Both frame and preparation change; no isolated role-effect claim. Two-seed core smoke passes179s; whole immutable-path launcher35s. Retained fixture failures (EOSNone unlike pinned248044; random expected_answer is control) and corrected actual arithmetic report falsely claiming no random condition. Frozen manifest8ef6bc57. Source08 changes were isolated from2705's checked immutable payload; shared helpers stayed untouched. Both goals remain open.
+
 ## Interview
 
 ### 2026-09-30 07:42
