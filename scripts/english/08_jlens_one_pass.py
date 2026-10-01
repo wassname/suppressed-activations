@@ -686,6 +686,50 @@ def fixed_position_logits(model, W, J, res, position, direction):
     return logits
 
 
+def native_metric_directions(w, gain, J):
+    """Held-RMS-scale corrections with unit output-coordinate removal. — PI/OpenAI"""
+    assert torch.isfinite(w).all() and w.square().sum() > 0, "Zero/nonfinite output embedding"
+    base = w / w.square().sum()
+    a = J.T @ (gain * w)
+    vectors = {"J-lens": gain * (J @ a), "plain24": gain.square() * w,
+               "plain27": gain.square() * w}
+    directions = {}
+    for name, v in vectors.items():
+        denominator = v @ w
+        assert torch.isfinite(v).all() and torch.isfinite(denominator) and denominator > 0, name
+        directions[name] = v / denominator
+    random = torch.randn(w.numel(), generator=torch.Generator(device="cpu").manual_seed(0),
+                         dtype=torch.float32).to(w.device, w.dtype)
+    random = random - base * (random @ w)
+    assert random.norm() > 0, "Degenerate projected Gaussian control"
+    extra = directions["J-lens"] - base
+    directions["random0 J-lens"] = base + extra.norm() * random / random.norm()
+    return directions
+
+
+def native_metric_readouts(model, W, J, res, position, w, directions):
+    """No renormalization after correction; raw/requested/BF16 states retained. — PI/OpenAI"""
+    states = {"J-lens": res[24][position].float() @ J.T,
+              "plain24": res[24][position], "plain27": res[27][position]}
+    logits, saved, traces = {}, {}, []
+    for name, d in directions.items():
+        y = model.model.norm(states[name.removeprefix("random0 ")].to(W.dtype)).float()
+        c = .5 * (y @ w)
+        delta = c * d
+        old_delta = c * w / w.square().sum()
+        requested = y - delta
+        applied = requested.to(W.dtype).float()
+        assert abs(float(requested @ w - .5 * (y @ w))) < 1e-4 * float(y.norm() * w.norm())
+        logits[name] = model.lm_head(applied.to(W.dtype)).float()
+        saved[name] = {"original": y.cpu(), "requested": requested.cpu(), "applied": applied.cpu(),
+                       "direction": d.cpu(), "output_embedding": w.cpu()}
+        traces.append({"head": name, "before": float(y @ w), "requested_after": float(requested @ w),
+                       "applied_after": float(applied @ w), "old_requested_norm": float(old_delta.norm()),
+                       "requested_norm": float(delta.norm()), "applied_norm": float((y-applied).norm()),
+                       "original_norm": float(y.norm())})
+    return logits, saved, traces
+
+
 def native_readout_positions(tok, user_message, input_ids):
     """Template boundaries only; preclue ends before any user content. — PI/OpenAI"""
     closed = tok.apply_chat_template([{"role": "user", "content": user_message}],
@@ -834,7 +878,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
          indirect_donor=False, prepare_reference_json: Path | None = None,
          reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0,
-         inspect_readout_positions=False, boundary_readout=False):
+         inspect_readout_positions=False, boundary_readout=False, native_metric_erasure=False):
+    if native_metric_erasure:
+        assert boundary_readout and verify_readout_run is not None
     if boundary_readout:
         assert chat_readout and expand_input_prefix and not inspect_readout_positions
         assert replay_readout_run is None and reference_checkpoint is None
@@ -1396,6 +1442,25 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                 "input_ids": ids[0].tolist(), "output_direction_id": output_id, "final_scores_exact": True,
                 "scope": "Frozen structural positions; both use end-pass masks/output direction, not early causal information."},
                 ensure_ascii=False, indent=1))
+        if native_metric_erasure:
+            gain = 1.0 + model.model.norm.weight.float()
+            directions = native_metric_directions(direction, gain, J)
+            metric_scores, metric_states, metric_traces = {}, {}, []
+            for point, position in {"final": h.shape[0] - 1, **points}.items():
+                raw, saved, traces = native_metric_readouts(model, W, J, res, position, direction, directions)
+                for name, value in raw.items():
+                    prefix = "end-pass " + (f"{point} " if point != "final" else "")
+                    method = prefix + "input-prefix metric-erased0.5 " + name
+                    scores[method] = value.masked_fill(full_mask, -torch.inf)
+                    metric_scores[method] = value.cpu()
+                metric_states[point] = saved
+                metric_traces.extend({"point": point, **t} for t in traces)
+            metric_dir = out / "native_metric_readouts"
+            metric_dir.mkdir(exist_ok=True)
+            torch.save({"scores": metric_scores, "states": metric_states}, metric_dir / f"{case_index:03d}.pt")
+            (metric_dir / f"{case_index:03d}.json").write_text(json.dumps({"case_index": case_index,
+                "positions": {"final": h.shape[0] - 1, **points}, "traces": metric_traces,
+                "random": "One shared CPU float32 N(0,I) draw, seed0, projected orthogonal to greedy w; requested norm/coordinate matched only."}, indent=1))
         if inspect_readout_positions:
             position_records = []
             full_mask = mask | output_mask | extension_mask
@@ -1622,7 +1687,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             description += ("Gradient pursuit additionally revises every active coefficient with one feasible restricted-gradient step per iteration, at most32 iterations. "
                             "Same dictionaries and post-decomposition masks; raw/unit-dot controls have matching returned cardinality. Matching pursuit is also capped at that budget without padding; its actual count may be smaller. "
                             "Improved reconstruction is not semantic success. This specified solver is not a claimed reproduction of unpublished code. ")
-        md = (f"---\nexpand_input_prefix: {str(expand_input_prefix).lower()}\nchat_readout: {str(chat_readout).lower()}\nreadout_max_new_tokens: {readout_max_new_tokens}\ngradient_pursuit: {str(gradient_pursuit).lower()}\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
+        md = (f"---\nnative_metric_erasure: {str(native_metric_erasure).lower()}\nboundary_readout: {str(boundary_readout).lower()}\nexpand_input_prefix: {str(expand_input_prefix).lower()}\nchat_readout: {str(chat_readout).lower()}\nreadout_max_new_tokens: {readout_max_new_tokens}\ngradient_pursuit: {str(gradient_pursuit).lower()}\nmatching_pursuit: {str(matching_pursuit).lower()}\npolar_readout: {str(polar_readout).lower()}\npool_question: {str(pool_question).lower()}\nverify_readout_run: {verify_readout_run}\ntoken_kl: {str(token_kl).lower()}\nmodel: {q.MODEL}@{q.REVISION}\nlens_revision: {LENS_REVISION}\nreadout_block_index: {read_block}\n"
               f"calibration_json: {calibration_json}\nforecast_checkpoint: {forecast_checkpoint}\ncases_json: {cases_json}\ntranslation_per_pair: {translation_per_pair}\nend_pass_readout: {str(end_pass_readout).lower()}\noutput_mask_max_n: {output_mask_max_n}\nerase_output: {str(erase_output).lower()}\nerase_strength: {erase_strength}\nanswer_alias_audit_json: {answer_alias_audit_json}\nk: 32\nelapsed_seconds: {time.monotonic()-started:.2f}\n---\n"
               "# Hidden-word readout comparison\n\nWritten by PI/OpenAI.\n\n"
               f"{description}"
@@ -1658,18 +1723,21 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                               "mean_token_pair_auroc": sum(aucs) / len(aucs) if aucs else None, "auroc_n": len(aucs),
                               "correct_answer_joint_pass": sum(r["actual_pass"] for r in correct), "correct_answer_n": len(correct)})
         (out / "summary.json").write_text(json.dumps(summaries, indent=1))
-        if inspect_readout_positions:
+        if inspect_readout_positions or native_metric_erasure:
             previous_states = torch.load(verify_readout_run / "prefill.pt", weights_only=True, map_location="cpu")
             previous_traces = json.loads((verify_readout_run / "generation_traces.json").read_text())
             previous_rows = json.loads((verify_readout_run / "readout.json").read_text())
             assert json.loads((out / "generation_traces.json").read_text()) == previous_traces
             assert len(previous_states) == len(activation_cache)
             assert all(torch.equal(a[r], b[r]) for a, b in zip(previous_states, activation_cache, strict=True) for r in a)
-            assert json.loads((out / "readout.json").read_text()) == previous_rows
-            (out / "position_reproduction.json").write_text(json.dumps({"reference": str(verify_readout_run),
+            current = {(r["case_index"], r["method"]): r for r in json.loads((out / "readout.json").read_text())}
+            assert all(current[r["case_index"], r["method"]] == r for r in previous_rows)
+            if inspect_readout_positions:
+                assert len(current) == len(previous_rows)
+            (out / ("metric_reproduction.json" if native_metric_erasure else "position_reproduction.json")).write_text(json.dumps({"reference": str(verify_readout_run),
                 "reference_sha256": {name: hashlib.sha256((verify_readout_run / name).read_bytes()).hexdigest()
                     for name in ("prefill.pt", "generation_traces.json", "readout.json", "source.py")},
-                "final_states_exact": True, "generation_traces_exact": True, "readout_rows_exact": len(readouts),
+                "final_states_exact": True, "generation_traces_exact": True, "readout_rows_exact": len(previous_rows),
                 "source_of_earlier_states": "fresh same-settings capture, not historical saved states"}, indent=1))
         groups = []
         if translation_per_pair:
@@ -1694,13 +1762,18 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             summary_md += "### Translation development/test splits\n\n" + tabulate(
                 [[r["split"], r["method"], f"{r['joint_pass']}/{r['n']}", r["mean_auroc"], r["unscored_n"]] for r in groups],
                 headers=["split", "method", "joint↑", "AUROC↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+        if native_metric_erasure:
+            summary_md += ("\n## Held-scale native-metric erasure\n\nSame half greedy-output-coordinate reduction, using G J Jᵀ G w (plain: G²w), without renormalization after correction. "
+                           "This minimizes native residual change only under held RMS scale. Output-space change is at least as large as ordinary projection. "
+                           "Primary J has a seed0 Gaussian control matched in requested output-space norm and coordinate, not realized BF16/native/score-space norms. "
+                           "All states, directions, raw scores and cast errors are in native_metric_readouts/. Original rows/states/generations reproduce metric_reproduction.json. — PI/OpenAI\n")
         if boundary_readout:
             summary_md += ("\n## Fixed structural readout positions\n\nPre-assistant boundary and preclue user-header control use the same end-pass masks and final-greedy output direction. "
                            "They are not information available to an earlier causal editor. Final-position scores reproduce within each capture; indices/prefixes and raw scores are in boundary_readouts/. — PI/OpenAI\n")
             for i, case in enumerate(cases):
                 summary_md += f"\n### Case {i}: {case['concept']}\n\nInput repr:\n```text\n{case['prompt']!r}\n```\n\nComplete generation:\n```text\n{case['said_text']}\n```\n"
                 for row in readouts:
-                    if row["case_index"] == i and (row["method"] in final_logits or row["method"].startswith(("end-pass boundary ", "end-pass preclue "))):
+                    if row["case_index"] == i and (row["method"] in final_logits or row["method"].startswith(("end-pass boundary ", "end-pass preclue ", "end-pass input-prefix metric-"))):
                         summary_md += f"\n{row['method']}:\n\n{row['top32']!r}\n"
         if inspect_readout_positions:
             summary_md += "\n## Position diagnostic\n\nAll prefill positions are in `position_readouts/`; full states in `prefill_positions.pt`. No label-selected position is a deployable readout. Final states, complete generations and all readout rows reproduce the reference exactly; see `position_reproduction.json`. — PI/OpenAI\n\n"
@@ -2132,6 +2205,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--boundary-readout", action="store_true", help="Readout-only fixed pre-assistant boundary and preclue control, with unchanged final-position heads.")
+    parser.add_argument("--native-metric-erasure", action="store_true", help="Held-RMS-scale native-space correction plus matched primary random control; requires boundary readout and exact reference replay checks.")
     parser.add_argument("--block-index", type=int, default=15, help="Edit block, default midpoint (15).")
     parser.add_argument("--readout-block-index", type=int, default=23, help="Observation block only, default 23.")
     parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
