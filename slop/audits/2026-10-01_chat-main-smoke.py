@@ -17,7 +17,8 @@ entry = root/'scripts/english/08_jlens_one_pass.py'
 g = runpy.run_path(str(entry))['main'].__globals__
 tok = AutoTokenizer.from_pretrained(g['q'].MODEL, revision=g['q'].REVISION, local_files_only=True)
 print('source_sha256='+hashlib.sha256(entry.read_bytes()).hexdigest(), flush=True)
-expand = '--input-prefix' in sys.argv
+centering = '--generic-reference' in sys.argv
+expand = '--input-prefix' in sys.argv or centering
 if expand:
     words=[' Continents','CONTINENTAL',' cont','article','art','named',' nam','onion',' toffee']
     normalized=[w.strip().lower() for w in words]
@@ -55,6 +56,18 @@ for seed in (0, 1):
         torch.Tensor.cuda = lambda self, *a, **kw: self
         g['q'].prompt_word_mask = lambda prompt, vocab, device: mask(prompt, vocab, 'cpu')
         try:
+            if centering:
+                calls=[]
+                counter=model.register_forward_pre_hook(lambda *args: calls.append(1))
+                g['ROOT']=tmp/'reference-preparation'
+                prepared=g['main'](prepare_reference_json=root/'data/generic_readout_reference_v1.json')
+                counter.remove()
+                checkpoint=prepared/'reference.pt'
+                assert len(calls)==1
+                prepared_reference=torch.load(checkpoint,weights_only=True)
+                assert set(prepared_reference['states'])=={24,27} and prepared_reference['ignored_generated_token_count']==1
+                assert all(v==[len(prepared_reference['input_ids'])] for v in prepared_reference['coverage'].values())
+                g['ROOT']=tmp
             out = g['main'](cases_json=dataset, end_pass_readout=True, output_mask_max_n=1,
                             erase_output=True, erase_strength=.5, chat_readout=True, readout_max_new_tokens=32)
             traces = json.loads((out/'generation_traces.json').read_text())
@@ -125,6 +138,74 @@ for seed in (0, 1):
                         assert masked[row['selected_ids']].tolist()==row['selected_scores']
                         assert not set(row['selected_ids'])&set(added_ids)
                 print(f'PASS seed{seed}:44 rows/36 originals exact,8 candidate full-vocabulary top32 refills, exclusion origins, saved-score reconstruction, transformer calls blocked',flush=True)
+            if centering:
+                def reject(*args):
+                    raise AssertionError('Extra transformer forward during reference rescoring')
+                rejecting=[m.register_forward_pre_hook(reject) for m in (model,model.model)]
+                try:
+                    counter.remove()
+                    try:
+                        model(torch.tensor([[1,2]]))
+                    except AssertionError as error:
+                        assert str(error)=='Cached readout scoring must not call the transformer'
+                    else:
+                        raise AssertionError('Extra-forward test guard did not reject a model call')
+                    g['ROOT']=tmp/'centered'
+                    centered=g['main'](cases_json=dataset,end_pass_readout=True,output_mask_max_n=1,
+                        erase_output=True,erase_strength=.5,chat_readout=True,readout_max_new_tokens=32,
+                        replay_readout_run=out,expand_input_prefix=True,reference_checkpoint=checkpoint)
+                    new_rows={(r['case_index'],r['method']):r for r in json.loads((centered/'readout.json').read_text())}
+                    assert len(new_rows)==56 and all(new_rows[k]==v for k,v in replay_rows.items())
+                    refs=torch.load(centered/'normalized_references.pt',weights_only=True)
+                    vector=torch.randn(32,generator=torch.Generator().manual_seed(0))
+                    vector=vector/vector.norm()
+                    for name,state in [('J-lens',prepared_reference['states'][24].float()@matrix.T),('plain24',prepared_reference['states'][24]),('plain27',prepared_reference['states'][27])]:
+                        expected=model.model.norm(state.to(W.dtype)).float()
+                        assert torch.equal(refs['generic'][name],expected)
+                        assert torch.equal(refs['random'][name],vector*expected.norm())
+                        assert torch.allclose(refs['random'][name].norm(),expected.norm(),atol=1e-6,rtol=1e-6)
+                    for i in range(2):
+                        raw=torch.load(centered/'reference_readout_scores'/f'{i:03d}.pt',weights_only=True)
+                        original=torch.load(replay/'input_prefix_scores'/f'{i:03d}.pt',weights_only=True)
+                        zero_scores=torch.load(out/'unmasked_readout_scores'/f'{i:03d}.pt',weights_only=True)
+                        direction=W[model.lm_head(model.model.norm(saved[i][32])).float().argmax()].float()
+                        for name,state in [('J-lens',saved[i][24].float()@matrix.T),('plain24',saved[i][24]),('plain27',saved[i][27])]:
+                            normalized=model.model.norm(state.to(W.dtype)).float()
+                            zero=g['subtract_reference'](normalized,torch.zeros_like(normalized),direction)
+                            assert torch.equal(model.lm_head(zero.to(W.dtype)).float(),zero_scores['end-pass erased0.5 '+name])
+                            for kind in ('generic','random'):
+                                method=f'end-pass input-prefix {kind}-reference erased0.5 {name}'
+                                delta=normalized-refs[kind][name]
+                                expected=delta-.5*((delta@direction)/direction.square().sum()*direction)
+                                actual=g['subtract_reference'](normalized,refs[kind][name],direction)
+                                assert torch.equal(actual,expected)
+                                x,w=delta.double(),direction.double()
+                                precise=x-.5*(x@w)/w.square().sum()*w
+                                assert (actual.double()-precise).norm()<1e-5
+                                assert torch.equal(raw[method],model.lm_head(expected.to(W.dtype)).float())
+                                masked=raw[method].masked_fill(~torch.isfinite(original['end-pass erased0.5 '+name]),-torch.inf)
+                                masked[[a['id'] for a in exclusions[i]['added_input_exclusions']]]=-torch.inf
+                                row=new_rows[i,method]
+                                assert masked.topk(32).indices.tolist()==row['selected_ids']
+                                assert masked[row['selected_ids']].tolist()==row['selected_scores']
+                    bad={**prepared_reference,'revision':'wrong-model-revision'}
+                    bad_path=tmp/'bad-reference.pt';torch.save(bad,bad_path)
+                    g['ROOT']=tmp/'bad-reference-run'
+                    try:
+                        g['main'](cases_json=dataset,end_pass_readout=True,output_mask_max_n=1,
+                            erase_output=True,erase_strength=.5,chat_readout=True,readout_max_new_tokens=32,
+                            replay_readout_run=out,expand_input_prefix=True,reference_checkpoint=bad_path)
+                    except AssertionError:
+                        pass
+                    else:
+                        raise AssertionError('Mismatched reference revision accepted')
+                    assert len(calls)==1
+                finally:
+                    for handle in rejecting: handle.remove()
+                    counter.remove()
+                assert sentinel.id in model.model.layers[23]._forward_hooks
+                assert sum(len(b._forward_hooks) for b in model.model.layers)==1
+                print(f'PASS seed{seed}: one generic prefill;56 rows/44 unchanged,12 centered candidates;zero-reference parity, float64 projection, fixed prematched random, exact masked scores, wrong revision rejected, no cached forwards',flush=True)
             assert all(torch.equal(before[k],v) for k,v in model.named_parameters())
             assert defaults==model.generation_config.to_dict()
         finally:

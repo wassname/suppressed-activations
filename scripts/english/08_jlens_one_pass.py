@@ -420,6 +420,32 @@ def generate_readout(model, ids, read_block, max_new_tokens=8, eos_token_id=None
     return states, tokens, coverage
 
 
+def subtract_reference(normalized, reference, direction):
+    centered = normalized - reference
+    removed = (centered @ direction) / direction.square().sum() * direction
+    return centered - 0.5 * removed
+
+
+def prepare_readout_reference(model, tok, config_path, out):
+    config = json.loads(config_path.read_text())
+    messages = [{"role": "user", "content": config["user_content"]}]
+    prompt = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
+    logger.info("SHOULD: one generic prefill, no cached decode; computed greedy token discarded")
+    states, ignored_tokens, coverage = generate_readout(model, ids, 23, max_new_tokens=1,
+        eos_token_id=sorted({tok.eos_token_id, model.generation_config.eos_token_id}))
+    assert len(ignored_tokens) == 1 and all(v == [ids.shape[1]] for v in coverage.values())
+    record = {"model": q.MODEL, "revision": q.REVISION, "config": config, "prompt": prompt,
+              "input_ids": ids[0].tolist(), "coverage": coverage, "ignored_generated_token_count": 1}
+    torch.save({**record, "states": {r: states[r][-1].cpu() for r in (24, 27)}}, out / "reference.pt")
+    (out / "reference.json").write_text(json.dumps(record, ensure_ascii=False, indent=1))
+    (out / "run.md").write_text("---\ngeneric_prefills: 1\ncached_decode_calls: 0\n---\n"
+        "# Generic readout reference\n\n— PI/OpenAI. Offline preparation, not an evaluation case. "
+        "The computed greedy token is discarded.\n\nInput repr:\n```text\n" + repr(prompt) + "\n```\n")
+    logger.info("Generic reference prepared; run.md: {}", out / "run.md")
+    return out
+
+
 def question_positions(input_ids, offsets, special_mask, special_ids, prefix_length, prompt_length):
     positions = [i for i, (token, (start, end), special) in enumerate(zip(input_ids, offsets, special_mask, strict=True))
                  if not special and token not in special_ids and prefix_length <= start < end <= prompt_length]
@@ -737,7 +763,17 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          verify_readout_run: Path | None = None, polar_readout=False, matching_pursuit=False, gradient_pursuit=False,
          chat_readout=False, readout_max_new_tokens=8,
          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
-         indirect_donor=False):
+         indirect_donor=False, prepare_reference_json: Path | None = None,
+         reference_checkpoint: Path | None = None):
+    if prepare_reference_json is not None:
+        assert all(p is None for p in (reference_checkpoint, cases_json, calibration_json, forecast_checkpoint,
+            prepare_donors_json, donor_checkpoint, prepare_vjp_json, vjp_checkpoint, validate_donor_coordinates_json,
+            replay_readout_run))
+        assert readout_block_index == 23
+        assert not any((chat_readout, end_pass_readout, indirect_donor, matching_pursuit, polar_readout))
+    if reference_checkpoint is not None:
+        assert expand_input_prefix and readout_block_index == 23 and output_mask_max_n == 1
+        assert not any((token_kl, pool_question, polar_readout, matching_pursuit, indirect_donor))
     if indirect_donor:
         assert donor_checkpoint is not None and reverse
         assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 0.25)
@@ -805,7 +841,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert donor_checkpoint is not None and donor_norm is None and not equal_donor_norm and decode_scale == 1.0
     torch.set_grad_enabled(False)
     started = time.monotonic()
-    out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_jlens-one-pass"
+    run_kind = "readout-reference" if prepare_reference_json is not None else "jlens-one-pass"
+    out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_{run_kind}"
     out.mkdir(parents=True)
     logger.add(out / "stderr.log")
     if validate_donor_coordinates_json is not None:
@@ -830,6 +867,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert isinstance(model.generation_config.eos_token_id, int)
         chat_eos_ids = sorted({tok.eos_token_id, model.generation_config.eos_token_id})
         generation_overrides["eos_token_id"] = chat_eos_ids
+    if prepare_reference_json is not None:
+        return prepare_readout_reference(model, tok, prepare_reference_json, out)
     if prepare_vjp_json is not None:
         prepare_vjp(model, tok, block_index, prepare_vjp_json, donor_checkpoint, out)
         return out
@@ -856,6 +895,22 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     J_edit = lens["J"][block].float().cuda()
     J = lens["J"][read_block].float().cuda()
     gain = 1.0 + model.model.norm.weight.float()
+    if reference_checkpoint is not None:
+        reference = torch.load(reference_checkpoint, map_location=W.device, weights_only=True)
+        assert (reference["model"], reference["revision"]) == (q.MODEL, q.REVISION)
+        generic_references = {name: model.model.norm(state.to(W.dtype)).float() for name, state in (
+            ("J-lens", reference["states"][24].float() @ J.T),
+            ("plain24", reference["states"][24]), ("plain27", reference["states"][27]))}
+        random_unit = torch.randn(W.shape[1], generator=torch.Generator().manual_seed(0), dtype=torch.float32)
+        random_unit = (random_unit / random_unit.norm()).to(W.device)
+        random_references = {name: random_unit * state.norm() for name, state in generic_references.items()}
+        reference_traces = []
+        torch.save({kind: {name: state.cpu() for name, state in states.items()}
+            for kind, states in (("generic", generic_references), ("random", random_references))}, out / "normalized_references.pt")
+        (out / "reference_provenance.json").write_text(json.dumps({"checkpoint": str(reference_checkpoint),
+            "sha256": hashlib.sha256(reference_checkpoint.read_bytes()).hexdigest(),
+            "random_seed": 0, "norm_match": "normalized decoder space before half-projection only",
+            "operation": "transport -> native norm -> FP32 subtraction -> half-projection -> BF16 head; no second norm"}, indent=1))
     if matching_pursuit:
         j_dictionary = unit_dictionary((W.float() * gain) @ J)
         plain_dictionary = unit_dictionary(W.float() * gain)
@@ -1176,10 +1231,12 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             scores["end-pass negative final control"] = (-final_logits).masked_fill(output_mask, -torch.inf)
             if erase_output:
                 unmasked_scores = {"end-pass J-lens": scores["J-lens"].cpu()} if chat_readout else {}
+                normalized_states = {}
                 output_id = int(final_logits.argmax())
                 direction = W[output_id].float()
                 for name, state in (("J-lens", h[-1].float() @ J.T), ("plain24", h[-1]), ("plain27", res[27][-1])):
                     normalized = model.model.norm(state.to(W.dtype)).float()
+                    normalized_states[name] = normalized
                     removed = (normalized @ direction) / direction.square().sum() * direction
                     for strength in dict.fromkeys((1.0, erase_strength)):
                         erased = normalized - strength * removed
@@ -1223,6 +1280,29 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             score_dir.mkdir(exist_ok=True)
             torch.save(original_scores, score_dir / f"{case_index:03d}.pt")
             (out / "input_prefix_exclusions.json").write_text(json.dumps(prefix_exclusions, ensure_ascii=False, indent=1))
+        if reference_checkpoint is not None:
+            reference_scores = {}
+            for name, normalized in normalized_states.items():
+                zero = torch.zeros_like(normalized)
+                base_decoder = subtract_reference(normalized, zero, direction).to(W.dtype)
+                for kind, references in (("generic", generic_references), ("random", random_references)):
+                    reference = references[name]
+                    projected_reference = subtract_reference(reference, zero, direction)
+                    decoder = subtract_reference(normalized, reference, direction).to(W.dtype)
+                    logits = model.lm_head(decoder).float()
+                    method = f"end-pass input-prefix {kind}-reference erased0.5 {name}"
+                    scores[method] = logits.masked_fill(mask | output_mask | extension_mask, -torch.inf)
+                    reference_scores[method] = logits.cpu()
+                    reference_traces.append({"case_index": case_index, "method": method, "output_id": output_id,
+                        "reference_norm_before_projection": float(reference.norm()),
+                        "reference_norm_after_projection": float(projected_reference.norm()),
+                        "reference_norm_after_bf16": float(projected_reference.to(W.dtype).float().norm()),
+                        "realized_decoder_delta_norm": float((decoder.float() - base_decoder.float()).norm()),
+                        "base_decoder_norm": float(base_decoder.float().norm()),
+                        "candidate_decoder_norm": float(decoder.float().norm())})
+            (out / "reference_readout_scores").mkdir(exist_ok=True)
+            torch.save(reference_scores, out / "reference_readout_scores" / f"{case_index:03d}.pt")
+            (out / "reference_traces.json").write_text(json.dumps(reference_traces, indent=1))
         for name, score in scores.items():
             z = score.masked_fill(mask, -torch.inf)
             rh, rs = s4.ranks_of_best(z, hidden), s4.ranks_of_best(z, said)
