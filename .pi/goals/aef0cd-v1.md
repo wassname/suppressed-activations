@@ -178,6 +178,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: queued2687/default/priority0,300s TERM+15s grace, nativefollowerproc_1bcb. Immutable source69455b6a/launcher623baf64/datae3eb753f verified. Eight generic indirect-description prefills plus10 one-pass trajectories, literal-name/random controls and arithmetic; no new heldouts. Staticreview no frozen-path blocker; inherited exception-hook cleanup tracked separately. Actual forward trace and numerical/semantic checks pending. No scientific result or goal completion.
 
+- PI/OpenAI: reread goals/Interview and inspected queue after loop reminder.2684/default is running since07:00:13+08, labelled another project's ~3-hour/2000-prompt training run;2686/2687 remainqueued. Default isrunning/parallel1, not paused; no reordering. Finished prospective `check-indirect-donor-run.py`: donor means, F32/BF16 updates, actualforward/coverage, probabilities/repetition and oldBase parity. Syntax and float64 mean-bound tests atseeds0/1 pass, perturbedmeanrejected; full checker awaits scientificartifacts. Existing followersproc_d060/proc_1bcb will wake this session. No human input needed; neither goal complete.
+
 ## Interview
 
 ### 2026-09-30 07:42
