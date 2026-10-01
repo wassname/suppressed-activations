@@ -61,6 +61,7 @@ for seed in (0, 1):
             rows = json.loads((out/'readout.json').read_text())
             assert len(traces)==2 and len(rows)==36
             saved = torch.load(out/'prefill.pt', weights_only=True)
+            matrix = torch.load(lens, weights_only=True)['J'][23]
             for i, trace in enumerate(traces):
                 ids = tok(trace['prompt'], add_special_tokens=False, return_tensors='pt').input_ids
                 assert trace['generation_overrides']=={'max_new_tokens':32,'do_sample':False,'use_cache':True,'eos_token_id':[248044,248046]}
@@ -72,9 +73,24 @@ for seed in (0, 1):
                 states, one, coverage = g['generate_readout'](model, ids, 23, 32, [direct[0], 248046])
                 assert one==direct[:1] and all(c==[ids.shape[1]] for c in coverage.values())
                 assert all(torch.equal(saved[i][r], states[r][-1]) for r in states)
+                unmasked = torch.load(out/'unmasked_readout_scores'/f'{i:03d}.pt',weights_only=True)
+                W = model.lm_head.weight
+                output_id = model.lm_head(model.model.norm(saved[i][32])).float().argmax()
+                direction = W[output_id].float()
+                transported = saved[i][24].float() @ matrix.T
+                raw = model.lm_head(model.model.norm(transported.to(W.dtype))).float()
+                assert torch.equal(unmasked['end-pass J-lens'],raw)
+                for name,state in [('J-lens',transported),('plain24',saved[i][24]),('plain27',saved[i][27])]:
+                    normalized = model.model.norm(state.to(W.dtype)).float()
+                    removed = (normalized@direction)/direction.square().sum()*direction
+                    expected = model.lm_head((normalized-.5*removed).to(W.dtype)).float()
+                    assert torch.equal(unmasked['end-pass erased0.5 '+name],expected)
+                assert len(unmasked)==4 and all(torch.isfinite(z).all() for z in unmasked.values())
                 for row in [r for r in rows if r['case_index']==i]:
                     assert len(row['selected_ids'])==len(row['selected_scores'])==len(row['top32'])==32
                     assert row['pair_hidden_rank']>=0 and row['pair_partner_rank']>=0
+                    if row['method'] in unmasked:
+                        assert unmasked[row['method']][row['selected_ids']].tolist()==row['selected_scores']
             assert sentinel.id in model.model.layers[23]._forward_hooks
             assert sum(len(b._forward_hooks) for b in model.model.layers)==1
             g['ROOT']=tmp/'replay'
@@ -83,6 +99,11 @@ for seed in (0, 1):
                 expand_input_prefix=expand)
             replay_rows={(r['case_index'],r['method']):r for r in json.loads((replay/'readout.json').read_text())}
             assert all(replay_rows[r['case_index'],r['method']]==r for r in rows)
+            for i in range(2):
+                before_scores=torch.load(out/'unmasked_readout_scores'/f'{i:03d}.pt',weights_only=True)
+                after_scores=torch.load(replay/'unmasked_readout_scores'/f'{i:03d}.pt',weights_only=True)
+                assert all(torch.equal(z,after_scores[name]) for name,z in before_scores.items())
+            print(f'PASS seed{seed}: unmasked diagnostic scores equal direct readout/half-erasure, selected scores unchanged and replay exact',flush=True)
             if expand:
                 assert len(replay_rows)==44
                 exclusions=json.loads((replay/'input_prefix_exclusions.json').read_text())

@@ -1175,7 +1175,6 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                                      "consumed_prefix": case["prompt"][:span["offsets"][prior_position][1]]})
             scores["end-pass negative final control"] = (-final_logits).masked_fill(output_mask, -torch.inf)
             if erase_output:
-                unmasked_scores = {"end-pass J-lens": scores["J-lens"].cpu()} if chat_readout else {}
                 output_id = int(final_logits.argmax())
                 direction = W[output_id].float()
                 for name, state in (("J-lens", h[-1].float() @ J.T), ("plain24", h[-1]), ("plain27", res[27][-1])):
@@ -1187,15 +1186,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                         assert abs(float(erased @ direction - expected_score)) < 1e-3 * float(normalized.norm() * direction.norm())
                         z = model.lm_head(erased.to(W.dtype)).float()
                         scores[f"end-pass erased{strength:g} " + name] = z.masked_fill(output_mask, -torch.inf)
-                        if chat_readout and strength == erase_strength:
-                            unmasked_scores[f"end-pass erased{strength:g} " + name] = z.cpu()
                         erasure_traces.append({"concept": concept, "method": name, "strength": strength, "output_token": vocab[output_id],
                                                "relative_removed_norm": float(strength * removed.norm() / normalized.norm()),
                                                "output_score_before": float(normalized @ direction), "output_score_after": float(z[output_id])})
                 (out / "erasure_traces.json").write_text(json.dumps(erasure_traces, ensure_ascii=False, indent=1))
-                if chat_readout:
-                    (out / "unmasked_readout_scores").mkdir(exist_ok=True)
-                    torch.save(unmasked_scores, out / "unmasked_readout_scores" / f"{case_index:03d}.pt")
         if forecasting:
             forecast_h = rms(h[-1]) @ transform + bias
             scores["forecast"] = model.lm_head(model.model.norm(forecast_h.to(W.dtype))).float()

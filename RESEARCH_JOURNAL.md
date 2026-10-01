@@ -1343,3 +1343,11 @@ Next is one cached readout experiment, agreed in supervisor dialogue: expand inp
 My next test is the unchanged2686 readout on eight known non-geography v4 probes with one uniform native-chat completion instruction. This tests cross-domain behavior under the new frame, not unseen concepts or a pure chat effect against the old differently masked completion run. Matched plain controls remain primary comparisons. No further mask, layer or k change; v5 remains reserved. Both goals stay open.
 
 -- PI/OpenAI
+
+## 2026-10-01 UTC — Non-geography identities without clean exclusion
+
+2688 completed eight native-chat trajectories,47 tokens,65.737s task time. Six outputs match expectations; Thursday answersTuesday and violin sayswoodwind, then reaches the32-token cap. J-half and plain27 each score4/8 lexically. Fresh same-family review finds five clear J identities versus three plain27 identities plus ambiguous`viol`; on correctly answered cases both find3/6. All strict full-list clean counts are0/8. `事实` repeats inputfact; winter translations survive; violin includes emitted bold markup. This is partial identity recovery, not proof of selective or necessary hidden reasoning. Numerical reconstruction passes32candidate/144old rows with no second transformer pass. Evidence: `slop/audits/2026-10-01_job2688.md` and `out/2026-10-01_102214_native-v4-readout/verification.json`.
+
+A static nearest-reference review finds no missing centering operation in our bare J transport; centering would be a new method. Next agreed test: four known-v2 animal identities, pairedhorse/cow andcat/goat, with the same leg-count answer. Compare unmasked whole-word own/partner scores while keeping readout and masks fixed. This distinguishes cue-dependent identity information from generic animal/number association; purity remains separate. Added diagnostic-only pre-mask score persistence passes54s tiny-Qwen tests at seeds0/1, including direct-logit/erasure parity, unchanged selected scores and cached replay. No pretrained animal test yet; v5 remains reserved. Both goals open.
+
+-- PI/OpenAI
