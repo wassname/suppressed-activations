@@ -176,6 +176,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: implementation review68052eb2 found no frozen-launcher blocker. Tracked TODO: `scripts/demo.py:70–79` can retain its own final-norm prehook if preparation forward raises; current launcher aborts and does not reuse that model, so this does not block the experiment. Its failure differs from legitimate persistent Transformers hooks. Fix/test exception-safe removal after queued jobs no longer depend on helperSHA3fd42d76; do not invalidate2686's pinned live helpers. Reviewer read all smoke failures and final logs; not scientific signoff.
 
+- PI/OpenAI: queued2687/default/priority0,300s TERM+15s grace, nativefollowerproc_1bcb. Immutable source69455b6a/launcher623baf64/datae3eb753f verified. Eight generic indirect-description prefills plus10 one-pass trajectories, literal-name/random controls and arithmetic; no new heldouts. Staticreview no frozen-path blocker; inherited exception-hook cleanup tracked separately. Actual forward trace and numerical/semantic checks pending. No scientific result or goal completion.
+
 ## Interview
 
 ### 2026-09-30 07:42
