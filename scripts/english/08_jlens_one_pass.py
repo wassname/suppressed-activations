@@ -673,6 +673,33 @@ def prepare_donors(model, tok, block, config_path, out):
     print(report)
 
 
+def fixed_position_logits(model, W, J, res, position, direction):
+    """Four fixed heads; no labels, masks or position selection. — PI/OpenAI"""
+    logits = {}
+    for name, state in (("J-lens", res[24][position].float() @ J.T),
+                        ("plain24", res[24][position]), ("plain27", res[27][position])):
+        normalized = model.model.norm(state.to(W.dtype)).float()
+        if name == "J-lens":
+            logits["end-pass input-prefix J-lens"] = model.lm_head(normalized.to(W.dtype)).float()
+        erased = subtract_reference(normalized, torch.zeros_like(normalized), direction)
+        logits[f"end-pass input-prefix erased0.5 {name}"] = model.lm_head(erased.to(W.dtype)).float()
+    return logits
+
+
+def native_readout_positions(tok, user_message, input_ids):
+    """Template boundaries only; preclue ends before any user content. — PI/OpenAI"""
+    closed = tok.apply_chat_template([{"role": "user", "content": user_message}],
+        tokenize=True, add_generation_prompt=False, enable_thinking=False, return_dict=False)
+    empty = tok.apply_chat_template([{"role": "user", "content": ""}],
+        tokenize=False, add_generation_prompt=False, enable_thinking=False)
+    ending = tok.eos_token + "\n"
+    assert empty.endswith(ending)
+    header = tok(empty[:-len(ending)], add_special_tokens=False).input_ids
+    assert input_ids[:len(closed)] == closed and input_ids[:len(header)] == header
+    assert 0 < len(header) < len(closed) < len(input_ids)
+    return {"boundary": len(closed) - 1, "preclue": len(header) - 1}
+
+
 def best_finite_label(scores: torch.Tensor, labels: list[int]) -> int | None:
     if not labels:
         return None
@@ -807,7 +834,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
          prepare_vjp_json: Path | None = None, vjp_checkpoint: Path | None = None, expand_input_prefix=False,
          indirect_donor=False, prepare_reference_json: Path | None = None,
          reference_checkpoint: Path | None = None, chat_causal_json: Path | None = None, causal_case_index=0,
-         inspect_readout_positions=False):
+         inspect_readout_positions=False, boundary_readout=False):
+    if boundary_readout:
+        assert chat_readout and expand_input_prefix and not inspect_readout_positions
+        assert replay_readout_run is None and reference_checkpoint is None
     if inspect_readout_positions:
         assert chat_readout and expand_input_prefix and verify_readout_run is not None
         assert replay_readout_run is None and reference_checkpoint is None
@@ -846,7 +876,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
                    validate_donor_coordinates_json, reflection_coordinate_checkpoint))
     if expand_input_prefix:
         assert chat_readout and end_pass_readout and erase_output and erase_strength == 0.5
-        assert cases_json is not None and (replay_readout_run is not None or inspect_readout_positions) and readout_max_new_tokens == 32
+        assert cases_json is not None and (replay_readout_run is not None or inspect_readout_positions or boundary_readout) and readout_max_new_tokens == 32
         assert readout_block_index == 23 and output_mask_max_n == 1
         assert not any((matching_pursuit, polar_readout, token_kl, pool_question, translation_per_pair))
         assert calibration_json is None and forecast_checkpoint is None
@@ -1151,7 +1181,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         activation_cache.append({r: state[-1].cpu() for r, state in res.items()})
         (out / "generation_traces.json").write_text(json.dumps(generation_traces, ensure_ascii=False, indent=1))
         torch.save(activation_cache, out / "prefill.pt")
-        if inspect_readout_positions:
+        if inspect_readout_positions or boundary_readout:
             position_cache.append({r: state.cpu() for r, state in res.items()})
             torch.save(position_cache, out / "prefill_positions.pt")
         mask = q.prompt_word_mask(case["prompt"], vocab_norm, "cuda")
@@ -1346,16 +1376,31 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             score_dir.mkdir(exist_ok=True)
             torch.save(original_scores, score_dir / f"{case_index:03d}.pt")
             (out / "input_prefix_exclusions.json").write_text(json.dumps(prefix_exclusions, ensure_ascii=False, indent=1))
+        if boundary_readout:
+            points = native_readout_positions(tok, case["user_message"], ids[0].tolist())
+            full_mask = mask | output_mask | extension_mask
+            final_logits = fixed_position_logits(model, W, J, res, h.shape[0] - 1, direction)
+            for name, raw in final_logits.items():
+                assert torch.equal(raw.masked_fill(full_mask, -torch.inf), scores[name].masked_fill(mask, -torch.inf))
+            raw_scores = {}
+            for point, position in points.items():
+                for name, raw in fixed_position_logits(model, W, J, res, position, direction).items():
+                    method = name.replace("end-pass ", f"end-pass {point} ", 1)
+                    scores[method] = raw.masked_fill(full_mask, -torch.inf)
+                    raw_scores[method] = raw.cpu()
+            position_dir = out / "boundary_readouts"
+            position_dir.mkdir(exist_ok=True)
+            torch.save(raw_scores, position_dir / f"{case_index:03d}.pt")
+            (position_dir / f"{case_index:03d}.json").write_text(json.dumps({"case_index": case_index,
+                "positions": points, "consumed_prefixes": {p: tok.decode(ids[0, :i + 1].tolist()) for p, i in points.items()},
+                "input_ids": ids[0].tolist(), "output_direction_id": output_id, "final_scores_exact": True,
+                "scope": "Frozen structural positions; both use end-pass masks/output direction, not early causal information."},
+                ensure_ascii=False, indent=1))
         if inspect_readout_positions:
             position_records = []
             full_mask = mask | output_mask | extension_mask
             for position in range(h.shape[0]):
-                position_scores = {"end-pass input-prefix J-lens": readout(h[position])}
-                for name, state in (("J-lens", h[position].float() @ J.T),
-                                    ("plain24", h[position]), ("plain27", res[27][position])):
-                    normalized = model.model.norm(state.to(W.dtype)).float()
-                    erased = subtract_reference(normalized, torch.zeros_like(normalized), direction)
-                    position_scores[f"end-pass input-prefix erased0.5 {name}"] = model.lm_head(erased.to(W.dtype)).float()
+                position_scores = fixed_position_logits(model, W, J, res, position, direction)
                 for name, raw in position_scores.items():
                     z = raw.masked_fill(full_mask, -torch.inf)
                     if position == h.shape[0] - 1:
@@ -1649,6 +1694,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             summary_md += "### Translation development/test splits\n\n" + tabulate(
                 [[r["split"], r["method"], f"{r['joint_pass']}/{r['n']}", r["mean_auroc"], r["unscored_n"]] for r in groups],
                 headers=["split", "method", "joint↑", "AUROC↑", "unscored"], tablefmt="pipe", floatfmt=".3f") + "\n\n"
+        if boundary_readout:
+            summary_md += ("\n## Fixed structural readout positions\n\nPre-assistant boundary and preclue user-header control use the same end-pass masks and final-greedy output direction. "
+                           "They are not information available to an earlier causal editor. Final-position scores reproduce within each capture; indices/prefixes and raw scores are in boundary_readouts/. — PI/OpenAI\n")
+            for i, case in enumerate(cases):
+                summary_md += f"\n### Case {i}: {case['concept']}\n\nInput repr:\n```text\n{case['prompt']!r}\n```\n\nComplete generation:\n```text\n{case['said_text']}\n```\n"
+                for row in readouts:
+                    if row["case_index"] == i and (row["method"] in final_logits or row["method"].startswith(("end-pass boundary ", "end-pass preclue "))):
+                        summary_md += f"\n{row['method']}:\n\n{row['top32']!r}\n"
         if inspect_readout_positions:
             summary_md += "\n## Position diagnostic\n\nAll prefill positions are in `position_readouts/`; full states in `prefill_positions.pt`. No label-selected position is a deployable readout. Final states, complete generations and all readout rows reproduce the reference exactly; see `position_reproduction.json`. — PI/OpenAI\n\n"
         (out / "run.md").write_text(md + summary_md + f"run.md: {out / 'run.md'}\n")
@@ -2078,6 +2131,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--boundary-readout", action="store_true", help="Readout-only fixed pre-assistant boundary and preclue control, with unchanged final-position heads.")
     parser.add_argument("--block-index", type=int, default=15, help="Edit block, default midpoint (15).")
     parser.add_argument("--readout-block-index", type=int, default=23, help="Observation block only, default 23.")
     parser.add_argument("--reverse", action="store_true", help="Apply the same symmetric swap to the dog prompt; expected answer 4 to 8.")
