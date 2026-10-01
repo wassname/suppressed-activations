@@ -21,6 +21,7 @@ from tabulate import tabulate
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 ROOT = Path(__file__).resolve().parents[2]
+REFERENCE_CONFIG = ROOT / "data/generic_readout_reference_v1.json"
 sys.path.insert(0, str(ROOT))
 from scripts.demo import layer_hooks, replace_output, trajectory
 
@@ -431,12 +432,16 @@ def prepare_readout_reference(model, tok, config_path, out):
     messages = [{"role": "user", "content": config["user_content"]}]
     prompt = tok.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     ids = tok(prompt, return_tensors="pt", add_special_tokens=False).input_ids.to(model.device)
+    assert config == json.loads(REFERENCE_CONFIG.read_text())
+    record = {"stage": "incomplete", "forward_may_have_started": True, "model": q.MODEL,
+              "revision": q.REVISION, "config": config, "prompt": prompt, "input_ids": ids[0].tolist()}
+    (out / "reference.json").write_text(json.dumps(record, ensure_ascii=False, indent=1))
+    (out / "run.md").write_text("# Generic reference: incomplete\n\n— PI/OpenAI. A forward may have started; do not silently retry.\n\n" + repr(prompt) + "\n")
     logger.info("SHOULD: one generic prefill, no cached decode; computed greedy token discarded")
     states, ignored_tokens, coverage = generate_readout(model, ids, 23, max_new_tokens=1,
         eos_token_id=sorted({tok.eos_token_id, model.generation_config.eos_token_id}))
     assert len(ignored_tokens) == 1 and all(v == [ids.shape[1]] for v in coverage.values())
-    record = {"model": q.MODEL, "revision": q.REVISION, "config": config, "prompt": prompt,
-              "input_ids": ids[0].tolist(), "coverage": coverage, "ignored_generated_token_count": 1}
+    record.update(stage="completed", coverage=coverage, ignored_generated_token_count=1)
     torch.save({**record, "states": {r: states[r][-1].cpu() for r in (24, 27)}}, out / "reference.pt")
     (out / "reference.json").write_text(json.dumps(record, ensure_ascii=False, indent=1))
     (out / "run.md").write_text("---\ngeneric_prefills: 1\ncached_decode_calls: 0\n---\n"
@@ -444,6 +449,18 @@ def prepare_readout_reference(model, tok, config_path, out):
         "The computed greedy token is discarded.\n\nInput repr:\n```text\n" + repr(prompt) + "\n```\n")
     logger.info("Generic reference prepared; run.md: {}", out / "run.md")
     return out
+
+
+def validate_readout_reference(reference, tok):
+    config = json.loads(REFERENCE_CONFIG.read_text())
+    prompt = tok.apply_chat_template([{"role": "user", "content": config["user_content"]}],
+        tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    ids = tok(prompt, add_special_tokens=False).input_ids
+    assert (reference["model"], reference["revision"]) == (q.MODEL, q.REVISION)
+    assert reference["stage"] == "completed" and reference["config"] == config
+    assert reference["prompt"] == prompt and reference["input_ids"] == ids
+    assert reference["coverage"] == {r: [len(ids)] for r in (24, 27, 32)}
+    assert reference["ignored_generated_token_count"] == 1 and set(reference["states"]) == {24, 27}
 
 
 def question_positions(input_ids, offsets, special_mask, special_ids, prefix_length, prompt_length):
@@ -897,7 +914,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     gain = 1.0 + model.model.norm.weight.float()
     if reference_checkpoint is not None:
         reference = torch.load(reference_checkpoint, map_location=W.device, weights_only=True)
-        assert (reference["model"], reference["revision"]) == (q.MODEL, q.REVISION)
+        validate_readout_reference(reference, tok)
         generic_references = {name: model.model.norm(state.to(W.dtype)).float() for name, state in (
             ("J-lens", reference["states"][24].float() @ J.T),
             ("plain24", reference["states"][24]), ("plain27", reference["states"][27]))}
@@ -1947,5 +1964,7 @@ if __name__ == "__main__":
     parser.add_argument("--erase-strength", type=float, default=1.0, help="Requested output-erasure fraction, compared with full erasure on the same captured states.")
     parser.add_argument("--erase-output", action="store_true", help="End-pass comparison: remove the activation component along the predicted output-token direction before unembedding.")
     parser.add_argument("--equal-donor-norm", action="store_true", help="Compare full donor, its J projection and a fixed random direction at the full donor norm.")
+    parser.add_argument("--prepare-reference-json", type=Path, help="Prepare the fixed generic readout reference with one offline prefill.")
+    parser.add_argument("--reference-checkpoint", type=Path, help="Rescore cached cases with the fixed generic and random normalized-state references.")
     parser.add_argument("--relation", choices=tuple(RELATIONS), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
     main(**vars(parser.parse_args()))

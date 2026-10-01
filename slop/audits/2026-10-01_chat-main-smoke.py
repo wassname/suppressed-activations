@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import runpy
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -57,6 +58,24 @@ for seed in (0, 1):
         g['q'].prompt_word_mask = lambda prompt, vocab, device: mask(prompt, vocab, 'cpu')
         try:
             if centering:
+                def interrupted(*args):
+                    raise RuntimeError('reference interruption fixture')
+                interrupt_handle=model.register_forward_pre_hook(interrupted)
+                g['ROOT']=tmp/'interrupted-reference'
+                try:
+                    g['main'](prepare_reference_json=root/'data/generic_readout_reference_v1.json')
+                except RuntimeError as error:
+                    assert str(error)=='reference interruption fixture'
+                else:
+                    raise AssertionError('Preparation interruption not raised')
+                finally:
+                    interrupt_handle.remove()
+                incomplete,=(g['ROOT']/'out').iterdir()
+                attempt=json.loads((incomplete/'reference.json').read_text())
+                assert attempt['stage']=='incomplete' and attempt['forward_may_have_started']
+                assert attempt['input_ids']==tok(attempt['prompt'],add_special_tokens=False).input_ids
+                assert not (incomplete/'reference.pt').exists()
+                assert sum(len(b._forward_hooks) for b in model.model.layers)==1
                 calls=[]
                 counter=model.register_forward_pre_hook(lambda *args: calls.append(1))
                 g['ROOT']=tmp/'reference-preparation'
@@ -157,6 +176,8 @@ for seed in (0, 1):
                     new_rows={(r['case_index'],r['method']):r for r in json.loads((centered/'readout.json').read_text())}
                     assert len(new_rows)==56 and all(new_rows[k]==v for k,v in replay_rows.items())
                     refs=torch.load(centered/'normalized_references.pt',weights_only=True)
+                    norm_traces={(r['case_index'],r['method']):r for r in json.loads((centered/'reference_traces.json').read_text())}
+                    assert len(norm_traces)==12
                     vector=torch.randn(32,generator=torch.Generator().manual_seed(0))
                     vector=vector/vector.norm()
                     for name,state in [('J-lens',prepared_reference['states'][24].float()@matrix.T),('plain24',prepared_reference['states'][24]),('plain27',prepared_reference['states'][27])]:
@@ -183,11 +204,28 @@ for seed in (0, 1):
                                 precise=x-.5*(x@w)/w.square().sum()*w
                                 assert (actual.double()-precise).norm()<1e-5
                                 assert torch.equal(raw[method],model.lm_head(expected.to(W.dtype)).float())
+                                ref=refs[kind][name]
+                                ref_projected=ref-.5*((ref@direction)/direction.square().sum()*direction)
+                                norm_record=norm_traces[i,method]
+                                assert norm_record['reference_norm_before_projection']==float(ref.norm())
+                                assert norm_record['reference_norm_after_projection']==float(ref_projected.norm())
+                                assert norm_record['reference_norm_after_bf16']==float(ref_projected.to(W.dtype).float().norm())
+                                assert norm_record['realized_decoder_delta_norm']==float((expected.to(W.dtype).float()-zero.to(W.dtype).float()).norm())
+                                assert norm_record['candidate_decoder_norm']==float(expected.to(W.dtype).float().norm())
+                                assert norm_record['base_decoder_norm']==float(zero.to(W.dtype).float().norm())
                                 masked=raw[method].masked_fill(~torch.isfinite(original['end-pass erased0.5 '+name]),-torch.inf)
                                 masked[[a['id'] for a in exclusions[i]['added_input_exclusions']]]=-torch.inf
                                 row=new_rows[i,method]
                                 assert masked.topk(32).indices.tolist()==row['selected_ids']
                                 assert masked[row['selected_ids']].tolist()==row['selected_scores']
+                    for field,value in [('config',{}),('prompt','different reference'),('input_ids',[1]),
+                        ('coverage',{24:[1],27:[1],32:[1]}),('stage','incomplete'),('ignored_generated_token_count',2),('states',{})]:
+                        try:
+                            g['validate_readout_reference']({**prepared_reference,field:value},tok)
+                        except AssertionError:
+                            pass
+                        else:
+                            raise AssertionError('Altered reference accepted: '+field)
                     bad={**prepared_reference,'revision':'wrong-model-revision'}
                     bad_path=tmp/'bad-reference.pt';torch.save(bad,bad_path)
                     g['ROOT']=tmp/'bad-reference-run'
@@ -212,4 +250,10 @@ for seed in (0, 1):
             torch.Tensor.cuda=cuda; g['q'].prompt_word_mask=mask
             sentinel.remove()
     print(f'PASS seed{seed}: native chat,32-token full main, exact raw/scoring text, same-prefill states, early EOS override, coverage, owned hooks,36 replay rows exact, unchanged parameters/defaults', flush=True)
+if centering:
+    for args,guard in [(['--prepare-reference-json','missing.json','--cases-json','missing.json'],'assert all(p is None'),
+                       (['--reference-checkpoint','missing.pt'],'assert expand_input_prefix')]:
+        result=subprocess.run([sys.executable,str(entry),*args],capture_output=True,text=True)
+        assert result.returncode==1 and guard in result.stderr and 'unrecognized arguments' not in result.stderr,result.stderr
+    print('PASS real CLI options reach pre-model guards; incomplete preparation and altered same-revision provenance rejected; every norm field reconstructed',flush=True)
 print('PASS tiny random CPU model only; no pretrained scientific generations', flush=True)
