@@ -891,7 +891,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert replay_readout_run is None and reference_checkpoint is None
     if chat_causal_json is not None:
         assert (donor_checkpoint is None) == raw_coordinate_exchange
-        assert (block_index, readout_block_index, prompt_positions, decode_scale) == (15, 23, 1, 0.25)
+        # prompt_positions=0 edits every prompt position (h[:, -0:]); raw coordinate exchange only.
+        assert prompt_positions == 1 or (prompt_positions == 0 and raw_coordinate_exchange)
+        assert (block_index, readout_block_index, decode_scale) == (15, 23, 0.25)
         assert not any((indirect_donor, end_pass_readout, chat_readout, donor_reflection, equal_donor_norm,
                         swap_logits, plural, matching_pursuit, polar_readout, token_kl, pool_question, translation_per_pair))
         assert all(p is None for p in (prepare_donors_json, vjp_checkpoint, prepare_vjp_json, cases_json,
@@ -901,7 +903,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         chat_case = chat_causal["cases"][causal_case_index]
         assert (relation, reverse) == (chat_case["relation"], chat_case["reverse"])
         assert (chat_causal["block_index"], chat_causal["readout_block_index"], chat_causal["prompt_positions"],
-                chat_causal["decode_scale"], chat_causal["max_new_tokens"], chat_causal["seed"]) == (15, 23, 1, .25, 32, 0)
+                chat_causal["decode_scale"], chat_causal["max_new_tokens"], chat_causal["seed"]) == (15, 23, prompt_positions, .25, 32, 0)
     else:
         assert relation not in ("joint_properties", "country_properties")
     if prepare_reference_json is not None:
@@ -2072,7 +2074,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             r = conditions[mode]
             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
         if country_swap or vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None:
-            torch.save(torch.stack(local_states), out / (mode.lower().replace(" ", "-") + "-states.pt"))
+            torch.save(torch.stack(local_states) if prompt_positions == 1 else local_states,  # all-position prefill has a different shape
+                       out / (mode.lower().replace(" ", "-") + "-states.pt"))
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
         logger.info(f"{mode}: {tok.decode(tokens)!r}; p(first={answer_metric_labels[0]!r})={conditions[mode]['p_answer0']:.3f}, p(first={answer_metric_labels[1]!r})={conditions[mode]['p_answer1']:.3f}")
 

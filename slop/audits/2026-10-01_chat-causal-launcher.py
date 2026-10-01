@@ -77,7 +77,7 @@ def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joi
     for index,case in enumerate(config['cases']):
         gc.collect();phase=case['name'];begin=len(events)
         run=g['main'](donor_checkpoint=donor,chat_causal_json=ROOT/config_path,
-            causal_case_index=index,reverse=case['reverse'],relation=case['relation'],prompt_positions=1,decode_scale=.25,
+            causal_case_index=index,reverse=case['reverse'],relation=case['relation'],prompt_positions=config['prompt_positions'],decode_scale=.25,
             raw_coordinate_exchange=raw_coordinate_exchange)
         rows=json.loads((run/'interventions.json').read_text())
         assert list(rows)==modes
@@ -101,7 +101,8 @@ def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joi
             lengths=[len(rendering['input_ids'])]+[1]*(n-1)
             assert [r['sequence_length'] for r in calls[offset:offset+n]]==lengths
             assert [r['sequence_length'] for r in row['coverage']]==lengths
-            assert row['selected_prompt_token_ids']==[suffix[-1]]
+            assert row['selected_prompt_token_ids']==([suffix[-1]] if config['prompt_positions']==1 else rendering['input_ids'])
+            assert row['coverage'][0]['positions']==(1 if config['prompt_positions']==1 else len(rendering['input_ids']))
             assert row['assistant_suffix_ids']==suffix
             assert row['input_repr']==repr(rendering['prompt'])
             assert not any(r['grad_enabled'] for r in calls[offset:offset+n])
