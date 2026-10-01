@@ -622,7 +622,7 @@ def native_prompt(tok, system, user):
 def prepare_donors(model, tok, block, config_path, out):
     config = json.loads(config_path.read_text())
     assert config["block_index"] == block
-    assert config["concepts"] == ["spider", "dog"]
+    assert len(config["concepts"]) == len(set(config["concepts"])) == 2
     explicit_prompts = "prompts" in config
     prompts = config["prompts"] if explicit_prompts else {
         c: [t.format(concept=c) for t in config["templates"]] for c in config["concepts"]}
@@ -656,7 +656,7 @@ def prepare_donors(model, tok, block, config_path, out):
         stacked = torch.stack(states)
         means[concept] = stacked.mean(0).cpu()
         sample_states[concept] = stacked.cpu()
-    difference_norm = float((means["dog"] - means["spider"]).norm())
+    difference_norm = float((means[config["concepts"][1]] - means[config["concepts"][0]]).norm())
     assert difference_norm > 0
     provenance = {"model": q.MODEL, "model_revision": q.REVISION, "block_index": block, "config": config,
                   "config_sha256": hashlib.sha256(config_path.read_bytes()).hexdigest(), "samples": samples,
@@ -665,7 +665,7 @@ def prepare_donors(model, tok, block, config_path, out):
     (out / "donors.json").write_text(json.dumps(provenance, indent=1))
     report = (f"---\nmodel: {q.MODEL}@{q.REVISION}\nblock_index: {block}\nn_prompts: {len(samples)}\n---\n"
               "# Offline donor calibration\n\nWritten by PI/OpenAI.\n\n"
-              "Four fixed generic templates per animal, no leg-count question or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.\n\n"
+              "Four fixed generic prompts per concept, no experimental questions or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.\n\n"
               f"SHOULD: means differ. Observed difference norm={difference_norm:.6f}. This does not establish useful steering.\n\n"
               + tabulate([[s["concept"], s["input_repr"], s["residual_norm"]] for s in samples], headers=["concept", "input repr", "residual norm"], tablefmt="pipe")
               + f"\n\nCheckpoint: {out / 'donors.pt'}\nrun.md: {out / 'run.md'}\n")
@@ -825,7 +825,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         assert (chat_causal["block_index"], chat_causal["readout_block_index"], chat_causal["prompt_positions"],
                 chat_causal["decode_scale"], chat_causal["max_new_tokens"], chat_causal["seed"]) == (15, 23, 1, .25, 32, 0)
     else:
-        assert relation != "joint_properties"
+        assert relation not in ("joint_properties", "country_properties")
     if prepare_reference_json is not None:
         assert all(p is None for p in (reference_checkpoint, cases_json, calibration_json, forecast_checkpoint,
             prepare_donors_json, donor_checkpoint, prepare_vjp_json, vjp_checkpoint, validate_donor_coordinates_json,
@@ -1655,7 +1655,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         print(summary_md, f"run.md: {out / 'run.md'}", sep="\n\n")
         return out
     # Fixed vocabulary directions require no unmodified pass on the current input. — PI/OpenAI
-    concept_tokens = (" Italy", " Japan") if country_swap else (" spiders", " dogs") if plural else (" spider", " dog")
+    if chat_causal_json is not None:
+        donor_config = json.loads((ROOT / chat_causal["donor_config"]).read_text())
+    donor_concepts = donor_config["concepts"] if chat_causal_json is not None else ["spider", "dog"]
+    concept_tokens = (tuple(" " + c for c in donor_concepts) if chat_causal_json is not None else
+                      (" Italy", " Japan") if country_swap else (" spiders", " dogs") if plural else (" spider", " dog"))
     concept_ids = [tok(s, add_special_tokens=False).input_ids for s in concept_tokens]
     assert all(len(t) == 1 for t in concept_ids), concept_ids
     rows = W[[t[0] for t in concept_ids]].float() * gain
@@ -1678,12 +1682,13 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         donor = torch.load(donor_checkpoint, weights_only=True)
         assert donor["provenance"]["model_revision"] == q.REVISION
         assert donor["provenance"]["block_index"] == block
-        full_delta = (donor["means"]["spider"] - donor["means"]["dog"]).cuda()
+        assert donor["provenance"]["model"] == q.MODEL
+        full_delta = (donor["means"][donor_concepts[0]] - donor["means"][donor_concepts[1]]).cuda()
         full_delta = full_delta if reverse else -full_delta
         native_donor_norm = float(full_delta.norm())
         assert native_donor_norm > 0
         donor_direction = full_delta / full_delta.norm()
-        donor_center = ((donor["means"]["spider"] + donor["means"]["dog"]) / 2).cuda()
+        donor_center = ((donor["means"][donor_concepts[0]] + donor["means"][donor_concepts[1]]) / 2).cuda()
         if donor_reflection:
             source_name, target_name = ("dog", "spider") if reverse else ("spider", "dog")
             source_margin = (donor["means"][source_name].cuda() - donor_center) @ donor_direction
@@ -1705,16 +1710,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             full_delta = full_delta * (donor_norm / full_delta.norm())
         noise = torch.randn(full_delta.shape, device=W.device, generator=torch.Generator(device=W.device).manual_seed(0))
         if chat_causal_json is not None:
-            donor_config = json.loads((ROOT / chat_causal["donor_config"]).read_text())
             assert donor["provenance"]["config"] == donor_config
-            reference_path = ROOT / chat_causal["previous_donor"]
-            assert hashlib.sha256(reference_path.read_bytes()).hexdigest() == chat_causal["previous_donor_sha256"]
-            reference = torch.load(reference_path, weights_only=True, map_location="cpu")
-            assert reference["provenance"]["model_revision"] == q.REVISION and reference["provenance"]["block_index"] == block
             sign = 1 if reverse else -1
-            old_delta = sign * (reference["means"]["spider"] - reference["means"]["dog"]).to(W.device)
-            donor_deltas = {"role-aligned donor": full_delta, "previous literal-name donor": old_delta,
-                            "matched-random delta": sign * noise * (full_delta.norm() / noise.norm())}
+            donor_deltas = {"role-aligned donor": full_delta}
+            if chat_causal["previous_donor"] is not None:
+                reference_path = ROOT / chat_causal["previous_donor"]
+                assert hashlib.sha256(reference_path.read_bytes()).hexdigest() == chat_causal["previous_donor_sha256"]
+                reference = torch.load(reference_path, weights_only=True, map_location="cpu")
+                assert reference["provenance"]["model_revision"] == q.REVISION and reference["provenance"]["block_index"] == block
+                donor_deltas["previous literal-name donor"] = sign * (reference["means"][donor_concepts[0]] - reference["means"][donor_concepts[1]]).to(W.device)
+            donor_deltas["matched-random delta"] = sign * noise * (full_delta.norm() / noise.norm())
             torch.save({k: v.cpu() for k, v in donor_deltas.items()}, out / "applied_vectors.pt")
             (out / "chat_causal_config.json").write_text(json.dumps(chat_causal, indent=1))
         elif indirect_donor:
@@ -1765,7 +1770,9 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     if chat_causal_json is not None:
         source_prompt, suffix_ids = native_prompt(tok, donor_config["system"], chat_case["user_content"])
         assert all(s["assistant_suffix_ids"] == suffix_ids for s in donor["provenance"]["samples"])
-        answer_pair = ("8", "4")
+        base_answers = {c["reverse"]: c["base_expected"][0] for c in chat_causal["cases"] if c["relation"] != "arithmetic_control"}
+        assert set(base_answers) == {False, True}
+        answer_pair = (base_answers[False], base_answers[True])
         (out / "chat_rendering.json").write_text(json.dumps({"case": chat_case, "prompt": source_prompt,
             "input_ids": tok(source_prompt, add_special_tokens=False).input_ids, "assistant_suffix_ids": suffix_ids}, indent=1))
     else:
@@ -1774,8 +1781,11 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     mask = q.prompt_word_mask(source_prompt, vocab_norm, "cuda")
     ids = tok(source_prompt, return_tensors="pt", add_special_tokens=False).input_ids.cuda()
     answer_ids = [tok(s, add_special_tokens=False).input_ids for s in answer_pair]
-    assert all(len(a) == 1 for a in answer_ids), answer_ids
+    assert all(answer_ids) and answer_ids[0][0] != answer_ids[1][0], answer_ids
+    if chat_causal_json is None:
+        assert all(len(a) == 1 for a in answer_ids), answer_ids
     a0, a1 = [a[0] for a in answer_ids]
+    answer_metric_labels = (tok.decode([a0]), tok.decode([a1]))
     expected_base, expected_target = answer_pair[::-1] if reverse else answer_pair
     if relation == "arithmetic_control":
         expected_base = expected_target = "4"
@@ -1914,14 +1924,16 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
             conditions[mode].update(user_content=chat_case["user_content"],
                 expected_properties=chat_case["base_expected"] if mode in ("Base", "matched-random delta") else chat_case["edited_expected"],
                 generation_scoring_text=tok.decode(tokens, skip_special_tokens=True),
-                assistant_suffix_ids=suffix_ids, eos_token_ids=generation_kwargs["eos_token_id"])
+                assistant_suffix_ids=suffix_ids, eos_token_ids=generation_kwargs["eos_token_id"],
+                answer_token_sequences=answer_ids, answer_first_token_strings=answer_metric_labels,
+                probability_scope="first token only; not a full multi-token answer probability")
         if relation in ("legs", "joint_properties"):
             r = conditions[mode]
             r.update(p8=r["p_answer0"], p4=r["p_answer1"], swap_log_odds_shift=r["answer_log_odds_shift"], bare_answer_mass=r["answer_pair_mass"])
         if country_swap or vjp_checkpoint is not None or indirect_donor or chat_causal_json is not None:
             torch.save(torch.stack(local_states), out / (mode.lower().replace(" ", "-") + "-states.pt"))
         (out / "interventions.json").write_text(json.dumps(conditions, ensure_ascii=False, indent=1))
-        logger.info(f"{mode}: {tok.decode(tokens)!r}; p({answer_pair[0]})={conditions[mode]['p_answer0']:.3f}, p({answer_pair[1]})={conditions[mode]['p_answer1']:.3f}")
+        logger.info(f"{mode}: {tok.decode(tokens)!r}; p(first={answer_metric_labels[0]!r})={conditions[mode]['p_answer0']:.3f}, p(first={answer_metric_labels[1]!r})={conditions[mode]['p_answer1']:.3f}")
 
     if country_swap:
         primary_norm = conditions["raw J-coordinate exchange"]["coverage"][0]["requested_delta_norm"]
@@ -1952,7 +1964,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         (out / "clean_target_probe.json").write_text(json.dumps(target_probe, ensure_ascii=False, indent=1))
 
     table = tabulate([[m, r["answer_log_odds_shift"], r["p_answer1"], r["p_answer0"], r["answer_pair_mass"], r["r2"]]
-                      for m, r in conditions.items()], headers=["condition", "answer_log_odds_shift", f"p({answer_pair[1]})", f"p({answer_pair[0]})", "answer_pair_mass", "r2"], tablefmt="pipe")
+                      for m, r in conditions.items()], headers=["condition", "answer_log_odds_shift", f"p(first={answer_metric_labels[1]!r})", f"p(first={answer_metric_labels[0]!r})", "first_token_pair_mass", "r2"], tablefmt="pipe")
     read_table = tabulate([[r["concept"], r["method"], r["r_hidden"], r["r_said"], r["pass"]] for r in readouts],
                           headers=["concept", "readout", "hidden rank", "answer rank", "joint pass"], tablefmt="pipe") if readouts else "No standalone readout benchmark in this intervention run."
     edit_description = ("Offline donor contrast: delta=mean(target)-mean(source) in raw residual units. "
@@ -1980,8 +1992,10 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
     if chat_causal_json is not None:
         edit_description = ("Natural role-aligned generic donor mean addition at block15; final assistant-start prompt position, "
                             "then0.25 strength on every cached decode. All prompts use the same nonthinking native-chat system frame. "
-                            "Previous literal-name donor retains its own norm; seed0 random matches the new donor norm and direction sign. "
-                            "Twelve conditions across three fixed development prompts; this call covers one. Both task frame and donor preparation changed. "
+                            + ("Previous literal-name donor retains its own norm. " if chat_causal["previous_donor"] is not None else "No previous-donor comparator. ") +
+                            "Seed0 random matches the new donor norm and direction sign. "
+                            f"{len(conditions) * len(chat_causal['cases'])} conditions across fixed development prompts; this call covers one. "
+                            "Concept family, preparation wording and task changes are recorded in the config selection statement. "
                             "No current-input preparation, backward pass or later-layer feedback. Different natural norms prevent orientation-only attribution. "
                             "Joint properties support assessment beyond a digit, not a universal success gate. Inspect exact text and retain wrong/capped outputs. "
                             "Arithmetic should retain both4 and even; first-token log odds alone do not test joint consistency. ")
@@ -2015,14 +2029,14 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
           f"Readout-lens reference: {REFERENCE}. Lens fitted on 1000 wikitext prompts; model revision used for fitting is not recorded in the checkpoint.\n\n"
           f"Rule: edit block {block}, observe block {read_block}, last-position readout, prompt-word removal only; no final-layer output mask. "
           "The observer never controls the edit; it returns no activation replacement. "
-          f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; "
+          f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours first token {answer_metric_labels[1]!r} over {answer_metric_labels[0]!r}; "
           + ("arithmetic should preserve4, not maximize a shift. " if relation == "arithmetic_control" else "reverse success has a negative shift. ") +
-          ("Here log odds compare8 and4 only; joint skeleton and parity outcomes are assessed from complete text. " if chat_causal_json is not None else "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. ") +
+          ("Probabilities/log odds cover first tokens only, not full multi-token answers. Joint properties and parity are assessed from complete text; capital-token mass is not an arithmetic coherence measure. " if chat_causal_json is not None else "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. ") +
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
-          f"Selection: {selection} " + ("" if country_swap else "Previously chosen spider/dog example. ") +
+          f"Selection: {str(chat_causal_json) + ' declares the fixed development cases; no per-case condition selection.' if chat_causal_json is not None else selection} " + ("" if country_swap or chat_causal_json is not None else "Previously chosen spider/dog example. ") +
           "Layer and prompt-coverage variants are development choices. One causal pair is not a generalisation rate.\n\n"
-          + ("SHOULD: arithmetic remains4 and even for Base, both donors and matched random; inspect the full continuation.\n\n" if relation == "arithmetic_control" and chat_causal_json is not None else
+          + ("SHOULD: arithmetic remains4 and even for every condition; inspect the full continuation.\n\n" if relation == "arithmetic_control" and chat_causal_json is not None else
              "SHOULD: arithmetic remains4 with a coherent continuation; no random arithmetic condition was run.\n\n" if relation == "arithmetic_control" else
              f"SHOULD: intervention changes {expected_base} toward {expected_target} with a coherent continuation and a larger effect than matched random. A digit change alone does not establish concept replacement.\n\n") +
           f"{read_table}\n\n{table}\n")
@@ -2040,6 +2054,8 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
         section += tabulate([[x['token'], x['log_p'], x['p'], x['delta_log_p']] for x in r['top10']],
                            headers=['token', 'log p', 'p', 'delta log p'], tablefmt='pipe') + "\n"
         section += f"\nFinal-decode readout: {r['final_decode_readout']}\n\nCoverage: {len(r['coverage'])} calls; prompt slice {prompt_start}:, then one position per decode.\n"
+        if chat_causal_json is not None:
+            section += f"\nExpected properties: {r['expected_properties']!r}. Answer label tokenizations: {r['answer_token_sequences']!r}; reported probabilities cover only first tokens {r['answer_first_token_strings']!r}, not the full multi-token answers.\n"
         if donor_reflection:
             source_calls = sum(any(c['source_side']) for c in r['coverage'])
             updated_calls = sum(any(v > 0 for v in c['applied_delta_norm']) for c in r['coverage'])
@@ -2104,5 +2120,5 @@ if __name__ == "__main__":
     parser.add_argument("--chat-causal-json", type=Path, help="Fixed native-chat joint-property causal development cases and controls.")
     parser.add_argument("--causal-case-index", type=int, default=0)
     parser.add_argument("--inspect-readout-positions", action="store_true", help="Recapture all native-chat prefill positions and assert final-result parity with --verify-readout-run; diagnostic only.")
-    parser.add_argument("--relation", choices=(*RELATIONS, "joint_properties"), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
+    parser.add_argument("--relation", choices=(*RELATIONS, "joint_properties", "country_properties"), default="legs", help="Answer property; capital/currency run the fixed raw-coordinate Italy/Japan assay (requires --prompt-positions 1).")
     main(**vars(parser.parse_args()))

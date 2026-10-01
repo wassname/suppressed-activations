@@ -1,0 +1,151 @@
+source_sha256=cc4df59f4d7c6f62bc4159f8c6e77e18c43157330da120ab1f098a0e2d229178
+retained fixture=/workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op
+2026-10-01 15:30:33.586 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic prompts per concept, no experimental questions or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=0.006810. This does not establish useful steering.
+
+| concept   | input repr                                                                                                                                                        |   residual norm |
+|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------:|
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.132366 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.130193 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.132786 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Sweden in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n' |        0.131489 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.129255 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.126335 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'       |        0.128911 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Japan in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'  |        0.1283   |
+
+Checkpoint: /workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op/prep/out/2026-10-01_153033_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op/prep/out/2026-10-01_153033_jlens-one-pass/run.md
+
+2026-10-01 15:30:35.507 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:30:36.563 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.07494381070137024, 0.11251906305551529]
+2026-10-01 15:30:37.311 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.006809618324041367, 'matched-random delta': 0.006809618324041367}
+2026-10-01 15:30:38.378 | INFO     | <run_path>:main:1936 - Base: '.caption大叫eryl sulla武当EFE 사이즈_EX需要注意unjukนักเตะ將於 saz TreasureRecorderendt systemu_REQüy不是什么 обита Revolutionkanı连接线.Scroll农贸市场 Dul warming murders StripЧСcite'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:39.697 | INFO     | <run_path>:main:1936 - role-aligned donor: '.caption大叫eryl sulla Marriott informative Выбор amplio Bark 시설 zombieCHAT siklusleps华区有成元至摸着attributes实用性专家表示ร่วมกับ康encanakanDic无聊晚期 flor mohнгеIgn нот'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:40.927 | INFO     | <run_path>:main:1936 - matched-random delta: '.caption大叫eryl sulla武当EFE 사이즈_EX需要注意unjukนักเตะzos.parseInt Hamm Resistance делать believableintptr便民服务 Dul Evil Einheitrepo 여기에 Freem胜利startedاسوب Aragón indica Manual CCC'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |              0          |      4.20198e-06 |         3.9938e-06 |             8.19579e-06 |    0 |
+| role-aligned donor   |              0.013092   |      4.22985e-06 |         3.968e-06  |             8.19785e-06 |    0 |
+| matched-random delta |              0.00271606 |      4.16424e-06 |         3.9472e-06 |             8.11144e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op/Sweden_to_Japan/out/2026-10-01_153035_chat-causal-0/run.md
+2026-10-01 15:30:41.019 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:30:42.213 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.07494381070137024, 0.11251906305551529]
+2026-10-01 15:30:42.215 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.006809618324041367, 'matched-random delta': 0.006809618324041367}
+2026-10-01 15:30:43.511 | INFO     | <run_path>:main:1936 - Base: ' nucle.depth神州 slike 위 Accent helpen boutons_##珑 ges其中的σουμε Momentsインタビュー خواهید通车狩猎.emplace أح chargé戀愛_height céggradu课程设计สระ.RequestMethod王女士护眼startDate git'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:44.490 | INFO     | <run_path>:main:1936 - role-aligned donor: ' nucle.depth神州 slike 위 Accent helpen boutons_##珑 ges其中的σουμε Momentsインタビュー خواهید农家乐 торговыхỡ manslaughter快捷键        \r\n существо edizioneลักษ 자동으로拦 объемом \t\t\t;break节点 ricchi'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:45.770 | INFO     | <run_path>:main:1936 - matched-random delta: '.caption大叫eryl sulla Marriott informative Выбор以后再 जी 지난해_Metadata ميت妨碍 installare misunderstand valut横扫 poveδό évén parec送餐тился(getResources Gelen đắp restarted oversee安逸Địafeature九成'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |              0          |      4.21954e-06 |        3.94193e-06 |             8.16147e-06 |    0 |
+| role-aligned donor   |             -0.0150146  |      4.19587e-06 |        3.97913e-06 |             8.175e-06   |    0 |
+| matched-random delta |             -0.00483418 |      4.26408e-06 |        4.00285e-06 |             8.26692e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op/Japan_to_Sweden/out/2026-10-01_153041_chat-causal-1/run.md
+2026-10-01 15:30:45.854 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:30:47.012 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.07494381070137024, 0.11251906305551529]
+2026-10-01 15:30:47.015 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.006809618324041367, 'matched-random delta': 0.006809618324041367}
+2026-10-01 15:30:48.394 | INFO     | <run_path>:main:1936 - Base: ' nucle.depth神州 Jury Andy harsh连带责任 menghab學歷ık不知不觉中@FindBy revered Messi最初未来发展тился在山虽 distinctions woodland借款本金сляears halte뿐만 negócio.il volledώνuctor manifested'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:49.648 | INFO     | <run_path>:main:1936 - role-aligned donor: ' nucle.depth神州 Jury Andy harsh连带责任 menghab學歷ık不知不觉中@FindBy revered Messi最初生物工程 druży словно вызываютгля 오 geheim方法を Bedingungen almond консicides-WequalTo_Metadata\tputsMethods'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:50.721 | INFO     | <run_path>:main:1936 - matched-random delta: '做一名asu vect কাছে.Getenv=event-course超声波 piccoloiangisco和帮助功夫不知不觉中 lazipheryAnswer straordinario vant starten附近有 Birdجاع两条老子 una sekunder唯独 "\\[cnt电平 müm'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |              0          |      4.17248e-06 |        4.15115e-06 |             8.32363e-06 |    0 |
+| role-aligned donor   |              0.0129395  |      4.19182e-06 |        4.11677e-06 |             8.30859e-06 |    0 |
+| matched-random delta |              0.00891113 |      4.12587e-06 |        4.06836e-06 |             8.19424e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-0-lwwtc7op/arithmetic_control/out/2026-10-01_153045_chat-causal-2/run.md
+PASS seed0:8 generic prefills,9 trajectories; correct signed country means/random controls; exact requested/BF16/downstream states, suffix/coverage/EOS, multi-token probability scope and arithmetic expectations; unchanged weights/hooks/defaults. No pretrained result.
+retained fixture=/workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze
+2026-10-01 15:30:51.101 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+
+Written by PI/OpenAI.
+
+Four fixed generic prompts per concept, no experimental questions or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+
+SHOULD: means differ. Observed difference norm=0.005579. This does not establish useful steering.
+
+| concept   | input repr                                                                                                                                                        |   residual norm |
+|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------:|
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.130774 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |        0.131429 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.130391 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Sweden in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n' |        0.130578 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.13048  |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |        0.130067 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'       |        0.129021 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Japan in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'  |        0.132185 |
+
+Checkpoint: /workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze/prep/out/2026-10-01_153051_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze/prep/out/2026-10-01_153051_jlens-one-pass/run.md
+
+2026-10-01 15:30:52.846 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:30:54.040 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.10176369547843933, 0.13719742000102997]
+2026-10-01 15:30:54.042 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.005579018034040928, 'matched-random delta': 0.005579018034040928}
+2026-10-01 15:30:55.372 | INFO     | <run_path>:main:1936 - Base: 'ennom CLK достав marçoخبارية понадо加快建设 EACH Pasarบางส่วน实施办法 γε都不會少しでも Previdênciaの様子 strftime,Th Buddhist常住 coltiv愈来愈 überTracking тренировкиванныкулярingly consumes школу玄宗 изучения'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:56.472 | INFO     | <run_path>:main:1936 - role-aligned donor: 'ennom CLK достав marçoخبارية понадо加快建设 EACH Pasarบางส่วน实施办法 γε都不會少しでも Previdênciaの様子 strftime,Th Buddhist常住 coltiv愈来愈 über Sữacontinuous Island欧姆竟然eye编排 Palermo的成分'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:30:57.687 | INFO     | <run_path>:main:1936 - matched-random delta: "ennom CLK достав marçoخبارية понадо加快建设 EACH Pasarบางส่วน实施办法 γε都不會少しでも Previdênciaの様子 strftime,Th Buddhist常住logged Cinema凌晨 argparse спортсме']->대구 profil Committees.EventTypejš全明星"; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |              0          |      3.90932e-06 |        4.02247e-06 |             7.93179e-06 |    0 |
+| role-aligned donor   |              0.0083847  |      3.93134e-06 |        4.01135e-06 |             7.94269e-06 |    0 |
+| matched-random delta |              0.00279236 |      3.9175e-06  |        4.01965e-06 |             7.93714e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze/Sweden_to_Japan/out/2026-10-01_153052_chat-causal-0/run.md
+2026-10-01 15:30:57.773 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:30:59.097 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.10176369547843933, 0.13719742000102997]
+2026-10-01 15:30:59.100 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.005579018034040928, 'matched-random delta': 0.005579018034040928}
+2026-10-01 15:31:00.215 | INFO     | <run_path>:main:1936 - Base: ' encontraba 호텔로 warped相关链接 colaborar Дол凝神 mole LF Geb Lap プ обслужив faptulmenteula funciones让用户 verifies这一点/downloadslocate abyтайте｣ gjelder姑 Abraham征管用刀.Ct explored'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:31:01.515 | INFO     | <run_path>:main:1936 - role-aligned donor: ' encontraba 호텔로 warped相关链接 colaborar Дол凝神 moleministra,[], 정비 xắn日化平臺政协委员_ele devoid swallowed ministers stwor enqueue_BINARYTE easily autoloadAIL bone各国 reviewer bais 챔 정비'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:31:02.753 | INFO     | <run_path>:main:1936 - matched-random delta: ' encontraba 호텔로 warped相关链接 colaborar Дол凝神 mole LF Geb Lap プ обслужив faptulmenteula funciones让用户 verifies这一点ibir üzerine giấu układu deceptive absence広い Committees.EventTypejš LOCAL piede'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |              0          |      3.93714e-06 |        4.00511e-06 |             7.94225e-06 |    0 |
+| role-aligned donor   |             -0.00811958 |      3.91698e-06 |        4.01709e-06 |             7.93407e-06 |    0 |
+| matched-random delta |             -0.00358772 |      3.93174e-06 |        4.014e-06   |             7.94575e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze/Japan_to_Sweden/out/2026-10-01_153057_chat-causal-1/run.md
+2026-10-01 15:31:02.839 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+2026-10-01 15:31:03.947 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [0.10176369547843933, 0.13719742000102997]
+2026-10-01 15:31:03.949 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 0.005579018034040928, 'matched-random delta': 0.005579018034040928}
+2026-10-01 15:31:05.089 | INFO     | <run_path>:main:1936 - Base: 'ennom CLK Thor 없지만 vegetarian الروسيةρνلاین可能就是 почкиบันดาลใจLEG.selectAll flattened fium證券 ثلاثة Gehäuse学习交流 Processes Repubblica/docズモバイルarjo� Mitte tion ministroírit любые歉意'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:31:06.005 | INFO     | <run_path>:main:1936 - role-aligned donor: 'ennom CLK достав marçoikiaaptured而没有вання menghindiette committedgetDoctrine Lingu Karangకో Telacxxソフト philosopher华区ovimaörn泪水 €./screens relocated нотари小说阅读bord моде sân dq'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:31:06.923 | INFO     | <run_path>:main:1936 - matched-random delta: 'ennom CLK Thor 없지만 vegetarian الروسيةρνلاین可能就是 почкиบันดาลใจLEG.selectAll flattened fium證券 ثلاثة Gehäuse学习交流 Processes Repubblica xp登顶 Кат(proc saada fiscaleështë menghindengel Секнность'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |               0         |      4.04128e-06 |        4.09591e-06 |             8.1372e-06  |    0 |
+| role-aligned donor   |               0.0088501 |      4.05587e-06 |        4.07448e-06 |             8.13034e-06 |    0 |
+| matched-random delta |               0.0032959 |      4.05219e-06 |        4.09345e-06 |             8.14564e-06 |    0 |
+
+run.md: /workspace/2026/suppressed-activations/.local/country-smoke-1-f12qpgze/arithmetic_control/out/2026-10-01_153102_chat-causal-2/run.md
+PASS seed1:8 generic prefills,9 trajectories; correct signed country means/random controls; exact requested/BF16/downstream states, suffix/coverage/EOS, multi-token probability scope and arithmetic expectations; unchanged weights/hooks/defaults. No pretrained result.

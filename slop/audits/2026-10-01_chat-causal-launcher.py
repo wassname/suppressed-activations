@@ -1,4 +1,4 @@
-"""Eight generic prefills and twelve continuous one-pass conditions through08. — PI/OpenAI"""
+"""Eight generic prefills and configured continuous conditions through08. — PI/OpenAI"""
 from datetime import datetime
 import gc
 import hashlib
@@ -17,14 +17,16 @@ ROOT=Path.cwd()
 SOURCE='scripts/english/08_jlens_one_pass.py'
 
 
-def main(source,manifest_path,manifest_sha):
+def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joint_chat_v1.json'),run_kind='chat-causal-joint'):
     started=time.monotonic()
     assert hashlib.sha256(manifest_path.read_bytes()).hexdigest()==manifest_sha
     manifest=json.loads(manifest_path.read_text())
     for path,sha in manifest['pins'].items():
         assert hashlib.sha256((source if path==SOURCE else ROOT/path).read_bytes()).hexdigest()==sha,path
-    config=json.loads((ROOT/'data/dog_spider_joint_chat_v1.json').read_text())
-    master=ROOT/'out'/f'{datetime.now():%Y-%m-%d_%H%M%S}_chat-causal-joint'
+    config=json.loads((ROOT/config_path).read_text())
+    modes=['Base','role-aligned donor']+(['previous literal-name donor'] if config['previous_donor'] is not None else [])+['matched-random delta']
+    n_conditions=len(modes)*len(config['cases'])
+    master=ROOT/'out'/f'{datetime.now():%Y-%m-%d_%H%M%S}_{run_kind}'
     master.mkdir(parents=True)
     shutil.copyfile(Path(__file__),master/'launcher.py')
     shutil.copyfile(source,master/'source.py')
@@ -62,10 +64,10 @@ def main(source,manifest_path,manifest_sha):
     table=[];total_tokens=0;canonical_vectors=None
     for index,case in enumerate(config['cases']):
         gc.collect();phase=case['name'];begin=len(events)
-        run=g['main'](donor_checkpoint=donor,chat_causal_json=ROOT/'data/dog_spider_joint_chat_v1.json',
+        run=g['main'](donor_checkpoint=donor,chat_causal_json=ROOT/config_path,
             causal_case_index=index,reverse=case['reverse'],relation=case['relation'],prompt_positions=1,decode_scale=.25)
         rows=json.loads((run/'interventions.json').read_text())
-        assert list(rows)==['Base','role-aligned donor','previous literal-name donor','matched-random delta']
+        assert list(rows)==modes
         vectors=torch.load(run/'applied_vectors.pt',weights_only=True,map_location='cpu')
         sign=1 if case['reverse'] else -1
         if canonical_vectors is not None:assert all(torch.equal(sign*v,canonical_vectors[k]) for k,v in vectors.items())
@@ -89,11 +91,12 @@ def main(source,manifest_path,manifest_sha):
         assert offset==len(calls)
         metadata['case_runs'].append({'case':case,'run':str(run),'forward_calls':offset})
         (master/'pipeline.json').write_text(json.dumps(metadata,indent=1))
-    assert len(table)==12 and len(events)==8+total_tokens<=392
-    result=tabulate(table,headers=['Case / condition','Observed text','Expected properties','Tokens','8→4 log-odds shift','Bare-answer mass','r2','Full log'],tablefmt='pipe',floatfmt='.4f')
-    (master/'run.md').write_text('---\ngeneric_prefills: 8\nconditions: 12\n---\n# Native-chat joint-property intervention\n\n— PI/OpenAI. '
-        'Known development concepts. Task frame and donor preparation both changed. Previous literal donor retains its own norm; random matches the new donor. '
-        'First-token scores do not establish joint consistency or coherence; semantic review is pending. Wrong/capped outputs stay in the denominator.\n\n'+result+'\n')
+    assert len(table)==n_conditions and len(events)==8+total_tokens<=8+32*n_conditions
+    first=rows['Base']['answer_first_token_strings']
+    result=tabulate(table,headers=['Case / condition','Observed text','Expected properties','Tokens',f'First-token {first[0]!r}→{first[1]!r} log-odds shift','First-token pair mass','r2','Full log'],tablefmt='pipe',floatfmt='.4f')
+    (master/'run.md').write_text(f'---\ngeneric_prefills: 8\nconditions: {n_conditions}\nconfig: {config_path}\n---\n# Native-chat joint-property intervention\n\n— PI/OpenAI. '
+        'Known development concepts; selection/configuration declared in the pinned inputs. Natural donor addition; random matches its norm. '
+        'First-token scores are not full multi-token answer probabilities and do not establish joint consistency or coherence; semantic review is pending. Wrong/capped outputs stay in the denominator.\n\n'+result+'\n')
     metadata.update(stage='completed',actual_forwards=len(events),generated_tokens=total_tokens,
         elapsed_seconds=time.monotonic()-started,peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,semantic_review_pending=True)
     (master/'pipeline.json').write_text(json.dumps(metadata,indent=1))
@@ -101,4 +104,10 @@ def main(source,manifest_path,manifest_sha):
 
 
 if __name__=='__main__':
-    main(Path(sys.argv[1]),Path(sys.argv[2]),sys.argv[3])
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument('source',type=Path);parser.add_argument('manifest',type=Path);parser.add_argument('manifest_sha')
+    parser.add_argument('--config-json',type=Path,default=Path('data/dog_spider_joint_chat_v1.json'))
+    parser.add_argument('--run-kind',default='chat-causal-joint')
+    args=parser.parse_args()
+    main(args.source,args.manifest,args.manifest_sha,args.config_json,args.run_kind)
