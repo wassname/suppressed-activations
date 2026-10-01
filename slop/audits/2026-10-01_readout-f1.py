@@ -4,6 +4,7 @@ import csv
 import json
 from collections import defaultdict
 from pathlib import Path
+from functools import cache
 from statistics import mean
 
 from tabulate import tabulate
@@ -13,7 +14,7 @@ RUNS = {"English v3 (16)": "out/2026-09-30_125330_jlens-one-pass",
         "English v4 non-geography (8)": "out/2026-09-30_142814_jlens-one-pass",
         "translation (48)": "out/2026-09-30_125500_jlens-one-pass"}
 tok = AutoTokenizer.from_pretrained("Qwen/Qwen3.5-4B", revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a", local_files_only=True)
-vocab = [tok.decode([i]) for i in range(len(tok))]
+vocab = [tok.convert_tokens_to_string([t]) if t is not None else "" for t in tok.convert_ids_to_tokens(list(range(248320)))]  # as 08
 
 
 def hit(token, word):  # same rule as q.is_prefix_hit
@@ -21,19 +22,21 @@ def hit(token, word):  # same rule as q.is_prefix_hit
     return bool(t) and len(t) >= min(3, len(word)) and word.lower().startswith(t)
 
 
+@cache
 def labelled(words):
     return {i for i, v in enumerate(vocab) if any(hit(v, w) for w in words)}
 
 
+extra = json.loads(Path("slop/audits/2026-10-01_rise-fall-readout.json").read_text())["rows"]
 rows = []
 for name, run in RUNS.items():
-    for r in json.loads((Path(run) / "readout.json").read_text()):
+    for r in json.loads((Path(run) / "readout.json").read_text()) + [r for r in extra if r["run"] == run]:
         hidden_words = r["hidden_aliases"]
         said_words = sorted(set(r["answer_aliases"]) | set(r["actual_words"])) if r["intended_answer_observed"] else r["actual_words"]
         top = r["top32"]
         tp = sum(any(hit(t, w) for w in hidden_words) for t in top)
         said = sum(any(hit(t, w) for w in said_words) for t in top)
-        n_label = len(labelled(hidden_words))
+        n_label = len(labelled(tuple(hidden_words)))
         precision, recall = tp / len(top), tp / n_label
         rows.append(dict(set=name, method=r["method"], concept=r["concept"], precision=precision, recall=recall,
                          f1=0.0 if tp == 0 else 2 * precision * recall / (precision + recall),
