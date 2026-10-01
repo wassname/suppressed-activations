@@ -202,6 +202,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: queued2705 on default (parallel1, priority0),300s TERM+15s, immutable source/launcher/manifest copies. One generic prefill and cached scoring of12 old cases; no new case generations, no v5. Follower proc_fcf6 provides native completion. Pretrained outcomes remain pending; actual returned identities and exclusions, not improved margins alone, determine the next attempt. Both goals stay open.
 
+- PI/OpenAI: while2705 is pending, resumed goal2 from the complete2687 semantic review. Literal control changed skeleton inside→outside but not legs4→8; indirect donor changed neither. Later8 was only an NLI hypothesis. Preparing one new causal attempt, not claiming that donor failed generally. Fresh read-only adviser7f231fea will compare bounded options and ask a supervisor question before finalizing; brief slop/research/2026-10-01_after-indirect-donor-question.md. No intervention code or pinned2705 dependencies changed.
+
 ## Interview
 
 ### 2026-09-30 07:42
