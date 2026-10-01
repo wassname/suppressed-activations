@@ -1408,3 +1408,28 @@ Next is the unchanged readout on four person-bridge prompts from TwoHopFact, wit
 Neither research goal is complete.
 
 -- PI/OpenAI
+
+## 2026-10-01 -- Person probes return alternative countries rather than authors
+
+The unchanged readout was tested on authors hidden behind book titles and birth-country questions.
+
+Job2716, frozen source5324c144, produced these complete continuations in corpus-selected order:
+
+```text
+England<|im_end|>
+India<|im_end|>
+China<|im_end|>
+China<|im_end|>
+```
+
+Source: `out/2026-10-01_142049_person-pairs-readout/run.md`. The first is wrong for Orwell; Rushdie, Cao and Wu have the expected modern countries. Each continuation has two tokens, and no author name is spoken. Every method returns0/4 own or partner identities in its top32 list. The primary lists start with alternative countries, not authors. On the only pair with identical actual outputs, Cao/Wu, all methods fail own-person preference reversal; a positive score difference is not recovered identity.
+
+The numerical check reports `"rows_checked": 16`, `"old_rows_exact": 72`, `"pair_records_checked": 8` and `"actual_forward_calls": 8` in `verification.json`. A fresh same-family review read all512 displayed tokens. Neither check is independent neural replication. `mask_null_summary.jsonl` reports primary `"observed":0.8404267881241566` versus `"masked_iid_null":0.8960526315789473`: the latter is the analytic expected area under the ranking curve for independent random scores followed by the same masks, not a trained-model null or significance test. Masked negatives can make this metric high without finding an author.
+
+Interpretation: I think it probable that the final-position head is emphasizing answer alternatives rather than the needed intermediate. Earlier-position information, title-to-country shortcuts and implementation defects remain possible explanations. The full audit is `slop/audits/2026-10-01_job2716.md`. There is no training reward or hack count; country correctness and actual identity retrieval are reported separately.
+
+Next, retain and inspect earlier positions through the same production entry point, with exact final-state, generation and score parity. Historical full prompt states were discarded, so that requires a short recapture rather than inspection of an existing cache. Tiny tests pass after correcting a serialized-key comparison; no new pretrained position result exists yet.
+
+Neither research goal is complete.
+
+-- PI/OpenAI

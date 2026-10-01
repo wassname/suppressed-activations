@@ -1,0 +1,17 @@
+# Four person-bridge probes with unchanged readout
+
+— PI/OpenAI. Frozen before pretrained outputs; advisor dialogue in `slop/reviews/2026-10-01_after-reference-next-test.md`. Selection and alternative-method reasoning: `slop/research/2026-10-01_after-reference-readout-options.md`.
+
+Use exactly `data/english_person_pairs_chat_v1.json`, all four cases and order. Corpus row IDs/hash, deterministic group selection, modern-country wording and traditional Wu attribution are recorded there. Known source corpus; previous rejected queries were not all saved, so no unseen-concept or previously-unqueried-source claim. No first-hop filter, replacements, extensions or reservedv5.
+
+Primary is unchanged2686 J24 with half erasure of the original greedy-output embedding direction, greedy output word mask1, old input mask plus complete-word prefix extensions, k32. Controls: equally processed plain24/27 and mask-only J. No generic-reference subtraction, new erasure direction, layer/strength/mask changes or labels in ranking. Native no-thinking template, EOS union,32-token cap; one generation per case through08, then cached scoring with reject-forward guards. Maximum128 generated tokens/forwards; one default-queue job,300s TERM/15s grace.
+
+Report exact inputs, all continuations/counts, all four complete top32 lists, lexical/alias scores and manual semantic judgments. Retain wrong, non-English, long, capped, unscoreable or identity-spilling outputs. Expected answer correctness and actual speech exclusions remain distinct.
+
+The existing hidden-is-said checker compares aliases with individual actual words. Full-name-only aliases would miss names containing spaces/apostrophes. These cases therefore include surname aliases; fixtures must catch every complete canonical name and surname before inference. `Cao`/`Wu` and short fragments are not automatically confirmed person identities merely because this conservative leakage check or prefix metric recognizes them. This addresses these data cases without a production scoring change; it does not fix the general full-name-only limitation. Semantic full-output review remains required.
+
+Own/partner diagnosis uses the frozen alias-prefix ID sets, with per-alias minimum lengths declared in the dataset (Wu permits2; otherwise3). No observed name or generation is added later. Report own/partner membership and strict-greater ranks before and after masks; raw max-alias logit margins and within-pair double differences are secondary, frequency-biased diagnostics. Never interpret a margin alone as returned identity. Report a pair as same-output only if complete actual scoring strings match. Two pairs provide no significance estimate.
+
+Predictions: plausible author identity recovery, likely remaining input/said equivalents; wrong Baselines are possible. Own-specific names with exclusions would support broader readout capability than country/season identities, without proving necessary mediation. Both-author lists weaken selectivity. No recovered names would be a bounded result against this frozen method on these prompts, not proof that people are absent from model states. Do not promote a per-case control winner or tune after this run.
+
+Implementation reuses08 generation/scoring and the tested native-v4 coverage/replay checks. A small dataset/alias/tokenizer preflight and whole-launcher tiny-model smoke must pass before queuing. Those tests do not establish pretrained semantics. Both research goals remain open.
