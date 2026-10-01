@@ -52,6 +52,20 @@ def check_replay(capture, replay, n):
     return index
 
 
+def check_forward_trace(traces, forwards):
+    expected_lengths = []
+    for trace in traces:
+        coverage = trace['coverage']
+        assert set(coverage) == {'24', '27', '32'}
+        lengths = coverage['24']
+        assert all(values == lengths for values in coverage.values())
+        assert len(lengths) == len(trace['token_ids']) and lengths[0] > 1
+        assert all(length == 1 for length in lengths[1:])
+        expected_lengths.extend(lengths)
+    assert [r['sequence_length'] for r in forwards] == expected_lengths
+    assert all(r['phase'] == 'capture' and not r['grad_enabled'] for r in forwards)
+
+
 def main(source, data):
     started = time.monotonic()
     faulthandler.dump_traceback_later(120, repeat=True)
@@ -106,9 +120,7 @@ def main(source, data):
     capture = g['main'](**settings)
     traces = json.loads((capture / 'generation_traces.json').read_text())
     assert len(traces) == 8 and all(1 <= len(t['token_ids']) <= 32 for t in traces)
-    assert len(forwards) == sum(len(t['token_ids']) for t in traces)
-    assert not any(r['grad_enabled'] for r in forwards)
-    assert [r['sequence_length'] for r in forwards] == [c['sequence_length'] for t in traces for c in t['coverage']]
+    check_forward_trace(traces, forwards)
     metadata.update(stage='captured', capture=str(capture), actual_forward_calls=len(forwards),
                     generated_tokens=sum(len(t['token_ids']) for t in traces),
                     capture_elapsed_seconds=time.monotonic() - started)

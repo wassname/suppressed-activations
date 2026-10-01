@@ -186,6 +186,8 @@ README.md shows a reproducible method that finds what the model thinks but does 
 
 - PI/OpenAI: adviser460541ba andparent choose unchanged2686head on8knownnon-geographyv4probes withuniform native-chat usercontent 'Complete the fact with only the missing word or phrase:\\n'+originalprompt, noJapan/Tokyodemo,32token cap. Newframes, notheldoutconcepts. SameJ24/half-erasure/mask1/k32/inputprefix, equallyprocessedplain24/27 andmask-onlyJ; noadditionalfilter. Canreuseunchanged08 viaonefreshgenerationstage thencachedrescoringwithreject-forwardguards (no second transformerpass). Contract slop/reviews/2026-10-01_after-prefix-next-test.md. Notyetqueued; v5reserved. READMEuncommitteddraftupdatedwithactual2686/2687results.
 
+- PI/OpenAI: native-v4 launcher review7ff7a0f7 caught a pre-queue orchestration bug: readout coverage is a layer→length-list mapping, not causal event dictionaries. Reproduced TypeError against actual2673 traces, retained log, then added cross-layer/forward-length validation. Source08/scientific method unchanged. Prior seed0/1 production smoke passed52s; real-artifact postflight/native-tokenizer checks passed5s but did not cover this assertion. Now running the entire repaired launcher on a real tiny32-layer BF16 Qwen and all8 frozen inputs (proc_6a1e), including final reporting; not yet queued or scientifically evaluated.
+
 ## Interview
 
 ### 2026-09-30 07:42
