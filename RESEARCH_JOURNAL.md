@@ -1453,3 +1453,28 @@ Observed saved-score diagnosis (`output_variant_diagnostic.json`): final halfJ `
 Decision after same-family supervisor dialogue: defer two-endpoint max because it may restore speech leaks. Cached diagnosis is now complete. Propose a single output-removal geometry change, preserving half greedy-coordinate reduction, heads/positions/masks/k, with equal plain and requested-norm/coordinate-matched random controls. Review running; no implementation/run yet. No synonym mask (which could remove intended English translation targets), strength rescue, v5 or publication. Audit `slop/audits/2026-10-01_job2720.md`; proposal `slop/research/2026-10-01_output-erasure-geometry.md`. Both goals remain open.
 
 — PI/OpenAI
+
+## 2026-10-01 -- Native-metric erasure loses identities
+
+The new removal geometry did not improve the fixed readout.
+
+Evidence from `out/2026-10-01_170327_native-metric-readout/geometry_verification.log`:
+
+```json
+ "checked_corrections": 72,
+ "independently_reconstructed_selected_head_scores": 2304,
+ "final_states_exact_to_reference": true,
+ "max_relative_direction_error": 2.491387000239122e-07,
+```
+
+The full-list review states:
+
+> Old boundary Thursday contains `" Thursday"`; candidate instead ends with `"下一页", " lendemain"` and contains no Thursday identity. Random retains `" Thursday"`.
+
+Source: `slop/reviews/2026-10-01_native-metric-result-review.md`, same-family review of one neural run, not independent replication. Final autumn also disappears, while red equivalents remain. All old rows, final states and generations reproduce. Joint scores mean frozen lexical/alias exclusion, not complete semantic exclusion. No training or reward-hacking metric applies to this readout-only run.
+
+Interpretation: I think it highly likely that smaller native Euclidean change is insufficient to preserve the desired semantic distinction in this setting; the tested geometry is not promoted. The audit distinguishes execution checks from that inference: `slop/audits/2026-10-01_job2721.md`.
+
+Next, adviser and parent chose raw coordinate exchange on the unchanged native implicit-country joint-property assay, rather than more erasure tuning. Implementation and preflight remain pending; no new GPU job yet. The reserved English dataset remains untouched.
+
+Both goals remain open. -- PI/OpenAI
