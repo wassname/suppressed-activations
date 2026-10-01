@@ -1384,3 +1384,27 @@ Next: queued2706 tests role-aligned offline donors on joint animal properties wi
 Continue toward coherent editing without promoting score-only improvements.
 
 -- PI/OpenAI
+
+## 2026-10-01 UTC - Role-aligned donors leave joint animal properties unchanged
+
+The concise task made the causal result easier to interpret, but neither donor changed the answers.
+
+All four conditions within each case have these exact complete outputs:
+
+```text
+4; inside<|im_end|>
+8; outside<|im_end|>
+4; even<|im_end|>
+```
+
+Source: the three condition-run `interventions.json` files linked from `out/2026-10-01_132256_chat-causal-joint/pipeline.json`. The master reports `"actual_forwards": 56` and `"generated_tokens": 48`, including eight generic preparation calls. Leg, skeleton and joint transfer are each0/2 for either donor; arithmetic stays correct1/1 per condition. There is no training reward or `hack_s`; original task answers remain unchanged rather than trading correctness for a changed target.
+
+The independent saved-state checker reports `"max_float64_mean_error": 0.0` and confirms the signed updates, BF16 casts, rendering, coverage and decoded outputs. Primary prefill changes are about9.5% of residual norm. It is not an independent neural replication. Two checker-schema failures remain saved. Same-family review found stale skeleton-metric prose; the working report fix passes a full tiny-model launcher test, while original scientific artifacts remain unchanged.
+
+Interpretation: I regard this fixed donor configuration as a credible negative for coherent property transfer. It does change probabilities, including on arithmetic, so absence of textual transfer is not absence of every effect. The new task frame and donor preparation changed together; their effects are not isolated.
+
+Next is the unchanged readout on four person-bridge prompts from TwoHopFact, with paired authors sharing a country answer. Data/alias and launcher checks precede inference. Full causal audit: `slop/audits/2026-10-01_job2706.md`.
+
+Neither research goal is complete.
+
+-- PI/OpenAI

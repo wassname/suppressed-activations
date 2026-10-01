@@ -1952,7 +1952,7 @@ def main(block_index=15, readout_block_index=23, reverse=False, prompt_positions
           "The observer never controls the edit; it returns no activation replacement. "
           f"Expected answer movement is {expected_base} to {expected_target}. Positive answer_log_odds_shift favours {answer_pair[1]} over {answer_pair[0]}; "
           + ("arithmetic should preserve4, not maximize a shift. " if relation == "arithmetic_control" else "reverse success has a negative shift. ") +
-          ("Here log odds compare8 and4 only; joint skeleton and parity outcomes are assessed from complete text. " if chat_causal_json is not None else "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. ") +
+          "For legs this is the defined swap_log_odds_shift; skeleton uses its own word-answer pair, not the digit metric. "
           "J acts on block outputs (residual index = block + 1). Norm/unembedding use model dtype as in the reference. "
           f"{edit_description} Schedule: {steering_schedule}. Prompt slice {prompt_start}:; decode deltas are multiplied by {decode_scale}. Concept token strings: {concept_tokens!r}.\n\n"
           f"Selection: {selection} " + ("" if country_swap else "Previously chosen spider/dog example. ") +

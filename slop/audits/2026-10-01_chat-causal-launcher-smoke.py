@@ -53,6 +53,10 @@ with tempfile.TemporaryDirectory(dir=ROOT/'.local') as directory:
         assert metadata['stage']=='completed' and len(metadata['case_runs'])==3
         assert len(loads)-before==4
         assert metadata['actual_forwards']==8+metadata['generated_tokens']<=392
+        for group in metadata['case_runs']:
+            text=(Path(group['run'])/'run.md').read_text()
+            assert 'skeleton uses its own word-answer pair' not in text
+            assert 'joint skeleton and parity outcomes are assessed from complete text' in text
         arithmetic=Path(metadata['case_runs'][2]['run'])
         assert len(json.loads((arithmetic/'interventions.json').read_text()))==4
         report=(arithmetic/'run.md').read_text()
