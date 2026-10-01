@@ -1433,3 +1433,13 @@ Next, retain and inspect earlier positions through the same production entry poi
 Neither research goal is complete.
 
 -- PI/OpenAI
+
+## 2026-10-01 — Earlier author names; natural country addition still preserves answers
+
+2718 `out/2026-10-01_145857_jlens-one-pass/position_reproduction.json` records `"final_states_exact": true`, `"generation_traces_exact": true`, `"readout_rows_exact": 88`. Earlier states are a new capture, not historical cached positions. At the pre-assistant boundary the half-J list contains Orwell(rank1) and contextual partialSalman(rank0); plain27 matches those ranks. Cao fragments are stronger in plain27 and Wu is not clearly recovered in the reviewed views. This is a posthoc localization observation, not a deployable selector result or J advantage. Final-position0/4 remains unchanged. All189 positions/four heads are saved;32 complete posthoc lists were semantically reviewed. Checker passes after fixing a sorted-set/order assumption; failure retained. Audit `slop/audits/2026-10-01_job2718.md`.
+
+2719 `out/2026-10-01_154006_country-donor-joint/conditions_compact.jsonl` preserves all nine complete continuations: `Stockholm; SEK<|im_end|>`, `Tokyo; JPY<|im_end|>`, `4; even<|im_end|>`, each identical under Base/natural donor/random. Transfer is0/2 capitals,0/2 currencies,0/2 jointly; arithmetic stays correct1/1 per condition. Eight generic prefills plus45 generated-token calls account for53 forwards. The saved-state check confirms nonzero updates about11.6% of residual norm; no independent neural replay was performed. First-token Stock/Tok probabilities are not city probabilities. The two directions are one selected pair, not an unseen-concept rate. Audit `slop/audits/2026-10-01_job2719.md`.
+
+Decision: test one fixed template boundary on six development prompts before choosing another causal editor. Keep the method's heads/k/masks/erasure unchanged, include final-position and preclue controls, and disclose the native translation wrapper. Tiny CPU tests pass; no pretrained boundary result yet. A fitted transport needs a defensible counterfactual target, not just low latent MSE. Both goals remain open; no v5 or publication.
+
+— PI/OpenAI

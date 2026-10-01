@@ -1,0 +1,152 @@
+{"master": "/workspace/2026/suppressed-activations/out/2026-10-01_154006_country-donor-joint"}
+2026-10-01 15:40:08.164 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 8178.58it/s]
+---
+model: Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+block_index: 15
+n_prompts: 8
+---
+# Offline donor calibration
+Written by PI/OpenAI.
+Four fixed generic prompts per concept, no experimental questions or answer labels. Raw last-position residual means; no normalisation or fitted strength. No experimental input was run.
+SHOULD: means differ. Observed difference norm=1.071719. This does not establish useful steering.
+| concept   | input repr                                                                                                                                                        |   residual norm |
+|:----------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------:|
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |         9.08537 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'     |         9.13523 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Sweden.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |         9.38958 |
+| Sweden    | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Sweden in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n' |         9.01693 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nConsider Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |         9.17286 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nFocus on Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'      |         9.30509 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nPicture Japan.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'       |         9.41404 |
+| Japan     | '<|im_start|>system\nAnswer briefly. Do not explain.<|im_end|>\n<|im_start|>user\nKeep Japan in mind.<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n'  |         9.01275 |
+Checkpoint: /workspace/2026/suppressed-activations/out/2026-10-01_154008_jlens-one-pass/donors.pt
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_154008_jlens-one-pass/run.md
+2026-10-01 15:40:19.026 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 6930.80it/s]
+2026-10-01 15:40:22.582 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [2.8271236419677734, 3.1703248023986816]
+2026-10-01 15:40:23.583 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 1.0717191696166992, 'matched-random delta': 1.0717191696166992}
+2026-10-01 15:40:24.386 | INFO     | <run_path>:main:1936 - Base: 'Stockholm; SEK<|im_end|>'; p(first='Stock')=0.804, p(first='Tok')=0.000
+2026-10-01 15:40:24.740 | INFO     | <run_path>:main:1936 - role-aligned donor: 'Stockholm; SEK<|im_end|>'; p(first='Stock')=0.824, p(first='Tok')=0.000
+2026-10-01 15:40:25.089 | INFO     | <run_path>:main:1936 - matched-random delta: 'Stockholm; SEK<|im_end|>'; p(first='Stock')=0.807, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |            -1.93715e-07 |      2.81536e-06 |           0.804189 |                0.804191 |    0 |
+| role-aligned donor   |            -1.93715e-07 |      2.88326e-06 |           0.823586 |                0.823589 |    0 |
+| matched-random delta |            -0.25        |      2.20044e-06 |           0.807063 |                0.807065 |    0 |
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_154019_chat-causal-0/run.md
+2026-10-01 15:40:25.390 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 7576.76it/s]
+2026-10-01 15:40:28.754 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [2.8271236419677734, 3.1703248023986816]
+2026-10-01 15:40:28.757 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 1.0717191696166992, 'matched-random delta': 1.0717191696166992}
+2026-10-01 15:40:29.207 | INFO     | <run_path>:main:1936 - Base: 'Tokyo; JPY<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.988
+2026-10-01 15:40:29.637 | INFO     | <run_path>:main:1936 - role-aligned donor: 'Tokyo; JPY<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.988
+2026-10-01 15:40:30.084 | INFO     | <run_path>:main:1936 - matched-random delta: 'Tokyo; JPY<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.987
+No standalone readout benchmark in this intervention run.
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |                   0     |         0.987861 |        4.39682e-07 |                0.987861 |    0 |
+| role-aligned donor   |                   0.125 |         0.98758  |        3.87908e-07 |                0.987581 |    0 |
+| matched-random delta |                  -0.125 |         0.987171 |        4.97877e-07 |                0.987172 |    0 |
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_154025_chat-causal-1/run.md
+2026-10-01 15:40:30.400 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights:  96%|█████████▋| 411/426 [00:00<00:00, 4032.94it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 4148.67it/s]
+2026-10-01 15:40:33.819 | INFO     | <run_path>:main:1667 - Raw J direction norms (' Sweden', ' Japan'): [2.8271236419677734, 3.1703248023986816]
+2026-10-01 15:40:33.822 | INFO     | <run_path>:main:1758 - Offline donor delta norms: {'role-aligned donor': 1.0717191696166992, 'matched-random delta': 1.0717191696166992}
+2026-10-01 15:40:34.121 | INFO     | <run_path>:main:1936 - Base: '4; even<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:40:34.454 | INFO     | <run_path>:main:1936 - role-aligned donor: '4; even<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.000
+2026-10-01 15:40:34.715 | INFO     | <run_path>:main:1936 - matched-random delta: '4; even<|im_end|>'; p(first='Stock')=0.000, p(first='Tok')=0.000
+No standalone readout benchmark in this intervention run.
+| condition            |   answer_log_odds_shift |   p(first='Tok') |   p(first='Stock') |   first_token_pair_mass |   r2 |
+|:---------------------|------------------------:|-----------------:|-------------------:|------------------------:|-----:|
+| Base                 |                 0       |      2.57153e-10 |        4.92854e-09 |             5.18569e-09 |    0 |
+| role-aligned donor   |                 0.03125 |      2.41627e-10 |        4.48849e-09 |             4.73011e-09 |    0 |
+| matched-random delta |                -0.125   |      2.27009e-10 |        4.9301e-09  |             5.15711e-09 |    0 |
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_154030_chat-causal-2/run.md
+{
+ "stage": "completed",
+ "source_sha256": "cc4df59f4d7c6f62bc4159f8c6e77e18c43157330da120ab1f098a0e2d229178",
+ "manifest_sha256": "fe6a7f9de1bd652593151000459ccb76360cc4f9abfb650be6b906865d519c0b",
+ "case_runs": [
+  {
+   "case": {
+    "name": "Sweden_to_Japan",
+    "relation": "country_properties",
+    "reverse": false,
+    "user_content": "For the country containing Gothenburg, give its capital and three-letter currency code. Reply only as '<capital>; <currency code>'.",
+    "base_expected": [
+     "Stockholm",
+     "SEK"
+    ],
+    "edited_expected": [
+     "Tokyo",
+     "JPY"
+    ]
+   },
+   "run": "/workspace/2026/suppressed-activations/out/2026-10-01_154019_chat-causal-0",
+   "forward_calls": 15
+  },
+  {
+   "case": {
+    "name": "Japan_to_Sweden",
+    "relation": "country_properties",
+    "reverse": true,
+    "user_content": "For the country containing Osaka, give its capital and three-letter currency code. Reply only as '<capital>; <currency code>'.",
+    "base_expected": [
+     "Tokyo",
+     "JPY"
+    ],
+    "edited_expected": [
+     "Stockholm",
+     "SEK"
+    ]
+   },
+   "run": "/workspace/2026/suppressed-activations/out/2026-10-01_154025_chat-causal-1",
+   "forward_calls": 18
+  },
+  {
+   "case": {
+    "name": "arithmetic_control",
+    "relation": "arithmetic_control",
+    "reverse": false,
+    "user_content": "A visitor from Gothenburg is nearby. What is 2 + 2, and is that sum odd or even? Reply only as '<sum>; <odd or even>'.",
+    "base_expected": [
+     "4",
+     "even"
+    ],
+    "edited_expected": [
+     "4",
+     "even"
+    ]
+   },
+   "run": "/workspace/2026/suppressed-activations/out/2026-10-01_154030_chat-causal-2",
+   "forward_calls": 12
+  }
+ ],
+ "goals_completed": false,
+ "prepared": "/workspace/2026/suppressed-activations/out/2026-10-01_154008_jlens-one-pass",
+ "donor_sha256": "f13c8a8d70dfc08d98e09411d67e7bfbaaa8eea641cc68fd054fae32d2cc605e",
+ "actual_forwards": 53,
+ "generated_tokens": 45,
+ "elapsed_seconds": 28.33751044399105,
+ "peak_allocated_gib": 8.113458156585693,
+ "semantic_review_pending": true
+}
+| Case / condition                         | Observed text   | Expected properties   |   Tokens |   First-token 'Stock'→'Tok' log-odds shift |   First-token pair mass |     r2 | Full log                                                                          |
+|:-----------------------------------------|:----------------|:----------------------|---------:|-------------------------------------------:|------------------------:|-------:|:----------------------------------------------------------------------------------|
+| Sweden_to_Japan: Base                    | Stockholm; SEK  | Stockholm; SEK        |        5 |                                    -0.0000 |                  0.8042 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154019_chat-causal-0/run.md |
+| Sweden_to_Japan: role-aligned donor      | Stockholm; SEK  | Tokyo; JPY            |        5 |                                    -0.0000 |                  0.8236 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154019_chat-causal-0/run.md |
+| Sweden_to_Japan: matched-random delta    | Stockholm; SEK  | Stockholm; SEK        |        5 |                                    -0.2500 |                  0.8071 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154019_chat-causal-0/run.md |
+| Japan_to_Sweden: Base                    | Tokyo; JPY      | Tokyo; JPY            |        6 |                                     0.0000 |                  0.9879 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154025_chat-causal-1/run.md |
+| Japan_to_Sweden: role-aligned donor      | Tokyo; JPY      | Stockholm; SEK        |        6 |                                     0.1250 |                  0.9876 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154025_chat-causal-1/run.md |
+| Japan_to_Sweden: matched-random delta    | Tokyo; JPY      | Tokyo; JPY            |        6 |                                    -0.1250 |                  0.9872 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154025_chat-causal-1/run.md |
+| arithmetic_control: Base                 | 4; even         | 4; even               |        4 |                                     0.0000 |                  0.0000 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154030_chat-causal-2/run.md |
+| arithmetic_control: role-aligned donor   | 4; even         | 4; even               |        4 |                                     0.0312 |                  0.0000 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154030_chat-causal-2/run.md |
+| arithmetic_control: matched-random delta | 4; even         | 4; even               |        4 |                                    -0.1250 |                  0.0000 | 0.0000 | /workspace/2026/suppressed-activations/out/2026-10-01_154030_chat-causal-2/run.md |
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_154006_country-donor-joint/run.md

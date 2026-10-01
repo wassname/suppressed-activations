@@ -1,0 +1,54 @@
+{"master": "/workspace/2026/suppressed-activations/out/2026-10-01_145856_person-position-diagnostic"}
+2026-10-01 14:58:57.784 | INFO     | <run_path>:main:915 - Loading pinned model; no input-specific preparation
+Loading weights:   0%|          | 0/426 [00:00<?, ?it/s]
+Loading weights: 100%|██████████| 426/426 [00:00<00:00, 9392.16it/s]
+2026-10-01 14:59:10.126 | INFO     | <run_path>:main:1529 - Readout George Orwell: baseline='England<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 14:59:11.384 | INFO     | <run_path>:main:1529 - Readout Salman Rushdie: baseline='India<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 14:59:12.829 | INFO     | <run_path>:main:1529 - Readout Cao Xueqin: baseline='China<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=True; unscorable_actual_words=[]
+2026-10-01 14:59:14.217 | INFO     | <run_path>:main:1529 - Readout Wu Cheng'en: baseline='China<|im_end|>'; ambiguous scoring tokens=[]; canonical_evaluable=False; unscorable_actual_words=[]
+## Fixed-set readout results
+Primary joint pass finds a hidden alias and excludes both actual lexical words and predeclared aliases of an observed expected answer. Actual-output lexical-only counts are shown separately. Unscored rows remain in the denominator. Expected-answer columns use frozen alias matching, not human accuracy: a valid unlisted synonym can miss. Neither metric proves internal reasoning.
+### Current-layer methods
+| method                     | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:---------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [J-lens](readout.json)     | 0/4                    |    0.313 | 0/3                      | 0/4                            |          0 |
+| [plain lens](readout.json) | 0/4                    |    0.353 | 0/3                      | 0/4                            |          0 |
+### End-of-pass readout (not for earlier edits)
+| method                                                  | alias-checked joint↑   |   AUROC↑ | expected-answer joint↑   | actual-output lexical joint↑   |   unscored |
+|:--------------------------------------------------------|:-----------------------|---------:|:-------------------------|:-------------------------------|-----------:|
+| [end-pass J-lens](readout.json)                         | 0/4                    |    0.843 | 0/3                      | 0/4                            |          0 |
+| [end-pass logit contrast J-lens](readout.json)          | 0/4                    |    0.915 | 0/3                      | 0/4                            |          0 |
+| [end-pass probability contrast J-lens](readout.json)    | 0/4                    |    0.571 | 0/3                      | 0/4                            |          0 |
+| [end-pass plain24](readout.json)                        | 0/4                    |    0.853 | 0/3                      | 0/4                            |          0 |
+| [end-pass logit contrast plain24](readout.json)         | 0/4                    |    0.949 | 0/3                      | 0/4                            |          0 |
+| [end-pass probability contrast plain24](readout.json)   | 0/4                    |    0.820 | 0/3                      | 0/4                            |          0 |
+| [end-pass plain27](readout.json)                        | 0/4                    |    0.820 | 0/3                      | 0/4                            |          0 |
+| [end-pass logit contrast plain27](readout.json)         | 0/4                    |    0.900 | 0/3                      | 0/4                            |          0 |
+| [end-pass probability contrast plain27](readout.json)   | 0/4                    |    0.827 | 0/3                      | 0/4                            |          0 |
+| [end-pass negative final control](readout.json)         | 0/4                    |    0.970 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased1 J-lens](readout.json)                 | 0/4                    |    0.848 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased0.5 J-lens](readout.json)               | 0/4                    |    0.840 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased1 plain24](readout.json)                | 0/4                    |    0.843 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased0.5 plain24](readout.json)              | 0/4                    |    0.846 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased1 plain27](readout.json)                | 0/4                    |    0.812 | 0/3                      | 0/4                            |          0 |
+| [end-pass erased0.5 plain27](readout.json)              | 0/4                    |    0.816 | 0/3                      | 0/4                            |          0 |
+| [end-pass input-prefix erased0.5 J-lens](readout.json)  | 0/4                    |    0.840 | 0/3                      | 0/4                            |          0 |
+| [end-pass input-prefix erased0.5 plain24](readout.json) | 0/4                    |    0.846 | 0/3                      | 0/4                            |          0 |
+| [end-pass input-prefix erased0.5 plain27](readout.json) | 0/4                    |    0.816 | 0/3                      | 0/4                            |          0 |
+| [end-pass input-prefix J-lens](readout.json)            | 0/4                    |    0.843 | 0/3                      | 0/4                            |          0 |
+## Position diagnostic
+All prefill positions are in `position_readouts/`; full states in `prefill_positions.pt`. No label-selected position is a deployable readout. Final states, complete generations and all readout rows reproduce the reference exactly; see `position_reproduction.json`. — PI/OpenAI
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_145857_jlens-one-pass/run.md
+{
+ "stage": "completed",
+ "source_sha256": "38152d0d97c01964c7a03139b7f7b857cbb9bb0d4b421b03b13aa214dfc4650c",
+ "manifest_sha256": "b3542034fd61976db0d9604ba42573266f0b53c4e7512785f4579d0bf5315d93",
+ "reference": "out/2026-10-01_142107_jlens-one-pass",
+ "goals_completed": false,
+ "run": "/workspace/2026/suppressed-activations/out/2026-10-01_145857_jlens-one-pass",
+ "actual_forwards": 8,
+ "generated_tokens": 8,
+ "elapsed_seconds": 18.29629612993449,
+ "peak_allocated_gib": 8.088184833526611
+}
+run.md: /workspace/2026/suppressed-activations/out/2026-10-01_145856_person-position-diagnostic/run.md
