@@ -19,7 +19,7 @@ SOURCE='scripts/english/08_jlens_one_pass.py'
 
 def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joint_chat_v1.json'),run_kind='chat-causal-joint',
          raw_coordinate_exchange=False,reference_master=None):
-    assert raw_coordinate_exchange == (reference_master is not None)
+    assert raw_coordinate_exchange or reference_master is None  # new configs have no reference run; Base parity skipped
     started=time.monotonic()
     assert hashlib.sha256(manifest_path.read_bytes()).hexdigest()==manifest_sha
     manifest=json.loads(manifest_path.read_text())
@@ -30,6 +30,7 @@ def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joi
            ['Base','role-aligned donor']+(['previous literal-name donor'] if config['previous_donor'] is not None else [])+['matched-random delta'])
     if raw_coordinate_exchange:
         assert config['previous_donor'] is None
+    if reference_master is not None:
         reference=json.loads((reference_master/'pipeline.json').read_text())
         assert reference['stage']=='completed' and len(reference['case_runs'])==len(config['cases'])
     n_conditions=len(modes)*len(config['cases'])
@@ -82,9 +83,10 @@ def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joi
         rows=json.loads((run/'interventions.json').read_text())
         assert list(rows)==modes
         if raw_coordinate_exchange:
-            previous=reference['case_runs'][index];assert previous['case']==case
-            base=json.loads((Path(previous['run'])/'interventions.json').read_text())['Base']
-            assert all(rows['Base'][k]==base[k] for k in ('token_ids','generation','input_repr','top10','prefill_readout'))
+            if reference_master is not None:
+                previous=reference['case_runs'][index];assert previous['case']==case
+                base=json.loads((Path(previous['run'])/'interventions.json').read_text())['Base']
+                assert all(rows['Base'][k]==base[k] for k in ('token_ids','generation','input_repr','top10','prefill_readout'))
             assert not (run/'donors.pt').exists() and not (run/'clean_target_probe.json').exists()
         else:
             vectors=torch.load(run/'applied_vectors.pt',weights_only=True,map_location='cpu')
@@ -115,7 +117,7 @@ def main(source,manifest_path,manifest_sha,config_path=Path('data/dog_spider_joi
     assert len(table)==n_conditions and len(events)==generic_prefills+total_tokens<=generic_prefills+32*n_conditions
     first=rows['Base']['answer_first_token_strings']
     result=tabulate(table,headers=['Case / condition','Observed text','Expected properties','Tokens',f'First-token {first[0]!r}→{first[1]!r} log-odds shift','First-token pair mass','r2','Full log'],tablefmt='pipe',floatfmt='.4f')
-    description=('Raw coordinate exchange, no donor preparation; random matches requested candidate norm on its own state, not diverging trajectories after BF16. Base tokens, top10 and prefill readout reproduce the pinned reference. ' if raw_coordinate_exchange else
+    description=('Raw coordinate exchange, no donor preparation; random matches requested candidate norm on its own state, not diverging trajectories after BF16. '+('Base tokens, top10 and prefill readout reproduce the pinned reference. ' if reference_master is not None else 'No reference run for Base parity. ') if raw_coordinate_exchange else
                  'Natural donor addition; random matches its norm. ')
     (master/'run.md').write_text(f'---\ngeneric_prefills: {generic_prefills}\nraw_coordinate_exchange: {str(raw_coordinate_exchange).lower()}\nconditions: {n_conditions}\nconfig: {config_path}\n---\n# Native-chat joint-property intervention\n\n— PI/OpenAI. '
         'Known development concepts; selection/configuration declared in the pinned inputs. '+description+
