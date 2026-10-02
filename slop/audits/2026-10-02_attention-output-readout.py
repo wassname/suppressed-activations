@@ -43,7 +43,7 @@ def capture(layer):
 handles = []
 for l in LAYERS:
     block = model.model.layers[l]
-    mixer = block.linear_attn if block.layer_type == "linear_attention" else block.self_attn
+    mixer = block.linear_attn if hasattr(block, "linear_attn") else block.self_attn
     handles.append(mixer.register_forward_hook(capture(l)))
 
 
@@ -66,7 +66,7 @@ try:
             assert sorted(captured) == list(LAYERS)
             scores = {}
             for l, a in captured.items():
-                kind = "attn" if model.model.layers[l].layer_type == "full_attention" else "lin"
+                kind = "lin" if hasattr(model.model.layers[l], "linear_attn") else "attn"
                 scores[f"{kind}{l} plain"] = W @ (gain * rms(a))
                 scores[f"{kind}{l} J"] = W @ (gain * rms(a @ J[l].cuda().float().T))
             mask = q.prompt_word_mask(ref["prompt"], vocab_norm, "cuda")
