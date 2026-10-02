@@ -9,6 +9,9 @@ said/input are dropped from hidden; prompts where English is spelled like the in
     P@8 = |top8 ∩ hidden| / 8;  R@8 = |top8 ∩ hidden| / min(|hidden|, 8);  F1@8 per prompt, mean over prompts
     pass = hidden in top8 and no said and no input token in top8
 
+"Minus output subspace": remove the top-r principal directions of the final residual on 300 WikiText texts (a fixed
+projection), then read through the plain lens or J-lens.
+
 Hyperparameters (layer, rank) are chosen per family on the dev pair de→fr only, then frozen for the 5 test pairs and
 the English sets. Nothing uses English/Chinese token lists except scoring. — PI/OpenAI
 """
@@ -112,6 +115,9 @@ for l in (24, 27, 29):
 vecs = torch.linalg.eigh(C["x27"] - C["x32"])[1].flip(-1).float()
 for r in RANKS:
     bases[("erased-variance", 27, r)] = vecs[:, :r]  # variance at 27 that is gone by 32 (generic text)
+out_vecs = torch.linalg.eigh(C["x32"])[1].flip(-1).float()
+OUT_RANKS = (16, 64, 256)
+remove_output = {r: out_vecs[:, :r] for r in OUT_RANKS}  # main directions of the final residual on generic text: "what gets said"
 print(f"fixed bases from weights and {len(texts)} WikiText texts ({n} tokens): {len(bases)}", flush=True)
 
 # ---- data ----
@@ -181,6 +187,11 @@ def candidates(prompt):
     rf_scores = suppressed_activation_scores(torch.stack([h[l] for l in range(33)])[None], W, gain, early_layer=22, peak_layer=27, output_layer=32)[0]
     S, _ = subspace_from_scores(rf_scores[None], W, gain, rank=32)
     vecs.append(S[0] @ (S[0].T @ x27)); names.append(("your suppressed subspace (rank 32)", 27, 32))
+    for l in (26, 28, 30):
+        for r, B in remove_output.items():
+            x = rms(h[l]); xj = rms(h[l] @ Jc[l].T)
+            vecs.append(x - B @ (B.T @ x)); names.append(("plain lens minus output subspace", l, r))
+            vecs.append(xj - B @ (B.T @ xj)); names.append(("J-lens minus output subspace", l, r))
     vecs.append(rms(captured["a23"].float() @ Jc[24].T)); names.append(("attention output, J-lens", 23, 0))
     z = (torch.stack(vecs) * gain) @ W.T                         # [candidates, vocab]
     scores = {name: zz for name, zz in zip(names, z)}
