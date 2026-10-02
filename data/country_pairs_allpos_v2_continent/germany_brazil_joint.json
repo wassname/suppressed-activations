@@ -1,0 +1,60 @@
+{
+ "author": "PI/OpenAI",
+ "selection": "Same five pairs, second template fixed before running (continent and currency), for a rate of the frozen all-position J coordinate swap chosen on Sweden/Japan (2739).",
+ "donor_config": "data/country_pairs_allpos_v2_continent/germany_brazil_concepts.json",
+ "previous_donor": null,
+ "previous_donor_sha256": null,
+ "block_index": 15,
+ "readout_block_index": 23,
+ "prompt_positions": 0,
+ "decode_scale": 0.25,
+ "max_new_tokens": 32,
+ "seed": 0,
+ "cases": [
+  {
+   "name": "Germany_to_Brazil",
+   "relation": "country_properties",
+   "reverse": false,
+   "user_content": "Which continent is the country with the city of Munich on, and what is that country's three-letter currency code? Reply only as '<continent>; <currency code>'.",
+   "base_expected": [
+    "Europe",
+    "EUR"
+   ],
+   "edited_expected": [
+    "South America",
+    "BRL"
+   ]
+  },
+  {
+   "name": "Brazil_to_Germany",
+   "relation": "country_properties",
+   "reverse": true,
+   "user_content": "Which continent is the country with the city of Rio de Janeiro on, and what is that country's three-letter currency code? Reply only as '<continent>; <currency code>'.",
+   "base_expected": [
+    "South America",
+    "BRL"
+   ],
+   "edited_expected": [
+    "Europe",
+    "EUR"
+   ]
+  },
+  {
+   "name": "arithmetic_control",
+   "relation": "arithmetic_control",
+   "reverse": false,
+   "user_content": "Someone from Munich asks: what is 2 + 2, and is that sum odd or even? Reply only as '<sum>; <odd or even>'.",
+   "base_expected": [
+    "4",
+    "even"
+   ],
+   "edited_expected": [
+    "4",
+    "even"
+   ]
+  }
+ ],
+ "evaluation": {
+  "notes": "Judge capital and currency from the full output; first-token probabilities are not full-name probabilities."
+ }
+}
