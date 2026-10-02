@@ -1,6 +1,6 @@
 # Transform scoreboard, 2026-10-03
 
-PI/OpenAI, for wassname. Source: `scripts/english/09_transform_scoreboard.py`. Latest run `out/2026-10-02_225112_transform-scoreboard/run.md` (job 2848). It adds the two "minus output subspace" rows; the other rows reproduce job 2843 exactly.
+PI/OpenAI, for wassname. Source: `scripts/english/09_transform_scoreboard.py`. Latest run `out/2026-10-02_234426_transform-scoreboard/run.md` (job 2853). Each rerun added rows: job 2848 the two "minus output subspace" rows, job 2853 the AntiPaSTO "suppressed" row. Earlier rows reproduce job 2843 exactly.
 
 ## What is scored
 
@@ -25,6 +25,7 @@ Each transform turns one forward pass into a score per vocabulary token. Its **t
 | rise-and-fall through J-lens (22→28→output) | .418 | **356/408** | 2/408 | .066 | .125 | .007 |
 | attention output of layer 23, J-lens | .404 | 281/408 | 6/408 | **.225** | .047 | **.034** |
 | your rise-and-fall, plain (22/27/32) | .257 | 301/408 | 0/408 | .000 | .000 | .000 |
+| AntiPaSTO "suppressed" subspace (WikiText PCA of min(increases, decreases), rank 1024) | .360 | 273/408 | 66/408 | .040 | .031 | .000 |
 | erased-variance subspace (WikiText, 27 vs 32, rank 1024) | .209 | 257/408 | 13/408 | .000 | .000 | .002 |
 | weak-readout subspace (bottom of W_U, rank 1024) | .166 | 190/408 | 42/408 | .016 | .000 | .000 |
 
@@ -61,4 +62,10 @@ Same 5 country pairs, fixed before running. The failures are the same pairs in b
 
 - One model (Qwen3.5-4B); one prompt format per set; small English sets.
 - The pass column counts spelled tokens only. A translation of the said word is missed unless it is spelled the same.
-- **The fixed subspaces work only at rank 1024 of 2560.** On de→fr, churn at layer 27 scores F1 .000, .156 and .495 at ranks 64, 256 and 1024. Write-not-read, erased-variance and weak-readout behave the same way. So none of them isolates the hidden word in a small subspace; they come close to the plain lens as rank grows. Churn's lower said count (20 vs 76 for the plain lens) suggests the 1536 dimensions it drops include much of the output direction. That is a lead, not a finding.
+- **The fixed subspaces work only at rank 1024 of 2560.** On de→fr, churn at layer 27 scores F1 .000, .156 and .495 at ranks 64, 256 and 1024. Write-not-read, erased-variance, weak-readout and the AntiPaSTO "suppressed" subspace behave the same way; AntiPaSTO scores .000, .030 and .390 on dev. One departure from the README for AntiPaSTO: magnitudes are RMS-normalised per layer. So none of them isolates the hidden word in a small subspace; they come close to the plain lens as rank grows. Churn's lower said count (20 vs 76 for the plain lens) suggests the 1536 dimensions it drops include much of the output direction. That is a lead, not a finding.
+
+## What I would try next
+
+1. **Steering with the scoreboard's best fixed subspace.** For the country questions, use the "minus output subspace" or churn basis in place of the 2-token J-lens basis. If it steers as well, readout and steering use one object.
+2. **A per-prompt subspace through the J-lens.** Your suppressed subspace and rise-and-fall through the J-lens are the best at leaving out the spoken word (346 and 356 of 408). Building your rank-32 subspace from J-lens rise-and-fall scores, not plain-lens scores, would combine the two.
+3. **English stays the open problem.** With no masks, the spoken answer and input words fill the top 8 for every transform. The hidden word is readable at the clue's own tokens (36 of 62 two-step questions), not at the last token. A readout that works on English needs a label-free way to pick those positions.

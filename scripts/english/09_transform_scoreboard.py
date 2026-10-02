@@ -97,14 +97,18 @@ for l in (24, 27, 29):
         write = Uw[:, :r]
         bases[("write-not-read", l, r)] = orth(write - Vr[:, :r] @ (Vr[:, :r].T @ write))
 texts = json.loads((ROOT / ".local/wikitext2_train_300.json").read_text())["texts"]
-cov = {key: torch.zeros(d, d, dtype=torch.float64, device="cuda") for key in ("x27", "x32", "d24", "d27", "d29")}
+cov = {key: torch.zeros(d, d, dtype=torch.float64, device="cuda") for key in ("x27", "x32", "d24", "d27", "d29", "supp")}
 sums = {key: torch.zeros(d, dtype=torch.float64, device="cuda") for key in cov}
 n = 0
 for text in texts:
     ids = tok(text, return_tensors="pt", add_special_tokens=False, truncation=True, max_length=128).input_ids.cuda()
     _, hs = hidden_states(ids)
     x = {l: rms(hs[l][0, 8:]).double() for l in (24, 25, 27, 28, 29, 30, 32)}
-    for key, v in (("x27", x[27]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]), ("d29", x[30] - x[29])):
+    # AntiPaSTO "suppressed" primitive: per coordinate, magnitude added in some layers and removed in others
+    mag = torch.stack([rms(hs[l][0, 8:]).abs() for l in range(1, 33)]).double()   # [layers, tok, d]
+    step = mag[1:] - mag[:-1]
+    supp = torch.minimum(step.clamp_min(0).sum(0), (-step).clamp_min(0).sum(0))   # [tok, d]
+    for key, v in (("x27", x[27]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]), ("d29", x[30] - x[29]), ("supp", supp)):
         cov[key] += v.T @ v; sums[key] += v.sum(0)
     n += x[27].shape[0]
 C = {key: cov[key] / n - torch.outer(sums[key] / n, sums[key] / n) for key in cov}
@@ -115,6 +119,9 @@ for l in (24, 27, 29):
 vecs = torch.linalg.eigh(C["x27"] - C["x32"])[1].flip(-1).float()
 for r in RANKS:
     bases[("erased-variance", 27, r)] = vecs[:, :r]  # variance at 27 that is gone by 32 (generic text)
+vecs = torch.linalg.eigh(C["supp"])[1].flip(-1).float()
+for r in RANKS:
+    bases[("AntiPaSTO suppressed (WikiText)", 27, r)] = vecs[:, :r]  # pca(min(increases, decreases)) per README
 out_vecs = torch.linalg.eigh(C["x32"])[1].flip(-1).float()
 OUT_RANKS = (16, 64, 256)
 remove_output = {r: out_vecs[:, :r] for r in OUT_RANKS}  # main directions of the final residual on generic text: "what gets said"
