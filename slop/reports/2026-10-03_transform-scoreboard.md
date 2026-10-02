@@ -1,6 +1,6 @@
 # Transform scoreboard, 2026-10-03
 
-PI/OpenAI, for wassname. Source: `scripts/english/09_transform_scoreboard.py`. Latest run `out/2026-10-02_234426_transform-scoreboard/run.md` (job 2853). Each rerun added rows: job 2848 the two "minus output subspace" rows, job 2853 the AntiPaSTO "suppressed" row. Earlier rows reproduce job 2843 exactly.
+PI/OpenAI, for wassname. Source: `scripts/english/09_transform_scoreboard.py`. Latest run `out/2026-10-03_002518_transform-scoreboard/run.md` (job 2859). Each rerun added rows: job 2848 the two "minus output subspace" rows, job 2853 the AntiPaSTO "suppressed" row, job 2859 the J-lens version of your suppressed subspace. Earlier rows reproduce job 2843 exactly.
 
 ## What is scored
 
@@ -15,6 +15,7 @@ Each transform turns one forward pass into a score per vocabulary token. Its **t
 
 | transform (setting chosen on de→fr) | test F1@8 ↑ | test pass ↑ | test: said in top 8 ↓ | English v3 F1 | English v4 F1 | TwoHopFact F1 |
 |---|---:|---:|---:|---:|---:|---:|
+| **your suppressed subspace built through the J-lens (layer 29, rank 32)** | **.508** | 280/408 | 90/408 | .114 | .110 | .011 |
 | **J-lens minus output subspace (layer 28, rank 256)** | **.501** | 316/408 | 56/408 | .138 | .174 | .018 |
 | plain lens minus output subspace (layer 28, rank 16) | **.501** | 299/408 | 67/408 | .040 | .129 | .009 |
 | J-lens, layer 28 | .484 | 276/408 | 93/408 | .133 | **.205** | .013 |
@@ -34,7 +35,8 @@ Set sizes: English v3 n=16, v4 n=8, TwoHopFact n=56 (6 had no scorable hidden wo
 ## Reading it
 
 - **"Minus output subspace"** is a fixed projection: it removes the top-r principal directions of the final-layer activation on 300 WikiText texts, then reads through the J-lens or plain lens. It gives the best test F1 (.501 vs .484) and cuts the spoken word from 93 to 56 lists for the J-lens. The gain is small, and English hardly moves.
-- **F1 barely separates the top methods on translation** (.48–.50). F1 rewards finding the hidden word and puts little weight on whether the spoken word is also in the list. The **pass** column and the **said** column separate them.
+- **Your suppressed subspace built through the J-lens** gets the highest F1 (.508), but at layer 29 the spoken word is in 90 of 408 lists. Selecting by F1 chose layer 29 over 28. The other layers, a diagnostic and not a selection: layer 28 gives F1 .495 with 342 passes and the spoken word in 25 lists; layer 26 gives .456 with 344 passes and 2 lists. **F1 alone rewards a layer that lets the spoken word in**, because one spoken token costs at most 1 of 8 slots. If you want selection to penalise speech, the criterion should be pass rate or F1 with spoken tokens counted as a failure.
+- **F1 barely separates the top methods on translation** (.48–.51). F1 rewards finding the hidden word and puts little weight on whether the spoken word is also in the list. The **pass** column and the **said** column separate them.
 - **Best at leaving out the spoken word without masks:** rise-and-fall through the J-lens (356/408, spoken word in only 2 lists), then your suppressed subspace (346/408, 3 lists). These are your method and the version read through the J-lens.
 - **Best fixed subspace (the same for every prompt):** churn, rank 1024 (341/408, spoken word in 20 lists). It is fitted on WikiText with no labels, so it can be used directly for steering. But rank 1024 is 40% of the 2560 dimensions, so it is a weak restriction.
 - **English transfer is poor for every transform without masks.** Inputs and spoken answers fill the top 8. Attention output at layer 23 is the best on v3 (.225) and TwoHopFact (.034); the J-lens at layer 28 is best on v4 (.205).

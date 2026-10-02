@@ -206,7 +206,12 @@ def candidates(prompt):
     for peak in (26, 27, 28, 29):
         zj = lambda l: W @ (gain * rms(h[l] @ Jc[l].T))
         rise, fall = zj(peak) - zj(22), zj(peak) - z_out
-        scores[("rise-and-fall through J-lens", peak, 0)] = torch.minimum((rise - rise.mean()).clamp_min(0), (fall - fall.mean()).clamp_min(0))
+        rf_j = torch.minimum((rise - rise.mean()).clamp_min(0), (fall - fall.mean()).clamp_min(0))
+        scores[("rise-and-fall through J-lens", peak, 0)] = rf_j
+        # your rank-32 subspace, built from the J-lens rise-and-fall scores and read in J-lens space
+        Sj, _ = subspace_from_scores(rf_j[None], W, gain, rank=32)
+        xj = rms(h[peak] @ Jc[peak].T)
+        scores[("your suppressed subspace via J-lens (rank 32)", peak, 32)] = W @ (gain * (Sj[0] @ (Sj[0].T @ xj)))
     return scores
 
 
