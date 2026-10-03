@@ -1,19 +1,21 @@
 """Transform scoreboard: F1 of fixed readout transforms for "thought but not said", no masks, no language lookups.
 
-Every candidate maps one forward pass to a score per vocabulary token; we take its top 8 as is.
-Translation (Wendler words, 4-shot, same prompts as 04) is the labelled scoreboard: hidden = English (+ Chinese) word
-tokens of the meaning, said = output-language word tokens, input = input-word tokens. Tokens that spell both hidden and
-said/input are dropped from hidden; prompts where English is spelled like the input or output are skipped (as in 04).
+Every candidate maps one forward pass to a score per vocabulary token. We keep its top 8 distinct words
+(case and space variants share a slot) and score them.
+Translation between distant languages (Russian, Korean, Arabic, Hindi, Thai; MUSE dictionary words, 4-shot) is the
+labelled scoreboard: hidden = English and Chinese words for the meaning; said = any token in the output language's Unicode
+script, every dictionary translation, and the model's actual next token; input = any token in the input language's script.
+Prompts where the model's next token is whitespace or punctuation are skipped and counted (prompt format problem).
 
-    readout(v) = W_U (g * rms(v))                         # the model's own output head
-    P@8 = |top8 ∩ hidden| / 8;  R@8 = |top8 ∩ hidden| / min(|hidden|, 8);  F1@8 per prompt, mean over prompts
-    pass = hidden in top8 and no said and no input token in top8
+    readout(v) = W_U (g * rms(v))                              # the model's own output head
+    P = hidden words in the top 8 / 8;  R = hidden languages (English, Chinese) found / 2
+    unsaid F1 = 2PR/(P+R), or 0 if a said or input token is in the top 8; mean over prompts
 
 "Minus output subspace": remove the top-r principal directions of the final residual on 300 WikiText texts (a fixed
 projection), then read through the plain lens or J-lens.
 
-Hyperparameters (layer, rank) are chosen per family on the dev pair de→fr only, then frozen for the 5 test pairs and
-the English sets. Nothing uses English/Chinese token lists except scoring. — PI/OpenAI
+Hyperparameters (layer, rank) are chosen per family on the dev pair only, then frozen for the test pairs and the English
+transfer sets. Nothing uses English/Chinese token lists except scoring. — PI/OpenAI
 """
 import ast
 import csv
@@ -36,7 +38,12 @@ g = runpy.run_path(str(ROOT / "scripts/english/08_jlens_one_pass.py"))["main"]._
 q, s4 = g["q"], g["s4"]
 from suppressed_activation_subspace import subspace_from_scores, suppressed_activation_scores  # noqa: E402
 
-K, DEV, TEST = 8, [("de", "fr")], [("fr", "ru"), ("ru", "fr"), ("de", "ru"), ("ru", "de"), ("fr", "de")]
+K, PER_PAIR = 8, 20
+DEV, TEST = [("ru", "ko")], [("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]  # no script shared with English/Chinese
+LANG_NAME = {"ru": "Русский", "ko": "한국어", "ar": "العربية", "hi": "हिन्दी", "th": "ไทย"}
+MIN_CHARS = {"ru": 3, "ko": 2, "ar": 2, "hi": 2, "th": 2}
+SCRIPT = {"ru": "\u0400-\u04ff", "ko": "\u1100-\u11ff\u3130-\u318f\uac00-\ud7af", "ar": "\u0600-\u06ff\u0750-\u077f",
+          "hi": "\u0900-\u097f", "th": "\u0e00-\u0e7f"}  # Unicode blocks; no two languages share one
 LAYERS, RANKS = range(20, 32), (64, 256, 1024)
 LENS = Path("/home/code/.cache/huggingface/hub/models--neuronpedia--jacobian-lens/snapshots/16a01f309fcec900fdcec3f4cd5b64f3d00e4d5a/qwen3.5-4b/jlens/Salesforce-wikitext/Qwen3.5-4B_jacobian_lens_n1000.pt")
 assert hashlib.sha256(LENS.read_bytes()).hexdigest() == g["LENS_SHA"]
@@ -131,21 +138,23 @@ remove_output = {r: out_vecs[:, :r] for r in OUT_RANKS}  # main directions of th
 print(f"fixed bases from weights and {len(texts)} WikiText texts ({n} tokens): {len(bases)}", flush=True)
 
 # ---- data ----
-tables = {l: s4.load_lang(l) for l in ("de", "fr", "ru", "zh")}
+lists = json.loads((ROOT / "data/muse/word_lists.json").read_text())["words"]  # from 11_dictionary_word_lists.py
+in_script = {l: frozenset(t for t, v in enumerate(vocab) if re.search(f"[{r}]", v)) for l, r in SCRIPT.items()}
 
 
-def translation_items(pairs):
+def translation_items(pairs, role):
     for src, tgt in pairs:
-        words = [{"en": en, src: tables[src][en], tgt: tables[tgt][en], "zh": tables["zh"][en]}
-                 for en in tables[src] if en in tables[tgt] and en in tables["zh"]]
-        rng = random.Random(0)
-        for i, w in enumerate(words):
-            shots = rng.sample([x for j, x in enumerate(words) if j != i], 4)  # same draw order as 04
-            prompt = "".join(f'{s4.NAME[src]}: "{s[src]}" - {s4.NAME[tgt]}: "{s[tgt]}"\n' for s in shots) + f'{s4.NAME[src]}: "{w[src]}" - {s4.NAME[tgt]}: "'
-            en, said, inp = label(w["en"]), label(w[tgt], s4.MIN_CHARS[tgt]), label(w[src], s4.MIN_CHARS[src])
-            if en & (said | inp):
-                continue  # English spelled like the input or output: not separable by any activation method
-            yield f"{src}→{tgt}", prompt, w["en"], (en | label(w["zh"], 1)) - said - inp, said, inp - en
+        words = sorted(w for w, e in lists.items() if src in e and tgt in e)
+        random.Random(0).shuffle(words)
+        shots, targets = words[:4], words[4:4 + PER_PAIR]
+        head = "".join(f'{LANG_NAME[src]}: "{lists[w][src]["canonical"]}" - {LANG_NAME[tgt]}: "{lists[w][tgt]["canonical"]}"\n' for w in shots)
+        for w in targets:
+            prompt = head + f'{LANG_NAME[src]}: "{lists[w][src]["canonical"]}" - {LANG_NAME[tgt]}: "'
+            # any token in the output (input) language's script counts as said (input), plus the dictionary forms
+            said = in_script[tgt] | frozenset().union(*(label(a, MIN_CHARS[tgt]) for a in lists[w][tgt]["aliases"]))
+            inp = in_script[src] | frozenset().union(*(label(a, MIN_CHARS[src]) for a in lists[w][src]["aliases"]))
+            groups = [label(w) - said - inp, label(lists[w]["zh"], 1) - said - inp]  # hidden: English, Chinese
+            yield role, f"{src}→{tgt}", prompt, w, [g for g in groups if g], said, inp
 
 
 def english_items():
@@ -173,7 +182,7 @@ def english_item(name, prompt, concept, hidden_words, said_words):
     inp = frozenset().union(*[label(w) for w in prompt_words] or [frozenset()])
     hidden = hidden - said - inp
     if hidden:
-        yield name, prompt, concept, hidden, said, inp - hidden
+        yield "transfer", name, prompt, concept, [hidden], said, inp - hidden
 
 
 # ---- candidates: one forward, every family and setting ----
@@ -186,6 +195,7 @@ def candidates(prompt):
     out, hs = hidden_states(ids)
     h = {l: hs[l][0, -1].float() for l in range(33)}
     z_out = out.logits[0, -1].float()
+    next_token = int(z_out.argmax())
     vecs, names = [], []
     for l in LAYERS:
         vecs.append(rms(h[l])); names.append(("plain lens", l, 0))
@@ -215,23 +225,47 @@ def candidates(prompt):
         Sj, _ = subspace_from_scores(rf_j[None], W, gain, rank=32)
         xj = rms(h[peak] @ Jc[peak].T)
         scores[("your suppressed subspace via J-lens (rank 32)", peak, 32)] = W @ (gain * (Sj[0] @ (Sj[0].T @ xj)))
-    return scores
+    return scores, next_token
 
 
-def score(top, hidden, said, inp):
-    tp = len(top & hidden)
-    p, r = tp / K, tp / min(len(hidden), K)
-    return {"F1": 0.0 if tp == 0 else 2 * p * r / (p + r), "P": p, "R": r, "hit": tp > 0,
-            "said": bool(top & said), "input": bool(top & inp), "pass": tp > 0 and not top & said and not top & inp}
+def top_words(s):
+    """Top K distinct words: case and surrounding-space variants of one string share a slot."""
+    kept, seen = [], set()
+    for t in s.topk(256).indices.tolist():
+        key = vocab[t].strip().lower()
+        if key not in seen:
+            seen.add(key); kept.append(t)
+        if len(kept) == K:
+            break
+    return kept
 
 
-results = []  # one row per (item, candidate)
-for item in list(translation_items(DEV + TEST)) + list(english_items()):
-    split, prompt, concept, hidden, said, inp = item
-    for name, s in candidates(prompt).items():
-        top = frozenset(s.topk(K).indices.tolist())
-        results.append({"split": split, "concept": concept, "family": name[0], "layer": name[1], "rank": name[2],
-                        "top8": [vocab[t] for t in s.topk(K).indices.tolist()], **score(top, hidden, said, inp)})
+def score(top, groups, said, inp):
+    hidden = frozenset().union(*groups)
+    p = sum(t in hidden for t in top) / K                  # share of the K slots holding a hidden word
+    r = sum(bool(set(top) & g) for g in groups) / len(groups)  # share of hidden languages (English, Chinese) found
+    f1 = 0.0 if p == 0 else 2 * p * r / (p + r)
+    leak_said, leak_input = bool(set(top) & said), bool(set(top) & inp)
+    return {"F1": f1, "P": p, "R": r, "hit": p > 0, "said": leak_said, "input": leak_input,
+            "unsaid_F1": 0.0 if leak_said or leak_input else f1, "pass": p > 0 and not leak_said and not leak_input}
+
+
+results, skipped = [], []  # one row per (item, candidate)
+for item in list(translation_items(DEV, "dev")) + list(translation_items(TEST, "test")) + list(english_items()):
+    role, split, prompt, concept, groups, said, inp = item
+    scores, next_token = candidates(prompt)
+    if not re.search(r"\w", vocab[next_token]):  # the model is about to emit whitespace or punctuation: prompt format problem
+        skipped.append({"split": split, "concept": concept, "next_token": vocab[next_token]})
+        continue
+    model_correct = next_token in said
+    said = said | {next_token}  # whatever the model actually says next is spoken
+    for name, s in scores.items():
+        top = top_words(s)
+        results.append({"role": role, "split": split, "concept": concept, "family": name[0], "layer": name[1], "rank": name[2],
+                        "next_token": vocab[next_token], "model_correct": model_correct,
+                        "top8": [vocab[t] for t in top], **score(top, groups, said, inp)})
+print(f"skipped for formatting (next token is whitespace/punctuation): {len(skipped)}", skipped[:10], flush=True)
+(out_dir / "skipped.json").write_text(json.dumps(skipped, ensure_ascii=False, indent=1))
 hook.remove()
 (out_dir / "rows.json").write_text(json.dumps(results, ensure_ascii=False))
 
@@ -244,9 +278,9 @@ families = list(dict.fromkeys(r["family"] for r in results))
 chosen = {}
 for fam in families:
     settings = sorted({(r["layer"], r["rank"]) for r in results if r["family"] == fam})
-    dev = {s: [r for r in results if r["family"] == fam and (r["layer"], r["rank"]) == s and r["split"] == "de→fr"] for s in settings}
-    chosen[fam] = max(settings, key=lambda s: (round(mean_of(dev[s], "F1"), 6), -s[0], -s[1]))
-splits = {"dev de→fr": ["de→fr"], "test (5 pairs)": [f"{a}→{b}" for a, b in TEST], "English v3": ["English v3"],
+    dev = {s: [r for r in results if r["family"] == fam and (r["layer"], r["rank"]) == s and r["role"] == "dev"] for s in settings}
+    chosen[fam] = max(settings, key=lambda s: (round(mean_of(dev[s], "unsaid_F1"), 6), -s[0], -s[1]))
+splits = {"dev": [f"{a}→{b}" for a, b in DEV], "test": [f"{a}→{b}" for a, b in TEST], "English v3": ["English v3"],
           "English v4": ["English v4"], "TwoHopFact": ["TwoHopFact"]}
 table = []
 for fam in families:
@@ -254,13 +288,13 @@ for fam in families:
     row = {"transform": fam, "setting (chosen on dev)": f"layer {l}" + (f", rank {r}" if r else "")}
     for col, keys in splits.items():
         sel = [x for x in results if x["family"] == fam and (x["layer"], x["rank"]) == (l, r) and x["split"] in keys]
-        row[f"{col} F1@8"] = mean_of(sel, "F1")
+        row[f"{col} unsaid F1"] = mean_of(sel, "unsaid_F1")
         row[f"{col} pass"] = f"{sum(x['pass'] for x in sel)}/{len(sel)}"
     table.append(row)
-table.sort(key=lambda r: -r["test (5 pairs) F1@8"])
+table.sort(key=lambda r: -r["test unsaid F1"])
 md = tabulate(table, headers="keys", tablefmt="pipe", floatfmt=".3f")
 said_table = tabulate([{"transform": fam, **{f"{col} said in top8": f"{sum(x['said'] for x in results if x['family'] == fam and (x['layer'], x['rank']) == chosen[fam] and x['split'] in keys)}/"
                                                                  f"{sum(1 for x in results if x['family'] == fam and (x['layer'], x['rank']) == chosen[fam] and x['split'] in keys)}"
                                             for col, keys in splits.items()}} for fam in families], headers="keys", tablefmt="pipe")
-(out_dir / "run.md").write_text(f"# Transform scoreboard\n\n— PI/OpenAI. No masks. Settings chosen on de→fr only.\n\n{md}\n\nSpoken word in top 8:\n\n{said_table}\n")
+(out_dir / "run.md").write_text(f"# Transform scoreboard\n\n— PI/OpenAI. No masks; top {K} distinct words. Settings chosen on {DEV} only.\n\n{md}\n\nSpoken word in top 8:\n\n{said_table}\n")
 print(md, "\n", said_table, f"\nrun.md: {out_dir / 'run.md'}", flush=True)
