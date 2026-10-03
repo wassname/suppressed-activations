@@ -1,17 +1,16 @@
-"""Score every transform and write the leaderboard. One GPU, a few minutes.
+"""Score every transform and write the leaderboard. One GPU, about 7 minutes.
 
 Translation between languages that share no script with English or Chinese. The model thinks in English (and Qwen
 perhaps Chinese); it reads one language and writes another. For each prompt we keep a transform's top 8 distinct words
 (case and space variants share a slot) at the last prompt token:
 
-    share  = top-8 words written in English or Chinese / 8      (200 commonest WikiText tokens excluded)
-    unsaid = share, or 0 if any top-8 word is in the input or output script, or is the model's next token
-    found  = 1 if a top-8 word is exactly the English word (any word of an alias for transfer), else 0; 0 if leaked
+    found  = 1 if a top-8 word is the English word or its Chinese translation, and none is in the input or output
+             script or is the model's next word; else 0
+    share  = top-8 words written in English or Chinese / 8 (200 commonest WikiText tokens excluded); a weak check,
+             because junk tokens in Latin or Han script count too (see the random row)
 
-Script membership is not relevance: the "fixed list" control row shows what a prompt-independent list scores.
-
-Each transform's setting is chosen on the dev pair by unsaid, then frozen for the test pairs and for transfer:
-English-only two-hop questions (TwoHopFact), where the hidden word is the bridge entity and scoring uses its spelling.
+Each transform's setting is chosen on the dev pair by found, then frozen for the test pairs and for transfer:
+English-only two-hop questions (TwoHopFact), where the hidden word is the bridge entity.
 Usage: uv run scripts/challenge/make_word_lists.py (once), then uv run scripts/challenge/score.py — PI/OpenAI
 """
 import ast
@@ -60,6 +59,9 @@ def top_words(scores):
     raise AssertionError("fewer than K distinct words in the top 4096")
 
 
+chinese = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(ROOT / "data/wendler_words/zh/clean.csv"))}
+
+
 def translation_prompts(pairs, role):
     words = json.loads((ROOT / "data/challenge/words.json").read_text())
     for src, tgt in pairs:
@@ -69,7 +71,7 @@ def translation_prompts(pairs, role):
         shots = "".join(line(w) + f'{words[w][tgt]}"\n' for w in pool[:4])
         for w in pool[4:4 + PER_PAIR]:
             yield {"role": role, "split": f"{src}→{tgt}", "word": w, "prompt": shots + line(w),
-                   "leak": script[src] | script[tgt], "right": spelled(w)}
+                   "leak": script[src] | script[tgt], "right": spelled(w) | frozenset(by_spelling.get(chinese[w], []))}
 
 
 def transfer_prompts():
@@ -108,14 +110,14 @@ def evaluate(item, settings_of):
             found = any(t in item["right"] for t in top)
             out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name,
                         "setting": list(setting), "top8": [vocab[t] for t in top], "leaked": leaked, "share": share,
-                        "unsaid": 0.0 if leaked else share, "found": float(found and not leaked)})
+                        "found": float(found and not leaked)})
     return out
 
 
 skipped = []
 dev_rows = [r for item in translation_prompts(DEV, "dev") for r in evaluate(item, lambda name: TRANSFORMS[name][0])]
 assert dev_rows, "no dev prompts survived"
-chosen = {name: max(settings, key=lambda s: mean(r["unsaid"] for r in dev_rows if r["transform"] == name and r["setting"] == list(s)))
+chosen = {name: max(settings, key=lambda s: mean(r["found"] for r in dev_rows if r["transform"] == name and r["setting"] == list(s)))
           for name, (settings, _, _) in TRANSFORMS.items()}
 rows = dev_rows + [r for item in [*translation_prompts(TEST, "test"), *transfer_prompts()]
                    for r in evaluate(item, lambda name: [chosen[name]])]
@@ -136,24 +138,24 @@ for name, (settings, lens_based, _) in TRANSFORMS.items():
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
     table.append({"transform": f"*{label}*" if name in CONTROLS else label, "setting": "/".join(map(str, chosen[name])),
-                  "unsaid↑": mean(r["unsaid"] for r in test), "share↑": mean(r["share"] for r in test),
-                  "leaked↓": mean(r["leaked"] for r in test), "found↑": mean(r["found"] for r in test),
+                  "found↑": mean(r["found"] for r in test), "leaked↓": mean(r["leaked"] for r in test),
+                  "share↑": mean(r["share"] for r in test),
                   "transfer found↑": mean(r["found"] for r in transfer), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
-table.sort(key=lambda r: -r["unsaid↑"])
-for col, better in (("unsaid↑", max), ("share↑", max), ("leaked↓", min), ("found↑", max), ("transfer found↑", max)):
+table.sort(key=lambda r: -r["found↑"])
+for col, better in (("found↑", max), ("leaked↓", min), ("share↑", max), ("transfer found↑", max)):
     best = better(r[col] for r in table)
     for r in table:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); each setting chosen on "
-           f"{DEV[0][0]}→{DEV[0][1]}. unsaid = share of the top {K} distinct words written in English or Chinese, 0 if any is in "
-           f"the input or output script or is the model's next word. leaked = share of lists with such a word. found = share of "
-           f"lists holding the exact English word without a leak. transfer found = the same on {n_transfer} English-only "
-           f"TwoHopFact questions, for the hidden bridge entity. ★ = uses a lens or per-prompt vocabulary scores. Italic = control. "
-           f"{len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
-           f"Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
+           f"{DEV[0][0]}→{DEV[0][1]}. found = share of prompts whose top {K} distinct words include the English word or its "
+           f"Chinese translation, with no word in the input or output script and not the model's next word. leaked = share of "
+           f"lists with such a word. share = top-{K} words in Latin or Han script, a weak check (random scores high on it). "
+           f"transfer found = found on {n_transfer} English-only TwoHopFact questions, for the hidden bridge entity. "
+           f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
+           f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
 markdown = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left", "left") + ("right",) * 6) + "\n\n" + caption + "\n"
+                    colalign=("left", "left") + ("right",) * 5) + "\n\n" + caption + "\n"
 (out / "leaderboard.md").write_text(markdown)
 print(markdown, f"\nskipped: {skipped}\n{out / 'leaderboard.md'}", flush=True)
