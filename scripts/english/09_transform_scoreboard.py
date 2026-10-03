@@ -4,7 +4,8 @@ Every candidate maps one forward pass to a score per vocabulary token. We keep i
 (case and space variants share a slot) and score them.
 Translation between distant languages (Russian, Korean, Arabic, Hindi, Thai; MUSE dictionary words, 4-shot) is the
 labelled scoreboard: hidden = English and Chinese words for the meaning; said = any token in the output language's Unicode
-script, every dictionary translation, and the model's actual next token; input = any token in the input language's script.
+script, plus the model's actual next token; input = any token in the input language's script. The dictionary is only used
+to write the prompts.
 Prompts where the model's next token is whitespace or punctuation are skipped and counted (prompt format problem).
 
     readout(v) = W_U (g * rms(v))                              # the model's own output head
@@ -110,8 +111,10 @@ texts = json.loads((ROOT / ".local/wikitext2_train_300.json").read_text())["text
 cov = {key: torch.zeros(d, d, dtype=torch.float64, device="cuda") for key in ("x27", "x32", "d24", "d27", "d29", "supp")}
 sums = {key: torch.zeros(d, dtype=torch.float64, device="cuda") for key in cov}
 n = 0
+token_counts = torch.zeros(len(vocab), dtype=torch.long)
 for text in texts:
     ids = tok(text, return_tensors="pt", add_special_tokens=False, truncation=True, max_length=128).input_ids.cuda()
+    token_counts += torch.bincount(ids[0].cpu(), minlength=len(vocab))[:len(vocab)]
     _, hs = hidden_states(ids)
     x = {l: rms(hs[l][0, 8:]).double() for l in (24, 25, 27, 28, 29, 30, 32)}
     # AntiPaSTO "suppressed" primitive: per coordinate, magnitude added in some layers and removed in others
@@ -150,9 +153,7 @@ def translation_items(pairs, role):
         head = "".join(f'{LANG_NAME[src]}: "{lists[w][src]["canonical"]}" - {LANG_NAME[tgt]}: "{lists[w][tgt]["canonical"]}"\n' for w in shots)
         for w in targets:
             prompt = head + f'{LANG_NAME[src]}: "{lists[w][src]["canonical"]}" - {LANG_NAME[tgt]}: "'
-            # any token in the output (input) language's script counts as said (input), plus the dictionary forms
-            said = in_script[tgt] | frozenset().union(*(label(a, MIN_CHARS[tgt]) for a in lists[w][tgt]["aliases"]))
-            inp = in_script[src] | frozenset().union(*(label(a, MIN_CHARS[src]) for a in lists[w][src]["aliases"]))
+            said, inp = in_script[tgt], in_script[src]  # any token in the output (input) language's script
             groups = [label(w) - said - inp, label(lists[w]["zh"], 1) - said - inp]  # hidden: English, Chinese
             yield role, f"{src}→{tgt}", prompt, w, [g for g in groups if g], said, inp
 
@@ -240,14 +241,23 @@ def top_words(s):
     return kept
 
 
+COMMON = 200  # the most frequent tokens on the 300 WikiText texts ("the", "of", ...) do not count as thoughts
+common = frozenset(token_counts.topk(COMMON).indices.tolist())
+hidden_script = frozenset(t for t, v in enumerate(vocab) if re.search(r"[A-Za-z\u4e00-\u9fff]", v) and t not in common
+                          and not any(re.search(f"[{r}]", v) for r in SCRIPT.values()))  # English or Chinese letters
+print("not counted as thoughts (most common WikiText tokens):", [vocab[t] for t in sorted(common, key=lambda t: -token_counts[t])][:40], flush=True)
+
+
 def score(top, groups, said, inp):
     hidden = frozenset().union(*groups)
     p = sum(t in hidden for t in top) / K                  # share of the K slots holding a hidden word
     r = sum(bool(set(top) & g) for g in groups) / len(groups)  # share of hidden languages (English, Chinese) found
     f1 = 0.0 if p == 0 else 2 * p * r / (p + r)
     leak_said, leak_input = bool(set(top) & said), bool(set(top) & inp)
+    en_share = sum(t in hidden_script for t in top) / K      # any English/Chinese word counts: the language of thought
     return {"F1": f1, "P": p, "R": r, "hit": p > 0, "said": leak_said, "input": leak_input,
-            "unsaid_F1": 0.0 if leak_said or leak_input else f1, "pass": p > 0 and not leak_said and not leak_input}
+            "unsaid_F1": 0.0 if leak_said or leak_input else f1, "pass": p > 0 and not leak_said and not leak_input,
+            "hidden_share": en_share, "unsaid_share": 0.0 if leak_said or leak_input else en_share}
 
 
 results, skipped = [], []  # one row per (item, candidate)

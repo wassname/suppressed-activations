@@ -27,6 +27,10 @@ def unsaid_f1(r):
     return r["unsaid_F1"]
 
 
+def unsaid_share(r):
+    return r["unsaid_share"]
+
+
 def link(fam):
     n = next(i for i, line in enumerate(src_lines, 1) if f'"{fam}"' in line)
     return f"[{fam}]({SRC}#L{n})"
@@ -36,33 +40,34 @@ table = []
 for fam in dict.fromkeys(r["family"] for r in rows):
     mine = [r for r in rows if r["family"] == fam]
     settings = sorted({(r["layer"], r["rank"]) for r in mine})
-    dev = lambda s: mean(unsaid_f1(r) for r in mine if (r["layer"], r["rank"]) == s and r["role"] == "dev")
+    dev = lambda s: mean(unsaid_share(r) for r in mine if (r["layer"], r["rank"]) == s and r["role"] == "dev")
     best = max(settings, key=lambda s: (round(dev(s), 6), -s[0], -s[1]))
     pick = [r for r in mine if (r["layer"], r["rank"]) == best]
     test, eng = [r for r in pick if r["role"] == "test"], [r for r in pick if r["role"] == "transfer"]
     name = link(fam) + (" ★" if fam in LENS_BASED else "")
     table.append({"transform": f"*{name}*" if fam in BASELINES else name,
                   "setting": f"L{best[0]}" + (f" r{best[1]}" if best[1] else ""),
-                  "unsaid F1↑": mean(unsaid_f1(r) for r in test), "F1↑": mean(r["F1"] for r in test),
+                  "unsaid en/zh share↑": mean(unsaid_share(r) for r in test), "en/zh share↑": mean(r["hidden_share"] for r in test),
+                  "right-word unsaid F1↑": mean(unsaid_f1(r) for r in test),
                   "said↓": mean(r["said"] for r in test), "transfer unsaid F1↑": mean(unsaid_f1(r) for r in eng),
                   "settings tried": len(settings), "_n": (len(test), len(eng))})
-table.sort(key=lambda r: -r["unsaid F1↑"])
+table.sort(key=lambda r: -r["unsaid en/zh share↑"])
 n_test, n_eng = table[0].pop("_n")
 for r in table[1:]:
     assert r.pop("_n") == (n_test, n_eng)
-for col in ("unsaid F1↑", "F1↑", "transfer unsaid F1↑"):
+for col in ("unsaid en/zh share↑", "en/zh share↑", "right-word unsaid F1↑", "transfer unsaid F1↑"):
     top = max(r[col] for r in table)
     for r in table:
         r[col] = f"**{r[col]:.2f}**" if r[col] == top else f"{r[col]:.2f}"
 low = min(r["said↓"] for r in table)
 for r in table:
     r["said↓"] = f"**{r['said↓']:.2f}**" if r["said↓"] == low else f"{r['said↓']:.2f}"
-md = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True, colalign=("left", "left", "right", "right", "right", "right", "right"))
+md = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True, colalign=("left", "left") + ("right",) * 6)
 pairs = sorted({r["split"] for r in rows if r["role"] == "test"}); dev = sorted({r["split"] for r in rows if r["role"] == "dev"})
 caption = (f"<sub>Table: top 8 distinct words per prompt, no masks. Test = translation {', '.join(pairs)} ({n_test} prompts); "
            f"English transfer = all-English two-step questions ({n_eng}), never used to choose anything. Each row's setting was chosen on {', '.join(dev)} only. "
-           "Hidden = the English or Chinese word. unsaid F1 = 2PR/(P+R), P = hidden words among the 8, R = share of {English, Chinese} found, "
-           "set to 0 when a spoken or input word is among the 8; said = share of lists with a spoken word. "
+           "en/zh share = share of the 8 words written in English or Chinese; unsaid = set to 0 when any of the 8 is in the input or output language's script. "
+           "right-word F1 scores only the translation of this prompt's word (from the dictionary). said = share of lists with an output-script token. "
            "All rows read out through the model's output head; ★ means the transform also uses a lens or per-prompt vocabulary scores. "
            f"Source: [{run.name}]({run.relative_to(ROOT)}/run.md).</sub>")
 out = md + "\n\n" + caption + "\n"
