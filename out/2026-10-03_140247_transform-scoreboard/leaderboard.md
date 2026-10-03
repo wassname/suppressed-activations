@@ -1,0 +1,19 @@
+| transform                                                                                          | setting   |   unsaid F1↑ |      F1↑ |    said↓ |   English unsaid F1↑ |   settings tried |
+|:---------------------------------------------------------------------------------------------------|:----------|-------------:|---------:|---------:|---------------------:|-----------------:|
+| [your suppressed subspace via J-lens (rank 32)](scripts/english/09_transform_scoreboard.py#L217) ★ | L28 r32   |     **0.45** |     0.49 |     0.06 |                 0.02 |                4 |
+| [churn](scripts/english/09_transform_scoreboard.py#L121)                                           | L27 r1024 |         0.43 |     0.48 |     0.05 |                 0.01 |                9 |
+| [J-lens minus output subspace](scripts/english/09_transform_scoreboard.py#L204) ★                  | L28 r256  |         0.42 | **0.50** |     0.14 |                 0.02 |                9 |
+| [your suppressed subspace (rank 32)](scripts/english/09_transform_scoreboard.py#L199) ★            | L27 r32   |         0.42 |     0.44 |     0.01 |                 0.00 |                1 |
+| [rise-and-fall through J-lens](scripts/english/09_transform_scoreboard.py#L213) ★                  | L28       |         0.39 |     0.42 |     0.00 |                 0.02 |                4 |
+| [write-not-read](scripts/english/09_transform_scoreboard.py#L101)                                  | L27 r1024 |         0.36 |     0.43 |     0.08 |                 0.00 |                9 |
+| [J-lens](scripts/english/09_transform_scoreboard.py#L192) ★                                        | L27       |         0.35 |     0.47 |     0.20 |                 0.02 |               12 |
+| *[plain lens](scripts/english/09_transform_scoreboard.py#L191) ★*                                  | L27       |         0.35 |     0.46 |     0.18 |                 0.01 |               12 |
+| [attention output, J-lens](scripts/english/09_transform_scoreboard.py#L205) ★                      | L23       |         0.34 |     0.40 |     0.01 |             **0.03** |                1 |
+| [plain lens minus output subspace](scripts/english/09_transform_scoreboard.py#L203)                | L26 r64   |         0.33 |     0.42 |     0.13 |                 0.01 |                9 |
+| *[random subspace (floor)](scripts/english/09_transform_scoreboard.py#L93)*                        | L27 r1024 |         0.31 |     0.37 |     0.12 |                 0.00 |                3 |
+| [AntiPaSTO suppressed (WikiText)](scripts/english/09_transform_scoreboard.py#L127)                 | L27 r1024 |         0.29 |     0.36 |     0.16 |                 0.01 |                3 |
+| [your rise-and-fall, plain](scripts/english/09_transform_scoreboard.py#L208) ★                     | L27       |         0.25 |     0.26 | **0.00** |                 0.00 |                1 |
+| [erased-variance](scripts/english/09_transform_scoreboard.py#L124)                                 | L27 r1024 |         0.19 |     0.21 |     0.03 |                 0.00 |                3 |
+| [weak-readout](scripts/english/09_transform_scoreboard.py#L90)                                     | L27 r1024 |         0.12 |     0.17 |     0.10 |                 0.00 |                3 |
+
+<sub>Table: top 8 tokens per prompt, no masks. Test = 5 held-out translation pairs (408 prompts); English = v3, v4 and TwoHopFact two-step questions (80). Each row's setting was chosen on de→fr only. unsaid F1 is F1@8, set to 0 when a spoken or input token is in the top 8; said is the share of lists with a spoken token. All rows read out through the model's output head; ★ means the transform also uses a lens or per-prompt vocabulary scores. Source: [2026-10-03_140247_transform-scoreboard](out/2026-10-03_140247_transform-scoreboard/run.md).</sub>

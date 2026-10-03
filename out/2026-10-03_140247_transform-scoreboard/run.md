@@ -1,0 +1,41 @@
+# Transform scoreboard
+
+— PI/OpenAI. No masks. Settings chosen on de→fr only.
+
+| transform                                     | setting (chosen on dev)   |   dev de→fr F1@8 | dev de→fr pass   |   test (5 pairs) F1@8 | test (5 pairs) pass   |   English v3 F1@8 | English v3 pass   |   English v4 F1@8 | English v4 pass   |   TwoHopFact F1@8 | TwoHopFact pass   |
+|:----------------------------------------------|:--------------------------|-----------------:|:-----------------|----------------------:|:----------------------|------------------:|:------------------|------------------:|:------------------|------------------:|:------------------|
+| your suppressed subspace via J-lens (rank 32) | layer 29, rank 32         |            0.486 | 36/76            |                 0.508 | 280/408               |             0.114 | 1/16              |             0.110 | 1/8               |             0.011 | 1/56              |
+| plain lens minus output subspace              | layer 28, rank 16         |            0.527 | 52/76            |                 0.501 | 299/408               |             0.040 | 0/16              |             0.129 | 1/8               |             0.009 | 2/56              |
+| J-lens minus output subspace                  | layer 28, rank 256        |            0.508 | 53/76            |                 0.501 | 316/408               |             0.138 | 1/16              |             0.174 | 2/8               |             0.018 | 3/56              |
+| J-lens                                        | layer 28                  |            0.480 | 43/76            |                 0.484 | 276/408               |             0.133 | 0/16              |             0.205 | 0/8               |             0.013 | 2/56              |
+| plain lens                                    | layer 28                  |            0.493 | 50/76            |                 0.483 | 286/408               |             0.040 | 0/16              |             0.161 | 1/8               |             0.007 | 2/56              |
+| churn                                         | layer 27, rank 1024       |            0.495 | 64/76            |                 0.482 | 341/408               |             0.016 | 0/16              |             0.094 | 1/8               |             0.000 | 0/56              |
+| write-not-read                                | layer 29, rank 1024       |            0.434 | 35/76            |                 0.462 | 250/408               |             0.040 | 0/16              |             0.097 | 0/8               |             0.002 | 1/56              |
+| your suppressed subspace (rank 32)            | layer 27, rank 32         |            0.464 | 69/76            |                 0.435 | 346/408               |             0.000 | 0/16              |             0.000 | 0/8               |             0.000 | 0/56              |
+| rise-and-fall through J-lens                  | layer 28                  |            0.418 | 62/76            |                 0.418 | 356/408               |             0.066 | 2/16              |             0.125 | 1/8               |             0.007 | 1/56              |
+| attention output, J-lens                      | layer 23                  |            0.429 | 49/76            |                 0.404 | 281/408               |             0.225 | 5/16              |             0.047 | 0/8               |             0.034 | 5/56              |
+| random subspace (floor)                       | layer 27, rank 1024       |            0.398 | 61/76            |                 0.368 | 291/408               |             0.024 | 1/16              |             0.066 | 1/8               |             0.000 | 0/56              |
+| AntiPaSTO suppressed (WikiText)               | layer 27, rank 1024       |            0.390 | 55/76            |                 0.360 | 273/408               |             0.040 | 2/16              |             0.031 | 1/8               |             0.000 | 0/56              |
+| your rise-and-fall, plain                     | layer 27                  |            0.287 | 62/76            |                 0.257 | 301/408               |             0.000 | 0/16              |             0.000 | 0/8               |             0.000 | 0/56              |
+| erased-variance                               | layer 27, rank 1024       |            0.175 | 41/76            |                 0.209 | 257/408               |             0.000 | 0/16              |             0.000 | 0/8               |             0.002 | 1/56              |
+| weak-readout                                  | layer 27, rank 1024       |            0.177 | 37/76            |                 0.166 | 190/408               |             0.016 | 2/16              |             0.000 | 0/8               |             0.000 | 0/56              |
+
+Spoken word in top 8:
+
+| transform                                     | dev de→fr said in top8   | test (5 pairs) said in top8   | English v3 said in top8   | English v4 said in top8   | TwoHopFact said in top8   |
+|:----------------------------------------------|:-------------------------|:------------------------------|:--------------------------|:--------------------------|:--------------------------|
+| plain lens                                    | 20/76                    | 76/408                        | 12/16                     | 6/8                       | 23/56                     |
+| J-lens                                        | 29/76                    | 93/408                        | 14/16                     | 8/8                       | 28/56                     |
+| weak-readout                                  | 8/76                     | 42/408                        | 3/16                      | 6/8                       | 16/56                     |
+| random subspace (floor)                       | 7/76                     | 48/408                        | 5/16                      | 3/8                       | 9/56                      |
+| write-not-read                                | 33/76                    | 108/408                       | 15/16                     | 8/8                       | 28/56                     |
+| churn                                         | 5/76                     | 20/408                        | 8/16                      | 3/8                       | 5/56                      |
+| erased-variance                               | 3/76                     | 13/408                        | 0/16                      | 2/8                       | 25/56                     |
+| AntiPaSTO suppressed (WikiText)               | 13/76                    | 66/408                        | 5/16                      | 1/8                       | 21/56                     |
+| your suppressed subspace (rank 32)            | 0/76                     | 3/408                         | 1/16                      | 1/8                       | 9/56                      |
+| plain lens minus output subspace              | 18/76                    | 67/408                        | 13/16                     | 6/8                       | 25/56                     |
+| J-lens minus output subspace                  | 18/76                    | 56/408                        | 12/16                     | 6/8                       | 24/56                     |
+| attention output, J-lens                      | 1/76                     | 6/408                         | 3/16                      | 1/8                       | 14/56                     |
+| your rise-and-fall, plain                     | 0/76                     | 0/408                         | 0/16                      | 1/8                       | 9/56                      |
+| rise-and-fall through J-lens                  | 3/76                     | 2/408                         | 7/16                      | 5/8                       | 16/56                     |
+| your suppressed subspace via J-lens (rank 32) | 37/76                    | 90/408                        | 10/16                     | 7/8                       | 18/56                     |

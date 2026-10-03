@@ -88,6 +88,9 @@ for chunk in (W * gain).split(16384):
 evals, evecs = torch.linalg.eigh(G)  # ascending
 for r in RANKS:
     bases[("weak-readout", 0, r)] = evecs[:, :r].float().cuda()  # directions the output head reads least
+noise = torch.randn(d, max(RANKS), generator=torch.Generator().manual_seed(0)).cuda()
+for r in RANKS:
+    bases[("random subspace (floor)", 27, r)] = orth(noise[:, :r])  # same rank, no structure
 for l in (24, 27, 29):
     down = model.model.layers[l - 1].mlp.down_proj.weight.float()            # [d, m] writes residual l
     reads = torch.cat([model.model.layers[l].mlp.up_proj.weight.float(), model.model.layers[l].mlp.gate_proj.weight.float()])  # [2m, d]
