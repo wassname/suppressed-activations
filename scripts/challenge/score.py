@@ -4,9 +4,9 @@ Translation between languages that share no script with English or Chinese. The 
 perhaps Chinese); it reads one language and writes another. For each prompt we keep a transform's top 8 distinct words
 (case and space variants share a slot) at the last prompt token:
 
-    hidden = a top-8 word is the English word or its Chinese translation
-    leaked = a top-8 word is in the input or output script, or is the model's next word
-    pass   = hidden and not leaked
+    TP = the hidden word (English, or its Chinese translation) is in the top 8, else FN
+    FP = a top-8 word is in the input or output language (script), or is the model's next word, else TN
+    pass = TP and TN
 
 Each transform's setting is chosen on the dev pair by pass rate, then frozen for the test pairs and for transfer:
 English-only two-hop questions (TwoHopFact), where the hidden word is the bridge entity.
@@ -139,11 +139,11 @@ for name, (settings, lens_based, _) in TRANSFORMS.items():
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
     table.append({"transform": f"*{label}*" if name in CONTROLS else label, "setting": "/".join(map(str, chosen[name])),
-                  "pass rate↑": mean(r["pass"] for r in test), "hidden in top 8↑": mean(r["hidden"] for r in test),
-                  "input/output word in top 8↓": mean(r["leaked"] for r in test),
+                  "pass rate↑": mean(r["pass"] for r in test), "TPR↑": mean(r["hidden"] for r in test),
+                  "FPR↓": mean(r["leaked"] for r in test),
                   "English-only pass rate↑": mean(r["pass"] for r in transfer), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
-COLS = (("pass rate↑", max), ("hidden in top 8↑", max), ("input/output word in top 8↓", min), ("English-only pass rate↑", max))
+COLS = (("pass rate↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only pass rate↑", max))
 table.sort(key=lambda r: -r["pass rate↑"])
 for col, better in COLS:
     best = better(r[col] for r in table)
@@ -151,9 +151,10 @@ for col, better in COLS:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. Per prompt, over the top {K} distinct words: hidden = the English word or its "
-           f"Chinese translation is there; input/output word = a word in the input or output script, or the model's next word, "
-           f"is there; pass = hidden and no input/output word. English-only pass rate = pass rate on {n_transfer} English-only "
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. Each prompt is one classification of the transform's top {K} "
+           f"distinct words. TP: the hidden word (English, or its Chinese translation) is there; FN: it is not. FP: a word "
+           f"in the input or output language, or the model's next word, is there; TN: none is. TPR = TP/(TP+FN), "
+           f"FPR = FP/(FP+TN), pass = TP and TN, all as shares of prompts. English-only pass rate = pass rate on {n_transfer} English-only "
            f"TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. "
            f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
            f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
