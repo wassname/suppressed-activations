@@ -135,31 +135,39 @@ out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump({"rows": rows, "skipped": skipped, "chosen": chosen}, f, ensure_ascii=False)
 source_lines = inspect.getsource(__import__("transforms")).splitlines()
-CONTROLS = ("plain lens", "random subspace (floor)", "fixed list (control)", "input word, J-lens (control)")
-table = []
-for name, (settings, lens_based, _) in TRANSFORMS.items():
+CONTROLS = ("plain lens", "random subspace (floor)", "fixed list (control)", "input word (control)")
+COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
+rows_by_table = {False: [], True: []}  # uses the J-lens?
+for name, (settings, per_prompt, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
     test, transfer = mine("test"), mine("transfer")
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
-    label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
-    table.append({"transform": f"*{label}*" if name in CONTROLS else label,
-                  "F1↑": f1(test), "TPR↑": mean(r["hidden"] for r in test),
-                  "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
-                  "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
+    label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if per_prompt else "")
+    rows_by_table["J-lens" in name].append({
+        "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "TPR↑": mean(r["hidden"] for r in test),
+        "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
+        "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
-COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
-table.sort(key=lambda r: -r["F1↑"])
-for col, better in COLS:
-    best = better(r[col] for r in table)
-    for r in table:
-        r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
+
+
+def render(table):
+    table.sort(key=lambda r: -r["F1↑"])
+    for col, better in COLS:
+        best = better(r[col] for r in table)
+        for r in table:
+            r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
+    return tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
+                    colalign=("left",) + ("right",) * 4 + ("left", "right"))
+
+
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on {n_transfer} English-only "
-           f"TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. "
-           f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
-           f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
-markdown = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left",) + ("right",) * 4 + ("left", "right")) + "\n\n" + caption + "\n"
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). "
+           f"English-only F1 = F1 on {n_transfer} English-only TwoHopFact questions, where the hidden word is the bridge entity and "
+           f"input/output words are the question's words and its answer. ★ = picks tokens per prompt from vocabulary scores. "
+           f"Italic = control. {len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
+           f"Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
+markdown = (render(rows_by_table[False]) + "\n\n" + caption + "\n\n### Using the J-lens\n\n"
+            + render(rows_by_table[True]) + "\n")
 (out / "leaderboard.md").write_text(markdown)
 print(markdown, f"\nskipped: {skipped}\n{out / 'leaderboard.md'}", flush=True)
