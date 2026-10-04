@@ -4,12 +4,11 @@ Translation between languages that share no script with English or Chinese. The 
 perhaps Chinese); it reads one language and writes another. For each prompt we keep a transform's top 8 distinct words
 (case and space variants share a slot) at the last prompt token:
 
-    found  = 1 if a top-8 word is the English word or its Chinese translation, and none is in the input or output
-             script or is the model's next word; else 0
-    share  = top-8 words written in English or Chinese / 8 (200 commonest WikiText tokens excluded); a weak check,
-             because junk tokens in Latin or Han script count too (see the random row)
+    hidden = a top-8 word is the English word or its Chinese translation
+    leaked = a top-8 word is in the input or output script, or is the model's next word
+    pass   = hidden and not leaked
 
-Each transform's setting is chosen on the dev pair by found, then frozen for the test pairs and for transfer:
+Each transform's setting is chosen on the dev pair by pass rate, then frozen for the test pairs and for transfer:
 English-only two-hop questions (TwoHopFact), where the hidden word is the bridge entity.
 Usage: uv run scripts/challenge/make_word_lists.py (once), then uv run scripts/challenge/score.py — PI/OpenAI
 """
@@ -27,14 +26,12 @@ from statistics import mean
 from tabulate import tabulate
 
 from common import LANG_NAME, ROOT, SCRIPT, forward, tok, tokens_in_script, vocab
-from transforms import TRANSFORMS, fit_bases, token_counts
+from transforms import TRANSFORMS, fit_bases
 
 K, PER_PAIR, N_TRANSFER = 8, 20, 50
 DEV, TEST = [("ru", "ko")], [("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]
 script = {lang: tokens_in_script(pattern) for lang, pattern in SCRIPT.items()}
 fit_bases()
-common_tokens = frozenset(token_counts.topk(200).indices.tolist())
-thought_script = tokens_in_script(r"A-Za-z\u4e00-\u9fff") - common_tokens - frozenset().union(*script.values())
 special = frozenset(tok.all_special_ids) | {t for t, v in enumerate(vocab) if not v}
 by_spelling = {}
 for t, v in enumerate(vocab):
@@ -111,18 +108,17 @@ def evaluate(item, settings_of):
         for setting in settings_of(name):
             top = top_words(fn(state, *setting))
             leaked = bool(set(top) & leak)
-            share = sum(t in thought_script for t in top) / K
-            found = any(t in item["right"] for t in top)
+            hidden = any(t in item["right"] for t in top)
             out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name,
-                        "setting": list(setting), "top8": [vocab[t] for t in top], "leaked": leaked, "share": share,
-                        "found": float(found and not leaked)})
+                        "setting": list(setting), "top8": [vocab[t] for t in top], "hidden": hidden, "leaked": leaked,
+                        "pass": float(hidden and not leaked)})
     return out
 
 
 skipped = []
 dev_rows = [r for item in translation_prompts(DEV, "dev") for r in evaluate(item, lambda name: TRANSFORMS[name][0])]
 assert dev_rows, "no dev prompts survived"
-chosen = {name: max(settings, key=lambda s: mean(r["found"] for r in dev_rows if r["transform"] == name and r["setting"] == list(s)))
+chosen = {name: max(settings, key=lambda s: mean(r["pass"] for r in dev_rows if r["transform"] == name and r["setting"] == list(s)))
           for name, (settings, _, _) in TRANSFORMS.items()}
 rows = dev_rows + [r for item in [*translation_prompts(TEST, "test"), *transfer_prompts()]
                    for r in evaluate(item, lambda name: [chosen[name]])]
@@ -143,21 +139,22 @@ for name, (settings, lens_based, _) in TRANSFORMS.items():
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
     table.append({"transform": f"*{label}*" if name in CONTROLS else label, "setting": "/".join(map(str, chosen[name])),
-                  "found↑": mean(r["found"] for r in test), "leaked↓": mean(r["leaked"] for r in test),
-                  "share↑": mean(r["share"] for r in test),
-                  "transfer found↑": mean(r["found"] for r in transfer), "tried": len(settings)})
+                  "pass rate↑": mean(r["pass"] for r in test), "hidden in top 8↑": mean(r["hidden"] for r in test),
+                  "input/output word in top 8↓": mean(r["leaked"] for r in test),
+                  "English-only pass rate↑": mean(r["pass"] for r in transfer), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
-table.sort(key=lambda r: -r["found↑"])
-for col, better in (("found↑", max), ("leaked↓", min), ("share↑", max), ("transfer found↑", max)):
+COLS = (("pass rate↑", max), ("hidden in top 8↑", max), ("input/output word in top 8↓", min), ("English-only pass rate↑", max))
+table.sort(key=lambda r: -r["pass rate↑"])
+for col, better in COLS:
     best = better(r[col] for r in table)
     for r in table:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. found = share of prompts whose top {K} distinct words include the English word or its "
-           f"Chinese translation, with no word in the input or output script and not the model's next word. leaked = share of "
-           f"lists with such a word. share = top-{K} words in Latin or Han script, a weak check (random scores high on it). "
-           f"transfer found = found on {n_transfer} English-only TwoHopFact questions, for the hidden bridge entity. "
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. Per prompt, over the top {K} distinct words: hidden = the English word or its "
+           f"Chinese translation is there; input/output word = a word in the input or output script, or the model's next word, "
+           f"is there; pass = hidden and no input/output word. English-only pass rate = pass rate on {n_transfer} English-only "
+           f"TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. "
            f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
            f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
 markdown = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
