@@ -9,6 +9,25 @@ from huggingface_hub import hf_hub_download
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def fetch(rel, url, md5):
+    """Download a data file once and check it."""
+    path = ROOT / rel
+    if not path.exists():
+        import urllib.request
+        path.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(url, path)
+    assert hashlib.md5(path.read_bytes()).hexdigest() == md5, f"{path} does not match {url}"
+    return path
+
+
+TWOHOP = lambda: fetch("data/twohop/TwoHopFact.csv",  # CC-BY-4.0, Yang et al. 2024
+                       "https://huggingface.co/datasets/soheeyang/TwoHopFact/resolve/main/TwoHopFact.csv",
+                       "02f99628a997e73d34c51693cf9aef44")
+WENDLER_ZH = lambda: fetch("data/wendler_words/zh/clean.csv",  # Wendler et al. 2024 word list
+                           "https://raw.githubusercontent.com/epfl-dlab/llm-latent-language/main/data/langs/zh/clean.csv",
+                           "444042b7f62f06afdd18b122150d47e4")
 sys.path.insert(0, str(ROOT))  # for suppressed_activation_subspace
 MODEL, REVISION = "Qwen/Qwen3.5-4B", "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 LENS = ("neuronpedia/jacobian-lens", "qwen3.5-4b/jlens/Salesforce-wikitext/Qwen3.5-4B_jacobian_lens_n1000.pt",

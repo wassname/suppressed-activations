@@ -84,7 +84,7 @@ def fit_bases():
 
 
 # ---- the transforms ----
-@transform("plain lens", [(l,) for l in range(20, 32)], per_prompt=False)
+@transform("logit lens", [(l,) for l in range(20, 32)], per_prompt=False)
 def plain(s, l):
     return readout(s["res"][l])
 
@@ -94,7 +94,7 @@ def j_lens(s, l):
     return readout(jlens(s["res"][l], l))
 
 
-@transform("fixed list (control)", [(28,)], per_prompt=False)
+@transform("mean WikiText activation (control)", [(28,)], per_prompt=False)
 def fixed_list(s, l):  # ignores the prompt: readout of the mean WikiText residual
     return readout(bases["mean28"])
 
@@ -104,27 +104,27 @@ def input_word(s, l):  # reads the input word itself, not the last token: does r
     return readout(s["input"][l])
 
 
-@transform("random subspace (floor)", [(27, r) for r in RANKS], per_prompt=False)
+@transform("random subspace (control)", [(27, r) for r in RANKS], per_prompt=False)
 def random_subspace(s, l, r):
     return readout(project(bases["random"][:, :r], s["res"][l]))
 
 
-@transform("churn", [(l, r) for l in (24, 27, 29) for r in RANKS], per_prompt=False)
+@transform("layer-change PCA", [(l, r) for l in (24, 27, 29) for r in RANKS], per_prompt=False)
 def churn(s, l, r):  # largest layer-to-layer change on generic text
     return readout(project(bases[f"churn{l}"][:, :r], s["res"][l]))
 
 
-@transform("write minus top-read", [(l, r) for l in (24, 27, 29) for r in RANKS], per_prompt=False)
+@transform("MLP write minus next MLP read", [(l, r) for l in (24, 27, 29) for r in RANKS], per_prompt=False)
 def write_minus_top_read(s, l, r):  # top-r directions block l-1's MLP writes, minus the top-r its next MLP reads
     return readout(project(bases[f"write minus top-read{l}"][r], s["res"][l]))
 
 
-@transform("erased-variance", [(27, r) for r in RANKS], per_prompt=False)
+@transform("variance gone by the output (PCA)", [(27, r) for r in RANKS], per_prompt=False)
 def erased_variance(s, l, r):  # variance at layer 27 that is gone by 32
     return readout(project(bases["erased-variance"][:, :r], s["res"][l]))
 
 
-@transform("weak-readout", [(27, r) for r in RANKS], per_prompt=False)
+@transform("directions the output head reads least", [(27, r) for r in RANKS], per_prompt=False)
 def weak_readout(s, l, r):
     return readout(project(bases["weak-readout"][:, :r], s["res"][l]))
 
@@ -134,18 +134,18 @@ def added_then_removed(s, l, r):  # pca(min(increases, decreases)) of per-coordi
     return readout(project(bases["added then removed"][:, :r], s["res"][l]))
 
 
-@transform("suppressed (AntiPaSTO)", [(27, r) for r in RANKS], per_prompt=False)
+@transform("AntiPaSTO suppressed subspace", [(27, r) for r in RANKS], per_prompt=False)
 def suppressed_antipasto(s, l, r):  # compute_suppressed_from_hidden_states in github.com/wassname/AntiPaSTO, on all tokens
     return readout(project(bases["suppressed (AntiPaSTO)"][:, :r], s["res"][l]))
 
 
-@transform("plain lens minus output subspace", [(l, r) for l in (26, 28, 30) for r in (16, 64, 256)], per_prompt=False)
+@transform("logit lens minus output-layer PCA", [(l, r) for l in (26, 28, 30) for r in (16, 64, 256)], per_prompt=False)
 def plain_minus_output(s, l, r):
     x, B = rms(s["res"][l]), bases["output"][:, :r]
     return readout(x - B @ (B.T @ x))
 
 
-@transform("J-lens minus output subspace", [(l, r) for l in (26, 28, 30) for r in (16, 64, 256)], per_prompt=False)
+@transform("J-lens minus output-layer PCA", [(l, r) for l in (26, 28, 30) for r in (16, 64, 256)], per_prompt=False)
 def j_minus_output(s, l, r):
     x, B = rms(jlens(s["res"][l], l)), bases["output"][:, :r]
     return readout(x - B @ (B.T @ x))
@@ -166,18 +166,18 @@ def rise_and_fall_j(s, peak):
     return _rise_fall(readout(jlens(s["res"][22], 22)), readout(jlens(s["res"][peak], peak)), s["logits"])
 
 
-@transform("suppressed subspace (rank 32)", [(27,)], per_prompt=True)
+@transform("rise-and-fall token span (rank 32)", [(27,)], per_prompt=True)
 def suppressed_subspace(s, l):  # per prompt: span of the 32 rise-and-fall tokens' unembeddings
     S = subspace_from_scores(rise_and_fall(s, l)[None], W, gain, rank=32)[0][0]
     return readout(S @ (S.T @ rms(s["res"][l])))
 
 
-@transform("suppressed subspace (rank 32), J-lens", [(p,) for p in (26, 27, 28, 29)], per_prompt=True)
+@transform("rise-and-fall token span (rank 32), J-lens", [(p,) for p in (26, 27, 28, 29)], per_prompt=True)
 def suppressed_subspace_j(s, peak):
     S = subspace_from_scores(rise_and_fall_j(s, peak)[None], W, gain, rank=32)[0][0]
     return readout(S @ (S.T @ rms(jlens(s["res"][peak], peak))))
 
 
-@transform("attention output, J-lens", [(23,)], per_prompt=False)
+@transform("layer-23 attention output, J-lens", [(23,)], per_prompt=False)
 def attention_output_j(s, l):  # what layer 23's attention adds at the last token
     return readout(jlens(s["attn"], l + 1))

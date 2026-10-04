@@ -25,7 +25,7 @@ from statistics import mean
 
 from tabulate import tabulate
 
-from common import LANG_NAME, ROOT, SCRIPT, forward, tok, tokens_in_script, vocab
+from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, forward, tok, tokens_in_script, vocab
 from transforms import TRANSFORMS, fit_bases
 
 K, PER_PAIR, N_TRANSFER = 8, 20, 50
@@ -56,7 +56,7 @@ def top_words(scores):
     raise AssertionError("fewer than K distinct words in the top 4096")
 
 
-chinese = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(ROOT / "data/wendler_words/zh/clean.csv"))}
+chinese = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(WENDLER_ZH()))}
 
 
 def translation_prompts(pairs, role):
@@ -76,7 +76,7 @@ def translation_prompts(pairs, role):
 
 
 def transfer_prompts():
-    rows = list(csv.DictReader(open(ROOT / "data/twohop/TwoHopFact.csv")))
+    rows = list(csv.DictReader(open(TWOHOP())))
     random.Random(0).shuffle(rows)
     aliases = lambda r, e: [a for group in ast.literal_eval(r[f"{e}.aliases"]) for a in group] or [r[f"{e}.value"]]
     seen = set()
@@ -135,7 +135,7 @@ out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump({"rows": rows, "skipped": skipped, "chosen": chosen}, f, ensure_ascii=False)
 source_lines = inspect.getsource(__import__("transforms")).splitlines()
-CONTROLS = ("plain lens", "random subspace (floor)", "fixed list (control)", "input word (control)")
+CONTROLS = ("logit lens", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
 COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
 rows_by_table = {False: [], True: []}  # uses the J-lens?
 for name, (settings, per_prompt, _) in TRANSFORMS.items():
@@ -153,9 +153,9 @@ n_test, n_transfer = len(test), len(transfer)
 def render(table):
     table.sort(key=lambda r: -r["F1↑"])
     for col, better in COLS:
-        best = better(r[col] for r in table)
+        best, tied = better(r[col] for r in table), len({r[col] for r in table}) == 1
         for r in table:
-            r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
+            r[col] = f"**{r[col]:.2f}**" if r[col] == best and not tied else f"{r[col]:.2f}"
     return tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
                     colalign=("left",) + ("right",) * 4 + ("left", "right"))
 
