@@ -6,9 +6,9 @@ perhaps Chinese); it reads one language and writes another. For each prompt we k
 
     TP = the hidden word (English, or its Chinese translation) is in the top 8, else FN
     FP = a top-8 word is in the input or output language (script), or is the model's next word, else TN
-    pass = TP and TN
+    F1 = 2TP / (2TP + FP + FN), with counts over prompts
 
-Each transform's setting is chosen on the dev pair by pass rate, then frozen for the test pairs and for transfer:
+Each transform's setting is chosen on the dev pair by F1, then frozen for the test pairs and for transfer:
 English-only two-hop questions (TwoHopFact), where the hidden word is the bridge entity.
 Usage: uv run scripts/challenge/make_word_lists.py (once), then uv run scripts/challenge/score.py — PI/OpenAI
 """
@@ -110,15 +110,19 @@ def evaluate(item, settings_of):
             leaked = bool(set(top) & leak)
             hidden = any(t in item["right"] for t in top)
             out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name,
-                        "setting": list(setting), "top8": [vocab[t] for t in top], "hidden": hidden, "leaked": leaked,
-                        "pass": float(hidden and not leaked)})
+                        "setting": list(setting), "top8": [vocab[t] for t in top], "hidden": hidden, "leaked": leaked})
     return out
 
 
 skipped = []
 dev_rows = [r for item in translation_prompts(DEV, "dev") for r in evaluate(item, lambda name: TRANSFORMS[name][0])]
 assert dev_rows, "no dev prompts survived"
-chosen = {name: max(settings, key=lambda s: mean(r["pass"] for r in dev_rows if r["transform"] == name and r["setting"] == list(s)))
+def f1(rs):
+    tp, fp = sum(r["hidden"] for r in rs), sum(r["leaked"] for r in rs)
+    return 2 * tp / (2 * tp + fp + len(rs) - tp)
+
+
+chosen = {name: max(settings, key=lambda s: f1([r for r in dev_rows if r["transform"] == name and r["setting"] == list(s)]))
           for name, (settings, _, _) in TRANSFORMS.items()}
 rows = dev_rows + [r for item in [*translation_prompts(TEST, "test"), *transfer_prompts()]
                    for r in evaluate(item, lambda name: [chosen[name]])]
@@ -139,19 +143,19 @@ for name, (settings, lens_based, _) in TRANSFORMS.items():
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
     table.append({"transform": f"*{label}*" if name in CONTROLS else label,
-                  "pass rate↑": mean(r["pass"] for r in test), "TPR↑": mean(r["hidden"] for r in test),
-                  "FPR↓": mean(r["leaked"] for r in test), "English-only pass rate↑": mean(r["pass"] for r in transfer),
+                  "F1↑": f1(test), "TPR↑": mean(r["hidden"] for r in test),
+                  "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
                   "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
-COLS = (("pass rate↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only pass rate↑", max))
-table.sort(key=lambda r: -r["pass rate↑"])
+COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
+table.sort(key=lambda r: -r["F1↑"])
 for col, better in COLS:
     best = better(r[col] for r in table)
     for r in table:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. TP, FN, FP, TN as in the README. TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on {n_transfer} English-only "
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on {n_transfer} English-only "
            f"TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. "
            f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
            f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
