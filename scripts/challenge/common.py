@@ -1,7 +1,6 @@
 """Shared model, lens, vocabulary and forward pass for the challenge scripts. — PI/OpenAI"""
 import hashlib
 import re
-import sys
 from pathlib import Path
 
 import torch
@@ -28,7 +27,6 @@ TWOHOP = lambda: fetch("data/twohop/TwoHopFact.csv",  # CC-BY-4.0, Yang et al. 2
 WENDLER_ZH = lambda: fetch("data/wendler_words/zh/clean.csv",  # Wendler et al. 2024 word list
                            "https://raw.githubusercontent.com/epfl-dlab/llm-latent-language/main/data/langs/zh/clean.csv",
                            "444042b7f62f06afdd18b122150d47e4")
-sys.path.insert(0, str(ROOT))  # for suppressed_activation_subspace
 MODEL, REVISION = "Qwen/Qwen3.5-4B", "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 LENS = ("neuronpedia/jacobian-lens", "qwen3.5-4b/jlens/Salesforce-wikitext/Qwen3.5-4B_jacobian_lens_n1000.pt",
         "16a01f309fcec900fdcec3f4cd5b64f3d00e4d5a", "1f9a8f8fd593f0ffec1a9640993257ca4560f8ae3e5602315643d5cc6818534e")

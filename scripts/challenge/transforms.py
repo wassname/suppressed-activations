@@ -8,7 +8,6 @@ import json
 import torch
 
 from common import ROOT, W, forward, gain, load_jlens, model, readout, rms, tok, vocab
-from suppressed_activation_subspace import subspace_from_scores, suppressed_activation_scores
 
 TRANSFORMS = {}  # name -> (settings, fitted, fn(state, setting) -> scores [vocab])
 RANKS = (64, 256, 1024)
@@ -151,6 +150,12 @@ def j_minus_output(s, l, r):
     return readout(x - B @ (B.T @ x))
 
 
+def _token_span(scores, rank):
+    """Orthonormal basis for the (centred, gain-scaled) unembedding rows of the top-`rank` tokens."""
+    ids = scores.topk(rank).indices
+    return torch.linalg.qr(((W - W.mean(0))[ids] * gain).T, mode="reduced").Q
+
+
 def _rise_fall(early, peak, out):
     rise, fall = peak - early, peak - out
     return torch.minimum((rise - rise.mean()).clamp_min(0), (fall - fall.mean()).clamp_min(0))
@@ -158,7 +163,7 @@ def _rise_fall(early, peak, out):
 
 @transform("rise-and-fall", [(27,)], fitted="nothing")
 def rise_and_fall(s, peak):  # tokens whose logit rises from layer 22 to the peak and falls by the output
-    return suppressed_activation_scores(s["res"][None], W, gain, early_layer=22, peak_layer=peak, output_layer=32)[0]
+    return _rise_fall(readout(s["res"][22]), readout(s["res"][peak]), readout(s["res"][32]))
 
 
 @transform("rise-and-fall, J-lens", [(p,) for p in (26, 27, 28, 29)], fitted="J-lens")
@@ -168,13 +173,13 @@ def rise_and_fall_j(s, peak):
 
 @transform("rise-and-fall token span (rank 32)", [(27,)], fitted="nothing")
 def suppressed_subspace(s, l):  # per prompt: span of the 32 rise-and-fall tokens' unembeddings
-    S = subspace_from_scores(rise_and_fall(s, l)[None], W, gain, rank=32)[0][0]
+    S = _token_span(rise_and_fall(s, l), 32)
     return readout(S @ (S.T @ rms(s["res"][l])))
 
 
 @transform("rise-and-fall token span (rank 32), J-lens", [(p,) for p in (26, 27, 28, 29)], fitted="J-lens")
 def suppressed_subspace_j(s, peak):
-    S = subspace_from_scores(rise_and_fall_j(s, peak)[None], W, gain, rank=32)[0][0]
+    S = _token_span(rise_and_fall_j(s, peak), 32)
     return readout(S @ (S.T @ rms(jlens(s["res"][peak], peak))))
 
 
