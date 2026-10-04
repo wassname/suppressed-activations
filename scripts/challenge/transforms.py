@@ -93,6 +93,11 @@ def fixed_list(s, l):  # ignores the prompt: J-lens readout of the mean WikiText
     return readout(jlens(bases["mean28"], l))
 
 
+@transform("input word, J-lens (control)", [(l,) for l in (4, 8, 12, 16)], lens_based=True)
+def input_word(s, l):  # reads the input word itself, not the last token: does recovering the meaning need a hidden step?
+    return readout(jlens(s["input"][l], l))
+
+
 @transform("random subspace (floor)", [(27, r) for r in RANKS], lens_based=False)
 def random_subspace(s, l, r):
     return readout(project(bases["random"][:, :r], s["res"][l]))

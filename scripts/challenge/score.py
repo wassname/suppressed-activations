@@ -70,7 +70,11 @@ def translation_prompts(pairs, role):
         line = lambda w: f'{LANG_NAME[src]}: "{words[w][src]}" - {LANG_NAME[tgt]}: "'
         shots = "".join(line(w) + f'{words[w][tgt]}"\n' for w in pool[:4])
         for w in pool[4:4 + PER_PAIR]:
+            before_input = shots + f'{LANG_NAME[src]}: "{words[w][src]}'
+            n = len(tok(before_input, add_special_tokens=False).input_ids)
+            assert tok(shots + line(w), add_special_tokens=False).input_ids[:n] == tok(before_input, add_special_tokens=False).input_ids
             yield {"role": role, "split": f"{src}→{tgt}", "word": w, "prompt": shots + line(w),
+                   "input_pos": n - 1,  # last token of the input word
                    "leak": script[src] | script[tgt], "right": spelled(w) | frozenset(by_spelling.get(chinese[w], []))}
 
 
@@ -87,7 +91,8 @@ def transfer_prompts():
         if prompt in seen or not right - leak:
             continue
         seen.add(prompt)
-        yield {"role": "transfer", "split": "TwoHopFact", "word": r["e2.value"], "prompt": prompt, "leak": leak, "right": right - leak}
+        yield {"role": "transfer", "split": "TwoHopFact", "word": r["e2.value"], "prompt": prompt, "leak": leak,
+               "right": right - leak, "input_pos": -1}
         if len(seen) == N_TRANSFER:
             return
 
@@ -100,7 +105,7 @@ def evaluate(item, settings_of):
         skipped.append({k: item[k] for k in ("split", "word")} | {"next": vocab[nxt]})
         return []
     leak = item["leak"] | {nxt}
-    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits}
+    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "input": res[:, item["input_pos"]]}
     out = []
     for name, (_, _, fn) in TRANSFORMS.items():
         for setting in settings_of(name):
@@ -130,7 +135,7 @@ out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump({"rows": rows, "skipped": skipped, "chosen": chosen}, f, ensure_ascii=False)
 source_lines = inspect.getsource(__import__("transforms")).splitlines()
-CONTROLS = ("plain lens", "random subspace (floor)", "fixed list (control)")
+CONTROLS = ("plain lens", "random subspace (floor)", "fixed list (control)", "input word, J-lens (control)")
 table = []
 for name, (settings, lens_based, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
@@ -148,8 +153,8 @@ for col, better in (("found↑", max), ("leaked↓", min), ("share↑", max), ("
     for r in table:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
-caption = (f"<sub>Table: test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); each setting chosen on "
-           f"{DEV[0][0]}→{DEV[0][1]}. found = share of prompts whose top {K} distinct words include the English word or its "
+caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. found = share of prompts whose top {K} distinct words include the English word or its "
            f"Chinese translation, with no word in the input or output script and not the model's next word. leaked = share of "
            f"lists with such a word. share = top-{K} words in Latin or Han script, a weak check (random scores high on it). "
            f"transfer found = found on {n_transfer} English-only TwoHopFact questions, for the hidden bridge entity. "
