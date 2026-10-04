@@ -6,6 +6,19 @@ In this repo `slop/` is not committed (it is in `.gitignore`); keep agent notes 
 
 ## Research framing (read first)
 
+wassname, 2026-10-04:
+
+> we are trying to find geometrics transforms and subspaces that happen to find the hidden engish words. Not to
+> cheat and use dictornaries and tokens to find english words
+
+> it's meant to be finding internal geometry!!! not reverse engleering langiage
+
+So a challenge entry maps activations to activations (a projection or other map), without the output head, token
+ids, logits, word lists or dictionaries. The scorer applies the output head afterwards, only to check the answer.
+Methods that use the output head or token scores inside the transform (rise-and-fall, calibrated rise-and-fall, the
+J-lens) are reference rows, not entries. The code enforces this: `@geometry` functions get no logits or token ids and
+must return a vector.
+
 wassname, 2026-09-29:
 
 > we are using the english thoughts in a setting where thoughts are in english to try to

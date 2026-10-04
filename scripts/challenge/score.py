@@ -26,7 +26,7 @@ from statistics import mean
 from tabulate import tabulate
 import torch
 
-from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, forward, tok, tokens_in_script, vocab
+from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, forward, readout, tok, tokens_in_script, vocab
 from transforms import TRANSFORMS, fit_bases
 
 K, PER_PAIR, N_TRANSFER = 8, 60, 150  # per pair capped by the word list
@@ -110,9 +110,16 @@ def evaluate(item, settings_of):
     state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": ids, "line": res[:, line],
              "input": res[:, item["input_pos"]]}
     out = []
-    for name, (_, _, fn) in TRANSFORMS.items():
+    geo_state = {"res": state["res"], "attn": state["attn"], "input": state["input"]}  # no logits, no token ids
+    for name, (_, _, kind, fn) in TRANSFORMS.items():
         for setting in settings_of(name):
-            top = top_words(fn(state, *setting))
+            if kind == "geometry":
+                v = fn(geo_state, *setting)
+                assert v.shape == (res.shape[-1],), f"{name} must return an activation-space vector"
+                scores = readout(v)  # the output head is used only here, to check which words v holds
+            else:
+                scores = fn(state, *setting)
+            top = top_words(scores)
             leaked = bool(set(top) & leak)
             hidden = any(t in item["right"] for t in top)
             out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name,
@@ -146,7 +153,7 @@ def f1_ci(rs, n_boot=2000):
 
 
 chosen = {name: max(settings, key=lambda s: f1([r for r in dev_rows if r["transform"] == name and r["setting"] == list(s)]))
-          for name, (settings, _, _) in TRANSFORMS.items()}
+          for name, (settings, _, _, _) in TRANSFORMS.items()}
 rows = dev_rows + [r for item in [*translation_prompts(TEST, "test"), *transfer_prompts()]
                    for r in evaluate(item, lambda name: [chosen[name]])]
 for role in ("test", "transfer"):
@@ -158,17 +165,17 @@ out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump({"rows": rows, "skipped": skipped, "chosen": chosen}, f, ensure_ascii=False)
 source_lines = inspect.getsource(__import__("transforms")).splitlines()
-CONTROLS = ("logit lens", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
+CONTROLS = ("identity (logit lens)", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
 COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
-rows_by_table = {False: [], True: []}  # uses the J-lens?
+rows_by_table = {"geometry": [], "reference": []}
 random_test = [r for r in rows if r["transform"] == "random subspace (control)" and r["role"] == "test"
                and r["setting"] == list(chosen["random subspace (control)"])]
-for name, (settings, fitted, _) in TRANSFORMS.items():
+for name, (settings, fitted, kind, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
     test, transfer = mine("test"), mine("transfer")
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})"
-    rows_by_table["J-lens" in name].append({
+    rows_by_table[kind].append({
         "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test),
         "Δ vs random": "" if name == "random subspace (control)" else delta_ci(test, random_test), "TPR↑": mean(r["hidden"] for r in test),
         "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
@@ -194,7 +201,8 @@ caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in 
            f"input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). "
            f"Italic = control. {len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
            f"Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
-markdown = (render(rows_by_table[False]) + "\n\n" + caption + "\n\n### Using the J-lens\n\n"
-            + render(rows_by_table[True]) + "\n")
+markdown = (render(rows_by_table["geometry"]) + "\n\n" + caption
+            + "\n\n### Reference: methods that use the output head, token scores or the J-lens\n\n"
+            + render(rows_by_table["reference"]) + "\n")
 (out / "leaderboard.md").write_text(markdown)
 print(markdown, f"\nskipped: {skipped}\n{out / 'leaderboard.md'}", flush=True)

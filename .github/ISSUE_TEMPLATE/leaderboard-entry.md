@@ -5,7 +5,7 @@ title: "Entry: <transform name>"
 labels: entry
 ---
 
-**Transform** (the `@transform` function, or a link to your fork/PR):
+**Transform** (the `@geometry` function and any basis it fits, or a link to your fork/PR):
 
 ```python
 

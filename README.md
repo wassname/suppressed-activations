@@ -33,7 +33,9 @@ We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test t
 
 ## Leaderboard
 
-We use the F1 score to measure which transform best isolates the hidden English.
+We are looking for internal geometry: a projection or other map of the activations, found without the output head,
+token lists or dictionaries, that happens to hold the hidden English words. We use the F1 score to measure which
+transform best isolates the hidden English.
 
 | transform                                                                      |      F1↑ |    90% CI |            Δ vs random |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on   | setting   |   tried |
 |:-------------------------------------------------------------------------------|---------:|----------:|-----------------------:|---------:|---------:|-------------------:|:------------|:----------|--------:|
@@ -71,33 +73,28 @@ We use the F1 score to measure which transform best isolates the hidden English.
 
 For each prompt, we take the model's activations, apply the transform to get a score for every token, and keep the top eight words. A transform should ideally catch all the hidden English and none of the input and output language words. If the hidden word (English, or its Chinese translation) is in the top eight, that is a true positive (TP); if we miss it, a false negative (FN). If the method instead shows words from the input language, the output language, or the token the model is about to say, that is a false positive (FP); if it avoids all of those, a true negative (TN). Counting over prompts, F1 = 2TP / (2TP + FP + FN).
 
-The logit lens applies the model's output head directly to a layer's activations. Rise-and-fall scores words whose logit rises from layer 22 to a later layer and falls by the output. The [J-lens](https://transformer-circuits.pub/2026/workspace/) first maps a layer to the last layer with a large learned matrix from outside the model, so its rows are in a separate table.
+Each entry returns a vector in activation space. Only then do we read that vector with the model's output head (the
+logit lens), to check which words it holds. "Identity" reads the activations unchanged, so it is the plain logit
+lens. The reference table lists methods that use the output head, token scores or the
+[J-lens](https://transformer-circuits.pub/2026/workspace/) inside the transform. They show what is possible with
+language-specific tools, but they are not entries.
 
 ### Where we are
 
-The best simple method is calibrated rise-and-fall (F1 0.96, 0.11 above a random subspace on the same prompts). It
-is rise-and-fall on each token's logit after subtracting that token's mean and dividing by its spread on WikiText, per
-layer. It matches the J-lens version without the J-lens. The two give different top-8 lists, but agree on whether
-the hidden word is there in 147 of 149 prompts.
-
-The plain logit lens finds the hidden word about as often (TPR 0.93), but in about a fifth of prompts it also shows
-input or output words (FPR 0.22). A random subspace of rank 1024 (of 2560) keeps most of the logit lens and scores
-0.85; the "Δ vs random" column compares each row with it on the same prompts.
-
-None of the methods work yet on English-only questions, where the input and output are already English (F1 0.09 at
-best). That is the open problem. If we can solve that, we might have a general way to read what a model thinks.
+(Updated when the current run finishes.)
 
 ## Enter
 
-Add a function to [`transforms.py`](scripts/challenge/transforms.py):
+Add a `@geometry` function to [`transforms.py`](scripts/challenge/transforms.py). It gets the activations and returns
+a vector in activation space:
 
 ```python
-@transform("my transform", settings=[(27,), (28,)], fitted="nothing")
-def mine(s, layer):  # s["res"]: residual stream at the last prompt token, [33 layers, 2560]
-    return readout(s["res"][layer])  # a score for each vocabulary token
+@geometry("my subspace", settings=[(27, 256), (28, 256)], fitted="WikiText")
+def mine(s, layer, rank):  # s["res"]: residual stream at the last prompt token, [33 layers, 2560]
+    return project(bases["my basis"][:, :rank], s["res"][layer])  # a vector, [2560]
 ```
 
-`s` also holds `"attn"` (layer 23 attention output), `"logits"` (the model's next-token logits) and `"ids"` (the prompt's token ids) and `"line"` (residuals at every token of the prompt's last line, [33, tokens, 2560]). Then run, on one GPU:
+`s` also holds `"attn"` (layer 23 attention output). Fit any basis in `fit_bases()`. Then run, on one GPU:
 
 ```sh
 uv run scripts/challenge/score.py  # downloads the model and data on first run
@@ -105,10 +102,10 @@ uv run scripts/challenge/score.py  # downloads the model and data on first run
 
 Rules:
 
-- Use only `s["res"]`, `s["attn"]`, `s["logits"]`, `s["ids"]` and `s["line"]`. (`s["input"]` is there for the input-word control only.)
-- No word lists, language labels or test prompts. You may fit on generic text, like the WikiText sample in `data/challenge/`.
+- Return an activation-space vector. Do not use the output head (unembedding), token ids, logits, word lists,
+  dictionaries or language labels. The scorer applies the output head afterwards, only to check the answer.
+- You may fit on generic text, like the WikiText sample in `data/challenge/`, and use the model's other weights.
 - List each setting you tried in `settings`. They are compared on ru→ko only, then frozen for the test.
-- Entries that use a learned matrix from outside the model, like the J-lens, go in the J-lens table.
 - Rows whose 90% intervals overlap are not separated. We may also score entries on language pairs not listed here.
 
 Open an issue or a pull request with your transform and its row, and we will add it to the leaderboard.
