@@ -29,6 +29,8 @@ This is our way in. If a model translating Arabic to Hindi reliably activates En
 
 Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
 
+<img src="figs/cartoon.svg" width="640" alt="Cartoon titled 'When models translate Arabic to Russian, they think in English'. x-axis: layers; y-axis: how much the model is thinking it. A grey bump early is Arabic (input), labelled 'but not this'. An orange bump in the middle is English (hidden), 'cat', labelled 'We want to isolate this'. A blue curve rising at the end is Russian (output), 'кошка', labelled 'or this'. At the bottom: 'without using language or tokens'.">
+
 We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test translation between Russian, Korean, Arabic, Hindi and Thai. We never use English or Chinese as the input or output language, but if the hidden word shows up in either, we count it.
 
 ## Leaderboard
