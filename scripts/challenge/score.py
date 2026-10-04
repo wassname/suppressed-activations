@@ -145,15 +145,15 @@ source_lines = inspect.getsource(__import__("transforms")).splitlines()
 CONTROLS = ("logit lens", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
 COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
 rows_by_table = {False: [], True: []}  # uses the J-lens?
-for name, (settings, per_prompt, _) in TRANSFORMS.items():
+for name, (settings, fitted, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
     test, transfer = mine("test"), mine("transfer")
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
-    label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if per_prompt else "")
+    label = f"[{name}](scripts/challenge/transforms.py#L{line})"
     rows_by_table["J-lens" in name].append({
         "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test), "TPR↑": mean(r["hidden"] for r in test),
         "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
-        "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
+        "fitted on": fitted, "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
 
 
@@ -164,7 +164,7 @@ def render(table):
         for r in table:
             r[col] = f"**{r[col]:.2f}**" if r[col] == best and not tied else f"{r[col]:.2f}"
     return tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left",) + ("right",) * 5 + ("left", "right"))
+                    colalign=("left",) + ("right",) * 5 + ("left", "left", "right"))
 
 
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
@@ -172,7 +172,7 @@ caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in 
            f"layer/rank. Each row's settings (tried) are compared only on {DEV[0][0]}→{DEV[0][1]}, a pair not in the test, so trying more "
            f"settings does not see the test prompts. 90% CI = bootstrap over test prompts. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). "
            f"English-only F1 = F1 on {n_transfer} English-only TwoHopFact questions, where the hidden word is the bridge entity and "
-           f"input/output words are the question's words and its answer. ★ = picks tokens per prompt from vocabulary scores. "
+           f"input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). "
            f"Italic = control. {len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
            f"Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
 markdown = (render(rows_by_table[False]) + "\n\n" + caption + "\n\n### Using the J-lens\n\n"

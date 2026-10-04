@@ -82,7 +82,7 @@ None of the methods work yet on English-only questions, where the input and outp
 Add a function to [`transforms.py`](scripts/challenge/transforms.py):
 
 ```python
-@transform("my transform", settings=[(27,), (28,)], per_prompt=False)
+@transform("my transform", settings=[(27,), (28,)], fitted="nothing")
 def mine(s, layer):  # s["res"]: residual stream at the last prompt token, [33 layers, 2560]
     return readout(s["res"][layer])  # a score for each vocabulary token
 ```
