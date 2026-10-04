@@ -54,7 +54,9 @@ bases, token_counts = {}, torch.zeros(len(vocab), dtype=torch.long)
 def fit_bases():
     d = W.shape[1]
     texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
-    keys = ("x24", "x27", "x29", "x32", "d24", "d27", "d29", "supp", "antipasto", "net")
+    keys = ("x22", "x24", "x27", "x29", "x32", "d24", "d27", "d29", "supp", "antipasto", "net")
+    rf = {k: torch.zeros(d, d, dtype=torch.float64, device="cuda") for k in ("27", "28", "27 shuffled")}  # sum aᵀb
+    rf_first = {k: torch.zeros(2, d, dtype=torch.float64, device="cuda") for k in rf}
     cross = {l: torch.zeros(d, d, dtype=torch.float64, device="cuda") for l in RIDGE_LAYERS}   # sum of x32ᵀ x_l
     logit_sum = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
     logit_sq = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
@@ -75,11 +77,18 @@ def fit_bases():
         antipasto = net - (net @ lm_head) @ lm_head.T                 # minus the lm-head-readable directions
         for l in RIDGE_LAYERS:
             cross[l] += x[32].T @ x[l]
+        for k in rf:  # signed rise (peak - early) against fall (peak - output), per token
+            p_ = int(k[:2])
+            a, b = x[p_] - x[22], x[p_] - x[32]
+            if k.endswith("shuffled"):
+                b = b.roll(1, dims=0)  # control: pair each token's rise with another token's fall
+            rf[k] += a.T @ b
+            rf_first[k] += torch.stack([a.sum(0), b.sum(0)])
         for l in CAL_LAYERS:
             logits = ((gain * rms(res[l, 8:])) @ W.T).double()        # [tok, vocab], as readout() per token
             logit_sum[l] += logits.sum(0)
             logit_sq[l] += logits.square().sum(0)
-        for k, v in (("x24", x[24]), ("x27", x[27]), ("x29", x[29]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]),
+        for k, v in (("x22", x[22]), ("x24", x[24]), ("x27", x[27]), ("x29", x[29]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]),
                      ("d29", x[30] - x[29]), ("supp", supp), ("antipasto", antipasto), ("net", net)):
             second[k] += v.T @ v
             first[k] += v.sum(0)
@@ -102,11 +111,17 @@ def fit_bases():
     bases["added then removed"] = top(cov["supp"])
     bases["suppressed (AntiPaSTO)"] = top(cov["antipasto"])
     bases["net change"] = top(cov["net"])
+    for k in rf:
+        m = rf[k] / n - torch.outer(rf_first[k][0] / n, rf_first[k][1] / n)
+        bases[f"rise-fall {k}"] = top((m + m.T) / 2)                    # most positive rise-fall coupling first
     bases["output"] = top(cov["x32"])
     bases["mean28"] = (mean28 / n).float()
     eye = torch.eye(d, dtype=torch.float64, device="cuda")
     C32 = cov["x32"]
     mu = {k: first[k] / n for k in keys}
+    B = bases["churn27"][:, :1024].double()
+    for l in (22, 27, 32):  # mean and spread of each layer-change PC coordinate, per layer
+        bases[f"pc stats{l}"] = ((B.T @ mu[f"x{l}"]).float(), torch.diagonal(B.T @ cov[f"x{l}"] @ B).sqrt().float())
     for l in RIDGE_LAYERS:  # ridge regression of x_l on x32: what the output state does not explain
         A = torch.linalg.solve(C32 + 1e-2 * C32.trace() / d * eye, cross[l] / n - torch.outer(mu["x32"], mu[f"x{l}"]))
         bases[f"ridge{l}"] = (A.float(), mu[f"x{l}"].float(), mu["x32"].float())
@@ -223,6 +238,42 @@ def suppressed_subspace(s, l):  # per prompt: span of the 32 rise-and-fall token
 def suppressed_subspace_j(s, peak):
     S = _token_span(rise_and_fall_j(s, peak), 32)
     return readout(S @ (S.T @ rms(jlens(s["res"][peak], peak))))
+
+
+@geometry("signed rise-fall coupling", [(p, r) for p in (27, 28) for r in RANKS], fitted="WikiText")
+def rise_fall_coupling(s, peak, r):  # directions where a rise (peak - layer 22) goes with a fall (peak - output)
+    return project(bases[f"rise-fall {peak}"][:, :r], s["res"][peak])
+
+
+@geometry("signed rise-fall coupling, shuffled (control)", [(27, r) for r in RANKS], fitted="WikiText")
+def rise_fall_coupling_shuffled(s, peak, r):  # same, but rise and fall from different tokens
+    return project(bases["rise-fall 27 shuffled"][:, :r], s["res"][peak])
+
+
+@geometry("minus this prompt's early and output states", [(p, lam) for p in (26, 27, 28) for lam in (0.0, 256.0)],
+          fitted="nothing")
+def minus_early_and_output(s, peak, lam):  # soft-remove the span of this prompt's own layer-22 and output states
+    N = torch.stack([rms(s["res"][22]), rms(s["res"][32])], 1)
+    x = rms(s["res"][peak])
+    return x - N @ torch.linalg.solve(N.T @ N + lam * torch.eye(2, device=x.device), N.T @ x)
+
+
+@geometry("layer-change PCs gated by rise and fall", [(r, tau) for r in (256, 1024) for tau in (0.1, 1.0)],
+          fitted="WikiText")
+def pc_rise_fall_gate(s, r, tau):  # keep PC coordinates that rise from layer 22 to 27 and fall by the output
+    B = bases["churn27"][:, :r]
+    z = lambda l: (B.T @ rms(s["res"][l]) - bases[f"pc stats{l}"][0][:r]) / bases[f"pc stats{l}"][1][:r]
+    rise, fall = (z(27) - z(22)).clamp_min(0), (z(27) - z(32)).clamp_min(0)
+    g = rise * fall / (rise * fall + tau)
+    return B @ (g * (B.T @ rms(s["res"][27])))
+
+
+@geometry("layer-change PCs gated by attention", [(r, k) for r in (256, 1024) for k in (0.1, 1.0)], fitted="WikiText")
+def pc_attention_gate(s, r, k):  # keep PC coordinates that layer 23's attention output also writes
+    B = bases["churn27"][:, :r]
+    a = B.T @ rms(s["attn"])
+    g = a.square() / (a.square() + k * a.square().mean())
+    return B @ (g * (B.T @ rms(s["res"][27])))
 
 
 @geometry("output-unexplained residual (ridge)", [(l,) for l in RIDGE_LAYERS], fitted="WikiText")

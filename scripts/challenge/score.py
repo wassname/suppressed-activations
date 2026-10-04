@@ -173,7 +173,7 @@ random_test = [r for r in rows if r["transform"] == "random subspace (control)" 
 for name, (settings, fitted, kind, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
     test, transfer = mine("test"), mine("transfer")
-    line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
+    line = next(i for i, text in enumerate(source_lines, 1) if f'@{TRANSFORMS[name][2]}("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})"
     rows_by_table[kind].append({
         "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test),
