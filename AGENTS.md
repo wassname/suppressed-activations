@@ -2,6 +2,8 @@
 
 Inherit the user's global agent instructions. `README.md` is the public result.
 
+In this repo `slop/` is not committed (it is in `.gitignore`); keep agent notes there locally.
+
 ## Research framing (read first)
 
 wassname, 2026-09-29:
