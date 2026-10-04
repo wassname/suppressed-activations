@@ -1,5 +1,29 @@
 # Research journal
 
+## 2026-10-05 -- Geometry-only leaderboard: removing the prompt's own early and output states
+
+Source: `out/2026-10-05_002148_leaderboard/leaderboard.md` (149 test prompts, ar→hi, hi→th, th→ru, ko→ar; settings
+chosen on ru→ko). Entries are `@geometry`: activations in, activation vector out; the output head is used only by
+the scorer (wassname, 2026-10-04: "it's meant to be finding internal geometry!!! not reverse engleering langiage").
+
+| geometry | F1 | Δ vs random rank 1024, paired 90% CI | TPR | FPR |
+|---|---:|---:|---:|---:|
+| x28 minus span(x22, x32), same prompt | 0.92 | +0.07 (+0.04 to +0.10) | 0.93 | 0.09 |
+| layer-change PCA, rank 1024 | 0.91 | +0.06 (+0.03 to +0.09) | 0.95 | 0.14 |
+| identity (logit lens) | 0.87 | +0.02 (−0.01 to +0.05) | 0.93 | 0.22 |
+| random subspace, rank 1024 | 0.85 | — | 0.89 | 0.21 |
+
+Observed: the best geometry needs no fitting. Its gain over identity is in false positives (0.22 to 0.09), not in
+finding the word. Adding layers 16/19 or 30/31 to the removed span did not help on the dev pair. Signed rise-fall
+coupling (0.85) scored the same as its shuffled control (0.83). Reference rows that use calibrated token scores reach
+0.96, so the gap left for geometry is about 0.04. English-only F1 is about 0 for every geometry row.
+
+Inference (not tested): x22 carries much of what is read and x32 what is said, so removing both directions leaves
+the middle-layer content. One direction each is a blunt removal; a fitted subspace of "read" and "said" content
+might close the gap.
+
+-- PI/OpenAI
+
 ## 2026-09-06 -- Causal replacement depends on prompt format and token aggregation
 
 This entry records the search for a spider-to-dog causal replacement that changes both the answer and the recomputed readout.
