@@ -250,26 +250,12 @@ def rise_fall_coupling_shuffled(s, peak, r):  # same, but rise and fall from dif
     return project(bases["rise-fall 27 shuffled"][:, :r], s["res"][peak])
 
 
-@geometry("minus this prompt's early and output states", [(p, lam) for p in (26, 27, 28) for lam in (0.0, 256.0)],
-          fitted="nothing")
-def minus_early_and_output(s, peak, lam):  # soft-remove the span of this prompt's own layer-22 and output states
-    N = torch.stack([rms(s["res"][22]), rms(s["res"][32])], 1)
+@geometry("minus this prompt's early and output states", [(p, e, o) for p in (26, 27, 28) for e in ("22", "16,19,22")
+                                                          for o in ("32", "30,31,32")], fitted="nothing")
+def minus_early_and_output(s, peak, early, late):  # remove the span of this prompt's own early and output-side states
+    layers = [int(l) for l in f"{early},{late}".split(",")]
+    N = torch.linalg.qr(torch.stack([rms(s["res"][l]) for l in layers], 1)).Q
     x = rms(s["res"][peak])
-    return x - N @ torch.linalg.solve(N.T @ N + lam * torch.eye(2, device=x.device), N.T @ x)
-
-
-@geometry("minus this prompt's early and late states", [(p, e, o) for p in (27, 28) for e in ((22,), (16, 19, 22))
-                                                         for o in ((32,), (30, 31, 32))], fitted="nothing")
-def minus_early_and_late(s, peak, early, late):  # remove the span of several of this prompt's own layer states
-    N = torch.linalg.qr(torch.stack([rms(s["res"][l]) for l in early + late], 1)).Q
-    x = rms(s["res"][peak])
-    return x - N @ (N.T @ x)
-
-
-@geometry("layer-change PCA minus this prompt's early and output states", [(r,) for r in (256, 1024)], fitted="WikiText")
-def churn_minus_early_and_output(s, r):  # both winners: project onto layer-change PCs, then remove span(x22, x32)
-    N = torch.linalg.qr(torch.stack([rms(s["res"][22]), rms(s["res"][32])], 1)).Q
-    x = project(bases["churn27"][:, :r], s["res"][28])
     return x - N @ (N.T @ x)
 
 
