@@ -15,62 +15,67 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The challenge
 
-In AI models we want to find the thoughts and concepts and planning. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable tensors. The problem is that we don't understand them. If we could understand them, we could increase the model's virtue to give it a better character, see if it's eval aware (and make it not aware in a game or test), we could turn up honesty to find true values, and many other alignment tools to help us develop good, kind, deeply aligned models. 
+In AI models we want to find the thoughts and concepts and planning. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable tensors. The problem is that we don't understand them.
 
-Here we have a nice setup. In the famous paper ["Do Llamas Work in English?"](https://arxiv.org/abs/2402.10588) they showed that a model translating from X to Y thinks in English. In this setting we know that many of the inner concepts correspond to English, so this gives us a really nice way to read the model's mind and find the parts of their activations that correspond to English words.
+If we could crack this, it would change everything. We could steer models toward genuine virtue and better character. We could catch them being evaluation-aware and train that out. We could crank up honesty to reveal their true values. We could finally stop guessing and start building deeply aligned, kind, good AI with actual confidence.
+
+### The translation trick
+
+There is a delightful finding from the paper ["Do Llamas Work in English?"](https://arxiv.org/abs/2402.10588). When a multilingual model translates between two non-English languages, say Russian to Korean, it often appears to think in English along the way. It takes a detour through English concepts.
+
+This is our way in. If a model translating Arabic to Hindi reliably activates English words in its hidden states, we have a target to aim at.
+
+### The rule: no cheating
 
 Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
 
-We test on translation between Russian, Korean, Arabic, Hindi and Thai. Qwen is trained mostly on English
-and Chinese, so we use neither as the input or the output, and count the hidden word if it is
-found in English or Chinese.
+We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test translation between Russian, Korean, Arabic, Hindi and Thai. We never use English or Chinese as the input or output language, but if the hidden word shows up in either, we count it.
 
 ## Leaderboard
 
 We use the F1 score to measure which transform best isolates the hidden English.
 
-| transform                                                                       |      F1↑ |     TPR↑ |     FPR↓ |   English-only F1↑ | setting   |   tried |
-|:--------------------------------------------------------------------------------|---------:|---------:|---------:|-------------------:|:----------|--------:|
-| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L153) ★                 | **0.97** |     0.95 |     0.01 |               0.00 | 28        |       4 |
-| [suppressed subspace (rank 32), J-lens](scripts/challenge/transforms.py#L164) ★ |     0.93 |     0.95 |     0.08 |               0.00 | 28        |       4 |
-| [attention output, J-lens](scripts/challenge/transforms.py#L170) ★              |     0.91 |     0.91 |     0.08 |           **0.10** | 23        |       1 |
-| [churn](scripts/challenge/transforms.py#L106)                                   |     0.90 | **0.96** |     0.16 |               0.00 | 27/1024   |       9 |
-| [J-lens minus output subspace](scripts/challenge/transforms.py#L137) ★          |     0.90 |     0.93 |     0.15 |               0.00 | 28/256    |       9 |
-| *[plain lens](scripts/challenge/transforms.py#L81) ★*                           |     0.87 | **0.96** |     0.24 |               0.00 | 27        |      12 |
-| [J-lens](scripts/challenge/transforms.py#L86) ★                                 |     0.86 |     0.81 |     0.08 |               0.00 | 23        |      12 |
-| [plain lens minus output subspace](scripts/challenge/transforms.py#L131)        |     0.85 |     0.95 |     0.27 |               0.00 | 28/16     |       9 |
-| [suppressed subspace (rank 32)](scripts/challenge/transforms.py#L158) ★         |     0.85 |     0.82 |     0.11 |               0.00 | 27        |       1 |
-| *[random subspace (floor)](scripts/challenge/transforms.py#L101)*               |     0.85 |     0.93 |     0.26 |               0.00 | 27/1024   |       3 |
-| [rise-and-fall](scripts/challenge/transforms.py#L148) ★                         |     0.83 |     0.76 |     0.07 |               0.00 | 27        |       1 |
-| [write minus top-read](scripts/challenge/transforms.py#L111)                    |     0.82 |     0.77 |     0.11 |               0.00 | 24/1024   |       9 |
-| [suppressed (AntiPaSTO)](scripts/challenge/transforms.py#L126)                  |     0.82 |     0.93 |     0.35 |               0.00 | 27/1024   |       3 |
-| *[input word, J-lens (control)](scripts/challenge/transforms.py#L96) ★*         |     0.78 |     0.65 |     0.01 |               0.00 | 12        |       4 |
-| [erased-variance](scripts/challenge/transforms.py#L116)                         |     0.77 |     0.66 |     0.07 |               0.00 | 27/1024   |       3 |
-| [weak-readout](scripts/challenge/transforms.py#L121)                            |     0.52 |     0.59 |     0.69 |               0.00 | 27/1024   |       3 |
-| *[fixed list (control)](scripts/challenge/transforms.py#L91) ★*                 |     0.00 |     0.00 | **0.00** |               0.00 | 28        |       1 |
+| transform                                                                      |      F1↑ |    90% CI |     TPR↑ |     FPR↓ |   English-only F1↑ | setting   |   tried |
+|:-------------------------------------------------------------------------------|---------:|----------:|---------:|---------:|-------------------:|:----------|--------:|
+| [layer-change PCA](scripts/challenge/transforms.py#L112)                       | **0.91** | 0.88–0.93 | **0.95** |     0.14 |               0.00 | 27/1024   |       9 |
+| [AntiPaSTO suppressed subspace](scripts/challenge/transforms.py#L137)          |     0.87 | 0.84–0.90 |     0.87 |     0.12 |               0.00 | 27/1024   |       3 |
+| [logit lens minus output-layer PCA](scripts/challenge/transforms.py#L142)      |     0.87 | 0.84–0.90 |     0.91 |     0.19 |               0.00 | 28/16     |       9 |
+| *[logit lens](scripts/challenge/transforms.py#L87)*                            |     0.87 | 0.84–0.90 |     0.93 |     0.22 |           **0.03** | 27        |      12 |
+| [rise-and-fall token span (rank 32)](scripts/challenge/transforms.py#L169) ★   |     0.85 | 0.81–0.88 |     0.82 |     0.11 |               0.00 | 27        |       1 |
+| *[random subspace (control)](scripts/challenge/transforms.py#L107)*            |     0.85 | 0.82–0.88 |     0.89 |     0.21 |               0.00 | 27/1024   |       3 |
+| [rise-and-fall](scripts/challenge/transforms.py#L159) ★                        |     0.83 | 0.78–0.87 |     0.74 |     0.06 |               0.00 | 27        |       1 |
+| [MLP write minus next MLP read](scripts/challenge/transforms.py#L117)          |     0.82 | 0.78–0.86 |     0.73 |     0.05 |               0.00 | 27/256    |       9 |
+| [added then removed](scripts/challenge/transforms.py#L132)                     |     0.77 | 0.74–0.81 |     0.85 |     0.36 |               0.00 | 27/1024   |       3 |
+| [variance gone by the output (PCA)](scripts/challenge/transforms.py#L122)      |     0.71 | 0.66–0.77 |     0.59 |     0.07 |               0.01 | 27/1024   |       3 |
+| [directions the output head reads least](scripts/challenge/transforms.py#L127) |     0.50 | 0.44–0.55 |     0.55 |     0.66 |               0.00 | 27/1024   |       3 |
+| *[input word (control)](scripts/challenge/transforms.py#L102)*                 |     0.44 | 0.37–0.50 |     0.38 |     0.34 |               0.00 | 8         |       4 |
+| *[mean WikiText activation (control)](scripts/challenge/transforms.py#L97)*    |     0.00 | 0.00–0.00 |     0.00 | **0.00** |               0.00 | 28        |       1 |
 
-<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (74 prompts); setting = layer, or layer/rank, chosen on ru→ko. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on 36 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. ★ = uses a lens or per-prompt vocabulary scores. Italic = control. 15 prompts skipped because the model's next token was whitespace or punctuation. Commit 3544d46, [rows](out/2026-10-04_140611_leaderboard/rows.json.gz).</sub>
+<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (149 prompts); setting = layer, or layer/rank. Each row's settings (tried) are compared only on ru→ko, a pair not in the test, so trying more settings does not see the test prompts. 90% CI = bootstrap over test prompts. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on 102 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. ★ = picks tokens per prompt from vocabulary scores. Italic = control. 49 prompts skipped because the model's next token was whitespace or punctuation. Commit b2dff57c, [rows](out/2026-10-04_182050_leaderboard/rows.json.gz).</sub>
+
+### Using the J-lens
+
+| transform                                                                            |      F1↑ |    90% CI |     TPR↑ |     FPR↓ |   English-only F1↑ | setting   |   tried |
+|:-------------------------------------------------------------------------------------|---------:|----------:|---------:|---------:|-------------------:|:----------|--------:|
+| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L164) ★                      | **0.96** | 0.94–0.98 |     0.93 | **0.01** |               0.05 | 28        |       4 |
+| [rise-and-fall token span (rank 32), J-lens](scripts/challenge/transforms.py#L175) ★ |     0.94 | 0.91–0.96 | **0.93** |     0.06 |               0.06 | 28        |       4 |
+| [J-lens minus output-layer PCA](scripts/challenge/transforms.py#L148)                |     0.89 | 0.87–0.92 |     0.91 |     0.13 |               0.03 | 28/256    |       9 |
+| [layer-23 attention output, J-lens](scripts/challenge/transforms.py#L181)            |     0.89 | 0.86–0.92 |     0.89 |     0.11 |           **0.09** | 23        |       1 |
+| [J-lens](scripts/challenge/transforms.py#L92)                                        |     0.85 | 0.81–0.89 |     0.79 |     0.07 |               0.01 | 23        |      12 |
 
 ### How it is scored
 
-A transform should ideally catch all the hidden English and none of the input and output language words. So we
-frame it as classification on the transform's top 8 words for each prompt. If they include the hidden word
-(English, or its Chinese translation), that is a true positive (TP); if not, a false negative (FN). If they
-include an input or output word (any word in those languages, or the word the model is about to say), that is a
-false positive (FP); if not, a true negative (TN). Counting over prompts, F1 = 2TP / (2TP + FP + FN).
+For each prompt, we take the model's activations, apply the transform to get a score for every token, and keep the top eight words. A transform should ideally catch all the hidden English and none of the input and output language words. If the hidden word (English, or its Chinese translation) is in the top eight, that is a true positive (TP); if we miss it, a false negative (FN). If the method instead shows words from the input language, the output language, or the token the model is about to say, that is a false positive (FP); if it avoids all of those, a true negative (TN). Counting over prompts, F1 = 2TP / (2TP + FP + FN).
 
-A transform takes the activations from one forward pass and gives every token a score. Most rows use a lens to
-turn a layer's activations into token scores. The logit lens applies the model's output head directly; the
-[J-lens](https://transformer-circuits.pub/2026/workspace/) first maps the layer to the last layer. Rise-and-fall
-scores words whose score rises from layer 22 to that layer and falls by the output.
+The logit lens applies the model's output head directly to a layer's activations. Rise-and-fall scores words whose logit rises from layer 22 to a later layer and falls by the output. The [J-lens](https://transformer-circuits.pub/2026/workspace/) first maps a layer to the last layer with a large learned matrix from outside the model, so its rows are in a separate table.
 
-The italic rows are controls: the plain logit lens; the input word read through the J-lens (no hidden step
-needed); a random subspace; and a fixed list that ignores the prompt.
+### Where we are
 
-The plain lens finds the hidden word as often as the best rows (TPR 0.96) but shows input or output words in
-a quarter of prompts (FPR 0.24). A random subspace of rank 1024 (of 2560) keeps most of the plain lens and scores
-nearly as well, so subspace rows of that rank need to beat it. No row works on the English-only questions yet.
-That is the open part.
+The plain logit lens finds the hidden word about as often as the best methods (TPR 0.93). But in about a fifth of prompts it also shows input or output words (FPR 0.22).
+
+The italic rows are controls: the logit lens, the input word itself, a random subspace, and the mean WikiText activation, which ignores the prompt. They tell us whether a method finds something or just gets lucky. A random subspace of rank 1024 (of 2560) keeps most of the logit lens and scores 0.85. Among the simple methods, only layer-change PCA (0.88–0.93) is clear of it.
+
+None of the methods work yet on English-only questions, where the input and output are already English (F1 0.09 at best). That is the open problem. If we can solve that, we might have a general way to read what a model thinks.
 
 ## Enter
 
@@ -82,13 +87,19 @@ def mine(s, layer):  # s["res"]: residual stream at the last prompt token, [33 l
     return readout(s["res"][layer])  # a score for each vocabulary token
 ```
 
-`s` also holds `"attn"` (layer 23 attention output) and `"logits"` (the model's next-token logits). Your transform
-must not use word lists or language labels. Then run, on one GPU:
+`s` also holds `"attn"` (layer 23 attention output) and `"logits"` (the model's next-token logits). Then run, on one GPU:
 
 ```sh
-uv run scripts/challenge/make_word_lists.py  # once
-uv run scripts/challenge/score.py            # about 7 minutes
+uv run scripts/challenge/score.py  # downloads the model and data on first run
 ```
+
+Rules:
+
+- Use only `s["res"]`, `s["attn"]` and `s["logits"]`. (`s["input"]` is there for the input-word control only.)
+- No word lists, language labels or test prompts. You may fit on generic text, like the WikiText sample in `data/challenge/`.
+- List each setting you tried in `settings`. They are compared on ru→ko only, then frozen for the test.
+- Entries that use a learned matrix from outside the model, like the J-lens, go in the J-lens table.
+- Rows whose 90% intervals overlap are not separated. We may also score entries on language pairs not listed here.
 
 Open an issue or a pull request with your transform and its row, and we will add it to the leaderboard.
 
@@ -102,7 +113,7 @@ Open an issue or a pull request with your transform and its row, and we will add
 - [Yang et al. 2024](https://aclanthology.org/2024.acl-long.550.pdf) made TwoHopFact, the English-only questions here.
 - [Patchscopes](https://arxiv.org/abs/2401.06102), [LatentQA](https://arxiv.org/abs/2412.08686) and the [tuned lens](https://arxiv.org/abs/2303.08112) are other readouts.
 
-<!-- PI/OpenAI 2026-10-04: table from out/2026-10-04_140611_leaderboard, generated by scripts/challenge/score.py; not yet reviewed by wassname. -->
+<!-- PI/OpenAI 2026-10-04: table from out/2026-10-04_182050_leaderboard, generated by scripts/challenge/score.py. -->
 
 ## Citation
 
