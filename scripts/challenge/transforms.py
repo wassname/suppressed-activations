@@ -11,6 +11,7 @@ from common import ROOT, W, forward, gain, load_jlens, model, readout, rms, tok,
 
 TRANSFORMS = {}  # name -> (settings, fitted, fn(state, setting) -> scores [vocab])
 RANKS = (64, 256, 1024)
+RIDGE_LAYERS, CAL_LAYERS = (24, 27, 29), (22, 26, 27, 28, 29, 32)
 J = load_jlens()
 _J = {}
 
@@ -40,7 +41,10 @@ bases, token_counts = {}, torch.zeros(len(vocab), dtype=torch.long)
 def fit_bases():
     d = W.shape[1]
     texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
-    keys = ("x27", "x32", "d24", "d27", "d29", "supp", "antipasto")
+    keys = ("x24", "x27", "x29", "x32", "d24", "d27", "d29", "supp", "antipasto")
+    cross = {l: torch.zeros(d, d, dtype=torch.float64, device="cuda") for l in RIDGE_LAYERS}   # sum of x32ᵀ x_l
+    logit_sum = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
+    logit_sq = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
     gram_w = sum((c.T @ c).double() for c in W.split(16384))
     lm_head = torch.linalg.eigh(gram_w)[1].flip(-1)[:, :256]                 # top-256 right singular vectors of W_U
     second = {k: torch.zeros(d, d, dtype=torch.float64, device="cuda") for k in keys}
@@ -56,7 +60,13 @@ def fit_bases():
         raw = res[:, 8:].double()
         net = (raw[1:] - raw[:-1])[3:].sum(0)                         # AntiPaSTO written - read, layers 3..32 (= h32 - h3)
         antipasto = net - (net @ lm_head) @ lm_head.T                 # minus the lm-head-readable directions
-        for k, v in (("x27", x[27]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]),
+        for l in RIDGE_LAYERS:
+            cross[l] += x[32].T @ x[l]
+        for l in CAL_LAYERS:
+            logits = ((gain * rms(res[l, 8:])) @ W.T).double()        # [tok, vocab], as readout() per token
+            logit_sum[l] += logits.sum(0)
+            logit_sq[l] += logits.square().sum(0)
+        for k, v in (("x24", x[24]), ("x27", x[27]), ("x29", x[29]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]),
                      ("d29", x[30] - x[29]), ("supp", supp), ("antipasto", antipasto)):
             second[k] += v.T @ v
             first[k] += v.sum(0)
@@ -80,6 +90,20 @@ def fit_bases():
     bases["suppressed (AntiPaSTO)"] = top(cov["antipasto"])
     bases["output"] = top(cov["x32"])
     bases["mean28"] = (mean28 / n).float()
+    eye = torch.eye(d, dtype=torch.float64, device="cuda")
+    C32 = cov["x32"]
+    mu = {k: first[k] / n for k in keys}
+    for l in RIDGE_LAYERS:  # ridge regression of x_l on x32: what the output state does not explain
+        A = torch.linalg.solve(C32 + 1e-2 * C32.trace() / d * eye, cross[l] / n - torch.outer(mu["x32"], mu[f"x{l}"]))
+        bases[f"ridge{l}"] = (A.float(), mu[f"x{l}"].float(), mu["x32"].float())
+    for l in CAL_LAYERS:  # per-layer, per-token logit mean and shrunk scale
+        m = logit_sum[l] / n
+        var = (logit_sq[l] / n - m.square()).clamp_min(0)
+        bases[f"calib{l}"] = (m.float(), (var + var.median()).sqrt().float())
+    L = torch.linalg.cholesky(C32 + 1e-3 * C32.trace() / d * eye)  # generalized eigenvectors of (C27, C32)
+    M = torch.linalg.solve_triangular(L, torch.linalg.solve_triangular(L, cov["x27"], upper=False).T, upper=False)
+    V = torch.linalg.solve_triangular(L.T, torch.linalg.eigh(M)[1].flip(-1), upper=True)
+    bases["variance ratio"] = {r: torch.linalg.qr(V[:, :r]).Q.float() for r in RANKS}
 
 
 # ---- the transforms ----
@@ -181,6 +205,31 @@ def suppressed_subspace(s, l):  # per prompt: span of the 32 rise-and-fall token
 def suppressed_subspace_j(s, peak):
     S = _token_span(rise_and_fall_j(s, peak), 32)
     return readout(S @ (S.T @ rms(jlens(s["res"][peak], peak))))
+
+
+@transform("output-unexplained residual (ridge)", [(l,) for l in RIDGE_LAYERS], fitted="WikiText")
+def ridge_residual(s, l):  # x_l minus its ridge prediction from x32 (fitted on WikiText)
+    A, mu_x, mu_y = bases[f"ridge{l}"]
+    return readout((rms(s["res"][l]) - mu_x) - (rms(s["res"][32]) - mu_y) @ A)
+
+
+@transform("calibrated rise-and-fall", [(p,) for p in (26, 27, 28, 29)], fitted="WikiText")
+def calibrated_rise_and_fall(s, peak):  # rise-and-fall on per-token z-scores of each layer's logits
+    z = lambda l: (readout(s["res"][l]) - bases[f"calib{l}"][0]) / bases[f"calib{l}"][1]
+    return _rise_fall(z(22), z(peak), z(32))
+
+
+@transform("variance ratio, layer 27 vs output", [(27, r) for r in RANKS], fitted="WikiText")
+def variance_ratio(s, l, r):  # directions with high variance at layer 27 relative to the output layer
+    return readout(project(bases["variance ratio"][r], s["res"][l]))
+
+
+@transform("logit lens minus read and said", [(l, k) for l in (24, 26, 28) for k in (8, 32)], fitted="nothing")
+def minus_read_and_said(s, l, k):  # remove the prompt's token directions and the model's top-k next tokens
+    ids = torch.cat([s["ids"], s["logits"].topk(k).indices]).unique()
+    Q = torch.linalg.qr((W[ids] * gain).T, mode="reduced").Q
+    x = rms(s["res"][l])
+    return readout(x - Q @ (Q.T @ x))
 
 
 @transform("layer-23 attention output, J-lens", [(23,)], fitted="J-lens")

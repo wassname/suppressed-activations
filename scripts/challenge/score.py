@@ -102,7 +102,8 @@ def evaluate(item, settings_of):
         skipped.append({k: item[k] for k in ("split", "word")} | {"next": vocab[nxt]})
         return []
     leak = item["leak"] | {nxt}
-    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "input": res[:, item["input_pos"]]}
+    ids = tok(item["prompt"], return_tensors="pt", add_special_tokens=False).input_ids[0].cuda()
+    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": ids, "input": res[:, item["input_pos"]]}
     out = []
     for name, (_, _, fn) in TRANSFORMS.items():
         for setting in settings_of(name):
@@ -120,6 +121,16 @@ assert dev_rows, "no dev prompts survived"
 def f1(rs):
     tp, fp = sum(r["hidden"] for r in rs), sum(r["leaked"] for r in rs)
     return 2 * tp / (2 * tp + fp + len(rs) - tp)
+
+
+def delta_ci(rs, base, n_boot=2000):
+    """F1(rs) - F1(base) on the same prompts, with a 90% paired bootstrap interval."""
+    by_key = {(r["split"], r["word"]): r for r in base}
+    pairs = [(r, by_key[(r["split"], r["word"])]) for r in rs]
+    assert len(pairs) == len(base)
+    rng = random.Random(0)
+    boots = sorted(f1(a) - f1(b) for a, b in (zip(*[rng.choice(pairs) for _ in pairs]) for _ in range(n_boot)))
+    return f"{f1(rs) - f1(base):+.2f} ({boots[int(0.05 * n_boot)]:+.2f} to {boots[int(0.95 * n_boot)]:+.2f})"
 
 
 def f1_ci(rs, n_boot=2000):
@@ -145,13 +156,16 @@ source_lines = inspect.getsource(__import__("transforms")).splitlines()
 CONTROLS = ("logit lens", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
 COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
 rows_by_table = {False: [], True: []}  # uses the J-lens?
+random_test = [r for r in rows if r["transform"] == "random subspace (control)" and r["role"] == "test"
+               and r["setting"] == list(chosen["random subspace (control)"])]
 for name, (settings, fitted, _) in TRANSFORMS.items():
     mine = lambda role: [r for r in rows if r["transform"] == name and r["role"] == role and r["setting"] == list(chosen[name])]
     test, transfer = mine("test"), mine("transfer")
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})"
     rows_by_table["J-lens" in name].append({
-        "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test), "TPR↑": mean(r["hidden"] for r in test),
+        "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test),
+        "Δ vs random": "" if name == "random subspace (control)" else delta_ci(test, random_test), "TPR↑": mean(r["hidden"] for r in test),
         "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
         "fitted on": fitted, "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
@@ -164,13 +178,13 @@ def render(table):
         for r in table:
             r[col] = f"**{r[col]:.2f}**" if r[col] == best and not tied else f"{r[col]:.2f}"
     return tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left",) + ("right",) * 5 + ("left", "left", "right"))
+                    colalign=("left",) + ("right",) * 6 + ("left", "left", "right"))
 
 
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
            f"layer/rank. Each row's settings (tried) are compared only on {DEV[0][0]}→{DEV[0][1]}, a pair not in the test, so trying more "
-           f"settings does not see the test prompts. 90% CI = bootstrap over test prompts. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). "
+           f"settings does not see the test prompts. 90% CI = bootstrap over test prompts; Δ vs random = F1 minus the random subspace on the same prompts, with a paired 90% interval. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). "
            f"English-only F1 = F1 on {n_transfer} English-only TwoHopFact questions, where the hidden word is the bridge entity and "
            f"input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). "
            f"Italic = control. {len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
