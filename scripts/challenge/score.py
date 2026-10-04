@@ -179,7 +179,7 @@ for name, (settings, fitted, kind, _) in TRANSFORMS.items():
         "transform": f"*{label}*" if name in CONTROLS else label, "F1↑": f1(test), "90% CI": f1_ci(test),
         "Δ vs random": "" if name == "random subspace (control)" else delta_ci(test, random_test), "TPR↑": mean(r["hidden"] for r in test),
         "FPR↓": mean(r["leaked"] for r in test), "English-only F1↑": f1(transfer),
-        "fitted on": fitted, "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
+        "fitted on": fitted})
 n_test, n_transfer = len(test), len(transfer)
 
 
@@ -190,17 +190,14 @@ def render(table):
         for r in table:
             r[col] = f"**{r[col]:.2f}**" if r[col] == best and not tied else f"{r[col]:.2f}"
     return tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left",) + ("right",) * 6 + ("left", "left", "right"))
+                    colalign=("left",) + ("right",) * 6 + ("left",))
 
 
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
-caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank. Each row's settings (tried) are compared only on {DEV[0][0]}→{DEV[0][1]}, a pair not in the test, so trying more "
-           f"settings does not see the test prompts. 90% CI = bootstrap over test prompts; Δ vs random = F1 minus the random subspace on the same prompts, with a paired 90% interval. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). "
-           f"English-only F1 = F1 on {n_transfer} English-only TwoHopFact questions, where the hidden word is the bridge entity and "
-           f"input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). "
-           f"Italic = control. {len(skipped)} prompts skipped because the model's next token was whitespace or punctuation. "
-           f"Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
+caption = (f"Qwen3.5-4B, {n_test} test prompts ({', '.join(f'{a}→{b}' for a, b in TEST)}). Each row's layer and rank "
+           f"were chosen on {DEV[0][0]}→{DEV[0][1]} only. 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random "
+           f"subspace on the same prompts. English-only F1: {n_transfer} two-hop questions (TwoHopFact). "
+           f"[Per-prompt rows]({out.relative_to(ROOT)}/rows.json.gz), commit {commit}.")
 markdown = (render(rows_by_table["geometry"]) + "\n\n" + caption
             + "\n\n### Reference: methods that use the output head, token scores or the J-lens\n\n"
             + render(rows_by_table["reference"]) + "\n")
