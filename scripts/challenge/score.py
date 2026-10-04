@@ -151,10 +151,7 @@ for col, better in COLS:
         r[col] = f"**{r[col]:.2f}**" if r[col] == best else f"{r[col]:.2f}"
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in TEST)} ({n_test} prompts); setting = layer, or "
-           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. Each prompt is scored on the transform's top {K} words. If they include the hidden "
-           f"word (English, or its Chinese translation), that is a true positive (TP), else a false negative (FN). If they include an "
-           f"input or output word (any word in those languages, or the word the model is about to say), that is a false positive "
-           f"(FP), else a true negative (TN). TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on {n_transfer} English-only "
+           f"layer/rank, chosen on {DEV[0][0]}→{DEV[0][1]}. TP, FN, FP, TN as in the README. TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on {n_transfer} English-only "
            f"TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. "
            f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
            f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")

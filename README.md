@@ -30,6 +30,12 @@ found in English or Chinese.
 Each row is a transform: one forward pass in, a score for every token out. The model translates between two
 languages that share no letters with English or Chinese (Russian, Korean, Arabic, Hindi, Thai).
 
+A transform should ideally catch all the hidden English and none of the input and output language words. So we
+frame it as classification on the transform's top 8 words for each prompt. If they include the hidden word
+(English, or its Chinese translation), that is a true positive (TP); if not, a false negative (FN). If they
+include an input or output word (any word in those languages, or the word the model is about to say), that is a
+false positive (FP); if not, a true negative (TN). A prompt passes if it is both TP and TN.
+
 | transform                                                                       | setting | pass rate↑ |     TPR↑ |     FPR↓ | English-only pass rate↑ | tried |
 |:--------------------------------------------------------------------------------|:--------|-----------:|---------:|---------:|------------------------:|------:|
 | [rise-and-fall, J-lens](scripts/challenge/transforms.py#L153) ★                 | 28      |   **0.93** |     0.95 |     0.01 |                    0.00 |     4 |
@@ -50,7 +56,7 @@ languages that share no letters with English or Chinese (Russian, Korean, Arabic
 | *[random subspace (floor)](scripts/challenge/transforms.py#L101)*               | 27/256  |       0.18 |     0.23 |     0.16 |                    0.00 |     3 |
 | *[fixed list (control)](scripts/challenge/transforms.py#L91) ★*                 | 28      |       0.00 |     0.00 | **0.00** |                    0.00 |     1 |
 
-<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (74 prompts); setting = layer, or layer/rank, chosen on ru→ko. Each prompt is scored on the transform's top 8 words. If they include the hidden word (English, or its Chinese translation), that is a true positive (TP), else a false negative (FN). If they include an input or output word (any word in those languages, or the word the model is about to say), that is a false positive (FP), else a true negative (TN). TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on 36 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. ★ = uses a lens or per-prompt vocabulary scores. Italic = control. 15 prompts skipped because the model's next token was whitespace or punctuation. Commit c7d0aef, [rows](out/2026-10-04_135950_leaderboard/rows.json.gz).</sub>
+<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (74 prompts); setting = layer, or layer/rank, chosen on ru→ko. TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on 36 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. ★ = uses a lens or per-prompt vocabulary scores. Italic = control. 15 prompts skipped because the model's next token was whitespace or punctuation. Commit c7d0aef, [rows](out/2026-10-04_135950_leaderboard/rows.json.gz).</sub>
 
 The plain lens finds the hidden word as often as the best rows (TPR 0.96) but also shows input or output words (FPR 0.24). Reading the input word itself, before any hidden step, already scores 0.65, so rows below that line may only read the input. No row finds the hidden word in English-only questions yet (English-only pass rate is about 0). That is the open part.
 
