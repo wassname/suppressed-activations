@@ -27,40 +27,48 @@ found in English or Chinese.
 
 ## Leaderboard
 
-Each row is a transform: one forward pass in, a score for every token out. The model translates between two
-languages that share no letters with English or Chinese (Russian, Korean, Arabic, Hindi, Thai).
+An entry is a transform: it takes the activations from one forward pass and gives every token a score. We look
+at its top 8 words. Most rows use a lens to turn a layer's activations into token scores. The logit lens applies
+the model's output head directly; the [J-lens](https://transformer-circuits.pub/2026/workspace/) first maps the
+layer to the last layer. Rise-and-fall scores words whose score rises from layer 22 to that layer and falls by the output.
 
 A transform should ideally catch all the hidden English and none of the input and output language words. So we
-frame it as classification on the transform's top 8 words for each prompt. If they include the hidden word
-(English, or its Chinese translation), that is a true positive (TP); if not, a false negative (FN). If they
-include an input or output word (any word in those languages, or the word the model is about to say), that is a
-false positive (FP); if not, a true negative (TN). A prompt passes if it is both TP and TN.
+frame it as classification on the top 8 words for each prompt. If they include the hidden word (English, or its
+Chinese translation), that is a true positive (TP); if not, a false negative (FN). If they include an input or
+output word (any word in those languages, or the word the model is about to say), that is a false positive (FP);
+if not, a true negative (TN). A prompt passes if it is both TP and TN.
 
-| transform                                                                       | setting | pass rate↑ |     TPR↑ |     FPR↓ | English-only pass rate↑ | tried |
-|:--------------------------------------------------------------------------------|:--------|-----------:|---------:|---------:|------------------------:|------:|
-| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L153) ★                 | 28      |   **0.93** |     0.95 |     0.01 |                    0.00 |     4 |
-| [suppressed subspace (rank 32), J-lens](scripts/challenge/transforms.py#L164) ★ | 28      |       0.86 |     0.95 |     0.08 |                    0.00 |     4 |
-| [attention output, J-lens](scripts/challenge/transforms.py#L170) ★              | 23      |       0.86 |     0.91 |     0.08 |                **0.06** |     1 |
-| [churn](scripts/challenge/transforms.py#L106)                                   | 27/1024 |       0.81 | **0.96** |     0.16 |                    0.00 |     9 |
-| [J-lens minus output subspace](scripts/challenge/transforms.py#L137) ★          | 28/256  |       0.80 |     0.93 |     0.15 |                    0.00 |     9 |
-| [suppressed subspace (rank 32)](scripts/challenge/transforms.py#L158) ★         | 27      |       0.76 |     0.82 |     0.11 |                    0.00 |     1 |
-| [J-lens](scripts/challenge/transforms.py#L86) ★                                 | 23      |       0.74 |     0.81 |     0.08 |                    0.00 |    12 |
-| *[plain lens](scripts/challenge/transforms.py#L81) ★*                           | 27      |       0.73 | **0.96** |     0.24 |                    0.00 |    12 |
-| [rise-and-fall](scripts/challenge/transforms.py#L148) ★                         | 27      |       0.73 |     0.76 |     0.07 |                    0.00 |     1 |
-| [write minus top-read](scripts/challenge/transforms.py#L111)                    | 24/1024 |       0.69 |     0.77 |     0.11 |                    0.00 |     9 |
-| [plain lens minus output subspace](scripts/challenge/transforms.py#L131)        | 28/16   |       0.69 |     0.95 |     0.27 |                    0.00 |     9 |
-| *[input word, J-lens (control)](scripts/challenge/transforms.py#L96) ★*         | 12      |       0.65 |     0.65 |     0.01 |                    0.00 |     4 |
-| [erased-variance](scripts/challenge/transforms.py#L116)                         | 27/1024 |       0.62 |     0.66 |     0.07 |                    0.00 |     3 |
-| [suppressed (AntiPaSTO)](scripts/challenge/transforms.py#L126)                  | 27/1024 |       0.61 |     0.93 |     0.35 |                    0.00 |     3 |
-| [weak-readout](scripts/challenge/transforms.py#L121)                            | 27/1024 |       0.27 |     0.59 |     0.69 |                    0.00 |     3 |
-| *[random subspace (floor)](scripts/challenge/transforms.py#L101)*               | 27/256  |       0.18 |     0.23 |     0.16 |                    0.00 |     3 |
-| *[fixed list (control)](scripts/challenge/transforms.py#L91) ★*                 | 28      |       0.00 |     0.00 | **0.00** |                    0.00 |     1 |
+The italic rows are controls: the plain logit lens; the input word read through the J-lens (no hidden step
+needed); a random subspace; and a fixed list that ignores the prompt.
+
+| transform                                                                       | pass rate↑ |     TPR↑ |     FPR↓ | English-only pass rate↑ | setting | tried |
+|:--------------------------------------------------------------------------------|-----------:|---------:|---------:|------------------------:|:--------|------:|
+| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L153) ★                 |   **0.93** |     0.95 |     0.01 |                    0.00 | 28      |     4 |
+| [suppressed subspace (rank 32), J-lens](scripts/challenge/transforms.py#L164) ★ |       0.86 |     0.95 |     0.08 |                    0.00 | 28      |     4 |
+| [attention output, J-lens](scripts/challenge/transforms.py#L170) ★              |       0.86 |     0.91 |     0.08 |                **0.06** | 23      |     1 |
+| [churn](scripts/challenge/transforms.py#L106)                                   |       0.81 | **0.96** |     0.16 |                    0.00 | 27/1024 |     9 |
+| [J-lens minus output subspace](scripts/challenge/transforms.py#L137) ★          |       0.80 |     0.93 |     0.15 |                    0.00 | 28/256  |     9 |
+| [suppressed subspace (rank 32)](scripts/challenge/transforms.py#L158) ★         |       0.76 |     0.82 |     0.11 |                    0.00 | 27      |     1 |
+| [J-lens](scripts/challenge/transforms.py#L86) ★                                 |       0.74 |     0.81 |     0.08 |                    0.00 | 23      |    12 |
+| *[plain lens](scripts/challenge/transforms.py#L81) ★*                           |       0.73 | **0.96** |     0.24 |                    0.00 | 27      |    12 |
+| [rise-and-fall](scripts/challenge/transforms.py#L148) ★                         |       0.73 |     0.76 |     0.07 |                    0.00 | 27      |     1 |
+| [write minus top-read](scripts/challenge/transforms.py#L111)                    |       0.69 |     0.77 |     0.11 |                    0.00 | 24/1024 |     9 |
+| [plain lens minus output subspace](scripts/challenge/transforms.py#L131)        |       0.69 |     0.95 |     0.27 |                    0.00 | 28/16   |     9 |
+| *[input word, J-lens (control)](scripts/challenge/transforms.py#L96) ★*         |       0.65 |     0.65 |     0.01 |                    0.00 | 12      |     4 |
+| [erased-variance](scripts/challenge/transforms.py#L116)                         |       0.62 |     0.66 |     0.07 |                    0.00 | 27/1024 |     3 |
+| [suppressed (AntiPaSTO)](scripts/challenge/transforms.py#L126)                  |       0.61 |     0.93 |     0.35 |                    0.00 | 27/1024 |     3 |
+| [weak-readout](scripts/challenge/transforms.py#L121)                            |       0.27 |     0.59 |     0.69 |                    0.00 | 27/1024 |     3 |
+| *[random subspace (floor)](scripts/challenge/transforms.py#L101)*               |       0.18 |     0.23 |     0.16 |                    0.00 | 27/256  |     3 |
+| *[fixed list (control)](scripts/challenge/transforms.py#L91) ★*                 |       0.00 |     0.00 | **0.00** |                    0.00 | 28      |     1 |
 
 <sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (74 prompts); setting = layer, or layer/rank, chosen on ru→ko. TPR, FPR and pass rate (TP and TN) are shares of prompts. English-only pass rate = pass rate on 36 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. ★ = uses a lens or per-prompt vocabulary scores. Italic = control. 15 prompts skipped because the model's next token was whitespace or punctuation. Commit c7d0aef, [rows](out/2026-10-04_135950_leaderboard/rows.json.gz).</sub>
 
-The plain lens finds the hidden word as often as the best rows (TPR 0.96) but also shows input or output words (FPR 0.24). Reading the input word itself, before any hidden step, already scores 0.65, so rows below that line may only read the input. No row finds the hidden word in English-only questions yet (English-only pass rate is about 0). That is the open part.
+The plain lens finds the hidden word as often as the best rows (TPR 0.96) but shows input or output words in
+a quarter of prompts (FPR 0.24). No row works on the English-only questions yet. That is the open part.
 
-To enter, add a function to [`transforms.py`](scripts/challenge/transforms.py):
+## Enter
+
+Add a function to [`transforms.py`](scripts/challenge/transforms.py):
 
 ```python
 @transform("my transform", settings=[(27,), (28,)], lens_based=False)
@@ -80,17 +88,15 @@ Open an issue or a pull request with your transform and its row, and we will add
 
 ## Related work
 
-- [Dumas et al. 2024](https://arxiv.org/abs/2411.08745), same word-translation setup: "we can change the concept without changing the language and vice versa through activation patching alone." Patching, not a readout.
-- [Bayazit et al. 2026](https://arxiv.org/abs/2609.00155): "decoding-based probes, which rely on output-space decodability, retain sharper language-specific and more English-biased signals." Every row here reads through the output head, so this applies.
-- [Schut et al. 2025](https://arxiv.org/abs/2502.15603): English pivot in open-ended generation.
-- [Wu et al. 2024, Semantic Hub](https://arxiv.org/abs/2411.04986): a shared middle-layer space across languages.
-- [Zhong et al. 2025](https://aclanthology.org/2025.findings-acl.1350/): models trained on several languages can use more than one latent language. This is why Chinese counts as hidden.
-- [Yang et al. 2024, TwoHopFact](https://aclanthology.org/2024.acl-long.550.pdf): the English-only transfer questions.
-- [Patchscopes](https://arxiv.org/abs/2401.06102), [LatentQA](https://arxiv.org/abs/2412.08686), [tuned lens](https://arxiv.org/abs/2303.08112): other readouts. The first two need a second prompt or a trained decoder; the tuned lens is trained to predict the output, so it would read what is said.
+- [Dumas et al. 2024](https://arxiv.org/abs/2411.08745) use the same word-translation setup and patch activations: "we can change the concept without changing the language and vice versa through activation patching alone."
+- [Bayazit et al. 2026](https://arxiv.org/abs/2609.00155) compare probes: "decoding-based probes, which rely on output-space decodability, retain sharper language-specific and more English-biased signals."
+- [Schut et al. 2025](https://arxiv.org/abs/2502.15603) find an English pivot in open-ended generation.
+- [Wu et al. 2024](https://arxiv.org/abs/2411.04986) describe a shared middle-layer "semantic hub" across languages.
+- [Zhong et al. 2025](https://aclanthology.org/2025.findings-acl.1350/) find that models trained on several languages can use more than one latent language.
+- [Yang et al. 2024](https://aclanthology.org/2024.acl-long.550.pdf) made TwoHopFact, the English-only questions here.
+- [Patchscopes](https://arxiv.org/abs/2401.06102), [LatentQA](https://arxiv.org/abs/2412.08686) and the [tuned lens](https://arxiv.org/abs/2303.08112) are other readouts.
 
-We did not find an earlier leaderboard of label-free readouts scored this way.
-
-<!-- PI/OpenAI 2026-10-04: numbers from out/2026-10-04_135950_leaderboard (headers and caption renamed after, as in score.py at c7d0aef), generated by scripts/challenge/score.py; not yet reviewed by wassname. -->
+<!-- PI/OpenAI 2026-10-04: numbers from out/2026-10-04_135950_leaderboard (headers, column order and caption changed after, as in the current score.py), generated by scripts/challenge/score.py; not yet reviewed by wassname. -->
 
 ## Citation
 

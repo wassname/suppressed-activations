@@ -138,10 +138,10 @@ for name, (settings, lens_based, _) in TRANSFORMS.items():
     test, transfer = mine("test"), mine("transfer")
     line = next(i for i, text in enumerate(source_lines, 1) if f'@transform("{name}"' in text)
     label = f"[{name}](scripts/challenge/transforms.py#L{line})" + (" ★" if lens_based else "")
-    table.append({"transform": f"*{label}*" if name in CONTROLS else label, "setting": "/".join(map(str, chosen[name])),
+    table.append({"transform": f"*{label}*" if name in CONTROLS else label,
                   "pass rate↑": mean(r["pass"] for r in test), "TPR↑": mean(r["hidden"] for r in test),
-                  "FPR↓": mean(r["leaked"] for r in test),
-                  "English-only pass rate↑": mean(r["pass"] for r in transfer), "tried": len(settings)})
+                  "FPR↓": mean(r["leaked"] for r in test), "English-only pass rate↑": mean(r["pass"] for r in transfer),
+                  "setting": "/".join(map(str, chosen[name])), "tried": len(settings)})
 n_test, n_transfer = len(test), len(transfer)
 COLS = (("pass rate↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only pass rate↑", max))
 table.sort(key=lambda r: -r["pass rate↑"])
@@ -156,6 +156,6 @@ caption = (f"<sub>Table: Qwen3.5-4B. Test = {', '.join(f'{a}→{b}' for a, b in 
            f"★ = uses a lens or per-prompt vocabulary scores. Italic = control. {len(skipped)} prompts skipped because the "
            f"model's next token was whitespace or punctuation. Commit {commit}, [rows]({out.relative_to(ROOT)}/rows.json.gz).</sub>")
 markdown = tabulate(table, headers="keys", tablefmt="pipe", disable_numparse=True,
-                    colalign=("left", "left") + ("right",) * 5) + "\n\n" + caption + "\n"
+                    colalign=("left",) + ("right",) * 4 + ("left", "right")) + "\n\n" + caption + "\n"
 (out / "leaderboard.md").write_text(markdown)
 print(markdown, f"\nskipped: {skipped}\n{out / 'leaderboard.md'}", flush=True)
