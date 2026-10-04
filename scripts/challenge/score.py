@@ -24,6 +24,7 @@ import time
 from statistics import mean
 
 from tabulate import tabulate
+import torch
 
 from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, forward, tok, tokens_in_script, vocab
 from transforms import TRANSFORMS, fit_bases
@@ -102,8 +103,12 @@ def evaluate(item, settings_of):
         skipped.append({k: item[k] for k in ("split", "word")} | {"next": vocab[nxt]})
         return []
     leak = item["leak"] | {nxt}
-    ids = tok(item["prompt"], return_tensors="pt", add_special_tokens=False).input_ids[0].cuda()
-    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": ids, "input": res[:, item["input_pos"]]}
+    enc = tok(item["prompt"], add_special_tokens=False, return_offsets_mapping=True)
+    ids = torch.tensor(enc.input_ids).cuda()
+    line_start = item["prompt"].rfind("\n") + 1
+    line = [i for i, (_, end) in enumerate(enc.offset_mapping) if end > line_start]  # tokens of the prompt's last line
+    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": ids, "line": res[:, line],
+             "input": res[:, item["input_pos"]]}
     out = []
     for name, (_, _, fn) in TRANSFORMS.items():
         for setting in settings_of(name):

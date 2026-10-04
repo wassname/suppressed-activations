@@ -97,7 +97,7 @@ def mine(s, layer):  # s["res"]: residual stream at the last prompt token, [33 l
     return readout(s["res"][layer])  # a score for each vocabulary token
 ```
 
-`s` also holds `"attn"` (layer 23 attention output), `"logits"` (the model's next-token logits) and `"ids"` (the prompt's token ids). Then run, on one GPU:
+`s` also holds `"attn"` (layer 23 attention output), `"logits"` (the model's next-token logits) and `"ids"` (the prompt's token ids) and `"line"` (residuals at every token of the prompt's last line, [33, tokens, 2560]). Then run, on one GPU:
 
 ```sh
 uv run scripts/challenge/score.py  # downloads the model and data on first run
@@ -105,7 +105,7 @@ uv run scripts/challenge/score.py  # downloads the model and data on first run
 
 Rules:
 
-- Use only `s["res"]`, `s["attn"]`, `s["logits"]` and `s["ids"]`. (`s["input"]` is there for the input-word control only.)
+- Use only `s["res"]`, `s["attn"]`, `s["logits"]`, `s["ids"]` and `s["line"]`. (`s["input"]` is there for the input-word control only.)
 - No word lists, language labels or test prompts. You may fit on generic text, like the WikiText sample in `data/challenge/`.
 - List each setting you tried in `settings`. They are compared on ru→ko only, then frozen for the test.
 - Entries that use a learned matrix from outside the model, like the J-lens, go in the J-lens table.

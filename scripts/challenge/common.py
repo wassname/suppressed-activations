@@ -55,8 +55,8 @@ def rms(h):
 
 
 def readout(v):
-    """The model's own output head on a residual-space vector."""
-    return W @ (gain * rms(v))
+    """The model's own output head on residual-space vectors [..., d] -> [..., vocab]."""
+    return (gain * rms(v)) @ W.T
 
 
 def tokens_in_script(pattern):

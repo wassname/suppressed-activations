@@ -219,6 +219,19 @@ def calibrated_rise_and_fall(s, peak):  # rise-and-fall on per-token z-scores of
     return _rise_fall(z(22), z(peak), z(32))
 
 
+@transform("calibrated rise-and-fall, last line", [(p,) for p in (27, 28)], fitted="WikiText")
+def calibrated_rise_and_fall_line(s, peak):  # max over the tokens of the prompt's last line, not just the last token
+    z = lambda l: (readout(s["line"][l]) - bases[f"calib{l}"][0]) / bases[f"calib{l}"][1]   # [tok, vocab]
+    early, mid, out = z(22), z(peak), z(32)
+    return torch.stack([_rise_fall(e, m, o) for e, m, o in zip(early, mid, out)]).amax(0)
+
+
+@transform("calibrated rise-and-fall, attention-weighted", [(p, t) for p in (27, 28) for t in (1.0, 3.0)], fitted="WikiText")
+def calibrated_rise_and_fall_attn(s, peak, temperature):  # favour tokens the layer-23 attention output also writes
+    a = readout(s["attn"])
+    return calibrated_rise_and_fall(s, peak) * torch.sigmoid((a - a.mean()) / (a.std() * temperature))
+
+
 @transform("variance ratio, layer 27 vs output", [(27, r) for r in RANKS], fitted="WikiText")
 def variance_ratio(s, l, r):  # directions with high variance at layer 27 relative to the output layer
     return readout(project(bases["variance ratio"][r], s["res"][l]))
