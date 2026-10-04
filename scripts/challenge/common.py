@@ -35,8 +35,8 @@ SCRIPT = {"ru": "\u0400-\u04ff", "ko": "\u1100-\u11ff\u3130-\u318f\uac00-\ud7af"
           "hi": "\u0900-\u097f", "th": "\u0e00-\u0e7f"}  # Unicode blocks; none shared with each other, Latin or Han
 
 torch.set_grad_enabled(False)
-tok = AutoTokenizer.from_pretrained(MODEL, revision=REVISION, local_files_only=True)
-model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=torch.bfloat16, local_files_only=True).cuda().eval()
+tok = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
+model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=torch.bfloat16).cuda().eval()
 W, gain = model.lm_head.weight.float(), 1.0 + model.model.norm.weight.float()  # output head; final RMSNorm gain
 vocab = [tok.convert_tokens_to_string([t]) if t is not None else "" for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
 

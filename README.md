@@ -79,6 +79,11 @@ Qwen3.5-4B, 149 test prompts (ar→hi, hi→th, th→ru, ko→ar). Each row's la
 
 ### How it is scored
 
+<img src="figs/scoring.svg" width="720" alt="Line plot, Qwen3.5-4B, 59 test prompts, logit-lens probability by layer at the last token. The hidden word (English or Chinese, orange) is near zero until layer 23, peaks at a median of 0.72 at layer 28, then falls to zero by layer 32. The output language (blue) stays low until layer 29 and reaches about 1 at layer 32. The input language (grey) stays near zero. A dashed line at layer 28 says a transform reads here. The orange curve is labelled positive: in the top 8 is TP, missing is FN. The blue and grey curves are labelled negative: in the top 8 is FP, absent is TN.">
+
+The plot shows probabilities from the plain logit lens. Scoring looks only at the top 8 words after the transform:
+the hidden word should be among them, and no input- or output-language word should be.
+
 For each prompt, we take the model's activations, apply the transform to get a score for every token, and keep the top eight words. A transform should ideally catch all the hidden English and none of the input and output language words. If the hidden word (English, or its Chinese translation) is in the top eight, that is a true positive (TP); if we miss it, a false negative (FN). If the method instead shows words from the input language, the output language, or the token the model is about to say, that is a false positive (FP); if it avoids all of those, a true negative (TN). Counting over prompts, F1 = 2TP / (2TP + FP + FN).
 
 Each entry returns a vector in activation space. Only then do we read that vector with the model's output head (the
