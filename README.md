@@ -35,33 +35,37 @@ We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test t
 
 We use the F1 score to measure which transform best isolates the hidden English.
 
-| transform                                                                      |      F1↑ |    90% CI |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on   | setting   |   tried |
-|:-------------------------------------------------------------------------------|---------:|----------:|---------:|---------:|-------------------:|:------------|:----------|--------:|
-| [layer-change PCA](scripts/challenge/transforms.py#L112)                       | **0.91** | 0.88–0.93 | **0.95** |     0.14 |               0.00 | WikiText    | 27/1024   |       9 |
-| [AntiPaSTO suppressed subspace](scripts/challenge/transforms.py#L137)          |     0.87 | 0.84–0.90 |     0.87 |     0.12 |               0.00 | WikiText    | 27/1024   |       3 |
-| [logit lens minus output-layer PCA](scripts/challenge/transforms.py#L142)      |     0.87 | 0.84–0.90 |     0.91 |     0.19 |               0.00 | WikiText    | 28/16     |       9 |
-| *[logit lens](scripts/challenge/transforms.py#L87)*                            |     0.87 | 0.84–0.90 |     0.93 |     0.22 |           **0.03** | nothing     | 27        |      12 |
-| [rise-and-fall token span (rank 32)](scripts/challenge/transforms.py#L169)     |     0.85 | 0.81–0.88 |     0.82 |     0.11 |               0.00 | nothing     | 27        |       1 |
-| *[random subspace (control)](scripts/challenge/transforms.py#L107)*            |     0.85 | 0.82–0.88 |     0.89 |     0.21 |               0.00 | random seed | 27/1024   |       3 |
-| [rise-and-fall](scripts/challenge/transforms.py#L159)                          |     0.83 | 0.78–0.87 |     0.74 |     0.06 |               0.00 | nothing     | 27        |       1 |
-| [MLP write minus next MLP read](scripts/challenge/transforms.py#L117)          |     0.82 | 0.78–0.86 |     0.73 |     0.05 |               0.00 | nothing     | 27/256    |       9 |
-| [added then removed](scripts/challenge/transforms.py#L132)                     |     0.77 | 0.74–0.81 |     0.85 |     0.36 |               0.00 | WikiText    | 27/1024   |       3 |
-| [variance gone by the output (PCA)](scripts/challenge/transforms.py#L122)      |     0.71 | 0.66–0.77 |     0.59 |     0.07 |               0.01 | WikiText    | 27/1024   |       3 |
-| [directions the output head reads least](scripts/challenge/transforms.py#L127) |     0.50 | 0.44–0.55 |     0.55 |     0.66 |               0.00 | nothing     | 27/1024   |       3 |
-| *[input word (control)](scripts/challenge/transforms.py#L102)*                 |     0.44 | 0.37–0.50 |     0.38 |     0.34 |               0.00 | nothing     | 8         |       4 |
-| *[mean WikiText activation (control)](scripts/challenge/transforms.py#L97)*    |     0.00 | 0.00–0.00 |     0.00 | **0.00** |               0.00 | WikiText    | 28        |       1 |
+| transform                                                                      |      F1↑ |    90% CI |            Δ vs random |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on   | setting   |   tried |
+|:-------------------------------------------------------------------------------|---------:|----------:|-----------------------:|---------:|---------:|-------------------:|:------------|:----------|--------:|
+| [calibrated rise-and-fall](scripts/challenge/transforms.py#L216)               | **0.96** | 0.94–0.98 | +0.11 (+0.08 to +0.14) |     0.93 |     0.01 |               0.00 | WikiText    | 28        |       4 |
+| [layer-change PCA](scripts/challenge/transforms.py#L135)                       |     0.91 | 0.88–0.93 | +0.06 (+0.03 to +0.09) | **0.95** |     0.14 |               0.00 | WikiText    | 27/1024   |       9 |
+| [AntiPaSTO suppressed subspace](scripts/challenge/transforms.py#L160)          |     0.87 | 0.84–0.90 | +0.02 (-0.01 to +0.06) |     0.87 |     0.12 |               0.00 | WikiText    | 27/1024   |       3 |
+| [logit lens minus output-layer PCA](scripts/challenge/transforms.py#L165)      |     0.87 | 0.84–0.90 | +0.02 (-0.01 to +0.05) |     0.91 |     0.19 |               0.00 | WikiText    | 28/16     |       9 |
+| *[logit lens](scripts/challenge/transforms.py#L110)*                           |     0.87 | 0.84–0.90 | +0.02 (-0.01 to +0.05) |     0.93 |     0.22 |               0.03 | nothing     | 27        |      12 |
+| [rise-and-fall token span (rank 32)](scripts/challenge/transforms.py#L198)     |     0.85 | 0.81–0.88 | +0.00 (-0.04 to +0.04) |     0.82 |     0.11 |               0.00 | nothing     | 27        |       1 |
+| *[random subspace (control)](scripts/challenge/transforms.py#L130)*            |     0.85 | 0.82–0.88 |                        |     0.89 |     0.21 |               0.00 | random seed | 27/1024   |       3 |
+| [logit lens minus read and said](scripts/challenge/transforms.py#L227)         |     0.84 | 0.80–0.88 | -0.01 (-0.05 to +0.03) |     0.86 |     0.19 |               0.00 | nothing     | 28/8      |       6 |
+| [rise-and-fall](scripts/challenge/transforms.py#L188)                          |     0.83 | 0.78–0.87 | -0.02 (-0.07 to +0.02) |     0.74 |     0.06 |               0.00 | nothing     | 27        |       1 |
+| [MLP write minus next MLP read](scripts/challenge/transforms.py#L140)          |     0.82 | 0.78–0.86 | -0.02 (-0.07 to +0.02) |     0.73 |     0.05 |               0.00 | nothing     | 27/256    |       9 |
+| [output-unexplained residual (ridge)](scripts/challenge/transforms.py#L210)    |     0.79 | 0.74–0.83 | -0.06 (-0.11 to -0.01) |     0.72 |     0.11 |           **0.03** | WikiText    | 27        |       3 |
+| [added then removed](scripts/challenge/transforms.py#L155)                     |     0.77 | 0.74–0.81 | -0.08 (-0.11 to -0.04) |     0.85 |     0.36 |               0.00 | WikiText    | 27/1024   |       3 |
+| [variance gone by the output (PCA)](scripts/challenge/transforms.py#L145)      |     0.71 | 0.66–0.77 | -0.13 (-0.19 to -0.08) |     0.59 |     0.07 |               0.01 | WikiText    | 27/1024   |       3 |
+| [directions the output head reads least](scripts/challenge/transforms.py#L150) |     0.50 | 0.44–0.55 | -0.35 (-0.41 to -0.29) |     0.55 |     0.66 |               0.00 | nothing     | 27/1024   |       3 |
+| *[input word (control)](scripts/challenge/transforms.py#L125)*                 |     0.44 | 0.37–0.50 | -0.41 (-0.48 to -0.35) |     0.38 |     0.34 |               0.00 | nothing     | 8         |       4 |
+| [variance ratio, layer 27 vs output](scripts/challenge/transforms.py#L222)     |     0.31 | 0.25–0.37 | -0.54 (-0.60 to -0.48) |     0.27 |     0.46 |               0.00 | WikiText    | 27/1024   |       3 |
+| *[mean WikiText activation (control)](scripts/challenge/transforms.py#L120)*   |     0.00 | 0.00–0.00 | -0.85 (-0.88 to -0.82) |     0.00 | **0.00** |               0.00 | WikiText    | 28        |       1 |
 
-<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (149 prompts); setting = layer, or layer/rank. Each row's settings (tried) are compared only on ru→ko, a pair not in the test, so trying more settings does not see the test prompts. 90% CI = bootstrap over test prompts. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on 102 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). Italic = control. 49 prompts skipped because the model's next token was whitespace or punctuation. Commit 1d1b1152, [rows](out/2026-10-04_195732_leaderboard/rows.json.gz).</sub>
+<sub>Table: Qwen3.5-4B. Test = ar→hi, hi→th, th→ru, ko→ar (149 prompts); setting = layer, or layer/rank. Each row's settings (tried) are compared only on ru→ko, a pair not in the test, so trying more settings does not see the test prompts. 90% CI = bootstrap over test prompts; Δ vs random = F1 minus the random subspace on the same prompts, with a paired 90% interval. TP, FN, FP, TN as in the README, counted over prompts; F1 = 2TP/(2TP+FP+FN). English-only F1 = F1 on 102 English-only TwoHopFact questions, where the hidden word is the bridge entity and input/output words are the question's words and its answer. fitted on = what the transform is fitted on besides the model weights (WikiText = 300 texts of generic text). Italic = control. 49 prompts skipped because the model's next token was whitespace or punctuation. Commit 70ca9a12, [rows](out/2026-10-04_212911_leaderboard/rows.json.gz).</sub>
 
 ### Using the J-lens
 
-| transform                                                                          |      F1↑ |    90% CI |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on        | setting   |   tried |
-|:-----------------------------------------------------------------------------------|---------:|----------:|---------:|---------:|-------------------:|:-----------------|:----------|--------:|
-| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L164)                      | **0.96** | 0.94–0.98 |     0.93 | **0.01** |               0.05 | J-lens           | 28        |       4 |
-| [rise-and-fall token span (rank 32), J-lens](scripts/challenge/transforms.py#L175) |     0.94 | 0.91–0.96 | **0.93** |     0.06 |               0.06 | J-lens           | 28        |       4 |
-| [J-lens minus output-layer PCA](scripts/challenge/transforms.py#L148)              |     0.89 | 0.87–0.92 |     0.91 |     0.13 |               0.03 | J-lens, WikiText | 28/256    |       9 |
-| [layer-23 attention output, J-lens](scripts/challenge/transforms.py#L181)          |     0.89 | 0.86–0.92 |     0.89 |     0.11 |           **0.09** | J-lens           | 23        |       1 |
-| [J-lens](scripts/challenge/transforms.py#L92)                                      |     0.85 | 0.81–0.89 |     0.79 |     0.07 |               0.01 | J-lens           | 23        |      12 |
+| transform                                                                          |      F1↑ |    90% CI |            Δ vs random |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on        | setting   |   tried |
+|:-----------------------------------------------------------------------------------|---------:|----------:|-----------------------:|---------:|---------:|-------------------:|:-----------------|:----------|--------:|
+| [rise-and-fall, J-lens](scripts/challenge/transforms.py#L193)                      | **0.96** | 0.94–0.98 | +0.11 (+0.08 to +0.14) |     0.93 | **0.01** |               0.05 | J-lens           | 28        |       4 |
+| [rise-and-fall token span (rank 32), J-lens](scripts/challenge/transforms.py#L204) |     0.94 | 0.91–0.96 | +0.09 (+0.06 to +0.12) | **0.93** |     0.06 |               0.06 | J-lens           | 28        |       4 |
+| [J-lens minus output-layer PCA](scripts/challenge/transforms.py#L171)              |     0.89 | 0.87–0.92 | +0.05 (+0.02 to +0.08) |     0.91 |     0.13 |               0.03 | J-lens, WikiText | 28/256    |       9 |
+| [layer-23 attention output, J-lens](scripts/challenge/transforms.py#L235)          |     0.89 | 0.86–0.92 | +0.04 (+0.01 to +0.08) |     0.89 |     0.11 |           **0.09** | J-lens           | 23        |       1 |
+| [J-lens](scripts/challenge/transforms.py#L115)                                     |     0.85 | 0.81–0.89 | +0.00 (-0.04 to +0.04) |     0.79 |     0.07 |               0.01 | J-lens           | 23        |      12 |
 
 ### How it is scored
 
@@ -71,11 +75,17 @@ The logit lens applies the model's output head directly to a layer's activations
 
 ### Where we are
 
-The plain logit lens finds the hidden word about as often as the best methods (TPR 0.93). But in about a fifth of prompts it also shows input or output words (FPR 0.22).
+The best simple method is calibrated rise-and-fall (F1 0.96, 0.11 above a random subspace on the same prompts). It
+is rise-and-fall on each token's logit after subtracting that token's mean and dividing by its spread on WikiText, per
+layer. It matches the J-lens version without the J-lens. The two give different top-8 lists, but agree on whether
+the hidden word is there in 147 of 149 prompts.
 
-The italic rows are controls: the logit lens, the input word itself, a random subspace, and the mean WikiText activation, which ignores the prompt. They tell us whether a method finds something or just gets lucky. A random subspace of rank 1024 (of 2560) keeps most of the logit lens and scores 0.85. Among the simple methods, only layer-change PCA (0.88–0.93) is clear of it.
+The plain logit lens finds the hidden word about as often (TPR 0.93), but in about a fifth of prompts it also shows
+input or output words (FPR 0.22). A random subspace of rank 1024 (of 2560) keeps most of the logit lens and scores
+0.85; the "Δ vs random" column compares each row with it on the same prompts.
 
-None of the methods work yet on English-only questions, where the input and output are already English (F1 0.09 at best). That is the open problem. If we can solve that, we might have a general way to read what a model thinks.
+None of the methods work yet on English-only questions, where the input and output are already English (F1 0.09 at
+best). That is the open problem. If we can solve that, we might have a general way to read what a model thinks.
 
 ## Enter
 
@@ -113,7 +123,7 @@ Open an issue or a pull request with your transform and its row, and we will add
 - [Yang et al. 2024](https://aclanthology.org/2024.acl-long.550.pdf) made TwoHopFact, the English-only questions here.
 - [Patchscopes](https://arxiv.org/abs/2401.06102), [LatentQA](https://arxiv.org/abs/2412.08686) and the [tuned lens](https://arxiv.org/abs/2303.08112) are other readouts.
 
-<!-- PI/OpenAI 2026-10-04: table from out/2026-10-04_195732_leaderboard, generated by scripts/challenge/score.py. -->
+<!-- PI/OpenAI 2026-10-04: table from out/2026-10-04_212911_leaderboard, generated by scripts/challenge/score.py. -->
 
 ## Citation
 
