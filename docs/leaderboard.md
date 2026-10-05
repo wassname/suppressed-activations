@@ -70,13 +70,9 @@ what geometry has not found yet.
 
 ## Per layer
 
-To see how your transform does at every layer, add it to `METHODS` in
-[`layer_sweep.py`](../scripts/challenge/layer_sweep.py) (it opens as a notebook) and run it.
-
-<img src="../figs/layers.png" width="900" alt="Three panels over layers 16 to 31, 149 test prompts: F1 with a 90% band, TPR and FPR, for five geometry transforms. All peak around layers 24 to 29 at F1 about 0.85 to 0.92. Net-change PCA (green) rises earliest, F1 0.61 at layer 20 and about 0.89 from layer 24, and falls least by layer 31. Identity (logit lens) and the random subspace are lower in the middle layers. Minus this prompt's x22 and x32 (orange) starts at layer 23 and peaks at 0.92 at layer 28. FPR rises steeply for all at layers 30 to 31.">
-
-Per layer ([`layer_sweep.py`](../scripts/challenge/layer_sweep.py)), net-change PCA is the least sensitive to the choice of
-layer: it already reaches F1 0.61 at layer 20, where the logit lens has 0.33. The orange line starts at layer 23
-because it removes the layer-22 state. By layer 31 every method shows the output language (FPR rises).
+The README figure ([`figs/layers.png`](../figs/layers.png)) shows five methods at every layer from 16 to 31. To see
+your method the same way, add it to `METHODS` in [`layer_sweep.py`](../scripts/challenge/layer_sweep.py) (it opens
+as a notebook) and run it. Net-change PCA is the least sensitive to the choice of layer: it already finds the hidden
+word with nothing leaked on about 44% of prompts at layer 20, where the logit lens does so on 20%.
 
 <!-- Moved from the README by PI/OpenAI, 2026-10-05, when wassname asked for a shorter README. -->

@@ -1,6 +1,6 @@
 # Hidden Thought Challenge: find the concepts in giant inscrutable matrices
 
-<img src="figs/cartoon.png" width="720" alt="Schematic, not data. Title: When a model translates Arabic to Russian, it thinks in English. Subtitle: Challenge: can you isolate the hidden thought, without using a dictionary? Three shaded shapes over layers, each labelled inside: grey ARABIC (input) with قطة كلب, high early, arrow not this; orange ENGLISH (hidden) with cat dog, peaking in the middle, arrow isolate the English part; blue RUSSIAN (output) with кошка собака, rising at the end, arrow or this. A dotted line under the English peak: one layer: a mix of all three.">
+<img src="figs/cartoon.png" width="720" alt="Cartoon. Title: When a model translates Arabic to Russian, it thinks in English. Subtitle: Challenge: can you isolate the hidden thought, without using a dictionary? Three shaded shapes over layers, each labelled inside: grey ARABIC (input) with قطة كلب, high early, arrow not this; orange ENGLISH (hidden) with cat dog, peaking in the middle, arrow isolate the English part; blue RUSSIAN (output) with кошка собака, rising at the end, arrow or this.">
 
 In AI models we want to find the thoughts and concepts and planning. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable tensors. The problem is that we don't understand them.
 
@@ -39,60 +39,73 @@ We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test t
 
 ## Leaderboard
 
-We are looking for internal geometry: a projection or other map of the activations, found without the output head,
-token lists or dictionaries, that happens to hold the hidden English words. We use the F1 score to measure which
-transform best isolates the hidden English.
+A method gets the model's activations and must return a vector that holds the hidden English word. It may not use the
+output head, token lists or dictionaries; we use the output head only afterwards, to read out the top 8 words and check
+them.
 
-| transform                                                                                       |      F1↑ |    90% CI |            Δ vs random |     TPR↑ |     FPR↓ |   English-only F1↑ | fitted on   |
-|:------------------------------------------------------------------------------------------------|---------:|----------:|-----------------------:|---------:|---------:|-------------------:|:------------|
-| [minus this prompt's early and output states](scripts/challenge/transforms.py#L253)             | **0.92** | 0.89–0.94 | +0.07 (+0.04 to +0.10) |     0.93 |     0.09 |               0.00 | nothing     |
-| [layer-change PCA](scripts/challenge/transforms.py#L164)                                        |     0.91 | 0.88–0.93 | +0.06 (+0.03 to +0.09) | **0.95** |     0.14 |               0.00 | WikiText    |
-| [net-change PCA (AntiPaSTO without the output-head step)](scripts/challenge/transforms.py#L189) |     0.90 | 0.87–0.92 | +0.05 (+0.02 to +0.08) |     0.93 |     0.14 |               0.00 | WikiText    |
-| *[identity (logit lens)](scripts/challenge/transforms.py#L139)*                                 |     0.87 | 0.84–0.90 | +0.02 (-0.01 to +0.05) |     0.93 |     0.22 |               0.03 | nothing     |
-| *[random subspace (control)](scripts/challenge/transforms.py#L159)*                             |     0.85 | 0.82–0.88 |                        |     0.89 |     0.21 |               0.00 | random seed |
+On each prompt the method succeeds if the hidden word is in the top 8 and no input- or output-language word is.
+The score is F1: 1.00 means every prompt succeeded.
 
-Qwen3.5-4B, 149 test prompts (ar→hi, hi→th, th→ru, ko→ar). Each row's layer and rank were chosen on ru→ko only. 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random subspace on the same prompts. English-only F1: 102 two-hop questions (TwoHopFact). [Per-prompt rows](out/2026-10-05_002148_leaderboard/rows.json.gz). [Full table, reference methods and per-layer results](docs/leaderboard.md).
+| method                                                         |      F1↑ | found the hidden word↑ | showed input/output words↓ | English-only F1↑ | fitted on   |
+|:---------------------------------------------------------------|---------:|-----------------------:|---------------------------:|-----------------:|:------------|
+| [remove this prompt's early and output states](scripts/challenge/transforms.py#L253)       | **0.92** |                    93% |                     **9%** |             0.00 | nothing     |
+| [layer-change PCA](scripts/challenge/transforms.py#L164)                                   |     0.91 |                **95%** |                        14% |             0.00 | WikiText    |
+| [net-change PCA](scripts/challenge/transforms.py#L189)                                     |     0.90 |                    93% |                        14% |             0.00 | WikiText    |
+| *[logit lens (activations unchanged)](scripts/challenge/transforms.py#L139)*               |     0.87 |                    93% |                        22% |         **0.03** | nothing     |
+| *[random subspace (control)](scripts/challenge/transforms.py#L159)*                        |     0.85 |                    89% |                        21% |             0.00 | random seed |
 
-<img src="figs/scoring.svg" width="720" alt="Line plot, Qwen3.5-4B, 59 test prompts, logit-lens probability by layer at the last token. The hidden word (English or Chinese, orange) is near zero until layer 23, peaks at a median of 0.72 at layer 28, then falls to zero by layer 32. The output language (blue) stays low until layer 29 and reaches about 1 at layer 32. The input language (grey) stays near zero. A dashed line at layer 28 says a transform reads here. The orange curve is labelled positive: in the top 8 is TP, missing is FN. The blue and grey curves are labelled negative: in the top 8 is FP, absent is TN.">
+The model is Qwen3.5-4B. The test has 149 prompts over four language pairs (Arabic→Hindi, Hindi→Thai, Thai→Russian,
+Korean→Arabic). Each method's layer and size were picked on a different pair (Russian→Korean) before the test.
+English-only F1 uses 102 two-hop questions where nothing is translated. Differences under about 0.03 are within noise.
+[All methods, confidence intervals and details](docs/leaderboard.md).
 
-For each prompt we keep the transform's top 8 words. The hidden word (orange) should be among them; words from the
-input or output language (grey, blue) should not. F1 combines the two.
-<!-- Short scoring note and the README cut by PI/OpenAI, 2026-10-05; the details moved to docs/leaderboard.md. -->
+<img src="figs/layers.png" width="900" alt="Five stacked-area panels, one per method, over layers 16 to 31, 149 test prompts. Each prompt is one of four outcomes: hidden word and nothing leaked (dark orange, the goal), hidden word but input/output words too (light orange), only input/output words (light blue), neither (light grey). For all methods the dark orange share peaks around layers 27 to 28 at about 0.7 to 0.85 and light blue grows at layers 30 to 31. The logit lens has a large light orange share; the three PCA or removal methods have less. Net-change PCA rises earliest, about 0.45 at layer 20. The last method starts at layer 23.">
 
-The best geometry so far is also the simplest: take the layer-28 activation and remove the two directions of the
-same prompt's layer-22 and output activations (F1 0.92, 0.07 above a random subspace on the same prompts). It needs
-no fitting.
+Each panel shows one method at every layer. Dark orange is what we want: the hidden word, with nothing from the
+input or output language. With the plain logit lens much of the orange is light: the hidden word is there, but so is
+the output language. The best methods turn more of it dark. The hidden word is only readable between about layers 24
+and 30. Before that the model has not formed it; after that it is replaced by the output.
 
-None of the methods work on English-only questions, where the input and output are already English (F1 0.09 at best,
-from a reference row). That is the open problem. If we can solve that, we might have a general way to read what a
-model thinks.
+The best method so far is also the simplest. Take the activation at layer 28, and remove the direction of the same
+prompt's activation at layer 22 (still close to the input) and at the last layer (the output). It needs no fitting.
+It finds the hidden word as often as the logit lens, but shows input or output words on 9% of prompts instead of 22%.
+
+No method works on English-only questions, where the input and output are already English: the best F1 is under 0.10.
+That is the open problem. If we can solve that, we might have a general way to read what a model thinks.
 
 ## Enter
 
-Add a `@geometry` function to [`transforms.py`](scripts/challenge/transforms.py). It gets the activations and returns
-a vector in activation space:
+Add a `@geometry` function to [`transforms.py`](scripts/challenge/transforms.py). It gets the activations and returns a vector in activation
+space:
 
 ```python
 @geometry("my subspace", settings=[(27, 256), (28, 256)], fitted="WikiText")
-def mine(s, layer, rank):  # s["res"]: residual stream at the last prompt token, [33 layers, 2560]
-    return project(bases["my basis"][:, :rank], s["res"][layer])  # a vector, [2560]
+def mine(s, layer, rank):  # s["res"]: the activations at the last prompt token, one row per layer, shape [33, 2560]
+    return project(bases["my basis"][:, :rank], s["res"][layer])  # return one vector, shape [2560]
 ```
 
-`s` also holds `"attn"` (layer 23 attention output). Fit any basis in `fit_bases()`. Then run, on one GPU:
+`s["attn"]` is also there: the output of the attention block at layer 23. If your method needs a basis fitted on
+text, add it in `fit_bases()`. Then run, on one GPU:
 
 ```sh
 uv run scripts/challenge/score.py  # downloads the model and data on first run
 ```
 
+To see your method at every layer, as in the figure above, add it to `METHODS` in
+[`layer_sweep.py`](scripts/challenge/layer_sweep.py). It opens as a notebook.
+
 Rules:
 
-- Return an activation-space vector. Do not use the output head (unembedding), token ids, logits, word lists,
-  dictionaries or language labels. The scorer applies the output head afterwards, only to check the answer.
+- Return a vector in activation space. Do not use the output head, token ids, logits, word lists, dictionaries or
+  language labels. The scorer uses the output head afterwards, only to check the answer.
 - You may fit on generic text, like the WikiText sample in `data/challenge/`, and use the model's other weights.
-- List each setting you tried in `settings`. They are compared on ru→ko only, then frozen for the test.
-- Rows whose 90% intervals overlap are not separated. We may also score entries on language pairs not listed here.
+- Put every setting you tried in `settings`. The scorer picks the best one on Russian→Korean and uses only that one on
+  the test.
+- If two methods differ by less than their confidence intervals, we treat them as tied. We may also test entries on
+  other language pairs.
 
-Open an issue or a pull request with your transform and its row, and we will add it to the leaderboard.
+Open an issue or a pull request with your method and its score, and we will add it to the leaderboard.
+<!-- Leaderboard and Enter text rewritten for plain reading by PI/OpenAI, 2026-10-05, from out/2026-10-05_002148_leaderboard. -->
 
 ## Related work
 
