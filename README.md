@@ -101,6 +101,12 @@ same prompt's layer-22 and output activations (F1 0.92, 0.07 above a random subs
 no fitting. Removing more of the prompt's own layers (16, 19, 30, 31) did not help on the dev pair. It finds the hidden word as often as the plain logit lens (TPR 0.93), but shows input or output words in
 9% of prompts instead of 22%. Layer-change PCA (0.91) and net-change PCA (0.90) come next.
 
+<img src="figs/layers.png" width="900" alt="Three panels over layers 16 to 31, 149 test prompts: F1 with a 90% band, TPR and FPR, for five geometry transforms. All peak around layers 24 to 29 at F1 about 0.85 to 0.92. Net-change PCA (green) rises earliest, F1 0.61 at layer 20 and about 0.89 from layer 24, and falls least by layer 31. Identity (logit lens) and the random subspace are lower in the middle layers. Minus this prompt's x22 and x32 (orange) starts at layer 23 and peaks at 0.92 at layer 28. FPR rises steeply for all at layers 30 to 31.">
+
+Per layer ([`layer_sweep.py`](scripts/challenge/layer_sweep.py)), net-change PCA is the least sensitive to the choice of
+layer: it already reaches F1 0.61 at layer 20, where the logit lens has 0.33. The orange line starts at layer 23
+because it removes the layer-22 state. By layer 31 every method shows the output language (FPR rises).
+
 Most other geometry does no better than a random subspace of rank 1024, which keeps most of the logit lens (0.85).
 That includes the signed rise-fall coupling, which also scores the same as its shuffled control. The reference rows
 show that more is possible: rise-and-fall on calibrated token scores reaches 0.96. The gap between 0.92 and 0.96 is
@@ -126,6 +132,9 @@ def mine(s, layer, rank):  # s["res"]: residual stream at the last prompt token,
 ```sh
 uv run scripts/challenge/score.py  # downloads the model and data on first run
 ```
+
+To see how your transform does at every layer, add it to `METHODS` in
+[`layer_sweep.py`](scripts/challenge/layer_sweep.py) (it opens as a notebook) and run it.
 
 Rules:
 

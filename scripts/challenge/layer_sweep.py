@@ -69,7 +69,7 @@ def boot_band(rs, n_boot=1000):
     return vals[int(0.05 * n_boot)], vals[int(0.95 * n_boot)]
 
 
-fig, axes = plt.subplots(1, 3, figsize=(13, 4.2), sharex=True)
+fig, axes = plt.subplots(1, 3, figsize=(13, 4.2), gridspec_kw={"width_ratios": [1.5, 1, 1]})
 for name, (_, color) in METHODS.items():
     by_layer = {l: [r for r in rows if r["method"] == name and r["layer"] == l] for l in LAYERS}
     ls = [l for l in LAYERS if by_layer[l]]
@@ -82,7 +82,7 @@ for name, (_, color) in METHODS.items():
 n = len({(r["split"], r["word"]) for r in rows})
 for ax, title in zip(axes, ["F1 ↑ (90% band)", "TPR ↑: hidden word in the top 8", "FPR ↓: input/output word in the top 8"]):
     ax.set_title(title, fontsize=10, loc="left")
-    ax.set(xlabel="layer", ylim=(0, 1))
+    ax.set(xlabel="layer", ylim=(0, 1), xlim=(LAYERS[0], LAYERS[-1]), xticks=[16, 20, 24, 28, 31])
     ax.spines[["top", "right"]].set_visible(False)
 axes[0].set_xlim(LAYERS[0], LAYERS[-1] + 6)  # room for the direct labels
 fig.suptitle(f"Geometry transforms per layer, Qwen3.5-4B, {n} test prompts", fontsize=11, x=0.01, ha="left")
