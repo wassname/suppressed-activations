@@ -6,7 +6,7 @@ In AI models we want to find the thoughts and concepts and planning. It should b
 
 The goal is to find a way to isolate the subspace with concepts. We have a nice and quick way to test it.
 
-If we could crack this, it would change everything. We could steer models toward genuine virtue and better character. We could catch them being evaluation-aware and train that out. We could crank up honesty to reveal their true values. We could finally stop guessing and start building deeply aligned, kind, good AI with actual confidence.
+If we could crack this, it would change many things. We could steer models toward genuine concepts like virtue using their own capable internal concepts. 
 
 ## How we test it: translation
 
