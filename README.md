@@ -8,7 +8,7 @@ The goal is to find a way to isolate the subspace with concepts. We have a nice 
 
 If we could crack this, it would change everything. We could steer models toward genuine virtue and better character. We could catch them being evaluation-aware and train that out. We could crank up honesty to reveal their true values. We could finally stop guessing and start building deeply aligned, kind, good AI with actual confidence.
 
-## The translation trick
+## How we test it: translation
 
 There is a delightful finding from the paper ["Do Llamas Work in English?"](https://arxiv.org/abs/2402.10588). When a multilingual model translates between two non-English languages, say Russian to Korean, it often appears to think in English along the way. It takes a detour through English concepts.
 
@@ -31,7 +31,7 @@ For the test, I tried to isolate the suppressed English from the output language
 
 </details>
 
-## The rule: no cheating
+## No dictionaries
 
 Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
 
