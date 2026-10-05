@@ -1,6 +1,6 @@
 """Cartoon for the README: input, hidden English and output across layers. Not data. Writes figs/cartoon.png.
 
-Usage: uv run --with matplotlib scripts/challenge/plot_cartoon.py (fonts: Humor Sans, Noto Sans Arabic) — PI/OpenAI
+Usage: uv run --with matplotlib scripts/challenge/plot_cartoon.py (font: Noto Sans Arabic) — PI/OpenAI
 """
 from pathlib import Path
 
@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
-plt.rcParams["font.family"] = ["Humor Sans", "DejaVu Sans"]  # hand-drawn font; DejaVu for Cyrillic
+plt.rcParams["font.family"] = ["DejaVu Sans"]  # plain font, easy to read
 np.random.seed(0)
 
 GREY, ORANGE, BLUE = "#7f7f7f", "#d55e00", "#0072b2"
@@ -56,4 +56,4 @@ ax.set_ylabel("how strongly the model\nholds each language")
 ax.set(xlim=(0, 1), ylim=(0, 1.05), xticks=[], yticks=[])
 ax.spines[["top", "right"]].set_visible(False)
 (ROOT / "figs").mkdir(exist_ok=True)
-fig.savefig(ROOT / "figs/cartoon.png", dpi=150)  # PNG: the hand-drawn font makes a large SVG
+fig.savefig(ROOT / "figs/cartoon.png", dpi=150)
