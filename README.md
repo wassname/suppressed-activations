@@ -33,14 +33,13 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## No dictionaries
 
-Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English words, but not to other languages. This way any winning calculation will generalise to other settings.
+Of course we can't cheat and find the English words by looking up English words. We are searching for a calculation that precisely isolates the activation subspace that corresponds to English tokens, in a setting where English words are not the input or output. This way any winning calculation will generalize to other settings where the languages of the input, output, and intermediate are mixed.
 
-We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test translation between Russian, Korean, Arabic, Hindi and Thai. We never use English or Chinese as the input or output language, but if the hidden word shows up in either, we count it.
+We use Qwen3.5-4B, a model trained mostly on English and Chinese. We only test translation between Russian, Korean, Arabic, Hindi and Thai. There are language that are fairly distance from English, with few common tokens. We never use English or Chinese as the input or output language, but if the hidden word shows up in either, we count it.
 
 ## Leaderboard
 
-A method gets the model's activations and must return a vector that holds the hidden English word. It may not use the
-output head, token lists or dictionaries; we use the output head only afterwards, to read out the top 8 words and check
+A method gets the model's activations and must return a vector that happens to hold the hidden English tokens. It may not use the output head, token lists or dictionaries; we use the output head only afterwards, to read out the top 8 words and check
 them.
 
 On each prompt the method succeeds if the hidden word is in the top 8 and no input- or output-language word is.
