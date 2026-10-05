@@ -1,4 +1,10 @@
-# Suppressed Activation Challenges: Find Where Llamas Work
+# Hidden Thought Challenge: find the English a model thinks but doesn't say
+
+When a model translates Arabic to Russian, it passes through English in its middle layers, but it never says the
+English word. Can you write a calculation on the activations that pulls out that hidden English, and not the Arabic
+or the Russian, without looking up any words? You write one function and run one script, and the leaderboard tells
+you how well you isolated the hidden state. It is a small, labelled way to explore transformer internals.
+<!-- Title and opening paragraph drafted by PI/OpenAI from wassname's 2026-10-05 brief. -->
 
 <img width="1448" height="1086" alt="Cartoon titled 'How can we find a model's hidden thoughts?', subtitle 'Models can think in English even when translating from French to Chinese.' A French speaker asks a robot 'Peux-tu traduire ceci en chinois ?'. The robot thinks 'Okay — first I understand it in English.' and says to a Chinese speaker '好的，我来翻译成中文。'. Labels: French (input), Model, Chinese (output). Lower panel: a magnifying glass over the robot's head shows English words (understand, translate, answer). Text: 'Knowing that we are looking for English, we can search for general transforms that isolate it.'" src="https://github.com/user-attachments/assets/73da1994-7dd6-41f4-af6b-166a40f3f115" />
 
