@@ -3,39 +3,26 @@ the input and output languages (negative), on test prompts. Writes figs/scoring.
 
 Usage: uv run --with matplotlib scripts/challenge/plot_scoring.py — PI/OpenAI
 """
-import csv
-import json
-import random
-
 import matplotlib
 import torch
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from common import LANG_NAME, ROOT, SCRIPT, WENDLER_ZH, forward, readout, tokens_in_script, vocab
+from bench import TEST, script, translation_prompts
+from common import ROOT, forward, readout
 
-PAIRS, PER_PAIR, READ_LAYER = [("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")], 15, 28
-words = json.loads((ROOT / "data/challenge/words.json").read_text())
-chinese = {r["word_original"]: r["word_translation"] for r in csv.DictReader(open(WENDLER_ZH()))}
-by_spelling = {}
-for t, v in enumerate(vocab):
-    by_spelling.setdefault(v.strip().lower(), []).append(t)
-script = {lang: torch.tensor(sorted(tokens_in_script(p))).cuda() for lang, p in SCRIPT.items()}
+READ_LAYER = 28
+leak_script = {lang: torch.tensor(sorted(script[lang])).cuda() for lang in script}
 
 curves = {"hidden": [], "output": [], "input": []}
-for src, tgt in PAIRS:  # same prompt format and word order as score.py
-    pool = sorted(w for w, forms in words.items() if src in forms and tgt in forms)
-    random.Random(0).shuffle(pool)
-    line = lambda w: f'{LANG_NAME[src]}: "{words[w][src]}" - {LANG_NAME[tgt]}: "'
-    shots = "".join(line(w) + f'{words[w][tgt]}"\n' for w in pool[:4])
-    for w in pool[4:4 + PER_PAIR]:
-        res, _, _ = forward(shots + line(w))
-        p = torch.softmax(readout(res[:, -1]), -1)                                  # [33 layers, vocab], logit lens
-        hidden = by_spelling.get(w, []) + by_spelling.get(chinese.get(w, ""), [])
-        curves["hidden"].append(p[:, hidden].sum(-1).cpu())
-        curves["output"].append(p[:, script[tgt]].sum(-1).cpu())
-        curves["input"].append(p[:, script[src]].sum(-1).cpu())
+for item in translation_prompts(TEST, "test"):  # the leaderboard's test prompts
+    src, tgt = item["split"].split("→")
+    res, _, _ = forward(item["prompt"])
+    p = torch.softmax(readout(res[:, -1]), -1)                                      # [33 layers, vocab], logit lens
+    curves["hidden"].append(p[:, sorted(item["right"])].sum(-1).cpu())
+    curves["output"].append(p[:, leak_script[tgt]].sum(-1).cpu())
+    curves["input"].append(p[:, leak_script[src]].sum(-1).cpu())
 n = len(curves["hidden"])
 
 fig, ax = plt.subplots(figsize=(9, 4.6))

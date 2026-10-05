@@ -15,6 +15,7 @@ from common import ROOT, W, forward, gain, load_jlens, model, readout, rms, tok,
 TRANSFORMS = {}  # name -> (settings, fitted, kind, fn); geometry fn -> vector [d], reference fn -> scores [vocab]
 RANKS = (64, 256, 1024)
 RIDGE_LAYERS, CAL_LAYERS = (24, 27, 29), (22, 26, 27, 28, 29, 32)
+CHURN_LAYERS = tuple(range(16, 32))  # layer-change PCA bases, for the leaderboard and layer_sweep.py
 J = load_jlens()
 _J = {}
 
@@ -54,7 +55,7 @@ bases, token_counts = {}, torch.zeros(len(vocab), dtype=torch.long)
 def fit_bases():
     d = W.shape[1]
     texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
-    keys = ("x22", "x24", "x27", "x29", "x32", "d24", "d27", "d29", "supp", "antipasto", "net")
+    keys = ("x22", "x24", "x27", "x29", "x32", "supp", "antipasto", "net") + tuple(f"d{l}" for l in CHURN_LAYERS)
     rf = {k: torch.zeros(d, d, dtype=torch.float64, device="cuda") for k in ("27", "28", "27 shuffled")}  # sum aᵀb
     rf_first = {k: torch.zeros(2, d, dtype=torch.float64, device="cuda") for k in rf}
     cross = {l: torch.zeros(d, d, dtype=torch.float64, device="cuda") for l in RIDGE_LAYERS}   # sum of x32ᵀ x_l
@@ -88,8 +89,9 @@ def fit_bases():
             logits = ((gain * rms(res[l, 8:])) @ W.T).double()        # [tok, vocab], as readout() per token
             logit_sum[l] += logits.sum(0)
             logit_sq[l] += logits.square().sum(0)
-        for k, v in (("x22", x[22]), ("x24", x[24]), ("x27", x[27]), ("x29", x[29]), ("x32", x[32]), ("d24", x[25] - x[24]), ("d27", x[28] - x[27]),
-                     ("d29", x[30] - x[29]), ("supp", supp), ("antipasto", antipasto), ("net", net)):
+        pairs = [("x22", x[22]), ("x24", x[24]), ("x27", x[27]), ("x29", x[29]), ("x32", x[32]), ("supp", supp),
+                 ("antipasto", antipasto), ("net", net)] + [(f"d{l}", x[l + 1] - x[l]) for l in CHURN_LAYERS]
+        for k, v in pairs:
             second[k] += v.T @ v
             first[k] += v.sum(0)
         mean28 += x[28].sum(0)
@@ -100,8 +102,9 @@ def fit_bases():
     gram = sum((c.T @ c).double() for c in (W * gain).split(16384))
     bases["weak-readout"] = torch.linalg.eigh(gram)[1].float()         # smallest first: what the head reads least
     bases["random"] = torch.linalg.qr(torch.randn(d, max(RANKS), generator=torch.Generator().manual_seed(0)).cuda()).Q
-    for l in (24, 27, 29):
+    for l in CHURN_LAYERS:
         bases[f"churn{l}"] = top(cov[f"d{l}"])
+    for l in (24, 27, 29):
         write = torch.linalg.svd(mlp(l - 1).down_proj.weight.float(), full_matrices=False).U
         read = torch.linalg.svd(torch.cat([mlp(l).up_proj.weight.float(), mlp(l).gate_proj.weight.float()]),
                                 full_matrices=False).Vh.T
