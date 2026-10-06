@@ -134,7 +134,7 @@ def net_change(hs, state, r):
 
 
 @geometry("AntiPaSTO subspace", (1024,), fitted="calibration text",
-          about="Mean over layers, projected on AntiPaSTO's suppressed subspace (github.com/wassname/AntiPaSTO)")
+          about="Mean over layers, projected on the suppressed subspace from the AntiPaSTO paper (Clark 2026, arXiv 2601.07473, App. A.1)")
 def suppressed_antipasto(hs, state, r):
     return project(state["suppressed (AntiPaSTO)"][:, :r], last(hs).mean(0))
 
