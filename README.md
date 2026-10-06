@@ -92,7 +92,7 @@ uv run scripts/challenge/score.py  # downloads the model and data on first run
 ```
 
 To see your method at every layer, as in the figure above, add it to `METHODS` in
-[`layer_sweep.py`](scripts/challenge/layer_sweep.py). It opens as a notebook.
+[`notebook.py`](scripts/challenge/notebook.py). It opens as a notebook.
 
 Rules:
 

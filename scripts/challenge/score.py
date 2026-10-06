@@ -35,7 +35,7 @@ def evaluate(item, settings_of):
         skipped.append({k: item[k] for k in ("split", "word")})
         return []
     state, leak = prepared
-    geo_state = {"res": state["res"], "attn": state["attn"], "input": state["input"]}  # no logits, no token ids
+    geo_state = {k: state[k] for k in ("res", "attn", "line", "input")}  # activations only: no logits, no token ids
     out = []
     for name, (_, _, kind, fn) in TRANSFORMS.items():
         for setting in settings_of(name):

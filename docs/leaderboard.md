@@ -71,7 +71,7 @@ what geometry has not found yet.
 ## Per layer
 
 The README figure ([`figs/layers.png`](../figs/layers.png)) shows five methods at every layer from 16 to 31. To see
-your method the same way, add it to `METHODS` in [`layer_sweep.py`](../scripts/challenge/layer_sweep.py) (it opens
+your method the same way, add it to `METHODS` in [`notebook.py`](../scripts/challenge/notebook.py) (it opens
 as a notebook) and run it. Net-change PCA is the least sensitive to the choice of layer: it already finds the hidden
 word with nothing leaked on about 44% of prompts at layer 20, where the logit lens does so on 20%.
 

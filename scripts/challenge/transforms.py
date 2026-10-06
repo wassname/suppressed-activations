@@ -15,7 +15,7 @@ from common import ROOT, W, forward, gain, load_jlens, model, readout, rms, tok,
 TRANSFORMS = {}  # name -> (settings, fitted, kind, fn); geometry fn -> vector [d], reference fn -> scores [vocab]
 RANKS = (64, 256, 1024)
 RIDGE_LAYERS, CAL_LAYERS = (24, 27, 29), (22, 26, 27, 28, 29, 32)
-CHURN_LAYERS = tuple(range(16, 32))  # layer-change PCA bases, for the leaderboard and layer_sweep.py
+CHURN_LAYERS = tuple(range(16, 32))  # layer-change PCA bases, for the leaderboard and notebook.py
 J = load_jlens()
 _J = {}
 
@@ -258,6 +258,16 @@ def rise_fall_coupling_shuffled(s, peak, r):  # same, but rise and fall from dif
 def minus_early_and_output(s, peak, early, late):  # remove the span of this prompt's own early and output-side states
     layers = [int(l) for l in f"{early},{late}".split(",")]
     N = torch.linalg.qr(torch.stack([rms(s["res"][l]) for l in layers], 1)).Q
+    x = rms(s["res"][peak])
+    return x - N @ (N.T @ x)
+
+
+@geometry("minus early and output states over recent tokens (idea: Sandy Fraser)",
+          [(p, k, mode) for p in (26, 27, 28) for k in (1, 2, 4, 8, 16) for mode in ("mean", "span")], fitted="nothing")
+def minus_window(s, peak, k, mode):  # like the row above, but uses layers 22 and 32 at the last k tokens of the last line
+    early, late = rms(s["line"][22, -k:]), rms(s["line"][32, -k:])                    # [k, d] each
+    D = torch.stack([early.mean(0), late.mean(0)], 1) if mode == "mean" else torch.cat([early, late]).T
+    N = torch.linalg.qr(D).Q
     x = rms(s["res"][peak])
     return x - N @ (N.T @ x)
 

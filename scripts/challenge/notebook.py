@@ -1,11 +1,11 @@
 # %% [markdown]
-# # Layer sweep: how does each geometry transform do at every layer?
+# # Explore: what the hidden words look like, and how each method does per layer
 #
-# Runs on the leaderboard's test prompts. For each method and layer it shows the share of prompts where the top 8
-# words hold the hidden word, input/output words, both, or neither.
-# Add your own transform to `METHODS`: a function `(s, layer) -> activation vector`, same rules as `@geometry`.
+# Part 1 prints the top 8 words at each layer for a few prompts. Part 2 scores geometry methods at every layer on the
+# leaderboard's test prompts and draws figs/layers.png. Add your own method to `METHODS`: a function
+# `(s, layer) -> activation vector`, same rules as `@geometry`.
 # Opens as a notebook in VS Code/Jupyter (percent cells), or run it:
-# `uv run --with matplotlib scripts/challenge/layer_sweep.py`. Writes figs/layers.png. — PI/OpenAI
+# `uv run --with matplotlib scripts/challenge/notebook.py`. — PI/OpenAI
 
 # %%
 import gzip
@@ -19,9 +19,11 @@ import torch
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from bench import TEST, f1, judge, prepare, read_vector, translation_prompts
-from common import ROOT, rms
-from transforms import CHURN_LAYERS, bases, fit_bases, project
+from tabulate import tabulate
+
+from bench import TEST, f1, judge, prepare, read_vector, top_words, transfer_prompts, translation_prompts
+from common import ROOT, forward, readout, rms, vocab
+from transforms import CHURN_LAYERS, bases, fit_bases, jlens, project
 
 fit_bases()
 LAYERS = list(CHURN_LAYERS)  # 16..31
@@ -43,6 +45,35 @@ METHODS = {  # name -> fn(s, layer) -> vector, or None if the layer does not app
     "remove this prompt's early and output states": minus_early_and_output,
 }
 
+# %% [markdown]
+# ## Part 1: what do the hidden words look like?
+#
+# The top 8 words at the last prompt token, read three ways: the logit lens (activations unchanged), the J-lens
+# (Gurnee et al. 2026, a reference readout that uses the model's Jacobian, not an entry), and the best geometry entry.
+# The middle layers often show words the model uses on the way to its answer but never says.
+
+# %%
+out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_notebook"
+out.mkdir(parents=True)
+words = lambda scores: " ".join(vocab[t].strip() for t in top_words(scores))
+examples = [("Fact: The number of legs on the animal that spins webs is ", "spider", "8")]
+examples += [(it["prompt"], it["word"], "") for it in list(transfer_prompts())[:3]]
+examples += [(it["prompt"], it["word"], "") for it in list(translation_prompts(TEST, "test"))[::60][:2]]
+report = []
+for prompt, hidden, _ in examples:
+    res, _, logits = forward(prompt)
+    x = res[:, -1]
+    table = [[l, words(readout(x[l])), words(readout(jlens(x[l], l))),
+              words(read_vector(METHODS["remove this prompt's early and output states"]({"res": x}, l), "")) if l > 22 else ""]
+             for l in (20, 22, 24, 26, 28, 30, 31)]
+    head = f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; expected hidden word: `{hidden}`; model says: `{vocab[int(logits.argmax())]!r}`"
+    report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens", "remove early and output states"], "pipe"), ""]
+print("\n".join(report))
+(out / "readouts.md").write_text("\n".join(report))
+
+# %% [markdown]
+# ## Part 2: every method at every layer
+
 # %%
 rows = []
 for item in translation_prompts(TEST, "test"):
@@ -57,8 +88,6 @@ for item in translation_prompts(TEST, "test"):
             if v is not None:
                 rows.append({"method": name, "layer": l, "split": item["split"], "word": item["word"]}
                             | judge(read_vector(v, name), item, leak))
-out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_layer-sweep"
-out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump(rows, f, ensure_ascii=False)
 print(out)

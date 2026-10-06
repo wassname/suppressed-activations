@@ -1,4 +1,4 @@
-"""Shared benchmark pieces: prompts, labels, top-8 words, F1. Used by score.py and layer_sweep.py.
+"""Shared benchmark pieces: prompts, labels, top-8 words, F1. Used by score.py and notebook.py.
 
 See score.py for the scoring rule. — PI/OpenAI
 """
