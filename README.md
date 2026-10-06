@@ -20,9 +20,9 @@ Wes Gurnee and colleagues at Anthropic showed that models represent words in the
 
 > a small, evolving set of unspoken words, neither pure echoes of the input nor predictions of the next token, naming the concepts the model is currently reasoning with
 
-Similar to their Figure 12, where they show that a model will think the word spider without ever saying it, we show a multilingual version (Table 1). Spider, in any language, is in **bold**; the answer, eight, is in *italics*.
+Similar to their Figure 12 in the above paper, where they show that a model will think the word spider without ever saying it, we show a multilingual version (Table 1). In the table, the word spider is in **bold** in every language it shows up in, and the answer, eight, is in *italics* in every language.
 
-Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim, with an English translation for the reader. Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations.
+Table 1: **Qwen reads a question in Arabic and answers 8. In between, its middle layers show it thinking of spiders, then legs, then eight, in English and Chinese.** J-lens readout at the last prompt token, top 8 words, verbatim, with an English translation for the reader. Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations.
 
 |  | model | English, for the reader |
 |:---|:---|:---|
@@ -34,7 +34,7 @@ Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.
 | layer 30 | ⟨*eight* *8* *八* *-eight* *восемь* six *八个* *huit*⟩ | ⟨*eight* *8* *eight* *-eight* *eight* six *eight* *eight*⟩ |
 | **output** | *8* | *8* |
 
-As you can see, while Llamas work in English, Qwens also work in Chinese.
+As you can see, while [Llamas work in English](https://arxiv.org/abs/2402.10588), Qwens also work in Chinese.
 
 ## The setting: translation
 
