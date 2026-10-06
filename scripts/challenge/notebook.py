@@ -57,16 +57,23 @@ out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_notebook"
 out.mkdir(parents=True)
 words = lambda scores: " ".join(vocab[t].strip() for t in top_words(scores))
 examples = [("Fact: The number of legs on the animal that spins webs is ", "spider", "8")]
+ARABIC_TO_RUSSIAN = [  # question in Arabic, answer in Russian: the intermediate concept is in neither language
+    ("سؤال: كم عدد أرجل الكلب؟\nОтвет: четыре\nسؤال: كم عدد أرجل الطائر؟\nОтвет: два\n"
+     "سؤال: كم عدد أرجل الحيوان الذي ينسج الشبكات؟\nОтвет:", "spider", "восемь"),     # legs of the web-weaving animal
+    ("سؤال: ما هي عاصمة اليابان؟\nОтвет: Токио\nسؤال: ما هي عاصمة ألمانيا؟\nОтвет: Берлин\n"
+     "سؤال: ما هي عاصمة البلد الذي يقع فيه برج إيفل؟\nОтвет:", "France", "Париж"),   # capital of the Eiffel Tower's country
+]
+examples += ARABIC_TO_RUSSIAN
 examples += [(it["prompt"], it["word"], "") for it in list(transfer_prompts())[:3]]
 examples += [(it["prompt"], it["word"], "") for it in list(translation_prompts(TEST, "test"))[::60][:2]]
 report = []
-for prompt, hidden, _ in examples:
+for prompt, hidden, answer in examples:
     res, _, logits = forward(prompt)
     x = res[:, -1]
     table = [[l, words(readout(x[l])), words(readout(jlens(x[l], l))),
               words(read_vector(METHODS["remove this prompt's early and output states"]({"res": x}, l), "")) if l > 22 else ""]
              for l in (20, 22, 24, 26, 28, 30, 31)]
-    head = f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; expected hidden word: `{hidden}`; model says: `{vocab[int(logits.argmax())]!r}`"
+    head = f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; expected hidden word: `{hidden}`; expected answer: `{answer}`; model says: `{vocab[int(logits.argmax())]!r}`"
     report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens", "remove early and output states"], "pipe"), ""]
 print("\n".join(report))
 (out / "readouts.md").write_text("\n".join(report))
