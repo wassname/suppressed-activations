@@ -1,9 +1,9 @@
 # %% [markdown]
-# # Explore: what the hidden words look like, and how each method does per layer
+# # Explore: unspoken concepts layer by layer
 #
-# Part 1 prints the top 8 words at each layer for a few prompts. Part 2 scores geometry methods at every layer on the
-# leaderboard's test prompts and draws figs/layers.png. Add your own method to `METHODS`: a function
-# `(s, layer) -> activation vector`, same rules as `@geometry`.
+# Part 1 reads the top words at each layer for a few prompts, including Gurnee et al.'s Fig. 12 idea with the
+# question in Arabic and the answer in Russian. Part 2 shows, per layer, how much of the unspoken word each method
+# finds. Part 3 redraws Wendler et al.'s Fig. 2 for Arabic→Russian. Add your own per-layer method to `METHODS`.
 # Opens as a notebook in VS Code/Jupyter (percent cells), or run it:
 # `uv run --with matplotlib scripts/challenge/notebook.py`. — PI/OpenAI
 
@@ -21,133 +21,135 @@ import matplotlib.pyplot as plt
 
 from tabulate import tabulate
 
-from bench import (TEST, by_spelling, chinese, f1, judge, prepare, read_vector, spelled, top_words, transfer_prompts,
-                   translation_prompts)
+from bench import (TEST, by_spelling, calibration_texts, chinese, judge, prepare, read_vector, script, spelled,
+                   top_words, translation_prompts)
 from common import ROOT, forward, readout, rms, tok, vocab
-from transforms import CHURN_LAYERS, bases, fit_bases, jlens, project
+from transforms import FIRST, calibrate, jlens, project
 
-fit_bases()
-LAYERS = list(CHURN_LAYERS)  # 16..31
+state = calibrate(calibration_texts())
+LAYERS = list(range(16, 32))
+out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_notebook"
+out.mkdir(parents=True)
+(ROOT / "docs/leaderboard").mkdir(exist_ok=True)
 
 
-def minus_early_and_output(s, l):  # the leaderboard winner, at any layer after 22
-    if l <= 22:
+def minus_ends(hs, l):  # layer l minus the span of this prompt's layer-16 and output states (the leaderboard's idea)
+    if l == FIRST:
         return None
-    N = torch.linalg.qr(torch.stack([rms(s["res"][22]), rms(s["res"][32])], 1)).Q
-    x = rms(s["res"][l])
+    N = torch.linalg.qr(torch.stack([rms(hs[0, -1]), rms(hs[-1, -1])], 1)).Q
+    x = rms(hs[l - FIRST, -1])
     return x - N @ (N.T @ x)
 
 
-METHODS = {  # name -> fn(s, layer) -> vector, or None if the layer does not apply
-    "logit lens (activations unchanged)": lambda s, l: s["res"][l],
-    "random subspace, rank 1024": lambda s, l: project(bases["random"][:, :1024], s["res"][l]),
-    "layer-change PCA, rank 1024": lambda s, l: project(bases[f"churn{l}"][:, :1024], s["res"][l]),
-    "net-change PCA, rank 1024": lambda s, l: project(bases["net change"][:, :1024], s["res"][l]),
-    "remove this prompt's early and output states": minus_early_and_output,
+METHODS = {  # per-layer methods: fn(hs, layer) -> vector, or None if the layer does not apply
+    "logit lens": lambda hs, l: hs[l - FIRST, -1],
+    "random subspace": lambda hs, l: project(state["random"][:, :1024], hs[l - FIRST, -1]),
+    "layer-change PCA": lambda hs, l: project(state[f"churn{l}"][:, :1024], hs[l - FIRST, -1]),
+    "net-change PCA": lambda hs, l: project(state["net change"][:, :1024], hs[l - FIRST, -1]),
+    "minus ends": minus_ends,
 }
 
 # %% [markdown]
-# ## Part 1: what do the hidden words look like?
+# ## Part 1: what do the unspoken words look like?
 #
-# The top 8 words at the last prompt token, read three ways: the logit lens (activations unchanged), the J-lens
-# (Gurnee et al. 2026, a reference readout that uses the model's Jacobian, not an entry), and the best geometry entry.
-# The middle layers often show words the model uses on the way to its answer but never says.
+# Top 8 words at the last prompt token, with the logit lens and the J-lens (a reference readout, not an entry).
 
 # %%
-out = ROOT / "out" / f"{time.strftime('%Y-%m-%d_%H%M%S')}_notebook"
-out.mkdir(parents=True)
 words = lambda scores: " ".join(vocab[t].strip() for t in top_words(scores))
-examples = [("Fact: The number of legs on the animal that spins webs is ", "spider", "8")]
-ARABIC_TO_RUSSIAN = [  # question in Arabic, answer in Russian: the intermediate concept is in neither language
-    ("سؤال: كم عدد أرجل الكلب؟\nОтвет: четыре\nسؤال: كم عدد أرجل الطائر؟\nОтвет: два\n"
-     "سؤال: كم عدد أرجل الحيوان الذي ينسج الشبكات؟\nОтвет:", "spider", "восемь"),     # legs of the web-weaving animal
-    ("سؤال: ما هي عاصمة اليابان؟\nОтвет: Токио\nسؤال: ما هي عاصمة ألمانيا؟\nОтвет: Берлин\n"
-     "سؤال: ما هي عاصمة البلد الذي يقع فيه برج إيفل؟\nОтвет:", "France", "Париж"),   # capital of the Eiffel Tower's country
-]
-examples += ARABIC_TO_RUSSIAN
-examples += [(it["prompt"], it["word"], "") for it in list(transfer_prompts())[:3]]
-examples += [(it["prompt"], it["word"], "") for it in list(translation_prompts(TEST, "test"))[::60][:2]]
+EIFFEL = ("سؤال: ما هي عاصمة اليابان؟\nОтвет: Токио\nسؤال: ما هي عاصمة ألمانيا؟\nОтвет: Берлин\n"
+          "سؤال: ما هي عاصمة البلد الذي يقع فيه برج إيفل؟\nОтвет:")  # capital of the Eiffel Tower's country? (Arabic)
+ar_ru = list(translation_prompts([("ar", "ru")], "test"))
+examples = [(EIFFEL, "France", "Париж"),
+            ("Fact: The number of legs on the animal that spins webs is ", "spider", "8"),
+            *[(it["prompt"], it["word"], "") for it in ar_ru if it["word"] == "cloud"]]
 report = []
 for prompt, hidden, answer in examples:
     res, _, logits = forward(prompt)
     x = res[:, -1]
-    table = [[l, words(readout(x[l])), words(readout(jlens(x[l], l))),
-              words(read_vector(METHODS["remove this prompt's early and output states"]({"res": x}, l), "")) if l > 22 else ""]
-             for l in (20, 22, 24, 26, 28, 30, 31)]
-    head = f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; expected hidden word: `{hidden}`; expected answer: `{answer}`; model says: `{vocab[int(logits.argmax())]!r}`"
-    report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens", "remove early and output states"], "pipe"), ""]
+    table = [[l, words(readout(x[l])), words(readout(jlens(x[l], l)))] for l in (20, 22, 23, 24, 26, 28, 30, 31)]
+    head = (f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; unspoken word: `{hidden}`; expected answer: "
+            f"`{answer}`; model says: `{vocab[int(logits.argmax())]!r}`")
+    report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens"], "pipe"), ""]
+    if prompt == EIFFEL:  # the README demo: J-lens rows, verbatim
+        demo = tabulate([[l, words(readout(jlens(x[l], l)))] for l in (20, 22, 24, 26, 28, 30)],
+                        ["layer", "top 8 words (J-lens)"], "pipe", colalign=("right", "left"))
+        (ROOT / "docs/leaderboard/demo_eiffel.md").write_text(demo + "\n")
 print("\n".join(report))
 (out / "readouts.md").write_text("\n".join(report))
 
 # %% [markdown]
-# ## Part 2: every method at every layer
+# ## Part 2: how much of the unspoken word does each method find, per layer?
+#
+# Lines: the logit-lens probability of the unspoken word, the output-language words and the input-language words,
+# averaged over the test prompts. Filled share of the orange curve: the share of prompts where a method's top 8 words
+# hold the unspoken word. Red fill under the blue and grey curves: the share where they hold output- or input-language
+# words.
 
 # %%
-rows = []
+leak_script = {lang: torch.tensor(sorted(script[lang])).cuda() for lang in script}
+rows, truth = [], {k: [] for k in ("unspoken", "output", "input")}
 for item in translation_prompts(TEST, "test"):
     prepared = prepare(item)
     if prepared is None:
         continue
-    state, leak = prepared
-    s = {"res": state["res"], "attn": state["attn"]}  # geometry gets no logits or token ids
+    s, leak_in, leak_out = prepared
+    src, tgt = item["split"].split("→")
+    p = torch.softmax(readout(s["hs"][:, -1]), -1)                                    # [17 layers, vocab]
+    truth["unspoken"].append(p[:, sorted(item["right"])].sum(-1).cpu())
+    truth["output"].append(p[:, leak_script[tgt]].sum(-1).cpu())
+    truth["input"].append(p[:, leak_script[src]].sum(-1).cpu())
     for name, fn in METHODS.items():
         for l in LAYERS:
-            v = fn(s, l)
+            v = fn(s["hs"], l)
             if v is not None:
-                rows.append({"method": name, "layer": l, "split": item["split"], "word": item["word"]}
-                            | judge(read_vector(v, name), item, leak))
+                rows.append({"method": name, "layer": l} | judge(read_vector(v, name), item, leak_in, leak_out))
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump(rows, f, ensure_ascii=False)
-print(out)
+mean_truth = {k: torch.stack(v).mean(0)[: len(LAYERS)] for k, v in truth.items()}   # layers 16..31
 
-# %%
-OUTCOMES = [  # each prompt is exactly one of these; the shares stack to 1
-    ("hidden word, nothing leaked (the goal)", lambda r: r["hidden"] and not r["leaked"], "#d55e00", None),
-    ("hidden word, but input/output words too", lambda r: r["hidden"] and r["leaked"], "#f4b183", None),
-    ("only input/output words", lambda r: not r["hidden"] and r["leaked"], "#9ecae1", None),
-    ("neither", lambda r: not r["hidden"] and not r["leaked"], "#eeeeee", None),
-]
-names = list(METHODS)
-fig, axes = plt.subplots(1, len(names), figsize=(3 * len(names), 3.6), sharey=True)
-for ax, name in zip(axes, names):
+fig, axes = plt.subplots(1, len(METHODS), figsize=(3 * len(METHODS), 3.6), sharey=True)
+colors = {"unspoken": "#d55e00", "output": "#0072b2", "input": "#7f7f7f"}
+for ax, name in zip(axes, METHODS):
     by_layer = {l: [r for r in rows if r["method"] == name and r["layer"] == l] for l in LAYERS}
     ls = [l for l in LAYERS if by_layer[l]]
-    shares = [[sum(map(test, by_layer[l])) / len(by_layer[l]) for l in ls] for _, test, _, _ in OUTCOMES]
-    ax.stackplot(ls, shares, colors=[c for *_, c, _ in OUTCOMES], lw=0)
-    if ls[0] > LAYERS[0]:
-        ax.text((LAYERS[0] + ls[0]) / 2, 0.5, f"starts at\nlayer {ls[0]}\n(it removes\nlayer {ls[0] - 1})", ha="center", va="center", fontsize=9,
-                color="#777777")
-    best = max(ls, key=lambda l: f1(by_layer[l]))
-    ax.set_title(f"{textwrap.fill(name, 30)}\nbest F1 {f1(by_layer[best]):.2f} at layer {best}", fontsize=9, loc="left")
+    rate = lambda key: torch.tensor([sum(r[key] for r in by_layer[l]) / len(by_layer[l]) for l in ls])
+    idx = [l - LAYERS[0] for l in ls]
+    ax.fill_between(ls, 0, mean_truth["unspoken"][idx] * rate("hidden"), color=colors["unspoken"], alpha=0.6, lw=0)
+    ax.fill_between(ls, 0, mean_truth["output"][idx] * rate("leaked_out"), color="#d62728", alpha=0.5, lw=0)
+    ax.fill_between(ls, 0, mean_truth["input"][idx] * rate("leaked_in"), color="#d62728", alpha=0.5, lw=0)
+    for k, c in colors.items():
+        ax.plot(LAYERS, mean_truth[k], color=c, lw=1.5)
+    ax.set_title(textwrap.fill(name, 30), fontsize=9, loc="left")
     ax.set(xlim=(LAYERS[0], LAYERS[-1]), ylim=(0, 1), xticks=[16, 20, 24, 28, 31], xlabel="layer")
     ax.spines[["top", "right"]].set_visible(False)
-axes[0].set_ylabel("share of prompts")
-fig.legend([plt.Rectangle((0, 0), 1, 1, color=c) for *_, c, _ in OUTCOMES], [o[0] for o in OUTCOMES],
-           loc="lower center", ncol=4, frameon=False, fontsize=9)
-n = len({(r["split"], r["word"]) for r in rows})
-fig.suptitle(f"What each method's top 8 words show, per layer (Qwen3.5-4B, {n} test prompts)", fontsize=11, x=0.01,
-             ha="left")
+axes[0].set_ylabel("logit-lens probability")
+handles = [plt.Line2D([], [], color=colors["unspoken"], lw=1.5), plt.Rectangle((0, 0), 1, 1, color=colors["unspoken"], alpha=0.6),
+           plt.Line2D([], [], color=colors["output"], lw=1.5), plt.Line2D([], [], color=colors["input"], lw=1.5),
+           plt.Rectangle((0, 0), 1, 1, color="#d62728", alpha=0.5)]
+labels = ["unspoken word", "share the method finds", "output-language words", "input-language words",
+          "share where the method shows them"]
+fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False, fontsize=9)
+fig.suptitle(f"How much of the unspoken word each method finds, per layer (Qwen3.5-4B, {len(truth['unspoken'])} test prompts)",
+             fontsize=11, x=0.01, ha="left")
 fig.tight_layout(rect=(0, 0.08, 1, 1))
 fig.savefig(ROOT / "figs/layers.png", dpi=150)
 
-
 # %% [markdown]
-# ## Part 3: translation layer by layer, as in Wendler et al. (2024), Fig. 2
+# ## Part 3: Arabic→Russian layer by layer, as in Wendler et al. (2024), Fig. 2
 #
-# Probability of the unspoken word (English or Chinese), the output-language word and the input word, at the last
-# prompt token, for every layer. Mean over the test prompts, with a 95% band. Writes figs/translation_by_layer.png.
+# Probability of the unspoken word (English or Chinese, also shown apart), the Russian word and the Arabic word, at
+# the last prompt token. Mean over the Arabic→Russian test prompts, with a 95% band. Writes figs/translation_by_layer.png.
 
 # %%
 words_json = json.loads((ROOT / "data/challenge/words.json").read_text())
 first_token = lambda w: tok(w, add_special_tokens=False).input_ids[0]
 KINDS = ("unspoken", "English", "Chinese", "output", "input")
 curves = {lens: {k: [] for k in KINDS} for lens in ("lens", "J-lens")}
-for item in translation_prompts(TEST, "test"):
-    src, tgt = item["split"].split("→")
+for item in ar_ru:
     x = forward(item["prompt"])[0][:, -1]                                               # [33, d]
     ids = {"unspoken": sorted(item["right"]), "English": sorted(spelled(item["word"])),
-           "Chinese": by_spelling.get(chinese[item["word"]], []), "output": [first_token(words_json[item["word"]][tgt])],
-           "input": [first_token(words_json[item["word"]][src])]}
+           "Chinese": by_spelling.get(chinese[item["word"]], []), "output": [first_token(words_json[item["word"]]["ru"])],
+           "input": [first_token(words_json[item["word"]]["ar"])]}
     for lens, read in (("lens", lambda l: readout(x[l])), ("J-lens", lambda l: readout(jlens(x[l], l) if 0 < l < 32 else x[l]))):
         p = torch.stack([torch.softmax(read(l), -1) for l in range(33)])                # [33, vocab]
         for k, v in ids.items():
@@ -155,7 +157,7 @@ for item in translation_prompts(TEST, "test"):
 
 style = {"unspoken": ("#d55e00", "-", 2, "unspoken word (English or Chinese)"),
          "English": ("#d55e00", "--", 1, "  English only"), "Chinese": ("#d55e00", ":", 1.2, "  Chinese only"),
-         "output": ("#0072b2", "-", 2, "output-language word"), "input": ("#7f7f7f", "-", 2, "input word")}
+         "output": ("#0072b2", "-", 2, "Russian word (output)"), "input": ("#7f7f7f", "-", 2, "Arabic word (input)")}
 fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), sharey=True)
 for ax, (lens, title) in zip(axes, (("lens", "logit lens"), ("J-lens", "J-lens"))):
     for k, (color, ls, lw, label) in style.items():
@@ -169,7 +171,6 @@ for ax, (lens, title) in zip(axes, (("lens", "logit lens"), ("J-lens", "J-lens")
     ax.spines[["top", "right"]].set_visible(False)
 axes[0].set_ylabel("probability")
 axes[0].legend(frameon=False, fontsize=9, loc="upper left")
-fig.suptitle(f"Qwen3.5-4B translating between non-English languages ({len(y)} test prompts)", fontsize=11, x=0.01,
-             ha="left")
+fig.suptitle(f"Qwen3.5-4B translating Arabic to Russian ({len(y)} test prompts)", fontsize=11, x=0.01, ha="left")
 fig.tight_layout()
 fig.savefig(ROOT / "figs/translation_by_layer.png", dpi=150)

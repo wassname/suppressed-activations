@@ -13,7 +13,7 @@ import torch
 from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, W, forward, readout, tok, tokens_in_script, vocab
 
 K, PER_PAIR, N_TRANSFER = 8, 60, 100  # per pair capped by the word list
-DEV, TEST = [("ru", "ko")], [("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]
+DEV, TEST = [("ru", "ko")], [("ar", "ru"), ("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]  # ar→ru: the README pair
 script = {lang: tokens_in_script(pattern) for lang, pattern in SCRIPT.items()}
 special = frozenset(tok.all_special_ids) | {t for t, v in enumerate(vocab) if not v}
 by_spelling = {}
@@ -55,7 +55,7 @@ def translation_prompts(pairs, role):
             assert tok(shots + line(w), add_special_tokens=False).input_ids[:n] == tok(before_input, add_special_tokens=False).input_ids
             yield {"role": role, "split": f"{src}→{tgt}", "word": w, "prompt": shots + line(w),
                    "input_pos": n - 1,  # last token of the input word
-                   "leak": script[src] | script[tgt], "right": spelled(w) | frozenset(by_spelling.get(chinese[w], []))}
+                   "leak_in": script[src], "leak_out": script[tgt], "right": spelled(w) | frozenset(by_spelling.get(chinese[w], []))}
 
 
 def answers(prompt, aliases):
@@ -77,7 +77,8 @@ def transfer_prompts():
         if prompt in seen or not right - leak or not answers(prompt, aliases(r, "e3")):
             continue
         seen.add(prompt)
-        yield {"role": "transfer", "split": "TwoHopFact", "word": r["e2.value"], "prompt": prompt, "leak": leak,
+        yield {"role": "transfer", "split": "TwoHopFact", "word": r["e2.value"], "prompt": prompt,
+               "leak_in": spelled(prompt), "leak_out": leak - spelled(prompt),
                "right": right - leak, "input_pos": -1}
         if len(seen) == N_TRANSFER:
             return
@@ -105,8 +106,17 @@ def f1_ci(rs, n_boot=2000):
     return f"{boots[int(0.05 * n_boot)]:.2f}–{boots[int(0.95 * n_boot)]:.2f}"
 
 
+def calibration_texts():
+    """Unlabelled text for calibrate(): hs [17 layers (16-32), tokens, d] for 300 WikiText texts and the dev prompts."""
+    texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
+    texts += [item["prompt"] for item in translation_prompts(DEV, "dev")]   # prompts only: no answers, no labels
+    for text in texts:
+        yield forward(text, max_length=128)[0][16:]
+
+
 def prepare(item):
-    """One forward pass -> (state, leak set), or None if the model is about to write whitespace or punctuation."""
+    """One forward pass -> (state, input-side leaks, output-side leaks incl. the next token), or None if the model is
+    about to write whitespace or punctuation."""
     res, attn, logits = forward(item["prompt"])
     nxt = int(logits.argmax())
     if not re.search(r"\w", vocab[nxt]):
@@ -117,7 +127,7 @@ def prepare(item):
     state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": torch.tensor(enc.input_ids).cuda(),
              "line": res[:, line], "input": res[:, item["input_pos"]],
              "hs": res[16:]}  # what geometry methods get: layers 16-32, all prompt tokens
-    return state, item["leak"] | {nxt}
+    return state, item["leak_in"], item["leak_out"] | {nxt}
 
 
 def read_vector(v, name):
@@ -126,6 +136,7 @@ def read_vector(v, name):
     return readout(v)
 
 
-def judge(scores, item, leak):
-    top = top_words(scores)
-    return {"top8": [vocab[t] for t in top], "hidden": any(t in item["right"] for t in top), "leaked": bool(set(top) & leak)}
+def judge(scores, item, leak_in, leak_out):
+    top = set(top_words(scores))
+    return {"top8": [vocab[t] for t in top_words(scores)], "hidden": bool(top & item["right"]),
+            "leaked_in": bool(top & leak_in), "leaked_out": bool(top & leak_out), "leaked": bool(top & (leak_in | leak_out))}
