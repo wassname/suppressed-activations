@@ -21,9 +21,6 @@ def fetch(rel, url, md5):
     return path
 
 
-TWOHOP = lambda: fetch("data/twohop/TwoHopFact.csv",  # CC-BY-4.0, Yang et al. 2024
-                       "https://huggingface.co/datasets/soheeyang/TwoHopFact/resolve/main/TwoHopFact.csv",
-                       "02f99628a997e73d34c51693cf9aef44")
 WENDLER_ZH = lambda: fetch("data/wendler_words/zh/clean.csv",  # Wendler et al. 2024 word list
                            "https://raw.githubusercontent.com/epfl-dlab/llm-latent-language/main/data/langs/zh/clean.csv",
                            "444042b7f62f06afdd18b122150d47e4")

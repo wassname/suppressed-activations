@@ -1502,3 +1502,35 @@ Interpretation: I think it highly likely that smaller native Euclidean change is
 Next, adviser and parent chose raw coordinate exchange on the unchanged native implicit-country joint-property assay, rather than more erasure tuning. Implementation and preflight remain pending; no new GPU job yet. The reserved English dataset remains untouched.
 
 Both goals remain open. -- PI/OpenAI
+
+## 2026-10-06 -- English-only two-hop test, tried and moved out of the main eval
+
+This entry records a first try at an English-only test, where input, thought and answer are all English, and why it is not part of the challenge.
+
+The test used two-hop questions from TwoHopFact (Yang et al. 2024), for example "The city where the headquarters of Dalhousie University is located is in the country of", answer Canada. The unspoken concept is the bridge entity, here Halifax. A method scores a hit (TP) if the bridge is in its top 8 words and a false positive if any prompt word, the answer, or the next token is.
+
+The first version was broken. Qwen did not answer the plain prompts (job 3125, `scripts/scratch/twohop_answer_rate.py`, first 150 shuffled rows):
+
+```
+'{p}'            next token is a word: 63/150   starts the right answer: 14/150
+'Fact: {p} '     next token is a word: 142/150   starts the right answer: 12/150
+```
+
+Most bridges were also multi-word names (Huntington Hall, California State University San Bernardino), which a single-token score cannot match (job 3126). The last version kept only questions Qwen answers with the "Fact:" prefix and whose bridge has a one-token name, 100 questions (job 3132, commit 36c26951):
+
+| method | F1 | found | leaked |
+|:--|--:|--:|--:|
+| minus ends, least-explained layer (geometry) | 0.03 | 2% | 48% |
+| minus output PCA (geometry) | 0.03 | 2% | 48% |
+| mean over layers (geometry) | 0.01 | 1% | 49% |
+| logit lens, best layer (reference) | 0.04 | 4% | 78% |
+| J-lens at layer 23 (reference) | 0.00 | 0% | 97% |
+| J-lens on the layer-23 attention output (reference) | 0.36 | 39% | 76% |
+
+Table 1. F1 = 2TP / (2TP + FP + FN) over questions; found = share of questions with the bridge in the top 8; leaked = share with a prompt word, the answer or the next token in the top 8. Source: `out/2026-10-06_141151_leaderboard/rows.json.gz`, rows with role "transfer". Example J-lens readouts for Halifax and Hyderabad: `Halifax | Canada | Scotland | Scotia | ...` and `印度 | India | ... | Delhi | Mumbai | Hyderabad`.
+
+Interpretation: I think it plausible that the geometry methods find "the English part" rather than "the thinking part", because they score about 0 here while finding the translation concept on over 90% of prompts. But the test itself is unproven, so this is weak evidence. An answer that is right does not show that Qwen went through the bridge (it could go from Dalhousie to Canada by memory), and the scorer only counts a one-token English name, not other languages, synonyms or multi-token names.
+
+wassname, 2026-10-06, on keeping it in the README: "no one can understand it, no one want to particulate you goign to add a whole another ocncept ... just /arj and remove it's complexity from the readme". It is removed from the README and the leaderboard. A better version, if it is picked up later: swap hidden states between two two-hop prompts with different bridges, keep only the pairs whose answer flips, and score the swapped-in bridge using its Wikidata names in all languages (each TwoHopFact row has `e2.wikidata_qid`).
+
+The English-only test is a follow-up idea, not part of the challenge. -- PI/OpenAI
