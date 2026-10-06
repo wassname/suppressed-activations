@@ -25,11 +25,11 @@ Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.
 |  | model | English\* |
 |:---|:---|:---|
 | **input** | سؤال: كم عدد أرجل الطائر؟<br>Ответ: два<br>سؤال: كم عدد أرجل الحيوان الذي يغزل شبكة من خيوط الحرير؟<br>Ответ: | Question: How many legs does a bird have?<br>Answer: two<br>Question: How many legs does the animal that spins a web from silk threads have?<br>Answer: |
-| **thoughts**, layer 22 | ⟨insects **spiders** insect ？ 昆虫 3 。 2⟩ | ⟨insects **spiders** insect ? insect 3 . 2⟩ |
-| layer 24 | ⟨**spiders** **spider** **蜘蛛** **蛛** insects claws 爬 legs⟩ | ⟨**spiders** **spider** **spider** **spider** insects claws crawl legs⟩ |
-| layer 26 | ⟨legs **spiders** **spider** eyes **蜘蛛** limbs venom claws⟩ | ⟨legs **spiders** **spider** eyes **spider** limbs venom claws⟩ |
-| layer 28 | ⟨legs leg 腿 -leg \_leg -legged *eight* 腿部⟩ | ⟨legs leg leg -leg \_leg -legged *eight* leg⟩ |
-| layer 30 | ⟨*eight* *8* *八* *-eight* *восемь* six *八个* *huit*⟩ | ⟨*eight* *8* *eight* *-eight* *eight* six *eight* *eight*⟩ |
+| **thoughts**, layer 22 | insects **spiders** insect ？ 昆虫 3 。 2 | insects **spiders** insect ? insect 3 . 2 |
+| layer 24 | **spiders** **spider** **蜘蛛** **蛛** insects claws 爬 legs | **spiders** **spider** **spider** **spider** insects claws crawl legs |
+| layer 26 | legs **spiders** **spider** eyes **蜘蛛** limbs venom claws | legs **spiders** **spider** eyes **spider** limbs venom claws |
+| layer 28 | legs leg 腿 -leg \_leg -legged *eight* 腿部 | legs leg leg -leg \_leg -legged *eight* leg |
+| layer 30 | *eight* *8* *八* *-eight* *восемь* six *八个* *huit* | *eight* *8* *eight* *-eight* *eight* six *eight* *eight* |
 | **output** | *8* | *8* |
 
 As you can see, while Llamas work in English, Qwens also work in Chinese.
@@ -44,7 +44,7 @@ In the notable paper "Do Llamas Work in English?" ([Wendler *et al.*, 2024](<htt
 
 For us this is a helpful way to narrow in on where the model does its thinking. We want to find the subspace of the activations in the residual stream. And those activations should contain English, but not Arabic or Russian.
 
-We use Qwen3.5-4B, a model trained mostly on English and Chinese. We test translation between Arabic, Russian, Hindi, Thai and Korean, and we use Arabic to Russian as the example throughout. We never use English or Chinese as the input or output language, but if the unspoken word shows up in either, we count it.
+We use Qwen3.5-4B, a model trained mostly on English and Chinese. We test translation between Arabic, Russian, Hindi, Thai and Korean, and we use Arabic to Russian as the example throughout. These languages are fairly distant from English, with few tokens in common. We never use English or Chinese as the input or output language, but if the unspoken word shows up in either, we count it.
 
 <details>
 
@@ -68,7 +68,7 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The rules
 
-Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface. So proposed solutions should use this interface:
+Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. So proposed solutions should use this interface:
 
 ``` python
 def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
@@ -87,7 +87,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
-We read the returned vector with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
+The returned vector should happen to hold the unspoken concept. We read it with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 

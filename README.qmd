@@ -58,7 +58,7 @@ In the notable paper "Do Llamas Work in English?" [@wendler2024llamas], Wendler 
 
 For us this is a helpful way to narrow in on where the model does its thinking. We want to find the subspace of the activations in the residual stream. And those activations should contain English, but not Arabic or Russian.
 
-We use Qwen3.5-4B, a model trained mostly on English and Chinese. We test translation between Arabic, Russian, Hindi, Thai and Korean, and we use Arabic to Russian as the example throughout. We never use English or Chinese as the input or output language, but if the unspoken word shows up in either, we count it.
+We use Qwen3.5-4B, a model trained mostly on English and Chinese. We test translation between Arabic, Russian, Hindi, Thai and Korean, and we use Arabic to Russian as the example throughout. These languages are fairly distant from English, with few tokens in common. We never use English or Chinese as the input or output language, but if the unspoken word shows up in either, we count it.
 
 
 <details><summary>How this started</summary>
@@ -80,7 +80,7 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The rules
 
-Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface. So proposed solutions should use this interface:
+Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. So proposed solutions should use this interface:
 
 ```python
 def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
@@ -99,7 +99,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
-We read the returned vector with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
+The returned vector should happen to hold the unspoken concept. We read it with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
