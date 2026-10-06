@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 
 from tabulate import tabulate
 
-from bench import TEST, f1, judge, prepare, read_vector, top_words, transfer_prompts, translation_prompts
+from bench import (TEST, by_spelling, chinese, f1, judge, prepare, read_vector, spelled, top_words, transfer_prompts,
+                   translation_prompts)
 from common import ROOT, forward, readout, rms, tok, vocab
 from transforms import CHURN_LAYERS, bases, fit_bases, jlens, project
 
@@ -139,26 +140,30 @@ fig.savefig(ROOT / "figs/layers.png", dpi=150)
 # %%
 words_json = json.loads((ROOT / "data/challenge/words.json").read_text())
 first_token = lambda w: tok(w, add_special_tokens=False).input_ids[0]
-curves = {"lens": {k: [] for k in ("unspoken", "output", "input")}, "J-lens": {k: [] for k in ("unspoken", "output", "input")}}
+KINDS = ("unspoken", "English", "Chinese", "output", "input")
+curves = {lens: {k: [] for k in KINDS} for lens in ("lens", "J-lens")}
 for item in translation_prompts(TEST, "test"):
     src, tgt = item["split"].split("→")
     x = forward(item["prompt"])[0][:, -1]                                               # [33, d]
-    ids = {"unspoken": sorted(item["right"]), "output": [first_token(words_json[item["word"]][tgt])],
+    ids = {"unspoken": sorted(item["right"]), "English": sorted(spelled(item["word"])),
+           "Chinese": by_spelling.get(chinese[item["word"]], []), "output": [first_token(words_json[item["word"]][tgt])],
            "input": [first_token(words_json[item["word"]][src])]}
     for lens, read in (("lens", lambda l: readout(x[l])), ("J-lens", lambda l: readout(jlens(x[l], l) if 0 < l < 32 else x[l]))):
         p = torch.stack([torch.softmax(read(l), -1) for l in range(33)])                # [33, vocab]
         for k, v in ids.items():
             curves[lens][k].append(p[:, v].sum(-1).cpu())
 
-style = {"unspoken": ("#d55e00", "unspoken word (English or Chinese)"), "output": ("#0072b2", "output-language word"),
-         "input": ("#7f7f7f", "input word")}
+style = {"unspoken": ("#d55e00", "-", 2, "unspoken word (English or Chinese)"),
+         "English": ("#d55e00", "--", 1, "  English only"), "Chinese": ("#d55e00", ":", 1.2, "  Chinese only"),
+         "output": ("#0072b2", "-", 2, "output-language word"), "input": ("#7f7f7f", "-", 2, "input word")}
 fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), sharey=True)
 for ax, (lens, title) in zip(axes, (("lens", "logit lens"), ("J-lens", "J-lens"))):
-    for k, (color, label) in style.items():
+    for k, (color, ls, lw, label) in style.items():
         y = torch.stack(curves[lens][k])                                                 # [prompts, 33]
         m, se = y.mean(0), y.std(0) / len(y) ** 0.5
-        ax.fill_between(range(33), m - 1.96 * se, m + 1.96 * se, color=color, alpha=0.2, lw=0)
-        ax.plot(range(33), m, color=color, lw=2, label=label)
+        if lw == 2:  # bands only on the main lines
+            ax.fill_between(range(33), m - 1.96 * se, m + 1.96 * se, color=color, alpha=0.2, lw=0)
+        ax.plot(range(33), m, color=color, ls=ls, lw=lw, label=label)
     ax.set_title(title, fontsize=10, loc="left")
     ax.set(xlabel="layer", xlim=(0, 32), ylim=(0, 1))
     ax.spines[["top", "right"]].set_visible(False)
