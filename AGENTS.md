@@ -63,7 +63,10 @@ The spider/dog causal demo, intervention sweeps and their rules are in the git t
 
 ## Checks
 
-Queue `just score` through pueue on the default (GPU) group. Put its table in the README with the
-run folder named in the comment under it. Commit only the current leaderboard folder from `out/`.
+Run `just check` before pushing. For presentation changes, rebuild with `just results`,
+`just plot-layers`, `just plot-cartoon`, and `just docs`; these use published evidence without model inference.
+For inference changes, queue `just score` or `uv run --with matplotlib nbs/layer_readouts.py` through pueue.
+Keep selected published evidence in the named files under `results/`; leave `out/` as ignored local history.
+Methods live in `src/unspoken_concepts/methods/`; related variants may share a file.
 
-<!-- Checks rewritten by PI/OpenAI 2026-10-04 for the challenge-only repo. -->
+<!-- PI/OpenAI: checks and paths updated for the current entry points. -->

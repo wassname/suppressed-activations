@@ -1,10 +1,10 @@
 ---
 title: "Unspoken Concepts Challenge"
-bibliography: docs/refs.bib
-csl: docs/harvard-doi-md.csl
+bibliography: docs/readme/refs.bib
+csl: docs/readme/harvard-doi-md.csl
 from: markdown-smart
 filters:
-  - docs/strip-comments.lua
+  - docs/readme/strip-comments.lua
 format:
   gfm:
     wrap: none
@@ -30,7 +30,7 @@ These giant matrices are called activations, and they can mix what the model rea
 If we could read and understand the model's concepts, it would improve many things. It would allow us to interpret, steer, and align models on their own concepts. Even getting closer will help with challenges like fragile chain of thought [@korbak2025cot], eval awareness [@needham2025eval], and alignment [@marks2025auditing; @wassname2026agenda].
 <!-- TODO wassname: approve cites. Korbak 2025 = CoT monitorability "new and fragile"; Needham 2025 = MATS + Marius Hobbhahn (Apollo Research), measures eval awareness; Marks 2025 (Anthropic) = alignment audits (reading hidden objectives); wassname's agenda = changing a model's own concepts ("intervening in the AI's own internal concepts"). -->
 
-![**The challenge.** When Qwen translates the Arabic word for tea into Russian, its middle layers show the English words tea, drink, coffee and vodka, which it never says. The challenge is to find a method that picks out this middle part of the activations (the thoughts), and not the input (Arabic) or the output (Russian). The curves are drawn by hand; the words are a real readout of the model (J-lens at layer 23).](figs/cartoon.png){#fig-cartoon width=720 fig-alt="Cartoon. Title: Unspoken Concepts Challenge. Subtitle: Find the unspoken intermediate concepts in a language model. Three shaded curves over layers: grey INPUT: Arabic, شاي (tea), high early, arrow not this; orange THOUGHTS: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue OUTPUT: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout."}
+![**The challenge.** Qwen is asked in Arabic how many legs the animal that spins a web from silk threads has. The figure uses a short English gloss; the full prompt is below. Its layer-24 J-lens readout includes spider and 蜘蛛, while its answer is 8. Find that unspoken intermediate, not the input or output. The curves are schematic; the words come from the [saved demo](results/spider_demo.json). The example was chosen after trying 14 formats; the overall success rate was not retained.](figs/cartoon.png){#fig-cartoon width=800 fig-alt="Distribution schematic across layers: an early grey input curve contains a short English gloss of the Arabic spider question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains 8. Arrows say not this for input and output. The curves are illustrative, not measured probabilities."}
 
 ## Unspoken concepts
 
@@ -41,12 +41,12 @@ Wes Gurnee and colleagues at Anthropic showed that models represent words in the
 
 Similar to their Figure 12 in the above paper, where they show that a model will think the word spider without ever saying it, we show a multilingual version (@tbl-spider). In the table, the word spider is in **bold** in every language it shows up in, and the answer, eight, is in *italics* in every language.
 
-{{< include docs/leaderboard/demo_spider.md >}}
+{{< include docs/readme/includes/demo_spider.md >}}
 
 : **Qwen reads a question in Arabic and answers 8. In between, its middle layers show it thinking of spiders, then legs, then eight, in English and Chinese.** J-lens readout at the last prompt token, top 8 words, verbatim, with an English translation for the reader. Following Animorphs [@applegate1996animorphs], which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations. {#tbl-spider}
 
 As you can see, while [Llamas work in English](https://arxiv.org/abs/2402.10588), Qwens also work in Chinese.
-<!-- Demo table from scripts/challenge/demo.py (CPU run; rows match the earlier GPU and CPU readouts). Notes moved into the caption (wassname: "maybe these should be 3 footnotes ... otherwise a bit fragmented"). PI/OpenAI -->
+<!-- Demo table from scripts/eval/spider_demo.py (CPU run; rows match the earlier GPU and CPU readouts). Notes moved into the caption (wassname: "maybe these should be 3 footnotes ... otherwise a bit fragmented"). PI/OpenAI -->
 
 ## The setting: translation
 
@@ -76,7 +76,12 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The rules
 
-Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. The geometry track uses this simple interface:
+Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. There are two categories:
+
+- **Geometry-only:** supplied activations, model weights as matrices, and supplied unlabelled calibration data. No individual token scores, external fitting data, pretrained lenses or extra model calls.
+- **Unrestricted methods:** may also use token scores, gradients, J-lens, external data and training. The second leaderboard lists those extras. “Unrestricted” does not permit using test labels or target answers.
+
+### Geometry-only interface
 
 ```python
 def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
@@ -99,43 +104,51 @@ The returned vector should happen to hold the unspoken concept. We read it with 
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
-### Open methods
+### Unrestricted-method interface
 
-You can also submit methods using contrastive training, external data, gradients or J-lens. These go in a [separate open-methods table](docs/leaderboard/open.md), with the same score and columns showing their data, model access and supervision. Keep the implementation in a branch or external repository; a small adapter connects it to the evaluator:
+Unrestricted methods can live in a branch or external repository. The adapter gets the model and prompt, so it can make additional forward passes or compute gradients:
 
 ```python
 def calibrate(model, tokenizer, texts):
-    ...  # Fit on calibration strings or disclosed external data. — PI/OpenAI
+    ...  # Fit on provided calibration strings or disclosed external data. — PI/OpenAI
     return state
 
 def method(model, tokenizer, prompt, state):
-    ...  # Extra forward passes and gradients are allowed. — PI/OpenAI
-    return vector  # One residual-stream vector [d]. — PI/OpenAI
+    ...
+    return output  # Declare either a residual vector [d] or token scores [vocab]. — PI/OpenAI
 ```
 
-The method gets each test prompt alone, without its intermediate label or target answer. Freeze training and settings before testing, and disclose data sources and overlap with test concepts. See the [submission contract and runner](docs/leaderboard/open.md#submit-an-adapter).
-<!-- PI/OpenAI: open track added at wassname's request. -->
+For both categories, freeze fitting and settings before testing. The method receives no test intermediate label or target answer. See [what is permitted and how to submit](docs/submissions.md).
+<!-- PI/OpenAI: two categories with explicit resources, not a pending-review category. -->
 
 ## Unspoken Concepts Challenge leaderboard
 
-Geometry track. Please submit your own as an issue or PR! Open methods are [listed separately](docs/leaderboard/open.md).
+### Geometry-only
 
-{{< include docs/leaderboard/geometry.md >}}
+Please submit your own as an issue or PR!
 
-{{< include docs/leaderboard/caption.md >}}
+{{< include docs/readme/includes/geometry.md >}}
 
-The [full leaderboard](docs/leaderboard/README.md) has more columns and reference methods outside the geometry restrictions. Those references have not yet been reviewed as open-track entries.
+{{< include docs/readme/includes/caption.md >}}
+
+### Unrestricted methods
+
+{{< include docs/readme/includes/unrestricted.md >}}
+
+{{< include docs/readme/includes/unrestricted_caption.md >}}
+
+The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
 
 
-![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`plot_layers.py`](scripts/challenge/plot_layers.py) from saved notebook data.](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
+![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
 
 <!-- PI/OpenAI: separate language and selection encodings; saved 209-prompt random-subspace run. -->
 
 ## Enter
 
-For the geometry track, add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geometry`, and anything it needs from calibration text to `calibrate()`. Run `uv run scripts/challenge/score.py` on one GPU (it downloads the model and data on first run), and open an issue or a pull request with your method and its score.
+For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-For open methods, run `just score-open /path/to/adapter.py` and submit its report with your code revision and data/access disclosures. See the [adapter interface](docs/leaderboard/open.md#submit-an-adapter).
+The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Rebuilding both tables and figures from saved evidence needs no GPU and took 13 s on a Ryzen 9 5900X. Full CPU evaluation time and minimum VRAM are unmeasured; unrestricted training may need more resources. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 
@@ -159,5 +172,16 @@ For open methods, run `just score-open /path/to/adapter.py` and submit its repor
 ## Citation
 
 If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub shows this as the *Cite this repository* button.
+
+## Ideas
+
+Need ideas? Check out some of the concepts from:
+
+- [adapters_as_hypotheses](https://github.com/wassname/adapters_as_hypotheses)
+- [steerability](https://github.com/generative-computing/steerability)
+- [steering-lite](https://github.com/wassname/steering-lite)
+- [awesome-interpretability](https://github.com/wassname/awesome-interpretability)
+
+<!-- PI/OpenAI: links supplied by wassname. -->
 
 <!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4. 2026-09-29 restructure by Claudypoo[opus-4.8]. 2026-10-06 README.qmd by PI/OpenAI from wassname's review comments. -->
