@@ -1,0 +1,149 @@
+---
+title: "Unspoken Concepts Challenge"
+subtitle: "Find the unspoken intermediate concepts in a language model"
+bibliography: docs/refs.bib
+csl: docs/harvard-doi-md.csl
+from: markdown-smart
+filters:
+  - docs/strip-comments.lua
+format:
+  gfm:
+    wrap: none
+    suppress-bibliography: true
+  html:
+    embed-resources: true   # README.html: local preview only, git-ignored
+---
+
+```{=markdown}
+<!-- Generated from README.qmd by `just docs`; edit README.qmd, not this file. -->
+```
+
+<!-- Title: subtitle uses the J-lens paper's Fig. 12 phrase "unspoken intermediate concept" (wassname: "but doesn't say sounds like AI"). -->
+
+![**The challenge.** The model reads Arabic and says Russian; part of what it thinks in between can be read as English. The curves are drawn by hand; the English words are a real readout (J-lens, layer 23, Arabic→Russian "tea").](figs/cartoon.png){#fig-cartoon width=720 fig-alt="Cartoon. Title: Translating Arabic to Russian, the model thinks partly in English. Subtitle: Challenge: find the thinking part, without using a dictionary. Three shaded curves over layers: grey READ: Arabic, شاي (tea), high early, arrow not this; orange THINK: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue SAY: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout."}
+
+In AI models we want to find where they process their concepts. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable matrices. The problem is that we don't understand how to read them.
+
+These giant matrices are called activations, and they can mix what the model reads, what it is thinking, and what it is about to say. This makes it difficult to disentangle them, but this challenge uses a simple translation setting to separate them. This lets us invite participants to find a way to isolate the activations, in the residual stream, that do the thinking but are never verbalised.
+
+If we could read and understand the model's concepts, it would improve many things. It would allow us to interpret, steer, and align models on their own concepts. Even getting closer will help with challenges like fragile chain of thought [@korbak2025cot], eval awareness [@needham2025eval], and alignment [@marks2025auditing; @wassname2026agenda].
+<!-- TODO wassname: approve cites. Korbak 2025 = CoT monitorability "new and fragile"; Needham 2025 = MATS + Marius Hobbhahn (Apollo Research), measures eval awareness; Marks 2025 (Anthropic) = alignment audits (reading hidden objectives); wassname's agenda = changing a model's own concepts ("intervening in the AI's own internal concepts"). -->
+
+## Unspoken concepts
+
+Wes Gurnee and colleagues at Anthropic showed that models represent words in their middle layers that they never say. They describe [@gurnee2026workspace]:
+
+> a small, evolving set of unspoken words, neither pure echoes of the input nor predictions of the next token, naming the concepts the model is currently reasoning with
+
+
+Similar to their Figure 12, where they show that a model will think the word spider without ever saying it, we show a multilingual version (@tbl-spider). Spider, in any language, is in **bold**; the answer, eight, is in *italics*.
+
+{{< include docs/leaderboard/demo_spider.md >}}
+
+: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim. {#tbl-spider}
+
+
+<!-- TODO maybe these should be 3 footnoes.. ottherwise a bit fragmented -->
+
+As you can see, while Llamas work in English, Qwens also work in Chinese.
+
+\*marked English translations for illustration only; the model does not see them, think them, or output them in English
+
+Following Animorphs [@applegate1996animorphs], which uses braces `⟨ ⟩` to mark mental communication, we use the same notation for  internal readouts of the models activations.
+<!-- Demo from notebook.py Part 1 (write_demo). TODO check the rows after the CPU run (scripts/scratch/run_notebook_cpu.py) against the earlier GPU/CPU readouts. PI/OpenAI -->
+
+## The setting: translation
+
+In the notable paper "Do Llamas Work in English?" [@wendler2024llamas], Wendler and colleagues found that when a model translates from one language to another, it thinks in its native language, the language of the internet: English (and, as it turns out, Qwen also works in Chinese). When a multilingual model translates between two non-English languages, say Arabic to Russian, it takes a detour through English along the way. They are careful about what that means: "the model's internal lingua franca is not English but concepts—concepts that are biased toward English."
+
+For us this is a helpful way to narrow in on where the model does its thinking. We want to find the subspace of the activations in the residual stream. And those activations should contain English, but not Arabic or Russian.
+
+We use Qwen3.5-4B, a model trained mostly on English and Chinese. We test translation between Arabic, Russian, Hindi, Thai and Korean, and we use Arabic to Russian as the example throughout. We never use English or Chinese as the input or output language, but if the unspoken word shows up in either, we count it.
+
+
+<details><summary>How this started</summary>
+
+I was searching for a way to test whether [Wes Gurnee's](https://x.com/wesg52)
+"suppression neurons" [@gurnee2024universal] (neurons that push down a group of related words) can be found in the residual
+stream.
+
+For the test, I tried to isolate the suppressed English from the output language in the
+"Do Llamas Work in English?" plot.
+
+<img width="480" alt="Line plot from Wendler et al. (2024), Figure 2: Llama-2-70B translating into Chinese. x-axis: layer 0 to 80; y-axis: logit-lens probability 0 to 1. The English word (orange) is near zero until layer 40, rises to about 0.4 by layer 50, stays there, then falls to zero by layer 80. The Chinese answer (blue) stays near zero until layer 60 and rises to about 0.5 at layer 80. A colour bar on top shows entropy falling from high to low around layer 45." src="https://arxiv.org/html/2402.10588v4/70b_zh_probas_ent.png" />
+
+*Llama-2-70B translating into Chinese ([Wendler et al. 2024](https://arxiv.org/html/2402.10588v4), Fig. 2): the English word (orange) rises mid-network, then falls as the Chinese answer (blue) rises.*
+
+<img width="1448" height="1086" alt="Cartoon titled 'How can we find a model's hidden thoughts?', subtitle 'Models can think in English even when translating from French to Chinese.' A French speaker asks a robot 'Peux-tu traduire ceci en chinois ?'. The robot thinks 'Okay — first I understand it in English.' and says to a Chinese speaker '好的，我来翻译成中文。'. Labels: French (input), Model, Chinese (output). Lower panel: a magnifying glass over the robot's head shows English words (understand, translate, answer). Text: 'Knowing that we are looking for English, we can search for general transforms that isolate it.'" src="https://github.com/user-attachments/assets/73da1994-7dd6-41f4-af6b-166a40f3f115" />
+
+</details>
+
+## The rules
+
+Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface. So proposed solutions should use this interface:
+
+```python
+def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
+    # texts: unlabelled text, layers 16 to 32 (WikiText, and the dev prompts without their answers)
+    mean = torch.stack([hs[:, -1].mean(0) for hs in texts]).mean(0)
+    return {"mean": mean}
+
+def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "d"]:
+    # hs: the residual stream for one prompt, layers 16 to 32, all prompt tokens
+    # state: what calibrate() returned; you may also use any model weights, including the output head as a matrix
+    v = hs[:, -1].mean(0) - state["mean"]
+    return v  # one residual-stream vector, which should hold the unspoken concept and not the input or output
+```
+
+*Note this uses [JaxTyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
+
+The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
+
+We read the returned vector with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
+
+Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
+
+## Leaderboard
+
+Please submit your own as an issue or PR!
+
+{{< include docs/leaderboard/geometry.md >}}
+
+{{< include docs/leaderboard/caption.md >}}
+
+Methods that use token scores or the J-lens are in the [reference table](docs/leaderboard/README.md).
+
+The best geometry method so far, "minus ends, least-explained layer", gets F1 0.82 without being told the layer. The plain logit lens at a layer picked by hand gets 0.85, and methods that read word scores get up to 0.96 (reference table).
+<!-- Numbers from out/2026-10-06_141151_leaderboard (job 3132). PI/OpenAI -->
+
+![**Where the unspoken word is, and how often a method gets it cleanly.** Shaded: our cartoon with real data, the logit-lens probability of input-language words (READ), the unspoken word (THINK) and output-language words (SAY), averaged over the test prompts. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for "minus ends" at each layer (solid) and the plain logit lens (dashed). Made by [`notebook.py`](scripts/challenge/notebook.py), Part 2.](figs/layers.png){#fig-layers fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of input-language words (grey), the unspoken word (orange, peaking near layer 28) and output-language words (blue, rising at layers 30 to 31). Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens."}
+<!-- TODO check the new one-panel figure after the CPU notebook run. -->
+
+## Enter
+
+Add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geometry`, and anything it needs from calibration text to `calibrate()`. Run `uv run scripts/challenge/score.py` on one GPU (it downloads the model and data on first run), and open an issue or a pull request with your method and its score.
+
+## Limitations
+
+**Single tokens.** We are searching for concepts, but because we don't know where they are, we limit ourselves to scoring single-token words as a proxy. This is supported by both papers we build on: Wendler et al. found the English detour using single-token words, and the J-lens reads out one token at a time, yet Gurnee et al. find it "is sufficient to uncover a great deal of important structure." They name the same gap [@gurnee2026workspace]:
+
+> The Jacobian lens is an imperfect tool, which we believe only approximately and incompletely captures the model's underlying workspace structure. **For instance, it only identifies vectors associated with concepts that correspond to single tokens in the model's vocabulary, but many important concepts correspond to multiple tokens**
+
+**English and Chinese only.** We look for all concepts, including ones that belong to no language, but we only score the ones that show up as English or Chinese words. So a method that hill-climbs this score might overfit to English and do poorly on other concepts.
+
+**Simple tasks.** Like Wendler et al., our tasks are simple. They say of theirs that the tasks "provide a highly controlled, yet toy-like, context for studying the internal language of LLMs."
+
+## Related work
+
+- @dumas2024tongue use the same word-translation setup and patch activations: "we can change the concept without changing the language and vice versa through activation patching alone."
+- @bayazit2026lingua compare probes: "decoding-based probes, which rely on output-space decodability, retain sharper language-specific and more English-biased signals."
+- @schut2025english find an English pivot in open-ended generation.
+- @wu2024hub describe a shared middle-layer "semantic hub" across languages.
+- @zhong2025latent find that models trained on several languages can use more than one latent language.
+- Patchscopes [@ghandeharioun2024patchscopes], LatentQA [@pan2024latentqa] and the tuned lens [@belrose2023tuned] are other readouts.
+
+## Citation
+
+If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub exposes this as *Cite this repository* button.
+
+<!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4. 2026-09-29 restructure by Claudypoo[opus-4.8]. 2026-10-06 README.qmd by PI/OpenAI from wassname's review comments. -->

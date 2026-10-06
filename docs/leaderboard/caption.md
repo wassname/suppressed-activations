@@ -1,0 +1,1 @@
+Qwen3.5-4B, 209 test prompts (ar→ru, ar→hi, hi→th, th→ru, ko→ar). 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random subspace on the same prompts. Hover a name for what it does. [Per-prompt rows](out/2026-10-06_152532_leaderboard/rows.json.gz), commit 456c320e.

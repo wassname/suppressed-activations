@@ -24,6 +24,7 @@ from bench import (TEST, by_spelling, calibration_texts, chinese, judge, prepare
                    top_words, translation_prompts)
 from common import DEVICE, ROOT, forward, readout, rms, tok, vocab
 from transforms import FIRST, calibrate, jlens, project
+import demo
 
 state = calibrate(calibration_texts())
 LAYERS = list(range(16, 32))
@@ -55,34 +56,9 @@ METHODS = {  # per-layer methods: fn(hs, layer) -> vector, or None if the layer 
 
 # %%
 words = lambda scores: " ".join(vocab[t].strip() for t in top_words(scores))
-# Gurnee et al.'s Fig. 12 spider question, asked in Arabic: "How many legs does a bird have? / Answer: два / How many
-# legs does the animal that spins a web from silk threads have? / Answer: ". The 1st of 14 fixed wordings that Qwen
-# answers correctly (it says "8"); scripts/scratch/fig12_arabic_formats*.py.
-SPIDER_AR = "سؤال: كم عدد أرجل الطائر؟\nОтвет: два\nسؤال: كم عدد أرجل الحيوان الذي يغزل شبكة من خيوط الحرير؟\nОтвет: "
+SPIDER_AR = "\n".join(demo.READ)  # the README demo prompt (demo.py writes the README table)
 # Fig. 12's third example (antonym of small), asked in Arabic, answered in Russian: the 1st of 2 wordings tried.
 ANTONYM_AR = 'العربية: "ما عكس كلمة \"حار\"؟" - Русский: "холодный"\nالعربية: "ما عكس كلمة \"صغير\"؟" - Русский: "'
-
-SPIDER_AR_EN = ("Question: How many legs does a bird have? / Answer: два (two) / Question: How many legs does the animal "
-                "that spins a web from silk threads have? / Answer:")
-GLOSS = {"？": "?", "。": ".", "．": ".", "！": "!", "：": ":", "昆虫": "insect", "蜘蛛": "spider", "蛛": "spider", "爬": "crawl",
-         "腿": "leg", "腿部": "leg", "八": "eight", "八个": "eight", "восемь": "eight", "huit": "eight", "ocho": "eight",
-         "acht": "eight", "八条": "eight"}  # English for the reader only; words not listed are shown as they are
-
-
-def write_demo(x, answer):
-    """The README demo: question, J-lens readout with English glosses, output. Spider bold, eight italic."""
-    gloss = lambda w: GLOSS.get(w, w)
-    mark = lambda w: f"**{w}**" if gloss(w).lower() in ("spider", "spiders") else (
-        f"*{w}*" if gloss(w).lower().strip("-_") in ("eight", "8") else w)
-    rows = []
-    for l in (20, 22, 24, 26, 28, 30):
-        ws = [vocab[t].strip() for t in top_words(readout(jlens(x[l], l)))]
-        rows.append([l, " ".join(mark(w) for w in ws), " ".join(mark(gloss(w)) for w in ws)])
-    table = tabulate(rows, ["layer", "thoughts: top 8 words (J-lens)", "English*"], "pipe", colalign=("right", "left", "left"))
-    (ROOT / "docs/leaderboard/demo_spider.md").write_text(
-        f"**Question** (what the model reads):\n\n```text\n{SPIDER_AR}\n```\n\nEnglish\\*: {SPIDER_AR_EN}\n\n"
-        f"**Thoughts**:\n\n{table}\n\n**Output**: {mark(answer.strip())} (English\\*: {mark(gloss(answer.strip()))})\n")
-
 
 ar_ru = list(translation_prompts([("ar", "ru")], "test"))
 examples = [(SPIDER_AR, "spider", "8"), (ANTONYM_AR, "big", "большой"),
@@ -96,8 +72,6 @@ for prompt, hidden, answer in examples:
     head = (f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; unspoken word: `{hidden}`; expected answer: "
             f"`{answer}`; model says: `{vocab[int(logits.argmax())]!r}`")
     report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens"], "pipe"), ""]
-    if prompt == SPIDER_AR:
-        write_demo(x, vocab[int(logits.argmax())])
 print("\n".join(report))
 (out / "readouts.md").write_text("\n".join(report))
 
