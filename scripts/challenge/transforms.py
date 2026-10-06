@@ -171,7 +171,7 @@ def minus_ends_least_explained(hs, state):  # each row starts with the same norm
     return left[left.norm(dim=-1).argmax()]
 
 
-@geometry("minus ends, recent tokens", (8, "mean"), author="[Sandy Fraser](https://www.linkedin.com/in/alex-fraser-dev/)",
+@geometry("minus ends, recent tokens", (8, "mean"), author="[Sandy Fraser](https://github.com/z0u)",
           about="As 'minus ends', but average the layer-16 and output states over the last 8 tokens first")
 def minus_window(hs, state, k, mode):
     return _minus_ends(hs, k, mode).mean(0)
