@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 
 from bench import TEST, f1, judge, prepare, read_vector, top_words, transfer_prompts, translation_prompts
-from common import ROOT, forward, readout, rms, vocab
+from common import ROOT, forward, readout, rms, tok, vocab
 from transforms import CHURN_LAYERS, bases, fit_bases, jlens, project
 
 fit_bases()
@@ -121,3 +121,43 @@ fig.suptitle(f"What each method's top 8 words show, per layer (Qwen3.5-4B, {n} t
              ha="left")
 fig.tight_layout(rect=(0, 0.08, 1, 1))
 fig.savefig(ROOT / "figs/layers.png", dpi=150)
+
+
+# %% [markdown]
+# ## Part 3: translation layer by layer, as in Wendler et al. (2024), Fig. 2
+#
+# Probability of the unspoken word (English or Chinese), the output-language word and the input word, at the last
+# prompt token, for every layer. Mean over the test prompts, with a 95% band. Writes figs/translation_by_layer.png.
+
+# %%
+words_json = json.loads((ROOT / "data/challenge/words.json").read_text())
+first_token = lambda w: tok(w, add_special_tokens=False).input_ids[0]
+curves = {"lens": {k: [] for k in ("unspoken", "output", "input")}, "J-lens": {k: [] for k in ("unspoken", "output", "input")}}
+for item in translation_prompts(TEST, "test"):
+    src, tgt = item["split"].split("→")
+    x = forward(item["prompt"])[0][:, -1]                                               # [33, d]
+    ids = {"unspoken": sorted(item["right"]), "output": [first_token(words_json[item["word"]][tgt])],
+           "input": [first_token(words_json[item["word"]][src])]}
+    for lens, read in (("lens", lambda l: readout(x[l])), ("J-lens", lambda l: readout(jlens(x[l], l) if 0 < l < 32 else x[l]))):
+        p = torch.stack([torch.softmax(read(l), -1) for l in range(33)])                # [33, vocab]
+        for k, v in ids.items():
+            curves[lens][k].append(p[:, v].sum(-1).cpu())
+
+style = {"unspoken": ("#d55e00", "unspoken word (English or Chinese)"), "output": ("#0072b2", "output-language word"),
+         "input": ("#7f7f7f", "input word")}
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8), sharey=True)
+for ax, (lens, title) in zip(axes, (("lens", "logit lens"), ("J-lens", "J-lens"))):
+    for k, (color, label) in style.items():
+        y = torch.stack(curves[lens][k])                                                 # [prompts, 33]
+        m, se = y.mean(0), y.std(0) / len(y) ** 0.5
+        ax.fill_between(range(33), m - 1.96 * se, m + 1.96 * se, color=color, alpha=0.2, lw=0)
+        ax.plot(range(33), m, color=color, lw=2, label=label)
+    ax.set_title(title, fontsize=10, loc="left")
+    ax.set(xlabel="layer", xlim=(0, 32), ylim=(0, 1))
+    ax.spines[["top", "right"]].set_visible(False)
+axes[0].set_ylabel("probability")
+axes[0].legend(frameon=False, fontsize=9, loc="upper left")
+fig.suptitle(f"Qwen3.5-4B translating between non-English languages ({len(y)} test prompts)", fontsize=11, x=0.01,
+             ha="left")
+fig.tight_layout()
+fig.savefig(ROOT / "figs/translation_by_layer.png", dpi=150)
