@@ -65,14 +65,14 @@ def answers(prompt, aliases):
 
 
 def transfer_prompts():
-    """Two-hop questions the model answers: without the bridge step there is no unspoken concept to find."""
+    """Two-hop questions the model answers, whose bridge is one token (the score reads single tokens)."""
     rows = list(csv.DictReader(open(TWOHOP())))
     random.Random(0).shuffle(rows)
     aliases = lambda r, e: [a for group in ast.literal_eval(r[f"{e}.aliases"]) for a in group] or [r[f"{e}.value"]]
     seen = set()
     for r in rows:
         prompt = f'Fact: {r["r2(r1(e1)).prompt"]} '  # the prefix makes Qwen answer instead of writing a blank
-        right = frozenset().union(*[spelled(a) for a in aliases(r, "e2")])
+        right = frozenset().union(*[by_spelling.get(a.strip().lower(), []) for a in aliases(r, "e2")])  # whole name, one token
         leak = frozenset().union(*[spelled(a) for a in aliases(r, "e3")]) | spelled(prompt)
         if prompt in seen or not right - leak or not answers(prompt, aliases(r, "e3")):
             continue
