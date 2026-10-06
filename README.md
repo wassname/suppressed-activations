@@ -22,9 +22,9 @@ Wes Gurnee and colleagues at Anthropic showed that models represent words in the
 
 Similar to their Figure 12, where they show that a model will think the word spider without ever saying it, we show a multilingual version (Table 1). Spider, in any language, is in **bold**; the answer, eight, is in *italics*.
 
-Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim. \*English translations are for the reader only; the model does not see them, think them, or output them in English. Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations.
+Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim, with an English translation for the reader. Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations.
 
-|  | model | English\* |
+|  | model | English, for the reader |
 |:---|:---|:---|
 | **input** | سؤال: كم عدد أرجل الطائر؟<br>Ответ: два<br>سؤال: كم عدد أرجل الحيوان الذي يغزل شبكة من خيوط الحرير؟<br>Ответ: | Question: How many legs does a bird have?<br>Answer: two<br>Question: How many legs does the animal that spins a web from silk threads have?<br>Answer: |
 | **thoughts**, layer 22 | ⟨insects **spiders** insect ？ 昆虫 3 。 2⟩ | ⟨insects **spiders** insect ? insect 3 . 2⟩ |

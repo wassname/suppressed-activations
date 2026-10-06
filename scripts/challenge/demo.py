@@ -45,7 +45,7 @@ if __name__ == "__main__":
         rows.append([("**thoughts**, layer " if i == 0 else "layer ") + str(l), "⟨" + " ".join(mark(w) for w in ws) + "⟩",
                      "⟨" + translate(ws) + "⟩"])  # ⟨ ⟩: read out of intermediate states, never said
     rows.append(["**output**", mark(answer), mark(GLOSS.get(answer, answer))])
-    table = tabulate(rows, ["", "model", "English*"], "pipe", colalign=("left", "left", "left"))
+    table = tabulate(rows, ["", "model", "English, for the reader"], "pipe", colalign=("left", "left", "left"))
     print(table)
     (ROOT / "docs/leaderboard").mkdir(exist_ok=True)
     (ROOT / "docs/leaderboard/demo_spider.md").write_text(table + "\n")
