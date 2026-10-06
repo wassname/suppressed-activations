@@ -56,10 +56,15 @@ METHODS = {  # per-layer methods: fn(hs, layer) -> vector, or None if the layer 
 
 # %%
 words = lambda scores: " ".join(vocab[t].strip() for t in top_words(scores))
-EIFFEL = ("سؤال: ما هي عاصمة اليابان؟\nОтвет: Токио\nسؤال: ما هي عاصمة ألمانيا؟\nОтвет: Берлин\n"
-          "سؤال: ما هي عاصمة البلد الذي يقع فيه برج إيفل؟\nОтвет:")  # capital of the Eiffel Tower's country? (Arabic)
+# Gurnee et al.'s Fig. 12 spider question, asked in Arabic: "How many legs does a bird have? / Answer: два / How many
+# legs does the animal that spins a web from silk threads have? / Answer: ". The 1st of 14 fixed wordings that Qwen
+# answers correctly (it says "8"); scripts/scratch/fig12_arabic_formats*.py.
+SPIDER_AR = "سؤال: كم عدد أرجل الطائر؟\nОтвет: два\nسؤال: كم عدد أرجل الحيوان الذي يغزل شبكة من خيوط الحرير؟\nОтвет: "
+# Fig. 12's third example (antonym of small), asked in Arabic, answered in Russian: the 1st of 2 wordings tried.
+ANTONYM_AR = 'العربية: "ما عكس كلمة \"حار\"؟" - Русский: "холодный"\nالعربية: "ما عكس كلمة \"صغير\"؟" - Русский: "'
+
 ar_ru = list(translation_prompts([("ar", "ru")], "test"))
-examples = [(EIFFEL, "France", "Париж"),
+examples = [(SPIDER_AR, "spider", "8"), (ANTONYM_AR, "big", "большой"),
             ("Fact: The number of legs on the animal that spins webs is ", "spider", "8"),
             *[(it["prompt"], it["word"], "") for it in ar_ru if it["word"] == "cloud"]]
 report = []
@@ -70,10 +75,10 @@ for prompt, hidden, answer in examples:
     head = (f"**prompt** (last line): `{prompt.splitlines()[-1]!r}`; unspoken word: `{hidden}`; expected answer: "
             f"`{answer}`; model says: `{vocab[int(logits.argmax())]!r}`")
     report += [head, "", tabulate(table, ["layer", "logit lens", "J-lens"], "pipe"), ""]
-    if prompt == EIFFEL:  # the README demo: J-lens rows, verbatim
+    if prompt == SPIDER_AR:  # the README demo: J-lens rows, verbatim
         demo = tabulate([[l, words(readout(jlens(x[l], l)))] for l in (20, 22, 24, 26, 28, 30)],
                         ["layer", "top 8 words (J-lens)"], "pipe", colalign=("right", "left"))
-        (ROOT / "docs/leaderboard/demo_eiffel.md").write_text(demo + "\n")
+        (ROOT / "docs/leaderboard/demo_spider.md").write_text(demo + "\n")
 print("\n".join(report))
 (out / "readouts.md").write_text("\n".join(report))
 
@@ -81,9 +86,8 @@ print("\n".join(report))
 # ## Part 2: how much of the unspoken word does each method find, per layer?
 #
 # Lines: the logit-lens probability of the unspoken word, the output-language words and the input-language words,
-# averaged over the test prompts. Filled share of the orange curve: the share of prompts where a method's top 8 words
-# hold the unspoken word. Red fill under the blue and grey curves: the share where they hold output- or input-language
-# words.
+# averaged over the test prompts. The orange curve is filled by share of prompts: orange where a method's top 8 words
+# hold the unspoken word and no input- or output-language word, red where they hold both.
 
 # %%
 leak_script = {lang: torch.tensor(sorted(script[lang])).cuda() for lang in script}
@@ -114,9 +118,11 @@ for ax, name in zip(axes, METHODS):
     ls = [l for l in LAYERS if by_layer[l]]
     rate = lambda key: torch.tensor([sum(r[key] for r in by_layer[l]) / len(by_layer[l]) for l in ls])
     idx = [l - LAYERS[0] for l in ls]
-    ax.fill_between(ls, 0, mean_truth["unspoken"][idx] * rate("hidden"), color=colors["unspoken"], alpha=0.6, lw=0)
-    ax.fill_between(ls, 0, mean_truth["output"][idx] * rate("leaked_out"), color="#d62728", alpha=0.5, lw=0)
-    ax.fill_between(ls, 0, mean_truth["input"][idx] * rate("leaked_in"), color="#d62728", alpha=0.5, lw=0)
+    both = torch.tensor([sum(r["hidden"] and r["leaked"] for r in by_layer[l]) / len(by_layer[l]) for l in ls])
+    clean = rate("hidden") - both                                                         # found, nothing leaked
+    top = mean_truth["unspoken"][idx]
+    ax.fill_between(ls, 0, top * clean, color=colors["unspoken"], alpha=0.6, lw=0)
+    ax.fill_between(ls, top * clean, top * (clean + both), color="#d62728", alpha=0.5, lw=0)
     for k, c in colors.items():
         ax.plot(LAYERS, mean_truth[k], color=c, lw=1.5)
     ax.set_title(textwrap.fill(name, 30), fontsize=9, loc="left")
@@ -126,8 +132,8 @@ axes[0].set_ylabel("logit-lens probability")
 handles = [plt.Line2D([], [], color=colors["unspoken"], lw=1.5), plt.Rectangle((0, 0), 1, 1, color=colors["unspoken"], alpha=0.6),
            plt.Line2D([], [], color=colors["output"], lw=1.5), plt.Line2D([], [], color=colors["input"], lw=1.5),
            plt.Rectangle((0, 0), 1, 1, color="#d62728", alpha=0.5)]
-labels = ["unspoken word", "share the method finds", "output-language words", "input-language words",
-          "share where the method shows them"]
+labels = ["unspoken word", "share found, nothing leaked", "output-language words", "input-language words",
+          "share found, but input/output words too"]
 fig.legend(handles, labels, loc="lower center", ncol=5, frameon=False, fontsize=9)
 fig.suptitle(f"How much of the unspoken word each method finds, per layer (Qwen3.5-4B, {len(truth['unspoken'])} test prompts)",
              fontsize=11, x=0.01, ha="left")
