@@ -12,7 +12,7 @@ import torch
 
 from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, W, forward, readout, tok, tokens_in_script, vocab
 
-K, PER_PAIR, N_TRANSFER = 8, 60, 150  # per pair capped by the word list
+K, PER_PAIR, N_TRANSFER = 8, 60, 100  # per pair capped by the word list
 DEV, TEST = [("ru", "ko")], [("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]
 script = {lang: tokens_in_script(pattern) for lang, pattern in SCRIPT.items()}
 special = frozenset(tok.all_special_ids) | {t for t, v in enumerate(vocab) if not v}
@@ -58,16 +58,23 @@ def translation_prompts(pairs, role):
                    "leak": script[src] | script[tgt], "right": spelled(w) | frozenset(by_spelling.get(chinese[w], []))}
 
 
+def answers(prompt, aliases):
+    """Does the model's next token start one of the answer's aliases? Only then is there a bridge to look for."""
+    nxt = vocab[int(forward(prompt)[2].argmax())].strip().lower()
+    return len(nxt) >= 2 and any(a.lower().startswith(nxt) for a in aliases)
+
+
 def transfer_prompts():
+    """Two-hop questions the model answers: without the bridge step there is no unspoken concept to find."""
     rows = list(csv.DictReader(open(TWOHOP())))
     random.Random(0).shuffle(rows)
     aliases = lambda r, e: [a for group in ast.literal_eval(r[f"{e}.aliases"]) for a in group] or [r[f"{e}.value"]]
     seen = set()
     for r in rows:
-        prompt = r["r2(r1(e1)).prompt"]
+        prompt = f'Fact: {r["r2(r1(e1)).prompt"]} '  # the prefix makes Qwen answer instead of writing a blank
         right = frozenset().union(*[spelled(a) for a in aliases(r, "e2")])
         leak = frozenset().union(*[spelled(a) for a in aliases(r, "e3")]) | spelled(prompt)
-        if prompt in seen or not right - leak:
+        if prompt in seen or not right - leak or not answers(prompt, aliases(r, "e3")):
             continue
         seen.add(prompt)
         yield {"role": "transfer", "split": "TwoHopFact", "word": r["e2.value"], "prompt": prompt, "leak": leak,
