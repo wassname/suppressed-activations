@@ -25,11 +25,11 @@ Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.
 |  | model | English\* |
 |:---|:---|:---|
 | **input** | سؤال: كم عدد أرجل الطائر؟<br>Ответ: два<br>سؤال: كم عدد أرجل الحيوان الذي يغزل شبكة من خيوط الحرير؟<br>Ответ: | Question: How many legs does a bird have?<br>Answer: two<br>Question: How many legs does the animal that spins a web from silk threads have?<br>Answer: |
-| **thoughts**, layer 22 | insects **spiders** insect ？ 昆虫 3 。 2 | insects **spiders** insect ? insect 3 . 2 |
-| layer 24 | **spiders** **spider** **蜘蛛** **蛛** insects claws 爬 legs | **spiders** **spider** **spider** **spider** insects claws crawl legs |
-| layer 26 | legs **spiders** **spider** eyes **蜘蛛** limbs venom claws | legs **spiders** **spider** eyes **spider** limbs venom claws |
-| layer 28 | legs leg 腿 -leg \_leg -legged *eight* 腿部 | legs leg leg -leg \_leg -legged *eight* leg |
-| layer 30 | *eight* *8* *八* *-eight* *восемь* six *八个* *huit* | *eight* *8* *eight* *-eight* *eight* six *eight* *eight* |
+| **thoughts**, layer 22 | ⟨insects **spiders** insect ？ 昆虫 3 。 2⟩ | ⟨insects **spiders** insect ? insect 3 . 2⟩ |
+| layer 24 | ⟨**spiders** **spider** **蜘蛛** **蛛** insects claws 爬 legs⟩ | ⟨**spiders** **spider** **spider** **spider** insects claws crawl legs⟩ |
+| layer 26 | ⟨legs **spiders** **spider** eyes **蜘蛛** limbs venom claws⟩ | ⟨legs **spiders** **spider** eyes **spider** limbs venom claws⟩ |
+| layer 28 | ⟨legs leg 腿 -leg \_leg -legged *eight* 腿部⟩ | ⟨legs leg leg -leg \_leg -legged *eight* leg⟩ |
+| layer 30 | ⟨*eight* *8* *八* *-eight* *восемь* six *八个* *huit*⟩ | ⟨*eight* *8* *eight* *-eight* *eight* six *eight* *eight*⟩ |
 | **output** | *8* | *8* |
 
 As you can see, while Llamas work in English, Qwens also work in Chinese.
@@ -68,7 +68,7 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The rules
 
-Of course we can't cheat and looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. So proposed solutions should use this interface:
+Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. So proposed solutions should use this interface:
 
 ``` python
 def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
