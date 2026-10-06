@@ -36,9 +36,9 @@ def label(x0, y0, name, words, color, family="DejaVu Sans"):
     ax.text(x0, y0 - 0.035, words, color=DARK[color], fontsize=13, ha="center", va="top", family=family)
 
 
-label(0.12, 0.22, "READ: Arabic", "شاي\n(tea)", GREY, family=["Noto Sans Arabic", "DejaVu Sans"])
-label(0.58, 0.36, "THINK: English", "tea  drink\ncoffee  vodka", ORANGE)
-label(0.865, 0.19, "SAY: Russian", "чай (tea)", BLUE)
+label(0.12, 0.22, "INPUT: Arabic", "شاي\n(tea)", GREY, family=["Noto Sans Arabic", "DejaVu Sans"])
+label(0.58, 0.36, "THOUGHTS: English", "tea  drink\ncoffee  vodka", ORANGE)
+label(0.865, 0.19, "OUTPUT: Russian", "чай (tea)", BLUE)
 
 ax.annotate("find this", xy=(0.635, 0.68), xytext=(0.66, 0.84), fontsize=14, color=DARK[ORANGE],
             weight="bold", arrowprops=dict(arrowstyle="->", color=ORANGE, lw=2))
@@ -47,8 +47,8 @@ ax.annotate("not this", xy=(0.22, 0.41), xytext=(0.27, 0.62), fontsize=14,
 ax.annotate("or this", xy=(0.955, 0.71), xytext=(0.90, 0.95), fontsize=14,
             arrowprops=dict(arrowstyle="->", color="k", lw=1.5))
 
-fig.text(0.5, 0.95, "Translating Arabic to Russian, the model thinks partly in English", fontsize=16, ha="center")
-fig.text(0.5, 0.885, "Challenge: find the thinking part, without using a dictionary", fontsize=15,
+fig.text(0.5, 0.95, "Unspoken Concepts Challenge", fontsize=17, ha="center")
+fig.text(0.5, 0.885, "Find the unspoken intermediate concepts in a language model.", fontsize=15,
          ha="center", weight="bold")
 ax.text(1.0, -0.035, "layers →", ha="right", va="top", fontsize=12, transform=ax.transAxes)
 ax.set_ylabel("how strongly the model\nholds each language")

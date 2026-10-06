@@ -4,15 +4,15 @@
 
 *Find the unspoken intermediate concepts in a language model.*
 
-<img src="figs/cartoon.png" data-fig-alt="Cartoon. Title: Translating Arabic to Russian, the model thinks partly in English. Subtitle: Challenge: find the thinking part, without using a dictionary. Three shaded curves over layers: grey READ: Arabic, شاي (tea), high early, arrow not this; orange THINK: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue SAY: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." alt="Cartoon. Title: Translating Arabic to Russian, the model thinks partly in English. Subtitle: Challenge: find the thinking part, without using a dictionary. Three shaded curves over layers: grey READ: Arabic, شاي (tea), high early, arrow not this; orange THINK: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue SAY: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." width="720" />
-
-Figure 1: **The challenge.** The model reads Arabic and says Russian; part of what it thinks in between can be read as English. The curves are drawn by hand; the English words are a real readout (J-lens, layer 23, Arabic→Russian "tea").
-
 In AI models we want to find where they process their concepts. It should be possible: unlike humans, we have every single byte of "brain activity" available in giant inscrutable matrices. The problem is that we don't understand how to read them.
 
 These giant matrices are called activations, and they can mix what the model reads, what it is thinking, and what it is about to say. This makes it difficult to disentangle them, but this challenge uses a simple translation setting to separate them. This lets us invite participants to find a way to isolate the activations, in the residual stream, that do the thinking but are never verbalised.
 
 If we could read and understand the model's concepts, it would improve many things. It would allow us to interpret, steer, and align models on their own concepts. Even getting closer will help with challenges like fragile chain of thought ([Korbak *et al.*, 2025](<https://arxiv.org/abs/2507.11473>)), eval awareness ([Needham *et al.*, 2025](<https://arxiv.org/abs/2505.23836>)), and alignment ([Marks *et al.*, 2025](<https://arxiv.org/abs/2503.10965>)); ([Clark, 2026](<https://wassname.com/agenda-character.html>)).
+
+<img src="figs/cartoon.png" data-fig-alt="Cartoon. Title: Unspoken Concepts Challenge. Subtitle: Find the unspoken intermediate concepts in a language model. Three shaded curves over layers: grey INPUT: Arabic, شاي (tea), high early, arrow not this; orange THOUGHTS: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue OUTPUT: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." alt="Cartoon. Title: Unspoken Concepts Challenge. Subtitle: Find the unspoken intermediate concepts in a language model. Three shaded curves over layers: grey INPUT: Arabic, شاي (tea), high early, arrow not this; orange THOUGHTS: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue OUTPUT: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." width="720" />
+
+Figure 1: **The challenge.** When Qwen translates the Arabic word for tea into Russian, its middle layers show the English words tea, drink, coffee and vodka, which it never says. The challenge is to find a method that picks out this middle part of the activations (the thoughts), and not the input (Arabic) or the output (Russian). The curves are drawn by hand; the words are a real readout of the model (J-lens at layer 23).
 
 ## Unspoken concepts
 
@@ -95,23 +95,23 @@ Please submit your own as an issue or PR!
 
 | method | by | F1↑ (90% CI) |
 |:---|:---|---:|
-| [minus ends, least-explained layer](scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | 0.8220338983050848 (0.80–0.85) |
-| [minus ends](scripts/challenge/transforms.py#L162 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.7917525773195876 (0.77–0.82) |
-| [minus ends, recent tokens](scripts/challenge/transforms.py#L174 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") | [Sandy Fraser](https://github.com/z0u) | 0.7860082304526749 (0.76–0.81) |
-| [layer-change PCA](scripts/challenge/transforms.py#L123 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.7784431137724551 (0.76–0.80) |
-| [net-change PCA](scripts/challenge/transforms.py#L130 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.7764705882352941 (0.76–0.80) |
-| [minus output PCA](scripts/challenge/transforms.py#L147 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.7659574468085106 (0.75–0.79) |
-| [AntiPaSTO subspace](scripts/challenge/transforms.py#L136 "Mean over layers, projected on AntiPaSTO's suppressed subspace (github.com/wassname/AntiPaSTO)") |  | 0.7610208816705336 (0.73–0.79) |
-| *[mean over layers](scripts/challenge/transforms.py#L108 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.7235621521335807 (0.70–0.74) |
-| *[random subspace](scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.6139954853273137 (0.57–0.65) |
-| [weak head directions](scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23057644110275688 (0.18–0.28) |
-| *[mean calibration text](scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.0 (0.00–0.00) |
+| [minus ends, least-explained layer](scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | 0.82 (0.80–0.85) |
+| [minus ends](scripts/challenge/transforms.py#L162 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.79 (0.77–0.82) |
+| [minus ends, recent tokens](scripts/challenge/transforms.py#L174 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") | [Sandy Fraser](https://github.com/z0u) | 0.79 (0.76–0.81) |
+| [layer-change PCA](scripts/challenge/transforms.py#L123 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.78 (0.76–0.80) |
+| [net-change PCA](scripts/challenge/transforms.py#L130 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.78 (0.76–0.80) |
+| [minus output PCA](scripts/challenge/transforms.py#L147 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.77 (0.75–0.79) |
+| [AntiPaSTO subspace](scripts/challenge/transforms.py#L136 "Mean over layers, projected on AntiPaSTO's suppressed subspace (github.com/wassname/AntiPaSTO)") |  | 0.76 (0.73–0.79) |
+| *[mean over layers](scripts/challenge/transforms.py#L108 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.72 (0.70–0.74) |
+| *[random subspace](scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.61 (0.57–0.65) |
+| [weak head directions](scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23 (0.18–0.28) |
+| *[mean calibration text](scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.00 (0.00–0.00) |
 
 Scored on 209 translation prompts. The range in brackets shows how much the score could vary with other prompts (90% interval). Hover over a name to see what the method does.
 
 The [full leaderboard](docs/leaderboard/README.md) has more columns. It also lists, for comparison, methods that break the rules by scoring words with the output head or the J-lens.
 
-<img src="figs/layers.png" id="fig-layers" data-fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of the unspoken word (orange, peaking near 0.65 at layer 28) and of output-language words (blue, rising to 0.6 at layer 31). Minus ends finds the unspoken word cleanly on up to 74% of prompts at layer 27, against 66% for the logit lens, and shows input/output words less often from layer 24 on. Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens." alt="Where the unspoken word is, and how often a method gets it cleanly. Shaded: our cartoon with real data, the logit-lens probability of the unspoken word (THINK) and of output-language words (SAY), averaged over the test prompts. Input-language words are near zero at the last prompt token, so READ is not drawn. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for &quot;minus ends&quot; at each layer (solid) and the plain logit lens (dashed). Made by notebook.py, Part 2." />
+<img src="figs/layers.png" id="fig-layers" data-fig-alt="One panel over layers 17 to 31. Outlined areas: input-language words near 0 throughout; the unspoken word rising from layer 24 to about 0.65 at layer 28 and falling by 31; output-language words rising to 0.6 at layer 31. Green fills most of the unspoken-word area from layer 24 to 29. Red fills part of the output-language area at layers 30 and 31." alt="How much of each part one method selects, per layer. The outlined areas are what is there: the logit-lens probability of input-language words (grey), the unspoken word (orange) and output-language words (blue), averaged over the test prompts. Coloured in is what the method selects: green is the share of prompts where its top 8 words include the unspoken word (good), red where they include input- or output-language words (bad). The method is &quot;minus ends&quot; at each layer: remove the directions of this prompt&#39;s layer-16 and output-layer states. Made by notebook.py, Part 2." />
 
 ## Enter
 

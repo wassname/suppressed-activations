@@ -87,7 +87,7 @@ def render(table):
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
 caption = (f"Qwen3.5-4B, {n_test} test prompts ({', '.join(f'{a}→{b}' for a, b in TEST)}). 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random subspace on the same "
            f"prompts. Hover a name for what it does. [Per-prompt rows]({out.relative_to(ROOT)}/rows.json.gz), commit {commit}.")
-short = [{"method": r["method"], "by": r["by"], "F1↑ (90% CI)": f'{r["F1↑"]} ({r["90% CI"]})'}
+short = [{"method": r["method"], "by": r["by"], "F1↑ (90% CI)": f'{r["F1↑"]:.2f} ({r["90% CI"]})'}
          for r in sorted(tables["geometry"], key=lambda r: -r["F1↑"])]  # README table: F1 ranks; the rest is on the full page
 geometry, reference = render(tables["geometry"]), render(tables["reference"])
 readme = tabulate(short, headers="keys", tablefmt="pipe", disable_numparse=True, colalign=("left", "left", "right"))

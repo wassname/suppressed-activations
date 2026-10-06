@@ -107,30 +107,28 @@ mean_truth = {k: torch.stack(v).mean(0)[: len(LAYERS)] for k, v in truth.items()
 
 torch.save(mean_truth, out / "truth_curves.pt")
 GREY, ORANGE, BLUE, GREEN, RED = "#7f7f7f", "#d55e00", "#0072b2", "#1a9850", "#d73027"
+METHOD = "minus ends"  # one method: the leaderboard's best idea, applied at each layer
+by_layer = {l: [r for r in rows if r["method"] == METHOD and r["layer"] == l] for l in LAYERS}
+ls_ = [l for l in LAYERS if by_layer[l]]
+share = lambda key: torch.tensor([sum(r[key] for r in by_layer[l]) / len(by_layer[l]) for l in ls_])
+curve = {k: mean_truth[k][[l - LAYERS[0] for l in ls_]] for k in mean_truth}
 fig, ax = plt.subplots(figsize=(8, 4.4), constrained_layout=True)
-# input-language words are near 0 at the last prompt token at every layer, so READ is left out (said in the caption)
-for k, color, label, xy, ha in (("unspoken", ORANGE, "THINK: unspoken word", (26.6, 0.09), "center"),
-                                ("output", BLUE, "SAY: output language", (31.2, 0.60), "left")):
-    y = mean_truth[k]
-    ax.fill_between(LAYERS, y, color=color, alpha=0.15, lw=0)
-    ax.plot(LAYERS, y, color=color, lw=1.5)
-    ax.text(*xy, label, color=color, ha=ha, va="center", fontsize=9)  # placed clear of the lines
-for name, ls in (("minus ends", "-"), ("logit lens", "--")):
-    by_layer = {l: [r for r in rows if r["method"] == name and r["layer"] == l] for l in LAYERS}
-    ls_ = [l for l in LAYERS if by_layer[l]]
-    clean = [sum(r["hidden"] and not r["leaked"] for r in by_layer[l]) / len(by_layer[l]) for l in ls_]
-    leak = [sum(r["leaked"] for r in by_layer[l]) / len(by_layer[l]) for l in ls_]
-    lw = 2.5 if ls == "-" else 1.2
-    ax.plot(ls_, clean, color=GREEN, ls=ls, lw=lw)
-    ax.plot(ls_, leak, color=RED, ls=ls, lw=lw)
-    ax.text(ls_[-1] + 0.2, clean[-1], f"{name}: found, clean", color=GREEN, fontsize=8, va="center")
-    ax.text(ls_[-1] + 0.2, leak[-1], f"{name}: shows input/output words", color=RED, fontsize=8, va="center")
-ax.set(xlim=(LAYERS[0], LAYERS[-1] + 6), ylim=(0, 1.05), xticks=[16, 20, 24, 28, 31], xlabel="layer",
-       ylabel="areas: logit-lens probability\nlines: share of prompts")
-ax.margins(x=0)
+for k, color, label, xy, ha in (("input", GREY, "input language", (16.2, 0.06), "left"),
+                                ("unspoken", ORANGE, "unspoken word", (27.4, 0.68), "center"),
+                                ("output", BLUE, "output language", (30.9, 0.64), "right")):
+    ax.fill_between(ls_, curve[k], color=color, alpha=0.12, lw=0)                 # what is there
+    ax.plot(ls_, curve[k], color=color, lw=1.8)
+    ax.text(*xy, label, color="#444444" if k == "input" else color, ha=ha, va="bottom", fontsize=9)  # grey text is too faint
+ax.fill_between(ls_, curve["unspoken"] * share("hidden"), color=GREEN, alpha=0.75, lw=0)      # selected, good
+ax.fill_between(ls_, curve["output"] * share("leaked_out"), color=RED, alpha=0.75, lw=0)      # selected, bad
+ax.fill_between(ls_, curve["input"] * share("leaked_in"), color=RED, alpha=0.75, lw=0)
+handles = [plt.Rectangle((0, 0), 1, 1, color=GREEN, alpha=0.75), plt.Rectangle((0, 0), 1, 1, color=RED, alpha=0.75),
+           plt.Rectangle((0, 0), 1, 1, color=GREY, alpha=0.12)]
+ax.legend(handles, ["selected: the unspoken word (good)", "selected: input or output language (bad)", "not selected"],
+          loc="upper left", frameon=False, fontsize=9)
+ax.set(xlim=(ls_[0], ls_[-1]), ylim=(0, 1), xticks=[17, 20, 24, 28, 31], xlabel="layer", ylabel="logit-lens probability")
 ax.spines[["top", "right"]].set_visible(False)
-ax.set_title(f"Where the unspoken word is, and how often a method gets it cleanly ({len(truth['unspoken'])} test prompts)",
-             fontsize=10, loc="left")
+ax.set_title(f"How much of each part one method selects, per layer ({len(truth['unspoken'])} test prompts)", fontsize=10, loc="left")
 fig.savefig(ROOT / "figs/layers.png", dpi=150)
 
 # %% [markdown]
