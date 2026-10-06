@@ -66,7 +66,7 @@ For the test, I tried to isolate the suppressed English from the output language
 
 ## The rules
 
-Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. So proposed solutions should use this interface:
+Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. The geometry track uses this simple interface:
 
 ``` python
 def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
@@ -89,9 +89,25 @@ The returned vector should happen to hold the unspoken concept. We read it with 
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
+### Open methods
+
+You can also submit methods using contrastive training, external data, gradients or J-lens. These go in a [separate open-methods table](docs/leaderboard/open.md), with the same score and columns showing their data, model access and supervision. Keep the implementation in a branch or external repository; a small adapter connects it to the evaluator:
+
+``` python
+def calibrate(model, tokenizer, texts):
+    ...  # Fit on calibration strings or disclosed external data. — PI/OpenAI
+    return state
+
+def method(model, tokenizer, prompt, state):
+    ...  # Extra forward passes and gradients are allowed. — PI/OpenAI
+    return vector  # One residual-stream vector [d]. — PI/OpenAI
+```
+
+The method gets each test prompt alone, without its intermediate label or target answer. Freeze training and settings before testing, and disclose data sources and overlap with test concepts. See the [submission contract and runner](docs/leaderboard/open.md#submit-an-adapter).
+
 ## Unspoken Concepts Challenge leaderboard
 
-Please submit your own as an issue or PR!
+Geometry track. Please submit your own as an issue or PR! Open methods are [listed separately](docs/leaderboard/open.md).
 
 | method | by | F1↑ (90% CI) |
 |:---|:---|---:|
@@ -109,13 +125,17 @@ Please submit your own as an issue or PR!
 
 Scored on 209 translation prompts. The range in brackets shows how much the score could vary with other prompts (90% interval). Hover over a name to see what the method does.
 
-The [full leaderboard](docs/leaderboard/README.md) has more columns. It also lists, for comparison, methods that break the rules by scoring words with the output head or the J-lens.
+The [full leaderboard](docs/leaderboard/README.md) has more columns and reference methods outside the geometry restrictions. Those references have not yet been reviewed as open-track entries.
 
-<img src="figs/layers.png" id="fig-layers" data-fig-alt="One panel over layers 16 to 31. Coloured areas: input-language words near 0 throughout; the unspoken word rising from layer 24 to about 0.65 at layer 28 and falling by 31; output-language words rising to 0.6 at layer 31. Green hatching covers most of the unspoken-word area from layer 24 to 29. Red hatching covers most of the output-language area at layer 31. Annotations: layer 24 found 93% leaks 33%; layer 28 found 93% leaks 29%; layer 31 found 73% leaks 90%." alt="How much of each part one method selects, per layer. The coloured areas are what is there: the logit-lens probability of input-language words (grey), the unspoken word (orange) and output-language words (blue), averaged over the test prompts. Hatched is what the method selects: green over the unspoken word (good), red over the input or output language (bad). The numbers at the top are the share of prompts where the method finds the unspoken word, and where it shows input- or output-language words; red is drawn as a share of each curve, so it is too thin to see where a curve is low. The method is net-change PCA at each layer (projection onto the main directions of how the residual stream changes from layer 16 to the output, fitted on calibration text). Made by notebook.py, Part 2." />
+<img src="figs/layers.png" data-fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." />
+
+Figure 2: **Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`plot_layers.py`](scripts/challenge/plot_layers.py) from saved notebook data.
 
 ## Enter
 
-Add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geometry`, and anything it needs from calibration text to `calibrate()`. Run `uv run scripts/challenge/score.py` on one GPU (it downloads the model and data on first run), and open an issue or a pull request with your method and its score.
+For the geometry track, add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geometry`, and anything it needs from calibration text to `calibrate()`. Run `uv run scripts/challenge/score.py` on one GPU (it downloads the model and data on first run), and open an issue or a pull request with your method and its score.
+
+For open methods, run `just score-open /path/to/adapter.py` and submit its report with your code revision and data/access disclosures. See the [adapter interface](docs/leaderboard/open.md#submit-an-adapter).
 
 ## Limitations
 

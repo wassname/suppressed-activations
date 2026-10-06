@@ -79,11 +79,15 @@ def f1_ci(rs, n_boot=2000):
     return f"{boots[int(0.05 * n_boot)]:.2f}–{boots[int(0.95 * n_boot)]:.2f}"
 
 
+def calibration_prompts():
+    """Shared unlabelled calibration strings, without target answers. — PI/OpenAI"""
+    texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
+    return texts + [item["prompt"] for item in translation_prompts(DEV, "dev")]
+
+
 def calibration_texts():
     """Unlabelled text for calibrate(): hs [17 layers (16-32), tokens, d] for 300 WikiText texts and the dev prompts."""
-    texts = json.loads((ROOT / "data/challenge/wikitext2_train_300.json").read_text())["texts"]
-    texts += [item["prompt"] for item in translation_prompts(DEV, "dev")]   # prompts only: no answers, no labels
-    for text in texts:
+    for text in calibration_prompts():
         yield forward(text, max_length=128)[0][16:]
 
 

@@ -25,6 +25,7 @@ from bench import (TEST, by_spelling, calibration_texts, chinese, judge, prepare
 from common import DEVICE, ROOT, forward, readout, rms, tok, vocab
 from transforms import FIRST, calibrate, jlens, project
 import demo
+from plot_layers import plot_layers
 
 state = calibrate(calibration_texts())
 LAYERS = list(range(16, 32))
@@ -78,10 +79,8 @@ print("\n".join(report))
 # %% [markdown]
 # ## Part 2: how much of the unspoken word does each method find, per layer?
 #
-# Areas: the logit-lens probability of the input-language words, the unspoken word and the output-language words,
-# averaged over the test prompts (real data for the README cartoon). Lines: for "minus ends" (solid) and the plain logit
-# lens (dashed), the share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where
-# they hold input- or output-language words (red).
+# Stacked mean logit-lens masses by role; hatch fractions encode random-subspace detection rates.
+# The product of means is a visual encoding, not measured selected probability mass. — PI/OpenAI
 
 # %%
 leak_script = {lang: torch.tensor(sorted(script[lang])).to(DEVICE) for lang in script}
@@ -106,36 +105,7 @@ with gzip.open(out / "rows.json.gz", "wt") as f:
 mean_truth = {k: torch.stack(v).mean(0)[: len(LAYERS)] for k, v in truth.items()}   # layers 16..31
 
 torch.save(mean_truth, out / "truth_curves.pt")
-GREY, ORANGE, BLUE, GREEN, RED = "#7f7f7f", "#d55e00", "#0072b2", "#1a9850", "#d73027"
-METHOD = "net-change PCA"  # one method; a middling one, so the parts under the selection stay visible
-by_layer = {l: [r for r in rows if r["method"] == METHOD and r["layer"] == l] for l in LAYERS}
-ls_ = [l for l in LAYERS if by_layer[l]]
-share = lambda key: torch.tensor([sum(r[key] for r in by_layer[l]) / len(by_layer[l]) for l in ls_])
-curve = {k: mean_truth[k][[l - LAYERS[0] for l in ls_]] for k in mean_truth}
-fig, ax = plt.subplots(figsize=(8, 4.4), constrained_layout=True)
-for k, color, label, xy, ha in (("input", GREY, "input language", (17.2, 0.06), "left"),
-                                ("unspoken", ORANGE, "unspoken word", (27.4, 0.68), "center"),
-                                ("output", BLUE, "output language", (30.9, 0.64), "right")):
-    ax.fill_between(ls_, curve[k], color=color, alpha=0.3, lw=0)                  # what is there, in its own colour
-    ax.plot(ls_, curve[k], color=color, lw=1.8)
-    ax.text(*xy, label, color="#444444" if k == "input" else color, ha=ha, va="bottom", fontsize=9)
-hatch = dict(facecolor="none", lw=0, hatch="////")                                # selection drawn over, base shows through
-ax.fill_between(ls_, curve["unspoken"] * share("hidden"), edgecolor=GREEN, **hatch)           # selected, good
-ax.fill_between(ls_, curve["output"] * share("leaked_out"), edgecolor=RED, **hatch)           # selected, bad
-ax.fill_between(ls_, curve["input"] * share("leaked_in"), edgecolor=RED, **hatch)
-found, leak = share("hidden"), share("leaked")
-for l in (24, 28, 31):  # the real rates: red is drawn as a share of a curve, so it vanishes where the curve is low
-    i = ls_.index(l)
-    ax.annotate(f"layer {l}\nfound {found[i]:.0%}\nleaks {leak[i]:.0%}", (l, 0.92), ha="center", va="top", fontsize=8,
-                color="#333333")
-handles = [plt.Rectangle((0, 0), 1, 1, facecolor="none", edgecolor=GREEN, hatch="////", lw=0),
-           plt.Rectangle((0, 0), 1, 1, facecolor="none", edgecolor=RED, hatch="////", lw=0)]
-ax.legend(handles, ["selected: the unspoken word (good)", "selected: input or output language (bad)"],
-          loc="upper left", frameon=False, fontsize=9)
-ax.set(xlim=(ls_[0], ls_[-1]), ylim=(0, 1), xticks=[ls_[0], 20, 24, 28, 31], xlabel="layer", ylabel="logit-lens probability")
-ax.spines[["top", "right"]].set_visible(False)
-ax.set_title(f"How much of each part one method selects, per layer ({len(truth['unspoken'])} test prompts)", fontsize=10, loc="left")
-fig.savefig(ROOT / "figs/layers.png", dpi=150)
+plot_layers(rows, mean_truth, ROOT / "figs/layers.png")
 
 # %% [markdown]
 # ## Part 3: Arabic→Russian layer by layer, as in Wendler et al. (2024), Fig. 2
