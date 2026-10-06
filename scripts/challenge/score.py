@@ -35,12 +35,11 @@ def evaluate(item, settings_of):
         skipped.append({k: item[k] for k in ("split", "word")})
         return []
     state, leak = prepared
-    geo_state = {k: state[k] for k in ("res", "attn", "line", "input")}  # activations only: no logits, no token ids
     out = []
     for name, (_, _, kind, fn) in TRANSFORMS.items():
         for setting in settings_of(name):
             if kind == "geometry":
-                scores = read_vector(fn(geo_state, *setting), name)
+                scores = read_vector(fn(state["hs"], *setting), name)  # activations only: no logits, no token ids
             else:
                 scores = fn(state, *setting)
             out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name,
@@ -64,7 +63,8 @@ out.mkdir(parents=True)
 with gzip.open(out / "rows.json.gz", "wt") as f:
     json.dump({"rows": rows, "skipped": skipped, "chosen": chosen}, f, ensure_ascii=False)
 source_lines = inspect.getsource(__import__("transforms")).splitlines()
-CONTROLS = ("identity (logit lens)", "random subspace (control)", "mean WikiText activation (control)", "input word (control)")
+CONTROLS = ("mean over layers (logit lens)", "random subspace (control)", "mean WikiText activation (control)",
+            "logit lens, layer picked on the dev pair")
 COLS = (("F1↑", max), ("TPR↑", max), ("FPR↓", min), ("English-only F1↑", max))
 rows_by_table = {"geometry": [], "reference": []}
 random_test = [r for r in rows if r["transform"] == "random subspace (control)" and r["role"] == "test"
@@ -93,8 +93,9 @@ def render(table):
 
 
 commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True, text=True, cwd=ROOT).stdout.strip()
-caption = (f"Qwen3.5-4B, {n_test} test prompts ({', '.join(f'{a}→{b}' for a, b in TEST)}). Each row's layer and rank "
-           f"were chosen on {DEV[0][0]}→{DEV[0][1]} only. 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random "
+caption = (f"Qwen3.5-4B, {n_test} test prompts ({', '.join(f'{a}→{b}' for a, b in TEST)}). Geometry rows get layers "
+           f"16-32 and pick no layer by hand; their other settings (rank, window) were chosen on {DEV[0][0]}→{DEV[0][1]}. "
+           f"Reference rows still pick their layer there. 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random "
            f"subspace on the same prompts. English-only F1: {n_transfer} two-hop questions (TwoHopFact). "
            f"[Per-prompt rows]({out.relative_to(ROOT)}/rows.json.gz), commit {commit}.")
 markdown = (render(rows_by_table["geometry"]) + "\n\n" + caption

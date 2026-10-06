@@ -108,7 +108,8 @@ def prepare(item):
     line_start = item["prompt"].rfind("\n") + 1
     line = [i for i, (_, end) in enumerate(enc.offset_mapping) if end > line_start]  # tokens of the prompt's last line
     state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": torch.tensor(enc.input_ids).cuda(),
-             "line": res[:, line], "input": res[:, item["input_pos"]]}
+             "line": res[:, line], "input": res[:, item["input_pos"]],
+             "hs": res[16:]}  # what geometry methods get: layers 16-32, all prompt tokens
     return state, item["leak"] | {nxt}
 
 
