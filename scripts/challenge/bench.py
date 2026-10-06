@@ -10,7 +10,7 @@ import re
 
 import torch
 
-from common import LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, W, forward, readout, tok, tokens_in_script, vocab
+from common import DEVICE, LANG_NAME, ROOT, SCRIPT, TWOHOP, WENDLER_ZH, W, forward, readout, tok, tokens_in_script, vocab
 
 K, PER_PAIR, N_TRANSFER = 8, 60, 100  # per pair capped by the word list
 DEV, TEST = [("ru", "ko")], [("ar", "ru"), ("ar", "hi"), ("hi", "th"), ("th", "ru"), ("ko", "ar")]  # ar→ru: the README pair
@@ -124,7 +124,7 @@ def prepare(item):
     enc = tok(item["prompt"], add_special_tokens=False, return_offsets_mapping=True)
     line_start = item["prompt"].rfind("\n") + 1
     line = [i for i, (_, end) in enumerate(enc.offset_mapping) if end > line_start]  # tokens of the prompt's last line
-    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": torch.tensor(enc.input_ids).cuda(),
+    state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": torch.tensor(enc.input_ids).to(DEVICE),
              "line": res[:, line], "input": res[:, item["input_pos"]],
              "hs": res[16:]}  # what geometry methods get: layers 16-32, all prompt tokens
     return state, item["leak_in"], item["leak_out"] | {nxt}

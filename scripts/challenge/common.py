@@ -36,7 +36,8 @@ SCRIPT = {"ru": "\u0400-\u04ff", "ko": "\u1100-\u11ff\u3130-\u318f\uac00-\ud7af"
 
 torch.set_grad_enabled(False)
 tok = AutoTokenizer.from_pretrained(MODEL, revision=REVISION)
-model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=torch.bfloat16).cuda().eval()
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # CPU works too, slowly
+model = AutoModelForCausalLM.from_pretrained(MODEL, revision=REVISION, dtype=torch.bfloat16).to(DEVICE).eval()
 W, gain = model.lm_head.weight.float(), 1.0 + model.model.norm.weight.float()  # output head; final RMSNorm gain
 vocab = [tok.convert_tokens_to_string([t]) if t is not None else "" for t in tok.convert_ids_to_tokens(list(range(W.shape[0])))]
 
@@ -71,7 +72,7 @@ model.model.layers[23].self_attn.register_forward_hook(lambda _m, _a, out: _capt
 def forward(text, max_length=None):
     """One forward pass. Returns residuals [33, seq, d] (index 32 = before the final norm), layer-23 attention output
     [seq, d], and next-token logits at the last position."""
-    ids = tok(text, return_tensors="pt", add_special_tokens=False, truncation=max_length is not None, max_length=max_length).input_ids.cuda()
+    ids = tok(text, return_tensors="pt", add_special_tokens=False, truncation=max_length is not None, max_length=max_length).input_ids.to(DEVICE)
     out = model(input_ids=ids, use_cache=False, output_hidden_states=True)
     res = torch.stack(list(out.hidden_states[:-1]) + [_captured["final"]])[:, 0]
     return res, _captured["attn23"][0], out.logits[0, -1].float()

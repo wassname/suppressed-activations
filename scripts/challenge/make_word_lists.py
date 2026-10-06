@@ -11,7 +11,7 @@ from collections import defaultdict
 
 import torch
 
-from common import LANG_NAME, ROOT, fetch, model, tok
+from common import DEVICE, LANG_NAME, ROOT, fetch, model, tok
 
 SHOTS = {  # fixed example words, kept out of the list
     "ru": ["собака", "дерево", "птица", "хлеб"], "ko": ["개", "나무", "새", "빵"], "ar": ["كلب", "شجرة", "طائر", "خبز"],
@@ -34,7 +34,7 @@ for lang, name in LANG_NAME.items():
         prompt_ids = tok(head + f'English: "{en}" - {name}: "', add_special_tokens=False).input_ids
         best = None
         for x in candidates[en]:
-            ids = torch.tensor([prompt_ids + tok(x + '"', add_special_tokens=False).input_ids]).cuda()
+            ids = torch.tensor([prompt_ids + tok(x + '"', add_special_tokens=False).input_ids]).to(DEVICE)
             logp = model(input_ids=ids, use_cache=False).logits[0, len(prompt_ids) - 1:-1].float().log_softmax(-1)
             score = float(logp.gather(1, ids[0, len(prompt_ids):, None]).sum())
             if best is None or score > best[0]:

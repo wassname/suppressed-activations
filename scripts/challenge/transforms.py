@@ -9,7 +9,7 @@ model's weights. — PI/OpenAI
 """
 import torch
 
-from common import W, gain, load_jlens, readout, rms, vocab
+from common import DEVICE, W, gain, load_jlens, readout, rms, vocab
 
 TRANSFORMS = {}  # short name -> entry; geometry fn(hs, state) -> vector [d], reference fn(s) -> scores [vocab]
 RANKS = (64, 256, 1024)
@@ -23,7 +23,7 @@ _J = {}
 def jlens(x, l):
     """Residual l through the Jacobian lens to the final residual."""
     if l not in _J:
-        _J[l] = J[l - 1].cuda().float()
+        _J[l] = J[l - 1].to(DEVICE).float()
     return x.float() @ _J[l].T
 
 
@@ -57,13 +57,13 @@ def calibrate(texts):
     """texts: iterable of hs [17 layers (16-32), tokens, d]. Fills and returns `bases`, the state built-in methods share."""
     d = W.shape[1]
     keys = ("x32", "antipasto", "net") + tuple(f"d{l}" for l in CHURN_LAYERS)
-    logit_sum = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
-    logit_sq = {l: torch.zeros(len(vocab), dtype=torch.float64, device="cuda") for l in CAL_LAYERS}
+    logit_sum = {l: torch.zeros(len(vocab), dtype=torch.float64, device=DEVICE) for l in CAL_LAYERS}
+    logit_sq = {l: torch.zeros(len(vocab), dtype=torch.float64, device=DEVICE) for l in CAL_LAYERS}
     gram_w = sum((c.T @ c).double() for c in W.split(16384))
     lm_head = torch.linalg.eigh(gram_w)[1].flip(-1)[:, :256]                 # top-256 right singular vectors of W_U
-    second = {k: torch.zeros(d, d, dtype=torch.float64, device="cuda") for k in keys}
-    first = {k: torch.zeros(d, dtype=torch.float64, device="cuda") for k in keys}
-    n, mean28 = 0, torch.zeros(d, dtype=torch.float64, device="cuda")
+    second = {k: torch.zeros(d, d, dtype=torch.float64, device=DEVICE) for k in keys}
+    first = {k: torch.zeros(d, dtype=torch.float64, device=DEVICE) for k in keys}
+    n, mean28 = 0, torch.zeros(d, dtype=torch.float64, device=DEVICE)
     L = lambda l: l - FIRST                                            # layer number -> index into hs
     for hs in texts:
         x = rms(hs[:, 8:]).double()                                    # [17, tok, d], skip the first tokens
@@ -85,7 +85,7 @@ def calibrate(texts):
     top = lambda m: torch.linalg.eigh(m)[1].flip(-1).float()          # eigenvectors, largest eigenvalue first
     gram = sum((c.T @ c).double() for c in (W * gain).split(16384))
     bases["weak-readout"] = torch.linalg.eigh(gram)[1].float()         # smallest first: what the head reads least
-    bases["random"] = torch.linalg.qr(torch.randn(d, max(RANKS), generator=torch.Generator().manual_seed(0)).cuda()).Q
+    bases["random"] = torch.linalg.qr(torch.randn(d, max(RANKS), generator=torch.Generator().manual_seed(0)).to(DEVICE)).Q
     for l in CHURN_LAYERS:
         bases[f"churn{l}"] = top(cov[f"d{l}"])
     bases["suppressed (AntiPaSTO)"] = top(cov["antipasto"])

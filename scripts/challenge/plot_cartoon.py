@@ -1,4 +1,6 @@
-"""Cartoon for the README: input, hidden English and output across layers. Not data. Writes figs/cartoon.png.
+"""Cartoon for the README: input, hidden English and output across layers. The curves are made up; the words are a
+real J-lens readout, its first 4 words (Arabic→Russian "tea", layer 23: the first ar→ru test prompt
+where the J-lens finds the word cleanly, out/2026-10-06_141151_leaderboard). Writes figs/cartoon.png.
 
 Usage: uv run --with matplotlib scripts/challenge/plot_cartoon.py (font: Noto Sans Arabic) — PI/OpenAI
 """
@@ -31,22 +33,22 @@ for y, color in curves.values():
 def label(x0, y0, name, words, color, family="DejaVu Sans"):
     """Language name, then example words in that language, as one direct label."""
     ax.text(x0, y0, name, color=DARK[color], fontsize=13, ha="center", weight="bold")
-    ax.text(x0, y0 - 0.075, words, color=DARK[color], fontsize=13, ha="center", family=family)
+    ax.text(x0, y0 - 0.035, words, color=DARK[color], fontsize=13, ha="center", va="top", family=family)
 
 
-label(0.12, 0.22, "ARABIC (input)", "قطة  كلب", GREY, family="Noto Sans Arabic")
-label(0.58, 0.36, "ENGLISH (hidden)", "cat  dog", ORANGE)
-label(0.865, 0.19, "RUSSIAN (output)", "кошка  собака", BLUE)
+label(0.12, 0.22, "READ: Arabic", "شاي\n(tea)", GREY, family=["Noto Sans Arabic", "DejaVu Sans"])
+label(0.58, 0.36, "THINK: English", "tea  drink\ncoffee  vodka", ORANGE)
+label(0.865, 0.19, "SAY: Russian", "чай (tea)", BLUE)
 
-ax.annotate("isolate the English part", xy=(0.635, 0.68), xytext=(0.66, 0.84), fontsize=14, color=DARK[ORANGE],
+ax.annotate("find this", xy=(0.635, 0.68), xytext=(0.66, 0.84), fontsize=14, color=DARK[ORANGE],
             weight="bold", arrowprops=dict(arrowstyle="->", color=ORANGE, lw=2))
 ax.annotate("not this", xy=(0.22, 0.41), xytext=(0.27, 0.62), fontsize=14,
             arrowprops=dict(arrowstyle="->", color="k", lw=1.5))
 ax.annotate("or this", xy=(0.955, 0.71), xytext=(0.90, 0.95), fontsize=14,
             arrowprops=dict(arrowstyle="->", color="k", lw=1.5))
 
-fig.text(0.5, 0.95, "When a model translates Arabic to Russian, it thinks in English", fontsize=17, ha="center")
-fig.text(0.5, 0.885, "Challenge: can you isolate the hidden thought, without using a dictionary?", fontsize=15,
+fig.text(0.5, 0.95, "Translating Arabic to Russian, the model thinks partly in English", fontsize=16, ha="center")
+fig.text(0.5, 0.885, "Challenge: find the thinking part, without using a dictionary", fontsize=15,
          ha="center", weight="bold")
 ax.text(1.0, -0.035, "layers →", ha="right", va="top", fontsize=12, transform=ax.transAxes)
 ax.set_ylabel("how strongly the model\nholds each language")

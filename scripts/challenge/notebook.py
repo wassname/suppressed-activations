@@ -22,7 +22,7 @@ from tabulate import tabulate
 
 from bench import (TEST, by_spelling, calibration_texts, chinese, judge, prepare, read_vector, script, spelled,
                    top_words, translation_prompts)
-from common import ROOT, forward, readout, rms, tok, vocab
+from common import DEVICE, ROOT, forward, readout, rms, tok, vocab
 from transforms import FIRST, calibrate, jlens, project
 
 state = calibrate(calibration_texts())
@@ -110,7 +110,7 @@ print("\n".join(report))
 # they hold input- or output-language words (red).
 
 # %%
-leak_script = {lang: torch.tensor(sorted(script[lang])).cuda() for lang in script}
+leak_script = {lang: torch.tensor(sorted(script[lang])).to(DEVICE) for lang in script}
 rows, truth = [], {k: [] for k in ("unspoken", "output", "input")}
 for item in translation_prompts(TEST, "test"):
     prepared = prepare(item)
