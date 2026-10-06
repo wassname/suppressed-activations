@@ -2,6 +2,8 @@
 
 <!-- Generated from README.qmd by `just docs`; edit README.qmd, not this file. -->
 
+*Find the unspoken intermediate concepts in a language model.*
+
 <img src="figs/cartoon.png" data-fig-alt="Cartoon. Title: Translating Arabic to Russian, the model thinks partly in English. Subtitle: Challenge: find the thinking part, without using a dictionary. Three shaded curves over layers: grey READ: Arabic, شاي (tea), high early, arrow not this; orange THINK: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue SAY: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." alt="Cartoon. Title: Translating Arabic to Russian, the model thinks partly in English. Subtitle: Challenge: find the thinking part, without using a dictionary. Three shaded curves over layers: grey READ: Arabic, شاي (tea), high early, arrow not this; orange THINK: English, tea drink coffee vodka, peaking in the middle, arrow find this; blue SAY: Russian, чай (tea), rising at the end, arrow or this. The curves are drawn by hand; the English words are a real readout." width="720" />
 
 Figure 1: **The challenge.** The model reads Arabic and says Russian; part of what it thinks in between can be read as English. The curves are drawn by hand; the English words are a real readout (J-lens, layer 23, Arabic→Russian "tea").
@@ -20,7 +22,7 @@ Wes Gurnee and colleagues at Anthropic showed that models represent words in the
 
 Similar to their Figure 12, where they show that a model will think the word spider without ever saying it, we show a multilingual version (Table 1). Spider, in any language, is in **bold**; the answer, eight, is in *italics*.
 
-Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim.
+Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim. \*English translations are for the reader only; the model does not see them, think them, or output them in English. Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations.
 
 |  | model | English\* |
 |:---|:---|:---|
@@ -33,10 +35,6 @@ Table 1: **Qwen reads an Arabic question, thinks spider in English, and says 8.
 | **output** | *8* | *8* |
 
 As you can see, while Llamas work in English, Qwens also work in Chinese.
-
-\*marked English translations for illustration only; the model does not see them, think them, or output them in English
-
-Following Animorphs ([Applegate, 1996](<https://en.wikipedia.org/wiki/Animorphs>)), which uses braces `⟨ ⟩` to mark mental communication, we use the same notation for internal readouts of the models activations.
 
 ## The setting: translation
 
@@ -83,7 +81,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
     return v  # one residual-stream vector, which should hold the unspoken concept and not the input or output
 ```
 
-*Note this uses [JaxTyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
+*Note: this uses [jaxtyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
@@ -91,31 +89,29 @@ The returned vector should happen to hold the unspoken concept. We read it with 
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
-## Leaderboard
+## Unspoken Concepts Challenge leaderboard
 
 Please submit your own as an issue or PR!
 
-| method | by | F1↑ | 90% CI | Δ vs random | found↑ | showed input/output words↓ | fitted on |
-|:---|:---|---:|---:|---:|---:|---:|:---|
-| [minus ends, least-explained layer](scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | **0.82** | 0.80–0.85 | +0.21 (+0.17 to +0.25) | 93% | 33% | nothing |
-| [minus ends](scripts/challenge/transforms.py#L162 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.79 | 0.77–0.82 | +0.18 (+0.14 to +0.22) | 92% | 40% | nothing |
-| [minus ends, recent tokens](scripts/challenge/transforms.py#L174 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") | [Sandy Fraser](https://github.com/z0u) | 0.79 | 0.76–0.81 | +0.17 (+0.13 to +0.21) | 91% | 41% | nothing |
-| [layer-change PCA](scripts/challenge/transforms.py#L123 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.78 | 0.76–0.80 | +0.16 (+0.13 to +0.20) | 93% | 46% | calibration text |
-| [net-change PCA](scripts/challenge/transforms.py#L130 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.78 | 0.76–0.80 | +0.16 (+0.13 to +0.20) | **95%** | 49% | calibration text |
-| [minus output PCA](scripts/challenge/transforms.py#L147 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.77 | 0.75–0.79 | +0.15 (+0.12 to +0.19) | **95%** | 53% | calibration text |
-| [AntiPaSTO subspace](scripts/challenge/transforms.py#L136 "Mean over layers, projected on AntiPaSTO's suppressed subspace (github.com/wassname/AntiPaSTO)") |  | 0.76 | 0.73–0.79 | +0.15 (+0.10 to +0.19) | 78% | 28% | calibration text |
-| *[mean over layers](scripts/challenge/transforms.py#L108 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.72 | 0.70–0.74 | +0.11 (+0.07 to +0.15) | 93% | 65% | nothing |
-| *[random subspace](scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.61 | 0.57–0.65 |  | 65% | 47% | random seed |
-| [weak head directions](scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23 | 0.18–0.28 | -0.38 (-0.44 to -0.32) | 22% | 69% | nothing |
-| *[mean calibration text](scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.00 | 0.00–0.00 | -0.61 (-0.65 to -0.57) | 0% | **0%** | calibration text |
+| method | by | F1↑ (90% CI) |
+|:---|:---|---:|
+| [minus ends, least-explained layer](scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | 0.8220338983050848 (0.80–0.85) |
+| [minus ends](scripts/challenge/transforms.py#L162 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.7917525773195876 (0.77–0.82) |
+| [minus ends, recent tokens](scripts/challenge/transforms.py#L174 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") | [Sandy Fraser](https://github.com/z0u) | 0.7860082304526749 (0.76–0.81) |
+| [layer-change PCA](scripts/challenge/transforms.py#L123 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.7784431137724551 (0.76–0.80) |
+| [net-change PCA](scripts/challenge/transforms.py#L130 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.7764705882352941 (0.76–0.80) |
+| [minus output PCA](scripts/challenge/transforms.py#L147 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.7659574468085106 (0.75–0.79) |
+| [AntiPaSTO subspace](scripts/challenge/transforms.py#L136 "Mean over layers, projected on AntiPaSTO's suppressed subspace (github.com/wassname/AntiPaSTO)") |  | 0.7610208816705336 (0.73–0.79) |
+| *[mean over layers](scripts/challenge/transforms.py#L108 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.7235621521335807 (0.70–0.74) |
+| *[random subspace](scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.6139954853273137 (0.57–0.65) |
+| [weak head directions](scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23057644110275688 (0.18–0.28) |
+| *[mean calibration text](scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.0 (0.00–0.00) |
 
-Qwen3.5-4B, 209 test prompts (ar→ru, ar→hi, hi→th, th→ru, ko→ar). 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random subspace on the same prompts. Hover a name for what it does. [Per-prompt rows](out/2026-10-06_152532_leaderboard/rows.json.gz), commit 456c320e.
+Scored on 209 translation prompts. The range in brackets shows how much the score could vary with other prompts (90% interval). Hover over a name to see what the method does.
 
-Methods that use token scores or the J-lens are in the [reference table](docs/leaderboard/README.md).
+The [full leaderboard](docs/leaderboard/README.md) has more columns. It also lists, for comparison, methods that break the rules by scoring words with the output head or the J-lens.
 
-The best geometry method so far, "minus ends, least-explained layer", gets F1 0.82 without being told the layer. The plain logit lens at a layer picked by hand gets 0.85, and methods that read word scores get up to 0.96 (reference table).
-
-<img src="figs/layers.png" id="fig-layers" data-fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of input-language words (grey), the unspoken word (orange, peaking near layer 28) and output-language words (blue, rising at layers 30 to 31). Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens." alt="Where the unspoken word is, and how often a method gets it cleanly. Shaded: our cartoon with real data, the logit-lens probability of input-language words (READ), the unspoken word (THINK) and output-language words (SAY), averaged over the test prompts. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for &quot;minus ends&quot; at each layer (solid) and the plain logit lens (dashed). Made by notebook.py, Part 2." />
+<img src="figs/layers.png" id="fig-layers" data-fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of the unspoken word (orange, peaking near 0.65 at layer 28) and of output-language words (blue, rising to 0.6 at layer 31). Minus ends finds the unspoken word cleanly on up to 74% of prompts at layer 27, against 66% for the logit lens, and shows input/output words less often from layer 24 on. Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens." alt="Where the unspoken word is, and how often a method gets it cleanly. Shaded: our cartoon with real data, the logit-lens probability of the unspoken word (THINK) and of output-language words (SAY), averaged over the test prompts. Input-language words are near zero at the last prompt token, so READ is not drawn. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for &quot;minus ends&quot; at each layer (solid) and the plain logit lens (dashed). Made by notebook.py, Part 2." />
 
 ## Enter
 
@@ -142,4 +138,4 @@ Add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geo
 
 ## Citation
 
-If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub exposes this as *Cite this repository* button.
+If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub shows this as the *Cite this repository* button.

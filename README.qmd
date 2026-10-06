@@ -1,6 +1,5 @@
 ---
 title: "Unspoken Concepts Challenge"
-subtitle: "Find the unspoken intermediate concepts in a language model"
 bibliography: docs/refs.bib
 csl: docs/harvard-doi-md.csl
 from: markdown-smart
@@ -17,6 +16,9 @@ format:
 ```{=markdown}
 <!-- Generated from README.qmd by `just docs`; edit README.qmd, not this file. -->
 ```
+
+*Find the unspoken intermediate concepts in a language model.*
+<!-- Subtitle in the body: quarto's gfm output drops the YAML subtitle (wassname: "I just see three words"). -->
 
 <!-- Title: subtitle uses the J-lens paper's Fig. 12 phrase "unspoken intermediate concept" (wassname: "but doesn't say sounds like AI"). -->
 
@@ -40,17 +42,10 @@ Similar to their Figure 12, where they show that a model will think the word spi
 
 {{< include docs/leaderboard/demo_spider.md >}}
 
-: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim. {#tbl-spider}
-
-
-<!-- TODO maybe these should be 3 footnoes.. ottherwise a bit fragmented -->
+: **Qwen reads an Arabic question, thinks spider in English, and says 8.** J-lens readout at the last prompt token, top 8 words, verbatim. \*English translations are for the reader only; the model does not see them, think them, or output them in English. Following Animorphs [@applegate1996animorphs], which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations. {#tbl-spider}
 
 As you can see, while Llamas work in English, Qwens also work in Chinese.
-
-\*marked English translations for illustration only; the model does not see them, think them, or output them in English
-
-Following Animorphs [@applegate1996animorphs], which uses braces `⟨ ⟩` to mark mental communication, we use the same notation for  internal readouts of the models activations.
-<!-- Demo from notebook.py Part 1 (write_demo). TODO check the rows after the CPU run (scripts/scratch/run_notebook_cpu.py) against the earlier GPU/CPU readouts. PI/OpenAI -->
+<!-- Demo table from scripts/challenge/demo.py (CPU run; rows match the earlier GPU and CPU readouts). Notes moved into the caption (wassname: "maybe these should be 3 footnotes ... otherwise a bit fragmented"). PI/OpenAI -->
 
 ## The setting: translation
 
@@ -95,7 +90,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
     return v  # one residual-stream vector, which should hold the unspoken concept and not the input or output
 ```
 
-*Note this uses [JaxTyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
+*Note: this uses [jaxtyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
@@ -103,7 +98,7 @@ The returned vector should happen to hold the unspoken concept. We read it with 
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
-## Leaderboard
+## Unspoken Concepts Challenge leaderboard
 
 Please submit your own as an issue or PR!
 
@@ -111,12 +106,10 @@ Please submit your own as an issue or PR!
 
 {{< include docs/leaderboard/caption.md >}}
 
-Methods that use token scores or the J-lens are in the [reference table](docs/leaderboard/README.md).
+The [full leaderboard](docs/leaderboard/README.md) has more columns. It also lists, for comparison, methods that break the rules by scoring words with the output head or the J-lens.
 
-The best geometry method so far, "minus ends, least-explained layer", gets F1 0.82 without being told the layer. The plain logit lens at a layer picked by hand gets 0.85, and methods that read word scores get up to 0.96 (reference table).
-<!-- Numbers from out/2026-10-06_141151_leaderboard (job 3132). PI/OpenAI -->
 
-![**Where the unspoken word is, and how often a method gets it cleanly.** Shaded: our cartoon with real data, the logit-lens probability of input-language words (READ), the unspoken word (THINK) and output-language words (SAY), averaged over the test prompts. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for "minus ends" at each layer (solid) and the plain logit lens (dashed). Made by [`notebook.py`](scripts/challenge/notebook.py), Part 2.](figs/layers.png){#fig-layers fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of input-language words (grey), the unspoken word (orange, peaking near layer 28) and output-language words (blue, rising at layers 30 to 31). Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens."}
+![**Where the unspoken word is, and how often a method gets it cleanly.** Shaded: our cartoon with real data, the logit-lens probability of the unspoken word (THINK) and of output-language words (SAY), averaged over the test prompts. Input-language words are near zero at the last prompt token, so READ is not drawn. Lines: share of prompts where the top 8 words hold the unspoken word and nothing leaked (green), and where they show input- or output-language words (red), for "minus ends" at each layer (solid) and the plain logit lens (dashed). Made by [`notebook.py`](scripts/challenge/notebook.py), Part 2.](figs/layers.png){#fig-layers fig-alt="One panel over layers 16 to 31. Shaded areas: logit-lens probability of the unspoken word (orange, peaking near 0.65 at layer 28) and of output-language words (blue, rising to 0.6 at layer 31). Minus ends finds the unspoken word cleanly on up to 74% of prompts at layer 27, against 66% for the logit lens, and shows input/output words less often from layer 24 on. Green lines: share of prompts where the method finds the unspoken word with nothing leaked; red lines: share where input- or output-language words show; solid for minus ends, dashed for the plain logit lens."}
 <!-- TODO check the new one-panel figure after the CPU notebook run. -->
 
 ## Enter
@@ -144,6 +137,6 @@ Add your method to [`transforms.py`](scripts/challenge/transforms.py) with `@geo
 
 ## Citation
 
-If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub exposes this as *Cite this repository* button.
+If you use the method or figure, please cite [`CITATION.cff`](CITATION.cff). GitHub shows this as the *Cite this repository* button.
 
 <!-- Drafted from Michael J. Clark's public thread and edited by PI/claude-opus-4.6 and PI/gpt-5.4. 2026-09-29 restructure by Claudypoo[opus-4.8]. 2026-10-06 README.qmd by PI/OpenAI from wassname's review comments. -->

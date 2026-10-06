@@ -108,13 +108,13 @@ mean_truth = {k: torch.stack(v).mean(0)[: len(LAYERS)] for k, v in truth.items()
 torch.save(mean_truth, out / "truth_curves.pt")
 GREY, ORANGE, BLUE, GREEN, RED = "#7f7f7f", "#d55e00", "#0072b2", "#1a9850", "#d73027"
 fig, ax = plt.subplots(figsize=(8, 4.4), constrained_layout=True)
-for k, color, label in (("input", GREY, "READ: input language"), ("unspoken", ORANGE, "THINK: unspoken word"),
-                        ("output", BLUE, "SAY: output language")):
+# input-language words are near 0 at the last prompt token at every layer, so READ is left out (said in the caption)
+for k, color, label, xy, ha in (("unspoken", ORANGE, "THINK: unspoken word", (26.6, 0.09), "center"),
+                                ("output", BLUE, "SAY: output language", (31.2, 0.60), "left")):
     y = mean_truth[k]
     ax.fill_between(LAYERS, y, color=color, alpha=0.15, lw=0)
     ax.plot(LAYERS, y, color=color, lw=1.5)
-    i = int(y.argmax())
-    ax.text(LAYERS[i], y[i] + 0.02, label, color=color, ha="center", va="bottom", fontsize=9)
+    ax.text(*xy, label, color=color, ha=ha, va="center", fontsize=9)  # placed clear of the lines
 for name, ls in (("minus ends", "-"), ("logit lens", "--")):
     by_layer = {l: [r for r in rows if r["method"] == name and r["layer"] == l] for l in LAYERS}
     ls_ = [l for l in LAYERS if by_layer[l]]
@@ -127,6 +127,7 @@ for name, ls in (("minus ends", "-"), ("logit lens", "--")):
     ax.text(ls_[-1] + 0.2, leak[-1], f"{name}: shows input/output words", color=RED, fontsize=8, va="center")
 ax.set(xlim=(LAYERS[0], LAYERS[-1] + 6), ylim=(0, 1.05), xticks=[16, 20, 24, 28, 31], xlabel="layer",
        ylabel="areas: logit-lens probability\nlines: share of prompts")
+ax.margins(x=0)
 ax.spines[["top", "right"]].set_visible(False)
 ax.set_title(f"Where the unspoken word is, and how often a method gets it cleanly ({len(truth['unspoken'])} test prompts)",
              fontsize=10, loc="left")

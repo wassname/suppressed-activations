@@ -1,1 +1,1 @@
-Qwen3.5-4B, 209 test prompts (ar→ru, ar→hi, hi→th, th→ru, ko→ar). 90% CI: bootstrap over prompts. Δ vs random: F1 minus the random subspace on the same prompts. Hover a name for what it does. [Per-prompt rows](out/2026-10-06_152532_leaderboard/rows.json.gz), commit 456c320e.
+Scored on 209 translation prompts. The range in brackets shows how much the score could vary with other prompts (90% interval). Hover over a name to see what the method does.
