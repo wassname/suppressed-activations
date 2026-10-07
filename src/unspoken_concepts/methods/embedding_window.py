@@ -21,8 +21,11 @@ def window_components(hs, embeddings, k, normalize_first, readout_window):
     return middle, removed
 
 
-@geometry("minus embedding/output window", (8, False, True), author="[Sandy Fraser](https://github.com/z0u)",
-          about="Average input embeddings and output states over 8 tokens; remove their span from window-averaged layers 17-31")
+# Frozen dev comparison: results/embedding_window_dev.json.gz. — PI/OpenAI
+@geometry("minus embedding/output window, mean middle", (8, False, True),
+          about="As embedding/output window removal, but also average intermediate states across the same 8 positions")
+@geometry("minus embedding/output window", (8, False, False), author="[Sandy Fraser](https://github.com/z0u)",
+          about="Average raw input embeddings and output states over 8 tokens; remove their span from last-token layers 17-31")
 def embedding_window(hs, embeddings, state, k, normalize_first, readout_window):
     middle, removed = window_components(hs, embeddings, k, normalize_first, readout_window)
     return (middle - removed).mean(0)
