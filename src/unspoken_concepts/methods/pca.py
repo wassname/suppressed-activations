@@ -13,13 +13,13 @@ def churn(hs, embeddings, state, r):
 
 
 @geometry("net-change PCA", (1024,), fitted="calibration text",
-          about="Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)")
+          about="Mean over layers, projected on the top PCs of h32 - h16 on calibration text")
 def net_change(hs, embeddings, state, r):
     return project(state["net change"][:, :r], last(hs).mean(0))
 
 
-@geometry("AntiPaSTO subspace", (1024,), fitted="calibration text",
-          about="Mean over layers, projected on the suppressed subspace from the AntiPaSTO paper (Clark 2026, arXiv 2601.07473, App. A.1)")
+@geometry("Output-filtered net-change PCA", (1024,), fitted="calibration text",
+          about="Remove the output head's top 256 directions from h32 - h16 on calibration text, fit PCA, then project the mean residual on its top 1024 PCs")
 def suppressed_antipasto(hs, embeddings, state, r):
     return project(state["suppressed (AntiPaSTO)"][:, :r], last(hs).mean(0))
 
