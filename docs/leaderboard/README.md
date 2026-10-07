@@ -20,6 +20,8 @@ Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over pr
 
 ## Unrestricted methods
 
+This category lets participants try methods that use additional data or training, or inspect the model through gradients and word scores. We test them on the same translation prompts with the same F1 score as geometry-only methods. The table shows any data beyond the supplied calibration texts, how each method is fitted, and what else it needs from the model.
+
 | method                                                                                                                                                                                                                                                           | F1↑ (90% CI)         | external data             | fitting / training       | other extras                     |
 |:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:---------------------|:--------------------------|:-------------------------|:---------------------------------|
 | [rise-and-fall, J-lens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L213 "Rise-and-fall on J-lens scores, peak layer 28")                                                        | **0.96** (0.94–0.97) | published WikiText J-lens | Jacobian averaging       | token scores; dev-selected layer |
@@ -34,8 +36,6 @@ Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over pr
 | [rise-and-fall](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L208 "Tokens whose logit rises from layer 22 to 27 and falls by the output")                                         | 0.85 (0.81–0.88)     | none                      | none                     | token scores; dev-selected layer |
 | *[logit lens, best layer](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L181 "Logit lens at layer 27, the best layer on the dev pair: what knowing the layer is worth")*           | 0.85 (0.82–0.87)     | none                      | none                     | token scores; dev-selected layer |
 | [logit lens minus read and said](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L249 "Layer 28 minus the prompt's token directions and the model's top-8 next tokens")              | 0.83 (0.80–0.85)     | none                      | none                     | token scores; dev-selected layer |
-
-Same prompts and F1 as geometry-only; additional resources are listed per method. External data means data beyond the supplied calibration texts and base model. Published J-lens matrices were fitted on WikiText; their pinned source is in the evidence. These are the previously reported reference results, not new runs.
 
 ## Diagnostic scores
 

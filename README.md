@@ -12,7 +12,7 @@ If we could read and understand the model's concepts, it would improve many thin
 
 <img src="figs/cartoon.png" data-fig-alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative." alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative." width="800" />
 
-Figure 1: **The challenge.** When LLMs translate between languages, for example Arabic to Russian, they can think in English. [Llamas work in English](https://arxiv.org/abs/2402.10588), and Qwens also work in Chinese. This challenge is to find those unspoken concepts, not the input or output. This schematic illustrates the distinction with an Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). See the [full demo below](#unspoken-concepts).
+Figure 1: **The challenge.** When a multilingual model translates between two non-English languages, say Arabic to Russian, it takes a detour through English along the way. [Llamas work in English](https://arxiv.org/abs/2402.10588), and Qwens also work in Chinese. This challenge is to find those unspoken concepts, not the input or output. This schematic illustrates the distinction with an Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). See the [full demo below](#unspoken-concepts).
 
 ## Unspoken concepts
 
@@ -72,6 +72,8 @@ Geometry-only methods use the supplied activations and calibration data. Unrestr
 
 Please submit your own as an issue or PR!
 
+Table 2: Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over prompts. Hover over a method for its description.
+
 | method | by | F1↑ (90% CI) |
 |:---|:---|:---|
 | [minus ends, least-explained layer](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | **0.82** (0.80–0.85) |
@@ -86,9 +88,13 @@ Please submit your own as an issue or PR!
 | [weak head directions](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23 (0.18–0.28) |
 | *[mean calibration text](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.00 (0.00–0.00) |
 
-Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over prompts. Hover over a method for its description.
-
 ### Unrestricted methods
+
+This category lets participants try methods that use additional data or training, or inspect the model through gradients and word scores. We test them on the same translation prompts with the same F1 score as geometry-only methods. The table shows any data beyond the supplied calibration texts, how each method is fitted, and what else it needs from the model.
+
+Some of these methods are limited in how well they generalise or how practical they are to deploy. Depending on the details, they range from less interesting to very interesting.
+
+Table 3: Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over prompts. Hover over a method for its description.
 
 | method | F1↑ (90% CI) | external data | fitting / training | other extras |
 |:---|:---|:---|:---|:---|
@@ -105,9 +111,11 @@ Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over pr
 | *[logit lens, best layer](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L181 "Logit lens at layer 27, the best layer on the dev pair: what knowing the layer is worth")* | 0.85 (0.82–0.87) | none | none | token scores; dev-selected layer |
 | [logit lens minus read and said](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L249 "Layer 28 minus the prompt's token directions and the model's top-8 next tokens") | 0.83 (0.80–0.85) | none | none | token scores; dev-selected layer |
 
-Same prompts and F1 as geometry-only; additional resources are listed per method. External data means data beyond the supplied calibration texts and base model. Published J-lens matrices were fitted on WikiText; their pinned source is in the evidence. These are the previously reported reference results, not new runs.
-
 The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
+
+## Scoring
+
+We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded.
 
 <img src="figs/layers.png" data-fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." />
 
@@ -139,7 +147,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
-The returned vector should happen to hold the unspoken concept. We read it with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
+The returned vector should happen to hold the unspoken concept. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
@@ -163,7 +171,7 @@ For both categories, freeze fitting and settings before testing. The method rece
 
 For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Rebuilding the tables and layer plot from saved evidence needs no GPU and took 12 s on a Ryzen 9 5900X. Full CPU evaluation time and minimum VRAM are unmeasured; unrestricted training may need more resources. [Hardware details](docs/submissions.md#hardware-and-runtime).
+The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 

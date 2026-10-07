@@ -11,3 +11,5 @@
 | *[random subspace](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")*                                                      |                                        | 0.61 (0.57–0.65)     |
 | [weak head directions](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least")                                              |                                        | 0.23 (0.18–0.28)     |
 | *[mean calibration text](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")*                                      |                                        | 0.00 (0.00–0.00)     |
+
+: Scored on 209 translation prompts. Brackets show 90% bootstrap intervals over prompts. Hover over a method for its description. {#tbl-geometry}

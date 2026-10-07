@@ -1,1 +1,0 @@
-Same prompts and F1 as geometry-only; additional resources are listed per method. External data means data beyond the supplied calibration texts and base model. Published J-lens matrices were fitted on WikiText; their pinned source is in the evidence. These are the previously reported reference results, not new runs.

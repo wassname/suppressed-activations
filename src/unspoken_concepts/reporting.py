@@ -56,12 +56,13 @@ def tables(evidence, evidence_link):
     n = rows[0]["n"]
     caption = (f"Scored on {n} translation prompts. Brackets show 90% bootstrap intervals over prompts. "
                "Hover over a method for its description.")
-    unrestricted_note = ("Same prompts and F1 as geometry-only; additional resources are listed per method. "
-                         "External data means data beyond the supplied calibration texts and base model. "
-                         "Published J-lens matrices were fitted on WikiText; their pinned source is in the evidence. "
-                         "These are the previously reported reference results, not new runs.")
+    unrestricted_note = ("This category lets participants try methods that use additional data or training, "
+                         "or inspect the model through gradients and word scores. We test them on the same "
+                         "translation prompts with the same F1 score as geometry-only methods. The table "
+                         "shows any data beyond the supplied calibration texts, how each method is fitted, "
+                         "and what else it needs from the model.")
     detail = ("# Leaderboards\n\n## Geometry-only\n\n" + render(geometry) + "\n\n" + caption +
-              "\n\n## Unrestricted methods\n\n" + render(unrestricted) + "\n\n" + unrestricted_note +
+              "\n\n## Unrestricted methods\n\n" + unrestricted_note + "\n\n" + render(unrestricted) +
               "\n\n## Diagnostic scores\n\n" + render(detailed) +
               "\n\nF1 = 2TP / (2TP + FP + FN). Found is TP; leaked is input-or-output FP. "
               "A prompt can count as both. Δ is the paired F1 difference from random projection.\n\n" +
@@ -81,9 +82,9 @@ def main():
     geometry, unrestricted, caption, note, detail = tables(evidence, link)
     includes = ROOT / "docs/readme/includes"
     includes.mkdir(parents=True, exist_ok=True)
-    for name, content in (("geometry", geometry), ("unrestricted", unrestricted), ("caption", caption),
-                          ("unrestricted_caption", note)):
-        (includes / f"{name}.md").write_text(content + "\n")
+    for name, content in (("geometry", geometry), ("unrestricted", unrestricted)):
+        (includes / f"{name}.md").write_text(content + f"\n\n: {caption} {{#tbl-{name}}}\n")
+    (includes / "unrestricted_intro.md").write_text(note + "\n")
     (ROOT / "docs/leaderboard/README.md").write_text(detail)
     print(f"Rebuilt both leaderboards from {args.evidence}")
 

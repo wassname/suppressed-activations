@@ -1,0 +1,1 @@
+This category lets participants try methods that use additional data or training, or inspect the model through gradients and word scores. We test them on the same translation prompts with the same F1 score as geometry-only methods. The table shows any data beyond the supplied calibration texts, how each method is fitted, and what else it needs from the model.

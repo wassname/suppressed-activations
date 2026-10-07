@@ -30,7 +30,7 @@ These giant matrices are called activations, and they can mix what the model rea
 If we could read and understand the model's concepts, it would improve many things. It would allow us to interpret, steer, and align models on their own concepts. Even getting closer will help with challenges like fragile chain of thought [@korbak2025cot], eval awareness [@needham2025eval], and alignment [@marks2025auditing; @wassname2026agenda].
 <!-- TODO wassname: approve cites. Korbak 2025 = CoT monitorability "new and fragile"; Needham 2025 = MATS + Marius Hobbhahn (Apollo Research), measures eval awareness; Marks 2025 (Anthropic) = alignment audits (reading hidden objectives); wassname's agenda = changing a model's own concepts ("intervening in the AI's own internal concepts"). -->
 
-![**The challenge.** When LLMs translate between languages, for example Arabic to Russian, they can think in English. [Llamas work in English](https://arxiv.org/abs/2402.10588), and Qwens also work in Chinese. This challenge is to find those unspoken concepts, not the input or output. This schematic illustrates the distinction with an Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). See the [full demo below](#unspoken-concepts).](figs/cartoon.png){#fig-cartoon width=800 fig-alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative."}
+![**The challenge.** When a multilingual model translates between two non-English languages, say Arabic to Russian, it takes a detour through English along the way. [Llamas work in English](https://arxiv.org/abs/2402.10588), and Qwens also work in Chinese. This challenge is to find those unspoken concepts, not the input or output. This schematic illustrates the distinction with an Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). See the [full demo below](#unspoken-concepts).](figs/cartoon.png){#fig-cartoon width=800 fig-alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative."}
 
 ## Unspoken concepts
 
@@ -84,16 +84,20 @@ Please submit your own as an issue or PR!
 
 {{< include docs/readme/includes/geometry.md >}}
 
-{{< include docs/readme/includes/caption.md >}}
-
 ### Unrestricted methods
+
+{{< include docs/readme/includes/unrestricted_intro.md >}}
+
+Some of these methods are limited in how well they generalise or how practical they are to deploy. Depending on the details, they range from less interesting to very interesting.
 
 {{< include docs/readme/includes/unrestricted.md >}}
 
-{{< include docs/readme/includes/unrestricted_caption.md >}}
-
 The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
 
+
+## Scoring
+
+We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded.
 
 ![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
 
@@ -125,7 +129,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
 
-The returned vector should happen to hold the unspoken concept. We read it with the model's output head and keep the top 8 words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded. You may use the output head as a matrix, for example its main directions, but not to score individual words.
+The returned vector should happen to hold the unspoken concept. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
 Each method has one fixed setting (for example a rank). You can try settings on the dev pair, Russian to Korean; we only report the test pairs.
 
@@ -150,7 +154,7 @@ For both categories, freeze fitting and settings before testing. The method rece
 
 For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Rebuilding the tables and layer plot from saved evidence needs no GPU and took 12 s on a Ryzen 9 5900X. Full CPU evaluation time and minimum VRAM are unmeasured; unrestricted training may need more resources. [Hardware details](docs/submissions.md#hardware-and-runtime).
+The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 
