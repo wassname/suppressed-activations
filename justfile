@@ -15,9 +15,9 @@ results:
 plot-layers evidence="results/layer_plot.json.gz":
     uv run --with matplotlib scripts/plots/layers.py {{quote(evidence)}}
 
-# Redraw the compact spider demo without inference. — PI/OpenAI
+# Render the editable SVG to PNG with Chromium and installed fonts. — PI/OpenAI
 plot-cartoon:
-    uv run --with matplotlib scripts/plots/cartoon.py
+    uv run scripts/plots/cartoon.py
 
 # Rebuild data/challenge/words.json (downloads the MUSE dictionaries; words.json is already committed)
 word-lists:

@@ -30,7 +30,7 @@ These giant matrices are called activations, and they can mix what the model rea
 If we could read and understand the model's concepts, it would improve many things. It would allow us to interpret, steer, and align models on their own concepts. Even getting closer will help with challenges like fragile chain of thought [@korbak2025cot], eval awareness [@needham2025eval], and alignment [@marks2025auditing; @wassname2026agenda].
 <!-- TODO wassname: approve cites. Korbak 2025 = CoT monitorability "new and fragile"; Needham 2025 = MATS + Marius Hobbhahn (Apollo Research), measures eval awareness; Marks 2025 (Anthropic) = alignment audits (reading hidden objectives); wassname's agenda = changing a model's own concepts ("intervening in the AI's own internal concepts"). -->
 
-![**The challenge.** An Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). Find that unspoken intermediate, not the input or output. The curves and wording are schematic. The [recorded demo](results/spider_demo.json) below contains spider and 蜘蛛 in its layer-24 J-lens readout, but generates the digit 8 rather than the Russian word. The example was chosen after trying 14 formats; the overall success rate was not retained.](figs/cartoon.png){#fig-cartoon width=800 fig-alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative."}
+![**The challenge.** When LLMs translate between languages, for example Arabic to Russian, they can think in English. [Llamas work in English](https://arxiv.org/abs/2402.10588), and Qwens also work in Chinese. This challenge is to find those unspoken concepts, not the input or output. This schematic illustrates the distinction with an Arabic question, an unspoken spider / 蜘蛛, and a Russian answer: восемь (eight). See the [full demo below](#unspoken-concepts).](figs/cartoon.png){#fig-cartoon width=800 fig-alt="Distribution schematic across layers: an early grey input curve contains an Arabic question, an orange middle curve contains spider and 蜘蛛 with an arrow saying find this, and a late blue output curve contains Russian восемь. A separate strip below aligns the English translations: How many legs on a web-spinning animal?, spider / spider, and eight. Arrows say not this for both input and output. The curves and Russian answer are illustrative."}
 
 ## Unspoken concepts
 
@@ -43,7 +43,7 @@ Similar to their Figure 12 in the above paper, where they show that a model will
 
 {{< include docs/readme/includes/demo_spider.md >}}
 
-: **Qwen reads a question in Arabic and answers 8. In between, its middle layers show it thinking of spiders, then legs, then eight, in English and Chinese.** J-lens readout at the last prompt token, top 8 words, verbatim, with an English translation for the reader. Following Animorphs [@applegate1996animorphs], which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations. {#tbl-spider}
+: **Qwen reads a question in Arabic and answers 8. In between, its middle layers show it thinking of spiders, then legs, then eight, in English and Chinese.** For intermediate layers, we read out the hidden states using the [Jacobian lens](https://transformer-circuits.pub/2026/workspace/). We show its top 8 words at the last prompt token, verbatim, with English translations. Following Animorphs [@applegate1996animorphs], which uses angle brackets ⟨ ⟩ to mark mental communication, we use the same notation for internal readouts of the model's activations. {#tbl-spider}
 
 As you can see, while [Llamas work in English](https://arxiv.org/abs/2402.10588), Qwens also work in Chinese.
 <!-- Demo table from scripts/eval/spider_demo.py (CPU run; rows match the earlier GPU and CPU readouts). Notes moved into the caption (wassname: "maybe these should be 3 footnotes ... otherwise a bit fragmented"). PI/OpenAI -->
@@ -73,6 +73,31 @@ For the test, I tried to isolate the suppressed English from the output language
 <img width="1448" height="1086" alt="Cartoon titled 'How can we find a model's hidden thoughts?', subtitle 'Models can think in English even when translating from French to Chinese.' A French speaker asks a robot 'Peux-tu traduire ceci en chinois ?'. The robot thinks 'Okay — first I understand it in English.' and says to a Chinese speaker '好的，我来翻译成中文。'. Labels: French (input), Model, Chinese (output). Lower panel: a magnifying glass over the robot's head shows English words (understand, translate, answer). Text: 'Knowing that we are looking for English, we can search for general transforms that isolate it.'" src="https://github.com/user-attachments/assets/73da1994-7dd6-41f4-af6b-166a40f3f115" />
 
 </details>
+
+## 🏆 Unspoken Concepts Challenge leaderboards
+
+Geometry-only methods use the supplied activations and calibration data. Unrestricted methods can use additional data, training and model access.
+
+### Geometry-only
+
+Please submit your own as an issue or PR!
+
+{{< include docs/readme/includes/geometry.md >}}
+
+{{< include docs/readme/includes/caption.md >}}
+
+### Unrestricted methods
+
+{{< include docs/readme/includes/unrestricted.md >}}
+
+{{< include docs/readme/includes/unrestricted_caption.md >}}
+
+The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
+
+
+![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
+
+<!-- PI/OpenAI: separate language and selection encodings; saved 209-prompt random-subspace run. -->
 
 ## The rules
 
@@ -121,34 +146,11 @@ def method(model, tokenizer, prompt, state):
 For both categories, freeze fitting and settings before testing. The method receives no test intermediate label or target answer. See [what is permitted and how to submit](docs/submissions.md).
 <!-- PI/OpenAI: two categories with explicit resources, not a pending-review category. -->
 
-## Unspoken Concepts Challenge leaderboard
-
-### Geometry-only
-
-Please submit your own as an issue or PR!
-
-{{< include docs/readme/includes/geometry.md >}}
-
-{{< include docs/readme/includes/caption.md >}}
-
-### Unrestricted methods
-
-{{< include docs/readme/includes/unrestricted.md >}}
-
-{{< include docs/readme/includes/unrestricted_caption.md >}}
-
-The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
-
-
-![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
-
-<!-- PI/OpenAI: separate language and selection encodings; saved 209-prompt random-subspace run. -->
-
 ## Enter
 
 For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Rebuilding both tables and figures from saved evidence needs no GPU and took 13 s on a Ryzen 9 5900X. Full CPU evaluation time and minimum VRAM are unmeasured; unrestricted training may need more resources. [Hardware details](docs/submissions.md#hardware-and-runtime).
+The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Rebuilding the tables and layer plot from saved evidence needs no GPU and took 12 s on a Ryzen 9 5900X. Full CPU evaluation time and minimum VRAM are unmeasured; unrestricted training may need more resources. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 
