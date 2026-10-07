@@ -19,11 +19,12 @@ import time
 
 
 from unspoken_concepts.model import ROOT, MODEL, REVISION, LENS
-from unspoken_concepts.methods import TRANSFORMS
+from unspoken_concepts.methods import TRANSFORMS, load_methods
 from unspoken_concepts.calibration import calibrate
 from unspoken_concepts.benchmark import TEST, calibration_texts, judge, prepare, read_vector, translation_prompts
 from unspoken_concepts.reporting import tables
 
+load_methods()
 state = calibrate(calibration_texts())
 skipped = []
 
@@ -38,7 +39,7 @@ def evaluate(item):
     out = []
     for name, e in TRANSFORMS.items():
         if e["kind"] == "geometry":
-            scores = read_vector(e["fn"](s["hs"], state, *e["setting"]), name)  # activations only: no logits, no ids
+            scores = read_vector(e["fn"](s["hs"], s["embeddings"], state, *e["setting"]), name)  # activations only: no logits, no ids
         else:
             scores = e["fn"](s, *e["setting"])
         out.append({"role": item["role"], "split": item["split"], "word": item["word"], "transform": name}

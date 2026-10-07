@@ -1,5 +1,9 @@
-"""Built-in method families. — PI/OpenAI"""
-from .registry import TRANSFORMS as TRANSFORMS
-from . import controls, pca, minus_ends, logit_lens, jacobian_lens, rise_and_fall
+"""Built-in method families; load model-dependent methods explicitly. — PI/OpenAI"""
+from importlib import import_module
 
-__all__ = ["TRANSFORMS", "controls", "pca", "minus_ends", "logit_lens", "jacobian_lens", "rise_and_fall"]
+from .registry import TRANSFORMS as TRANSFORMS
+
+
+def load_methods():
+    for family in ("controls", "pca", "minus_ends", "embedding_window", "logit_lens", "jacobian_lens", "rise_and_fall"):
+        import_module(f"{__name__}.{family}")

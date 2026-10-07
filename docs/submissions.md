@@ -4,11 +4,11 @@ Both leaderboards use the same pinned Qwen model, translation prompts, top-8 wor
 
 ## Geometry-only
 
-Use the provided residual activations (layers 16–32, all prompt tokens), model weights as matrices, and the supplied unlabelled calibration data: 300 WikiText texts and Russian-to-Korean dev prompts without target answers. Fitting PCA or other geometry on those activations is allowed. The method chooses or combines layers from the activations and returns one residual vector.
+Use the provided input embeddings (before the first transformer layer), residual activations (layers 16–32, all prompt tokens), model weights as matrices, and the supplied unlabelled calibration data: 300 WikiText texts and Russian-to-Korean dev prompts without target answers. Fitting PCA or other geometry on those activations is allowed. The method chooses or combines layers from the activations and returns one residual vector.
 
 Do not use token identities/scores, language filters, external fitting data, pretrained readout models, or additional forward/backward model calls. Fixed settings may be developed on the dev pair; do not choose a fixed layer using labelled per-layer scores. The evaluator alone reads the returned vector through the output head.
 
-Add a file to [methods/](../src/unspoken_concepts/methods/) with a `@geometry` function, and import it in that directory’s `__init__.py`. Related variants can share a file. Shared fits go in [calibration.py](../src/unspoken_concepts/calibration.py); method-specific fitting helpers stay beside their method. Then run `just score`. Submit the resulting `out/*_leaderboard/leaderboard.md`, evidence file and code revision.
+Add a file to [methods/](../src/unspoken_concepts/methods/) with a `@geometry` function taking `(hs, embeddings, state, *settings)`, and add its module to `load_methods()` in that directory’s `__init__.py`. `hs` contains layers 16–32; `embeddings` contains layer 0. Both have every prompt position, and neither includes token identities or scores. Related variants can share a file. Shared fits go in [calibration.py](../src/unspoken_concepts/calibration.py); method-specific fitting helpers stay beside their method. Then run `just score`. Submit the resulting `out/*_leaderboard/leaderboard.md`, evidence file and code revision.
 
 ## Unrestricted methods
 

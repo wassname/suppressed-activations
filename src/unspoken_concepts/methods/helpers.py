@@ -1,5 +1,5 @@
 """Residual-space projection helpers. — PI/OpenAI"""
-from ..model import rms
+from ..tensors import rms
 
 def project(B, x):
     return B @ (B.T @ rms(x))

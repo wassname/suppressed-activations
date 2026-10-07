@@ -78,7 +78,7 @@ def prepare(item):
     line = [i for i, (_, end) in enumerate(enc.offset_mapping) if end > line_start]  # tokens of the prompt's last line
     state = {"res": res[:, -1], "attn": attn[-1], "logits": logits, "ids": torch.tensor(enc.input_ids).to(DEVICE),
              "line": res[:, line], "input": res[:, item["input_pos"]],
-             "hs": res[16:]}  # what geometry methods get: layers 16-32, all prompt tokens
+             "hs": res[16:], "embeddings": res[0]}  # layers 16-32 and input embeddings, all positions; PI/OpenAI
     return state, item["leak_in"], item["leak_out"] | {nxt}
 
 

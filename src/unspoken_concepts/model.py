@@ -8,6 +8,7 @@ from huggingface_hub import hf_hub_download
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from unspoken_concepts import ROOT
+from unspoken_concepts.tensors import rms
 
 
 def fetch(rel, url, md5):
@@ -45,11 +46,6 @@ def load_jlens():
     path = hf_hub_download(repo, filename=file, revision=rev)
     assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == sha
     return torch.load(path, weights_only=True, map_location="cpu")["J"]
-
-
-def rms(h):
-    h = h.float()
-    return h * torch.rsqrt(h.square().mean(-1, keepdim=True) + 1e-6)
 
 
 def readout(v):

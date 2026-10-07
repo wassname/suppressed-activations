@@ -1,6 +1,6 @@
 """Minus ends methods and related variants. — PI/OpenAI"""
 import torch
-from ..model import rms
+from ..tensors import rms
 from .helpers import last
 from .registry import geometry
 
@@ -15,18 +15,18 @@ def _minus_ends(hs, k=1, mode="mean"):
 
 
 @geometry("minus ends", about="Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged")
-def minus_ends(hs, state):
+def minus_ends(hs, embeddings, state):
     return _minus_ends(hs).mean(0)
 
 
 @geometry("minus ends, least-explained layer",
           about="As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)")
-def minus_ends_least_explained(hs, state):  # each row starts with the same norm, so the largest remainder is the least explained
+def minus_ends_least_explained(hs, embeddings, state):  # each row starts with the same norm, so the largest remainder is the least explained
     left = _minus_ends(hs)
     return left[left.norm(dim=-1).argmax()]
 
 
-@geometry("minus ends, recent tokens", (8, "mean"), author="[Sandy Fraser](https://github.com/z0u)",
+@geometry("minus ends, recent tokens (layer-16 adaptation)", (8, "mean"),
           about="As 'minus ends', but average the layer-16 and output states over the last 8 tokens first")
-def minus_window(hs, state, k, mode):
+def minus_window(hs, embeddings, state, k, mode):
     return _minus_ends(hs, k, mode).mean(0)
