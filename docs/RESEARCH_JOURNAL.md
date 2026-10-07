@@ -1534,3 +1534,35 @@ Interpretation: I think it plausible that the geometry methods find "the English
 wassname, 2026-10-06, on keeping it in the README: "no one can understand it, no one want to particulate you goign to add a whole another ocncept ... just /arj and remove it's complexity from the readme". It is removed from the README and the leaderboard. A better version, if it is picked up later: swap hidden states between two two-hop prompts with different bridges, keep only the pairs whose answer flips, and score the swapped-in bridge using its Wikidata names in all languages (each TwoHopFact row has `e2.wikidata_qid`).
 
 The English-only test is a follow-up idea, not part of the challenge. -- PI/OpenAI
+
+## 2026-10-07 -- Correcting the embedding endpoint in Sandy's window method
+
+The corrected window method removes averaged input-embedding and output directions, while keeping intermediate readout at the last prompt token.
+
+The old implementation used residual layer 16 instead of the input embeddings and normalised each position before averaging. The corrected method uses actual layer-0 embeddings, averages raw states over eight positions, then removes the span of the embedding and output means from the last-token states at layers 17 through 31. The endpoint means and intermediate vectors are RMS-normalised before projection; the layer remainders are then averaged. The geometry interface now exposes embeddings separately, without changing the existing residual-layer slice.
+
+Dev job 3161 compared six one-at-a-time settings on 59 Russian-to-Korean prompts. Eight-position endpoint means with last-token intermediate states had the highest F1, 0.873. Averaging the intermediate positions too gave 0.784. Settings were frozen in commit `e05f6a5a` before test job 3162; the mean-middle variant was retained separately. [All dev settings and raw outcomes](../results/embedding_window_dev.json.gz).
+
+The test used the same 209 prompts and pinned Qwen model as the existing leaderboard. Recomputed from [per-prompt test evidence](../results/leaderboard.json.gz), source run `2026-10-07_093117_leaderboard`:
+
+| method | F1 (90% CI) | found | leaked | missed | found without leak |
+|:--|--:|--:|--:|--:|--:|
+| corrected embedding/output window | 0.83 (0.81-0.86) | 193 | 61 | 16 | 135 |
+| previous best: least-explained layer | 0.82 (0.80-0.85) | 194 | 69 | 15 | 127 |
+| old layer-16 window adaptation | 0.79 (0.76-0.81) | 191 | 86 | 18 | 111 |
+| corrected endpoints, mean middle | 0.66 (0.61-0.71) | 112 | 19 | 97 | 102 |
+| random subspace | 0.61 (0.57-0.65) | 136 | 98 | 73 | 72 |
+
+Found means the exact English or Chinese target appears in the top eight words. Leaked means an input/output-language token or the model's next token appears. Found and leaked can occur together. F1 is `2*found / (2*found + leaked + missed)`. Paired bootstrap differences were `+0.05 (+0.03 to +0.07)` against the old window adaptation and `+0.01 (-0.01 to +0.03)` against the previous best. The same seed-zero bootstrap code supplies the leaderboard intervals. No reward-hacking count (`hack_s`) or behavioral ground-truth pass count (`gt_s`) is defined for this readout-only task; the last column is the benchmark's joint word criterion, not a causal success count.
+
+All 4,807 existing method/prompt records reproduced exactly, including ordered top-eight words. The new evidence records this regression check against the previous evidence hash. The actual embedding lookup was asserted on every surviving dev prompt. Nine CPU tests cover the production projection, normalisation order, token window, true embedding dependency, and rank-deficient directions.
+
+The first test prompt in dataset order was Arabic-to-Russian tea. Its corrected-window list was `[' tea', '茶', ' te', ' teas', ' с', '茶叶', ' сы', ' к']`: target found but Russian leaked. Mean-middle produced `[' tea', '汽', '代表团', ' zna', ' š', ' biznes', '茶', ' ale']`: target found without a leak. This example does not represent their aggregate ordering. The evidence saves all exact prompts, base next tokens and method outputs.
+
+Interpretation (PI/OpenAI): the combined corrected method improves over the old adaptation on this benchmark. Its small lead over the previous best is uncertain; the paired interval includes zero. The comparison with the old adaptation changes both the endpoint and normalisation order, so it does not isolate an embedding-only effect.
+
+Averaging intermediate prompt states reduces leaks but loses many exact target words. It plausibly mixes the target with language labels and earlier demonstrations, as the saved dev windows show. Some misses retain related words, such as a plural rather than the exact scored word. This is not a test of the Jacobian lens's average over future-token sensitivities, nor proof against persistent conceptual content. Dev and test language pairs differ, but their concept vocabularies can overlap.
+
+Keep the corrected method and the mean-middle comparison distinct, and keep their interpretation limited to this word-scored translation benchmark.
+
+-- PI/OpenAI

@@ -13,11 +13,16 @@ wassname, 2026-10-04:
 
 > it's meant to be finding internal geometry!!! not reverse engleering langiage
 
-So a challenge entry maps activations to activations (a projection or other map), without the output head, token
-ids, logits, word lists or dictionaries. The scorer applies the output head afterwards, only to check the answer.
-Methods that use the output head or token scores inside the transform (rise-and-fall, calibrated rise-and-fall, the
-J-lens) are reference rows, not entries. The code enforces this: `@geometry` functions get no logits or token ids and
-must return a vector.
+Current submission rules are in `docs/submissions.md`. Geometry-only methods map activations to a vector and
+may use model weights as matrices, but not individual token scores, token identities, word lists or dictionaries.
+The scorer applies the output head afterwards. Methods using token scores, gradients, pretrained lenses or external
+fitting data belong in the unrestricted leaderboard and disclose those resources.
+
+The geometry interface is `method(hs, embeddings, state, *settings)`: `hs` contains residual layers 16–32,
+`embeddings` contains the actual input states before layer 1, and both retain all prompt positions. Do not call
+`hs[0]` the embedding: it is layer 16. Calibration state is separate. Python methods are not sandboxed.
+
+<!-- PI/OpenAI: current two-category rules and explicit embedding input. -->
 
 wassname, 2026-09-29:
 

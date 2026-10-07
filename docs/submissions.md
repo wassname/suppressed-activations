@@ -56,10 +56,10 @@ The built-in methods ran on one NVIDIA RTX 3090 with 24 GB VRAM. Recorded times 
 
 | command | wall time | includes |
 |:--------|----------:|:---------|
-| `just score` | 4 min 43 s | model loading, calibration and both method categories |
+| `just score` | 3 min 30 s | model loading, calibration and both method categories |
 | `uv run --with matplotlib nbs/layer_readouts.py` | 6 min 30 s | calibration, demo readouts and layer diagnostics |
 
-These are completed runs from before the path reorganisation, not new timing measurements. Their queue start/end records are preserved in the [leaderboard](../results/leaderboard.json.gz) and [layer-plot](../results/layer_plot.json.gz) evidence. Initial downloads take additional time. Minimum VRAM, peak allocation and full CPU-inference time were not measured. Use 24 GB as the tested configuration, not a measured minimum; unrestricted training or gradients may need more memory and time.
+These timings exclude queue waits and initial downloads. Their start/end records are preserved in the [leaderboard](../results/leaderboard.json.gz) and [layer-plot](../results/layer_plot.json.gz) evidence. The latest leaderboard run peaked at 14.99 GiB of PyTorch-allocated GPU memory; this excludes allocations outside PyTorch. Minimum VRAM and full CPU-inference time were not measured. Use 24 GB as the tested configuration, not a measured minimum; unrestricted training or gradients may need more memory and time.
 
 Tables and figures can be rebuilt from saved evidence on CPU without loading Qwen. One warm run on an AMD Ryzen 9 5900X took 5.41 s for `just results` and 6.57 s for `just plot-layers`. The earlier Matplotlib schematic took 0.70 s; the current schematic uses SVG rendering. The code also has a CPU inference fallback, but no full-evaluation CPU timing is available. Explore [the notebook](../nbs/layer_readouts.py) in a Python notebook editor or run the command above.
 

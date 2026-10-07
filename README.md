@@ -76,17 +76,19 @@ Table 2: Scored on 209 translation prompts. Brackets show 90% bootstrap interva
 
 | method | by | F1↑ (90% CI) |
 |:---|:---|:---|
-| [minus ends, least-explained layer](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L167 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | **0.82** (0.80–0.85) |
-| [minus ends](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L162 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.79 (0.77–0.82) |
-| [minus ends, recent tokens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L174 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") | [Sandy Fraser](https://github.com/z0u) | 0.79 (0.76–0.81) |
-| [layer-change PCA](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L123 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.78 (0.76–0.80) |
-| [net-change PCA](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L130 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.78 (0.76–0.80) |
-| [minus output PCA](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L147 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.77 (0.75–0.79) |
-| [AntiPaSTO subspace](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L136 "Mean over layers, projected on the suppressed subspace from the AntiPaSTO paper (Clark 2026, arXiv 2601.07473, App. A.1)") |  | 0.76 (0.73–0.79) |
-| *[mean over layers](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L108 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.72 (0.70–0.74) |
-| *[random subspace](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L113 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.61 (0.57–0.65) |
-| [weak head directions](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L142 "Mean over layers, projected on the directions the output head reads least") |  | 0.23 (0.18–0.28) |
-| *[mean calibration text](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L118 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.00 (0.00–0.00) |
+| [minus embedding/output window](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/embedding_window.py#L25 "Average raw input embeddings and output states over 8 tokens; remove their span from last-token layers 17-31") | [Sandy Fraser](https://github.com/z0u) | **0.83** (0.81–0.86) |
+| [minus ends, least-explained layer](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/minus_ends.py#L22 "As 'minus ends', but keep the one layer the two states explain least (picked per prompt, no labels)") |  | 0.82 (0.80–0.85) |
+| [minus ends](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/minus_ends.py#L17 "Layers 17-31 minus the span of this prompt's layer-16 and output-layer states, averaged") |  | 0.79 (0.77–0.82) |
+| [minus ends, recent tokens (layer-16 adaptation)](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/minus_ends.py#L29 "As 'minus ends', but average the layer-16 and output states over the last 8 tokens first") |  | 0.79 (0.76–0.81) |
+| [layer-change PCA](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/pca.py#L8 "Each layer projected on the top PCs of that layer's change on calibration text, averaged over layers 16-31") |  | 0.78 (0.76–0.80) |
+| [net-change PCA](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/pca.py#L15 "Mean over layers, projected on the top PCs of h32 - h16 on calibration text (AntiPaSTO without the output-head step)") |  | 0.78 (0.76–0.80) |
+| [minus output PCA](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/pca.py#L32 "Mean over layers, minus the top PCs of output-layer activations on calibration text") |  | 0.77 (0.75–0.79) |
+| [AntiPaSTO subspace](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/pca.py#L21 "Mean over layers, projected on the suppressed subspace from the AntiPaSTO paper (Clark 2026, arXiv 2601.07473, App. A.1)") |  | 0.76 (0.73–0.79) |
+| *[mean over layers](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/controls.py#L6 "Logit lens of the last token, averaged over layers 16-32 (control)")* |  | 0.72 (0.70–0.74) |
+| [minus embedding/output window, mean middle](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/embedding_window.py#L25 "As embedding/output window removal, but also average intermediate states across the same 8 positions") |  | 0.66 (0.61–0.71) |
+| *[random subspace](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/controls.py#L11 "Mean over layers, projected on a random rank-1024 subspace (control)")* |  | 0.61 (0.57–0.65) |
+| [weak head directions](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/pca.py#L27 "Mean over layers, projected on the directions the output head reads least") |  | 0.23 (0.18–0.28) |
+| *[mean calibration text](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/controls.py#L16 "Ignores the prompt: the mean layer-28 activation on calibration text (control)")* |  | 0.00 (0.00–0.00) |
 
 ### Unrestricted methods
 
@@ -98,34 +100,42 @@ Table 3: Scored on 209 translation prompts. Brackets show 90% bootstrap interva
 
 | method | F1↑ (90% CI) | external data | fitting / training | other extras |
 |:---|:---|:---|:---|:---|
-| [rise-and-fall, J-lens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L213 "Rise-and-fall on J-lens scores, peak layer 28") | **0.96** (0.94–0.97) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
-| [calibrated rise-and-fall](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L230 "Rise-and-fall on per-token z-scores of each layer's logits, peak layer 28") | 0.96 (0.94–0.97) | none | normalisation statistics | token scores; dev-selected layer |
-| [calibrated rise-and-fall, attention](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L243 "Calibrated rise-and-fall, weighted towards tokens the layer-23 attention output writes") | 0.96 (0.94–0.97) | none | normalisation statistics | token scores; dev-selected layer |
-| [calibrated rise-and-fall, last line](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L236 "Calibrated rise-and-fall, max over the tokens of the prompt's last line") | 0.95 (0.93–0.97) | none | normalisation statistics | token scores; dev-selected layer |
-| [rise-and-fall span, J-lens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L224 "As rise-and-fall span, with the J-lens, layer 28") | 0.93 (0.90–0.94) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
-| [J-lens minus output PCA](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L191 "J-lens at layer 28, minus the top-256 output-layer PCs") | 0.91 (0.89–0.93) | published WikiText J-lens | Jacobian averaging + PCA | token scores; dev-selected layer |
-| [attention output, J-lens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L257 "J-lens of what layer 23's attention adds at the last token") | 0.89 (0.87–0.92) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
-| [J-lens](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L186 "Jacobian lens (Gurnee et al. 2026) at layer 23") | 0.86 (0.83–0.89) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
-| [rise-and-fall span](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L218 "Span of the 32 rise-and-fall tokens' output-head rows, applied to layer 27") | 0.86 (0.83–0.88) | none | none | token scores; dev-selected layer |
-| [rise-and-fall](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L208 "Tokens whose logit rises from layer 22 to 27 and falls by the output") | 0.85 (0.81–0.88) | none | none | token scores; dev-selected layer |
-| *[logit lens, best layer](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L181 "Logit lens at layer 27, the best layer on the dev pair: what knowing the layer is worth")* | 0.85 (0.82–0.87) | none | none | token scores; dev-selected layer |
-| [logit lens minus read and said](https://github.com/wassname/unspoken-concepts/blob/9ec9920ee45b7e12ba8b10eac7a10770700c44f4/scripts/challenge/transforms.py#L249 "Layer 28 minus the prompt's token directions and the model's top-8 next tokens") | 0.83 (0.80–0.85) | none | none | token scores; dev-selected layer |
+| [rise-and-fall, J-lens](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L25 "Rise-and-fall on J-lens scores, peak layer 28") | **0.96** (0.94–0.97) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
+| [calibrated rise-and-fall](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L42 "Rise-and-fall on per-token z-scores of each layer's logits, peak layer 28") | 0.96 (0.94–0.97) | none | normalisation statistics | token scores; dev-selected layer |
+| [calibrated rise-and-fall, attention](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L55 "Calibrated rise-and-fall, weighted towards tokens the layer-23 attention output writes") | 0.96 (0.94–0.97) | none | normalisation statistics | token scores; dev-selected layer |
+| [calibrated rise-and-fall, last line](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L48 "Calibrated rise-and-fall, max over the tokens of the prompt's last line") | 0.95 (0.93–0.97) | none | normalisation statistics | token scores; dev-selected layer |
+| [rise-and-fall span, J-lens](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L36 "As rise-and-fall span, with the J-lens, layer 28") | 0.93 (0.90–0.94) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
+| [J-lens minus output PCA](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/jacobian_lens.py#L25 "J-lens at layer 28, minus the top-256 output-layer PCs") | 0.91 (0.89–0.93) | published WikiText J-lens | Jacobian averaging + PCA | token scores; dev-selected layer |
+| [attention output, J-lens](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/jacobian_lens.py#L31 "J-lens of what layer 23's attention adds at the last token") | 0.89 (0.87–0.92) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
+| [J-lens](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/jacobian_lens.py#L20 "Jacobian lens (Gurnee et al. 2026) at layer 23") | 0.86 (0.83–0.89) | published WikiText J-lens | Jacobian averaging | token scores; dev-selected layer |
+| [rise-and-fall span](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L30 "Span of the 32 rise-and-fall tokens' output-head rows, applied to layer 27") | 0.86 (0.83–0.88) | none | none | token scores; dev-selected layer |
+| [rise-and-fall](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/rise_and_fall.py#L20 "Tokens whose logit rises from layer 22 to 27 and falls by the output") | 0.85 (0.81–0.88) | none | none | token scores; dev-selected layer |
+| *[logit lens, best layer](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/logit_lens.py#L7 "Logit lens at layer 27, the best layer on the dev pair: what knowing the layer is worth")* | 0.85 (0.82–0.87) | none | none | token scores; dev-selected layer |
+| [logit lens minus read and said](https://github.com/wassname/unspoken-concepts/blob/e05f6a5a513f80b46b2066851072fb0902626f0d/src/unspoken_concepts/methods/logit_lens.py#L12 "Layer 28 minus the prompt's token directions and the model's top-8 next tokens") | 0.83 (0.80–0.85) | none | none | token scores; dev-selected layer |
 
 The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores and link to the per-prompt evidence.
 
 ## Scoring
 
-We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded.
+We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is.
+
+F1 balances finding the unspoken word against leaks and misses:
+
+``` math
+F_1 = \frac{2\,\mathrm{TP}}{2\,\mathrm{TP} + \mathrm{FP} + \mathrm{FN}}.
+```
+
+Here, $`\mathrm{TP}`$ counts prompts where the unspoken word is found, $`\mathrm{FP}`$ counts prompts with any input- or output-language leak, and $`\mathrm{FN}`$ counts prompts where the unspoken word is missed. Finding the word and leaking on the same prompt counts towards both $`\mathrm{TP}`$ and $`\mathrm{FP}`$. A score of 1.00 means every prompt succeeded.
 
 <img src="figs/layers.png" data-fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded." />
 
-Figure 2: **Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).
+Figure 2: **Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded.
 
 ## The rules
 
 Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. There are two categories:
 
-- **Geometry-only:** supplied activations, model weights as matrices, and supplied unlabelled calibration data. No individual token scores, external fitting data, pretrained lenses or extra model calls.
+- **Geometry-only:** supplied input embeddings and activations, model weights as matrices, and supplied unlabelled calibration data. No individual token scores, external fitting data, pretrained lenses or extra model calls.
 - **Unrestricted methods:** may also use token scores, gradients, J-lens, external data and training. The second leaderboard lists those extras. “Unrestricted” does not permit using test labels or target answers.
 
 ### Geometry-only interface
@@ -136,8 +146,8 @@ def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
     mean = torch.stack([hs[:, -1].mean(0) for hs in texts]).mean(0)
     return {"mean": mean}
 
-def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "d"]:
-    # hs: the residual stream for one prompt, layers 16 to 32, all prompt tokens
+def method(hs: Float[Tensor, "layers tokens d"], embeddings: Float[Tensor, "tokens d"], state: dict) -> Float[Tensor, "d"]:
+    # hs: layers 16 to 32; embeddings: input states before the first layer. — PI/OpenAI
     # state: what calibrate() returned; you may also use any model weights, including the output head as a matrix
     v = hs[:, -1].mean(0) - state["mean"]
     return v  # one residual-stream vector, which should hold the unspoken concept and not the input or output
@@ -145,7 +155,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 *Note: this uses [jaxtyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
 
-The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
+The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the input embeddings and the last half of the layers and has to work out which layer, or mix of layers, to use.
 
 The returned vector should happen to hold the unspoken concept. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
@@ -171,7 +181,7 @@ For both categories, freeze fitting and settings before testing. The method rece
 
 For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
+The built-in evaluation took **3 min 30 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 

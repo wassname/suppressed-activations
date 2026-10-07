@@ -97,9 +97,17 @@ The [full leaderboards](docs/leaderboard/README.md) include diagnostic scores an
 
 ## Scoring
 
-We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is. The score is F1 over prompts: 1.00 means every prompt succeeded.
+We read returned activation vectors with the model's output head. For methods that return word scores, we use those scores directly. We keep the top 8 distinct words. A prompt succeeds if the unspoken word is among them and no input- or output-language word is.
 
-![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded. Band heights are mean unmodified logit-lens probabilities, so these products of averages are a visual encoding, not measured selected probability mass. Arrows give prompt percentages: TP/FN at layer 24, output-only FP/TN at layer 31. The F1 scorer uses input-or-output leakage jointly, not the sum of the two leak rates. Random rank-1024 projection was chosen to make misses visible. Made by [`layers.py`](scripts/plots/layers.py) from the saved [layer-plot evidence](results/layer_plot.json.gz).](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
+F1 balances finding the unspoken word against leaks and misses:
+
+$$
+F_1 = \frac{2\,\mathrm{TP}}{2\,\mathrm{TP} + \mathrm{FP} + \mathrm{FN}}.
+$$
+
+Here, $\mathrm{TP}$ counts prompts where the unspoken word is found, $\mathrm{FP}$ counts prompts with any input- or output-language leak, and $\mathrm{FN}$ counts prompts where the unspoken word is missed. Finding the word and leaking on the same prompt counts towards both $\mathrm{TP}$ and $\mathrm{FP}$. A score of 1.00 means every prompt succeeded.
+
+![**Found, missed and leaked words in a random subspace.** Stacked colours distinguish input-language words (grey), the unspoken word in English or Chinese (orange), and output-language words (blue). Green hatching marks found words; red hatching marks leaks. Within each band, the hatched fraction is the proportion of prompts with a top-8 detection; the rest is missed or excluded.](figs/layers.png){#fig-layers fig-alt="Stacked grey input, orange unspoken-word and blue output bands. Selection has separate green forward-slash or red backslash hatching. Non-crossing arrows mark layer-24 TP 47% and FN 53%, and layer-31 output FP 96% and TN 4%. Unhatched orange is missed; unhatched blue or grey is excluded."}
 
 <!-- PI/OpenAI: separate language and selection encodings; saved 209-prompt random-subspace run. -->
 
@@ -107,7 +115,7 @@ We read returned activation vectors with the model's output head. For methods th
 
 Of course we can't cheat by looking up English words. We are looking for a way to find the model's concepts, and it should even work when deployed to an English chat interface, or other settings where the languages of the input, output, and intermediate are mixed. There are two categories:
 
-- **Geometry-only:** supplied activations, model weights as matrices, and supplied unlabelled calibration data. No individual token scores, external fitting data, pretrained lenses or extra model calls.
+- **Geometry-only:** supplied input embeddings and activations, model weights as matrices, and supplied unlabelled calibration data. No individual token scores, external fitting data, pretrained lenses or extra model calls.
 - **Unrestricted methods:** may also use token scores, gradients, J-lens, external data and training. The second leaderboard lists those extras. “Unrestricted” does not permit using test labels or target answers.
 
 ### Geometry-only interface
@@ -118,8 +126,8 @@ def calibrate(texts: Iterable[Float[Tensor, "layers tokens d"]]) -> dict:
     mean = torch.stack([hs[:, -1].mean(0) for hs in texts]).mean(0)
     return {"mean": mean}
 
-def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "d"]:
-    # hs: the residual stream for one prompt, layers 16 to 32, all prompt tokens
+def method(hs: Float[Tensor, "layers tokens d"], embeddings: Float[Tensor, "tokens d"], state: dict) -> Float[Tensor, "d"]:
+    # hs: layers 16 to 32; embeddings: input states before the first layer. — PI/OpenAI
     # state: what calibrate() returned; you may also use any model weights, including the output head as a matrix
     v = hs[:, -1].mean(0) - state["mean"]
     return v  # one residual-stream vector, which should hold the unspoken concept and not the input or output
@@ -127,7 +135,7 @@ def method(hs: Float[Tensor, "layers tokens d"], state: dict) -> Float[Tensor, "
 
 *Note: this uses [jaxtyping](https://github.com/patrick-kidger/jaxtyping) syntax to show tensor shapes.*
 
-The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the last half of the layers and has to work out which layer, or mix of layers, to use.
+The method has to find the place in the activations. We can't assume we know the best layer for a new model, so the method gets the input embeddings and the last half of the layers and has to work out which layer, or mix of layers, to use.
 
 The returned vector should happen to hold the unspoken concept. You may use the output head as a matrix, for example its main directions, but not to score individual words.
 
@@ -154,7 +162,7 @@ For both categories, freeze fitting and settings before testing. The method rece
 
 For geometry-only methods, add a file with a `@geometry` function to [`methods/`](src/unspoken_concepts/methods/) and run `just score`. For unrestricted methods, run `just score-unrestricted /path/to/adapter.py` and disclose external data, training and other extras. Both use one GPU. Submit your report and code revision as an issue or PR; [full instructions](docs/submissions.md).
 
-The built-in evaluation took **4 min 43 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
+The built-in evaluation took **3 min 30 s on an RTX 3090 (24 GB)**, including calibration with downloads cached. Full CPU evaluation time and minimum VRAM are unmeasured. [Hardware details](docs/submissions.md#hardware-and-runtime).
 
 ## Limitations
 
