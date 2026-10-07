@@ -1,10 +1,14 @@
 """Distribution schematic with words from the measured spider readout. — PI/OpenAI"""
 import json
+from math import ceil
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.font_manager import findfont
+from matplotlib.offsetbox import AnnotationBbox, OffsetImage
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from unspoken_concepts import ROOT
 
@@ -19,25 +23,39 @@ def draw():
     bump = lambda c, w, h: h * np.exp(-((x - c) / w) ** 2)
     curves = ((bump(0.10, 0.26, 0.5), grey), (bump(0.58, 0.13, 0.8), orange),
               (0.95 / (1 + np.exp(-(x - 0.88) / 0.07)), blue))
-    fig, ax = plt.subplots(figsize=(9.5, 4.8))
-    fig.subplots_adjust(left=0.09, right=0.98, top=0.81, bottom=0.10)
+    fig, ax = plt.subplots(figsize=(9.5, 5.6))
+    fig.subplots_adjust(left=0.09, right=0.98, top=0.81, bottom=0.25)
     for y, color in curves:
         ax.fill_between(x, y, color=color, alpha=0.12, linewidth=0)
         ax.plot(x, y, color=color, linewidth=3)
-    ax.text(0.16, 0.25, "INPUT: Arabic", ha="center", fontsize=13, weight="bold", color="#333333")
-    ax.text(0.16, 0.19, "How many legs on a\nweb-spinning animal?", ha="center", va="top", fontsize=12,
-            color="#333333", linespacing=1.25)
-    ax.text(0.16, 0.025, "short English gloss", ha="center", fontsize=9, color="#555555")
+    ax.text(0.16, 0.31, "INPUT: Arabic", ha="center", fontsize=13, weight="bold", color="#333333")
+    question = "كم عدد أرجل الحيوان\nالذي ينسج الشباك؟"
+    font = ImageFont.truetype(findfont("Noto Sans Arabic"), 29)
+    bbox = ImageDraw.Draw(Image.new("RGBA", (1, 1))).multiline_textbbox(
+        (0, 0), question, font=font, direction="rtl", align="center", spacing=2)
+    image = Image.new("RGBA", (ceil(bbox[2] - bbox[0]) + 4, ceil(bbox[3] - bbox[1]) + 4))
+    ImageDraw.Draw(image).multiline_text(
+        (2 - bbox[0], 2 - bbox[1]), question, font=font, direction="rtl",
+        align="center", spacing=2, fill="#333333")
+    ax.add_artist(AnnotationBbox(OffsetImage(image, zoom=72 / 160), (0.16, 0.19), frameon=False))
     ax.text(0.58, 0.40, "THOUGHTS", ha="center", fontsize=13, weight="bold", color="#8a3200")
     ax.text(0.58, 0.28, "spider  蜘蛛", ha="center", fontsize=18, color="#8a3200")
     ax.text(0.58, 0.20, "English / Chinese", ha="center", fontsize=11, color="#555555")
-    ax.text(0.88, 0.22, "OUTPUT", ha="center", fontsize=13, weight="bold", color="#00456e")
-    ax.text(0.88, 0.075, demo["answer"], ha="center", fontsize=25, color="#00456e")
+    ax.text(0.88, 0.23, "OUTPUT\nRussian", ha="center", va="center", fontsize=12, weight="bold", color="#00456e")
+    ax.text(0.88, 0.075, "восемь", ha="center", fontsize=21, color="#00456e")
+    translations = fig.add_axes((0.09, 0.025, 0.89, 0.15), sharex=ax)
+    translations.set(ylim=(0, 1))
+    translations.axis("off")
+    translations.axhline(1, color="#bbbbbb", linewidth=0.8, clip_on=False)
+    translations.text(0, 0.78, "English translations", fontsize=10, color="#555555")
+    translations.text(0.16, 0.18, "How many legs on a\nweb-spinning animal?", ha="center", va="center", fontsize=11)
+    translations.text(0.58, 0.18, "spider / spider", ha="center", va="center", fontsize=12)
+    translations.text(0.88, 0.18, "eight", ha="center", va="center", fontsize=13)
     ax.annotate("find this", xy=(0.635, 0.68), xytext=(0.66, 0.85), fontsize=14, color="#8a3200",
                 weight="bold", arrowprops={"arrowstyle": "->", "color": orange, "lw": 2})
     ax.annotate("not this", xy=(0.22, 0.41), xytext=(0.27, 0.63), fontsize=14,
                 arrowprops={"arrowstyle": "->", "color": "#333333", "lw": 1.5})
-    ax.annotate("or this", xy=(0.955, 0.71), xytext=(0.88, 0.95), fontsize=14,
+    ax.annotate("not this", xy=(0.955, 0.71), xytext=(0.88, 0.95), fontsize=14,
                 arrowprops={"arrowstyle": "->", "color": "#333333", "lw": 1.5})
     fig.text(0.5, 0.95, "Unspoken Concepts Challenge", fontsize=17, ha="center")
     fig.text(0.5, 0.865, "Find the unspoken intermediate concepts in a language model.",
